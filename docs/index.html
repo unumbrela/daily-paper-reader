@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+  <meta charset="UTF-8">
+  <title>Daily Paper Reader</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <meta name="citation_journal_title" content="Daily Paper Reader (ArXiv)">
+  <meta name="citation_title" content="Daily Paper Reader Default Entry">
+  <meta name="citation_author" content="Daily Paper Reader Team">
+  <meta name="citation_author" content="Docsify Renderer">
+  <meta name="citation_date" content="2024/01/01">
+  <meta name="citation_pdf_url" content="https://daily-paper-reader.invalid/default.pdf">
+  <meta name="citation_volume" content="1">
+  <meta name="citation_issue" content="1">
+  <meta name="citation_firstpage" content="100">
+  <meta name="citation_lastpage" content="110">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+  
+  <style>
+    /* 评论区容器 */
+    #paper-chat-container {
+      margin-top: 50px;
+      padding-top: 20px;
+      border-top: 1px solid #eaecef;
+    }
+    .chat-header { font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; }
+    
+    /* 消息列表 */
+    #chat-history {
+      max-height: 500px;
+      overflow-y: auto;
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .msg-item { margin-bottom: 12px; }
+    .msg-role { font-weight: bold; font-size: 0.9rem; }
+    .msg-role.user { color: #42b983; } /* 用户绿色 */
+    .msg-role.ai { color: #3b8eed; }   /* AI 蓝色 */
+    .msg-content { margin-top: 4px; line-height: 1.6; color: #34495e; white-space: pre-wrap; }
+    .msg-time { font-size: 0.8rem; color: #999; margin-left: 10px; }
+
+    /* 输入区域 */
+    .input-area { display: flex; gap: 10px; }
+    #user-input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      resize: vertical;
+    }
+    #send-btn {
+      padding: 0 20px;
+      background: #42b983;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #send-btn:disabled { background: #ccc; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div id="app">加载中...</div>
+
+  <script>
+    window.$docsify = {
+      name: 'Daily Paper Reader',
+      repo: '',
+      loadSidebar: true, // 开启侧边栏
+      subMaxLevel: 2,
+      
+      // --- 核心：注册自定义插件 ---
+      plugins: [
+        function(hook, vm) {
+          // 1. 解析当前文章 ID (简单用文件名作为 ID)
+          const getPaperId = () => {
+            return vm.route.file.replace('.md', ''); 
+          };
+
+          const metaFallbacks = {
+            citation_title: 'Daily Paper Reader Default Entry',
+            citation_journal_title: 'Daily Paper Reader (ArXiv)',
+            citation_pdf_url: 'https://daily-paper-reader.invalid/default.pdf',
+            citation_publication_date: '2024-01-01',
+            citation_date: '2024/01/01'
+          };
+
+          const defaultAuthors = ['Daily Paper Reader Team', 'Docsify Renderer'];
+
+          const updateMetaTag = (name, content, options = {}) => {
+            const old = document.querySelector(`meta[name="${name}"]`);
+            if (old) old.remove();
+            const useFallback = options.useFallback !== false;
+            const value = content || (useFallback ? metaFallbacks[name] : '');
+            if (!value) return;
+            const meta = document.createElement('meta');
+            meta.name = name;
+            meta.content = value;
+            document.head.appendChild(meta);
+          };
+
+          // 2. 渲染评论区的 HTML 结构
+          const renderChatUI = () => {
+            return `
+              <div id="paper-chat-container">
+                <div class="chat-header">💬 公共研讨区 (Public Discussion)</div>
+                <div id="chat-history">
+                    <div style="text-align:center; color:#999">正在加载讨论记录...</div>
+                </div>
+                <div class="input-area">
+                  <textarea id="user-input" rows="3" placeholder="针对这篇论文提问，所有人可见..."></textarea>
+                  <button id="send-btn">发送</button>
+                </div>
+              </div>
+            `;
+          };
+
+          // 3. 获取历史记录 (API)
+          const loadHistory = async (paperId) => {
+            try {
+              // 这里的 URL 换成你服务器的真实地址
+              const res = await fetch(`/api/history?paper_id=${encodeURIComponent(paperId)}`);
+              const data = await res.json();
+              
+              const html = data.map(msg => `
+                <div class="msg-item">
+                  <div>
+                    <span class="msg-role ${msg.role === 'ai' ? 'ai' : 'user'}">
+                        ${msg.role === 'ai' ? '🤖 AI 助手' : '👤 学术路人'}
+                    </span>
+                    <span class="msg-time">${msg.time || ''}</span>
+                  </div>
+                  <div class="msg-content">${msg.content}</div>
+                </div>
+              `).join('');
+              
+              document.getElementById('chat-history').innerHTML = html || '<div style="text-align:center; color:#999">暂无讨论，快来抢沙发！</div>';
+              
+              // 自动滚动到底部
+              const historyDiv = document.getElementById('chat-history');
+              historyDiv.scrollTop = historyDiv.scrollHeight;
+              
+            } catch (e) {
+              console.error("加载失败", e);
+            }
+          };
+
+          // 4. 发送消息 (API)
+          const sendMessage = async () => {
+            const input = document.getElementById('user-input');
+            const btn = document.getElementById('send-btn');
+            const question = input.value.trim();
+            const paperId = getPaperId();
+            
+            const paperContent = document.querySelector('.markdown-section').innerText; 
+
+            if (!question) return;
+
+            // UI 锁定
+            input.disabled = true;
+            btn.disabled = true;
+            btn.innerText = "思考中...";
+            
+            // 乐观更新
+            const historyDiv = document.getElementById('chat-history');
+            historyDiv.innerHTML += `
+                <div class="msg-item">
+                    <div><span class="msg-role user">👤 你</span></div>
+                    <div class="msg-content">${question}</div>
+                </div>
+            `;
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+
+            try {
+              const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    paper_id: paperId,
+                    question: question,
+                    paper_content: paperContent 
+                })
+              });
+              const data = await res.json();
+              await loadHistory(paperId);
+              input.value = '';
+            } catch (e) {
+              alert("发送失败，请重试");
+            } finally {
+              input.disabled = false;
+              btn.disabled = false;
+              btn.innerText = "发送";
+              input.focus();
+            }
+          };
+
+          // --- Docsify 生命周期钩子 ---
+          
+          hook.doneEach(function() {
+            // A. 将 Chat UI 追加到文章底部
+            const mainContent = document.querySelector('.markdown-section');
+            if (mainContent) {
+                const div = document.createElement('div');
+                div.innerHTML = renderChatUI();
+                mainContent.appendChild(div);
+            }
+
+            // B. 绑定事件
+            document.getElementById('send-btn').addEventListener('click', sendMessage);
+
+            // C. 初始加载数据
+            const paperId = getPaperId();
+            loadHistory(paperId);
+
+            // D. 开启轮询
+            if (window.chatTimer) clearInterval(window.chatTimer);
+            window.chatTimer = setInterval(() => loadHistory(paperId), 10000);
+
+            // ----------------------------------------------------
+            // E. 【重点修改】Zotero 元数据注入逻辑 (带延时和唤醒)
+            // ----------------------------------------------------
+            setTimeout(() => {
+                try {
+                  // 1. 抓取标题 (优先抓 H1)
+                  const titleEl = document.querySelector('.markdown-section h1');
+                  const title = titleEl ? titleEl.innerText : document.title;
+
+                  // 2. 抓取 PDF 链接 (优先抓 ArXiv)
+                  let pdfLinkEl = document.querySelector('a[href*="arxiv.org/pdf"]');
+                  // 如果没找到，再试着找任何结尾是 .pdf 的链接
+                  if (!pdfLinkEl) {
+                     pdfLinkEl = document.querySelector('a[href$=".pdf"]');
+                  }
+                  
+                  let pdfUrl = '';
+                  if (pdfLinkEl) {
+                    // 转为绝对路径
+                    pdfUrl = new URL(pdfLinkEl.href, window.location.href).href;
+                  }
+
+                  // 3. 抓取日期
+                  let date = '';
+                  const matchDate = vm.route.file.match(/(\d{4}-\d{2}-\d{2})/);
+                  if (matchDate) {
+                    date = matchDate[1];
+                  }
+                  const citationDate = date ? date.replace(/-/g, '/') : '';
+
+                  // 4. 抓取作者
+                  let authors = [];
+                  document.querySelectorAll('.markdown-section p').forEach(p => {
+                    if (p.innerText.includes('Authors:')) {
+                      const text = p.innerText.replace('Authors:', '').trim();
+                      authors = text.split(/,|，/).map(a => a.trim());
+                    }
+                  });
+
+                  // 5. 写入 Meta 标签
+                  console.log("Updating Zotero metadata for:", title);
+                  updateMetaTag('citation_title', title);
+                  updateMetaTag('citation_journal_title', 'Daily Paper Reader (ArXiv)'); // 必须有这个
+                  updateMetaTag('citation_pdf_url', pdfUrl, { useFallback: false });
+                  updateMetaTag('citation_publication_date', date);
+                  updateMetaTag('citation_date', citationDate);
+
+                  document.querySelectorAll('meta[name="citation_author"]').forEach(el => el.remove());
+                  const authorList = authors.length ? authors : defaultAuthors;
+                  authorList.forEach(author => {
+                    const meta = document.createElement('meta');
+                    meta.name = 'citation_author';
+                    meta.content = author;
+                    document.head.appendChild(meta);
+                  });
+
+                  // 6. 【关键】发送 Zotero 更新事件
+                  // 告诉插件重新扫描页面
+                  document.dispatchEvent(new Event('ZoteroItemUpdated', {
+                      bubbles: true,
+                      cancelable: true
+                  }));
+
+                } catch (e) {
+                  console.error('Zotero meta update failed:', e);
+                }
+            }, 1); // 延迟 800ms 执行，等待 DOM 渲染完毕
+          });
+        }
+      ]
+    }
+  </script>
+  
+  <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+</body>
+</html>
