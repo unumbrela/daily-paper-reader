@@ -100,8 +100,10 @@ def chat(req: ChatRequest):
         "content": f"### 论文 Markdown 内容 ###\n{paper_md_content}",
     })
     
-    # 将历史对话转为 API 格式
+    # 将历史对话转为 API 格式（不包含思考过程 thinking）
     for role, content in history:
+        if role == "thinking":
+            continue
         api_role = "assistant" if role == "ai" else "user"
         messages.append({"role": api_role, "content": content})
 
@@ -173,6 +175,8 @@ def chat_stream(req: ChatRequest):
     })
 
     for role, content in history:
+        if role == "thinking":
+            continue
         api_role = "assistant" if role == "ai" else "user"
         messages.append({"role": api_role, "content": content})
 

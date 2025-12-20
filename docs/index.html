@@ -21,6 +21,12 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
   
   <style>
+    :root {
+      --sidebar-width: 260px;
+      --sidebar-min-width: 180px;
+      --sidebar-max-width: 480px;
+    }
+
     .katex .katex-mathml {
         display: none !important;
     }
@@ -101,6 +107,41 @@
     .content {
       height: auto !important;
       overflow: visible !important;
+      margin-left: calc(var(--sidebar-width, 260px) + 15px) !important;
+    }
+
+    /* 侧边栏宽度可调 */
+    .sidebar {
+      width: var(--sidebar-width, 260px) !important;
+      min-width: var(--sidebar-min-width, 180px);
+      max-width: var(--sidebar-max-width, 480px);
+    }
+
+    /* 侧边栏拖拽句柄 */
+    #sidebar-resizer {
+      position: fixed;
+      top: 0;
+      left: calc(var(--sidebar-width, 260px) - 2px);
+      width: 4px;
+      height: 100vh;
+      cursor: col-resize;
+      background: transparent;
+      z-index: 999;
+    }
+    #sidebar-resizer::after {
+      content: "";
+      position: absolute;
+      left: 1px;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      background: transparent;
+    }
+
+    @media (max-width: 768px) {
+      #sidebar-resizer {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -678,6 +719,61 @@
     }
   </script>
   
+  <!-- 侧边栏宽度拖拽脚本 -->
+  <script>
+    (function() {
+      function setupSidebarResizer() {
+        if (window.innerWidth <= 768) return;
+        if (document.getElementById('sidebar-resizer')) return;
+
+        var resizer = document.createElement('div');
+        resizer.id = 'sidebar-resizer';
+        document.body.appendChild(resizer);
+
+        var dragging = false;
+
+        resizer.addEventListener('mousedown', function(e) {
+          dragging = true;
+          e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', function(e) {
+          if (!dragging) return;
+          var styles = getComputedStyle(document.documentElement);
+          var min = parseInt(styles.getPropertyValue('--sidebar-min-width')) || 180;
+          var max = parseInt(styles.getPropertyValue('--sidebar-max-width')) || 480;
+          var newWidth = e.clientX;
+          if (newWidth < min) newWidth = min;
+          if (newWidth > max) newWidth = max;
+          document.documentElement.style.setProperty('--sidebar-width', newWidth + 'px');
+        });
+
+        window.addEventListener('mouseup', function() {
+          dragging = false;
+        });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupSidebarResizer);
+      } else {
+        setupSidebarResizer();
+      }
+
+      window.addEventListener('resize', function() {
+        var resizer = document.getElementById('sidebar-resizer');
+        if (window.innerWidth <= 768) {
+          if (resizer) resizer.style.display = 'none';
+        } else {
+          if (resizer) {
+            resizer.style.display = 'block';
+          } else {
+            setupSidebarResizer();
+          }
+        }
+      });
+    })();
+  </script>
+
   <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
 </body>
 </html>
