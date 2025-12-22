@@ -1,0 +1,593 @@
+// Docsify 配置与公共插件（评论区 + Zotero 元数据）
+window.$docsify = {
+  name: 'Daily Paper Reader',
+  repo: '',
+  // 文档内容与侧边栏都存放在 docs/ 下
+  basePath: 'docs/', // 所有 Markdown 路由以 docs/ 为前缀
+  loadSidebar: '_sidebar.md', // 在 basePath 下加载 _sidebar.md
+  subMaxLevel: 2,
+
+  // --- 核心：注册自定义插件 ---
+  plugins: [
+    function (hook, vm) {
+      // 确保 marked 开启 GFM 表格支持，并允许内联 HTML（用于聊天区 Markdown 渲染）
+      if (window.marked && window.marked.setOptions) {
+        const baseOptions =
+          (window.marked.getDefaults && window.marked.getDefaults()) || {};
+        window.marked.setOptions(
+          Object.assign({}, baseOptions, {
+            gfm: true,
+            breaks: false,
+            tables: true,
+            // 允许 <sup> 等内联 HTML 直接渲染，而不是被转义
+            sanitize: false,
+            mangle: false,
+            headerIds: false,
+          }),
+        );
+      }
+
+      // 1. 解析当前文章 ID (简单用文件名作为 ID)
+      const getPaperId = () => {
+        return vm.route.file.replace('.md', '');
+      };
+
+      const metaFallbacks = {
+        citation_title: 'Daily Paper Reader Default Entry',
+        citation_journal_title: 'Daily Paper Reader (ArXiv)',
+        citation_pdf_url: 'https://daily-paper-reader.invalid/default.pdf',
+        citation_publication_date: '2024-01-01',
+        citation_date: '2024/01/01',
+      };
+
+      const defaultAuthors = ['Daily Paper Reader Team', 'Docsify Renderer'];
+
+      // 公共工具：在指定元素上渲染公式
+      const renderMathInEl = (el) => {
+        if (!window.renderMathInElement || !el) return;
+        window.renderMathInElement(el, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false },
+          ],
+          throwOnError: false,
+        });
+      };
+
+      // 公共工具：简单表格 + 标记修正：
+      // 1）移除协议标记 [ANS]/[THINK]
+      // 2）移除表格行之间多余空行，避免把同一张表拆成两块
+      const normalizeTables = (markdown) => {
+        if (!markdown) return '';
+        // 清理历史遗留的协议标记
+        let text = markdown
+          .replace(/\[ANS\]/g, '')
+          .replace(/\[THINK\]/g, '');
+
+        const lines = text.split('\n');
+        const isTableLine = (line) => /^\s*\|.*\|\s*$/.test(line);
+        const result = [];
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const prev = result.length ? result[result.length - 1] : '';
+          const next = i + 1 < lines.length ? lines[i + 1] : '';
+          if (
+            line.trim() === '' &&
+            isTableLine(prev || '') &&
+            isTableLine(next || '')
+          ) {
+            // 跳过表格行之间的空行
+            continue;
+          }
+          result.push(line);
+        }
+        return result.join('\n');
+      };
+
+      const escapeHtml = (str) => {
+        return str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      };
+
+      // 自定义表格渲染：检测 Markdown 表格块并手写生成 <table>，
+      // 其他内容仍交给 marked 渲染。
+      const renderMarkdownWithTables = (markdown) => {
+        const text = normalizeTables(markdown || '');
+        const lines = text.split('\n');
+        const isTableLine = (line) => /^\s*\|.*\|\s*$/.test(line);
+        const isAlignLine = (line) =>
+          /^\s*\|(?:\s*:?-+:?\s*\|)+\s*$/.test(line);
+
+        const parseRow = (line) => {
+          const trimmed = line.trim().replace(/^\|/, '').replace(/\|$/, '');
+          return trimmed.split('|').map((cell) => cell.trim());
+        };
+
+        const inlineRender = (cellText) => {
+          if (!cellText) return '';
+          if (window.marked && window.marked.parseInline) {
+            return window.marked.parseInline(cellText);
+          }
+          return escapeHtml(cellText);
+        };
+
+        const blocks = [];
+        let i = 0;
+
+        const flushParagraph = (paraLines) => {
+          const paraText = paraLines.join('\n').trim();
+          if (!paraText) return;
+          if (window.marked) {
+            blocks.push(window.marked.parse(`\n${paraText}\n`));
+          } else {
+            blocks.push(`<p>${escapeHtml(paraText)}</p>`);
+          }
+        };
+
+        while (i < lines.length) {
+          const line = lines[i];
+
+          // 检测表格块：当前行是表格行，下一行是对齐行
+          if (
+            isTableLine(line) &&
+            i + 1 < lines.length &&
+            isAlignLine(lines[i + 1])
+          ) {
+            const headerLine = lines[i];
+            i += 2; // 跳过对齐行
+
+            const bodyLines = [];
+            while (i < lines.length && isTableLine(lines[i])) {
+              bodyLines.push(lines[i]);
+              i++;
+            }
+
+            const headers = parseRow(headerLine);
+            const rows = bodyLines.map(parseRow);
+
+            let html = '<table class="chat-table"><thead><tr>';
+            headers.forEach((h) => {
+              html += `<th>${inlineRender(h)}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            rows.forEach((row) => {
+              html += '<tr>';
+              row.forEach((cell) => {
+                html += `<td>${inlineRender(cell)}</td>`;
+              });
+              html += '</tr>';
+            });
+            html += '</tbody></table>';
+
+            blocks.push(html);
+          } else {
+            // 非表格块：收集到下一个表格或结尾
+            const paraLines = [];
+            while (
+              i < lines.length &&
+              !(
+                isTableLine(lines[i]) &&
+                i + 1 < lines.length &&
+                isAlignLine(lines[i + 1])
+              )
+            ) {
+              paraLines.push(lines[i]);
+              i++;
+            }
+            flushParagraph(paraLines);
+          }
+        }
+
+        return blocks.join('');
+      };
+
+      const updateMetaTag = (name, content, options = {}) => {
+        const old = document.querySelector(`meta[name="${name}"]`);
+        if (old) old.remove();
+        const useFallback = options.useFallback !== false;
+        const value = content || (useFallback ? metaFallbacks[name] : '');
+        if (!value) return;
+        const meta = document.createElement('meta');
+        meta.name = name;
+        meta.content = value;
+        document.head.appendChild(meta);
+      };
+
+      // 2. 渲染评论区的 HTML 结构
+      const renderChatUI = () => {
+        return `
+          <div id="paper-chat-container">
+            <div class="chat-header">💬 公共研讨区 (Public Discussion)</div>
+            <div id="chat-history">
+                <div style="text-align:center; color:#999">正在加载讨论记录...</div>
+            </div>
+            <div class="input-area">
+              <textarea id="user-input" rows="3" placeholder="针对这篇论文提问，所有人可见..."></textarea>
+              <button id="send-btn">发送</button>
+            </div>
+          </div>
+        `;
+      };
+
+      // 3. 获取历史记录 (API)
+      const loadHistory = async (paperId) => {
+        try {
+          const res = await fetch(
+            `${window.API_BASE_URL}/api/history?paper_id=${encodeURIComponent(
+              paperId,
+            )}`,
+          );
+          const data = await res.json();
+
+          const historyDiv = document.getElementById('chat-history');
+          if (!data || !data.length) {
+            historyDiv.innerHTML =
+              '<div style="text-align:center; color:#999">暂无讨论，快来抢沙发！</div>';
+            return;
+          }
+
+          historyDiv.innerHTML = '';
+          data.forEach((msg) => {
+            const item = document.createElement('div');
+            item.className = 'msg-item';
+
+            const header = document.createElement('div');
+            const roleSpan = document.createElement('span');
+            const isThinking = msg.role === 'thinking';
+            const isAi = msg.role === 'ai' || isThinking;
+            roleSpan.className = 'msg-role ' + (isAi ? 'ai' : 'user');
+            roleSpan.textContent = isThinking
+              ? '🧠 AI 思考过程'
+              : msg.role === 'ai'
+                ? '🤖 AI 助手'
+                : '👤 学术路人';
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'msg-time';
+            timeSpan.textContent = msg.time || '';
+            header.appendChild(roleSpan);
+            header.appendChild(timeSpan);
+
+            if (!isThinking) {
+              const contentDiv = document.createElement('div');
+              contentDiv.className = 'msg-content';
+              const markdown = msg.content || '';
+              contentDiv.innerHTML = renderMarkdownWithTables(markdown);
+              renderMathInEl(contentDiv);
+
+              item.appendChild(header);
+              item.appendChild(contentDiv);
+              historyDiv.appendChild(item);
+              return;
+            }
+
+            // 思考消息：渲染为可折叠的历史思考区域
+            const thinkingContainer = document.createElement('div');
+            thinkingContainer.className = 'thinking-history-container';
+
+            const thinkingHeader = document.createElement('div');
+            thinkingHeader.className = 'thinking-history-header';
+            const titleSpan = document.createElement('span');
+            titleSpan.textContent = '思考过程';
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thinking-history-toggle';
+            toggleBtn.textContent = '展开';
+            thinkingHeader.appendChild(titleSpan);
+            thinkingHeader.appendChild(toggleBtn);
+
+            const thinkingContent = document.createElement('div');
+            thinkingContent.className =
+              'msg-content thinking-history-content thinking-collapsed';
+            const markdown = msg.content || '';
+            thinkingContent.innerHTML = renderMarkdownWithTables(markdown);
+            renderMathInEl(thinkingContent);
+
+            thinkingContainer.appendChild(thinkingHeader);
+            thinkingContainer.appendChild(thinkingContent);
+
+            // 默认折叠，点击按钮展开/折叠
+            toggleBtn.addEventListener('click', () => {
+              const collapsed = thinkingContent.classList.toggle(
+                'thinking-collapsed',
+              );
+              toggleBtn.textContent = collapsed ? '展开' : '折叠';
+            });
+
+            item.appendChild(header);
+            item.appendChild(thinkingContainer);
+            historyDiv.appendChild(item);
+          });
+
+          historyDiv.scrollTop = historyDiv.scrollHeight;
+        } catch (e) {
+          console.error('加载失败', e);
+        }
+      };
+
+      // 4. 发送消息 (API)
+      const sendMessage = async () => {
+        const input = document.getElementById('user-input');
+        const btn = document.getElementById('send-btn');
+        const question = input.value.trim();
+        const paperId = getPaperId();
+
+        const paperContent =
+          (document.querySelector('.markdown-section') || {}).innerText || '';
+
+        if (!question) return;
+
+        input.disabled = true;
+        btn.disabled = true;
+        btn.innerText = '思考中...';
+
+        const historyDiv = document.getElementById('chat-history');
+        historyDiv.innerHTML += `
+            <div class="msg-item">
+                <div><span class="msg-role user">👤 你</span></div>
+                <div class="msg-content">${question}</div>
+            </div>
+        `;
+        historyDiv.scrollTop = historyDiv.scrollHeight;
+
+        const aiItem = document.createElement('div');
+        aiItem.className = 'msg-item';
+        aiItem.innerHTML = `
+            <div>
+              <span class="msg-role ai">🤖 AI 助手</span>
+            </div>
+            <div class="thinking-container" style="margin-top:8px; border-left:3px solid #ddd; padding-left:8px; font-size:0.85rem; color:#666; display:none;">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <span>思考过程</span>
+                <button class="thinking-toggle" style="margin-left:8px; font-size:0.75rem; padding:2px 6px;">折叠</button>
+              </div>
+              <div class="thinking-content" style="white-space:pre-wrap; margin-top:4px;"></div>
+            </div>
+            <div class="msg-content"></div>
+        `;
+        historyDiv.appendChild(aiItem);
+
+        const thinkingContainer = aiItem.querySelector('.thinking-container');
+        const thinkingContent = aiItem.querySelector('.thinking-content');
+        const toggleBtn = aiItem.querySelector('.thinking-toggle');
+        const aiAnswerDiv = aiItem.querySelector('.msg-content');
+
+        let thinkingBuffer = '';
+        let answerBuffer = '';
+        let thinkingCollapsed = false;
+        let hasShownAnswer = false;
+        let renderTimer = null;
+        let streamBuffer = '';
+
+        const applyThinkingCollapsedView = () => {
+          if (!thinkingBuffer) return;
+          const source = normalizeTables(thinkingBuffer);
+          const maxLines = 3;
+          let toRender = source;
+
+          if (thinkingCollapsed) {
+            const lines = source.split('\n');
+            if (lines.length > maxLines) {
+              toRender =
+                lines.slice(0, maxLines).join('\n') +
+                '\n...（已折叠，点击展开查看更多思考过程）';
+            }
+          }
+
+          thinkingContent.innerHTML = renderMarkdownWithTables(toRender);
+          renderMathInEl(thinkingContent);
+        };
+
+        const scheduleRender = () => {
+          if (renderTimer) return;
+          renderTimer = requestAnimationFrame(() => {
+            renderTimer = null;
+            if (thinkingBuffer) {
+              thinkingContainer.style.display = 'block';
+              applyThinkingCollapsedView();
+            }
+
+            if (answerBuffer) {
+              hasShownAnswer = true;
+              const cleaned = answerBuffer
+                .replace(/\[THINK\][\s\S]*?\[\/THINK\]/g, '')
+                .replace(/\[ANS\]/g, '')
+                .trim();
+              aiAnswerDiv.innerHTML =
+                renderMarkdownWithTables(cleaned || '（空响应）');
+              renderMathInEl(aiAnswerDiv);
+            }
+          });
+        };
+
+        toggleBtn.addEventListener('click', () => {
+          thinkingCollapsed = !thinkingCollapsed;
+          toggleBtn.textContent = thinkingCollapsed ? '展开' : '折叠';
+          applyThinkingCollapsedView();
+        });
+
+        try {
+          const resp = await fetch(
+            `${window.API_BASE_URL}/api/chat_stream`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                paper_id: paperId,
+                question,
+                paper_content: paperContent,
+              }),
+            },
+          );
+
+          if (!resp.ok || !resp.body) {
+            aiAnswerDiv.textContent = '请求失败，请稍后重试。';
+            return;
+          }
+
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            streamBuffer += decoder.decode(value, { stream: true });
+
+            let boundary = streamBuffer.lastIndexOf('\n');
+            if (boundary === -1) continue;
+
+            const chunk = streamBuffer.slice(0, boundary);
+            streamBuffer = streamBuffer.slice(boundary + 1);
+
+            const lines = chunk.split('\n');
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              let msg;
+              try {
+                msg = JSON.parse(line);
+              } catch {
+                continue;
+              }
+              if (msg.type === 'thinking') {
+                thinkingBuffer += msg.content || '';
+                scheduleRender();
+              } else if (msg.type === 'answer') {
+                answerBuffer += msg.content || '';
+                scheduleRender();
+              } else if (msg.type === 'error') {
+                answerBuffer += `\n[ERROR] ${msg.content || ''}`;
+                scheduleRender();
+              }
+            }
+
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+          }
+
+          input.value = '';
+        } catch (e) {
+          alert('发送失败，请重试');
+        } finally {
+          input.disabled = false;
+          btn.disabled = false;
+          btn.innerText = '发送';
+          input.focus();
+        }
+      };
+
+      // --- Docsify 生命周期钩子 ---
+      hook.doneEach(function () {
+        // A. 对正文区域进行一次全局公式渲染（支持 $...$ / $$...$$）
+        const mainContent = document.querySelector('.markdown-section');
+        if (mainContent) {
+          renderMathInEl(mainContent);
+
+          // B. 将 Chat UI 追加到文章底部
+          const div = document.createElement('div');
+          div.innerHTML = renderChatUI();
+          mainContent.appendChild(div);
+        }
+
+        // C. 绑定事件
+        const sendBtnEl = document.getElementById('send-btn');
+        if (sendBtnEl) {
+          sendBtnEl.addEventListener('click', sendMessage);
+        }
+
+        const inputEl = document.getElementById('user-input');
+        if (inputEl) {
+          inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+              e.preventDefault();
+              sendMessage();
+            }
+          });
+        }
+
+        // D. 初始加载数据（仅在页面加载时请求一次）
+        const paperId = getPaperId();
+        loadHistory(paperId);
+
+        // ----------------------------------------------------
+        // E. Zotero 元数据注入逻辑 (带延时和唤醒)
+        // ----------------------------------------------------
+        setTimeout(() => {
+          try {
+            const titleEl = document.querySelector('.markdown-section h1');
+            const title = titleEl ? titleEl.innerText : document.title;
+
+            let pdfLinkEl = document.querySelector(
+              'a[href*="arxiv.org/pdf"]',
+            );
+            if (!pdfLinkEl) {
+              pdfLinkEl = document.querySelector('a[href$=".pdf"]');
+            }
+
+            let pdfUrl = '';
+            if (pdfLinkEl) {
+              pdfUrl = new URL(
+                pdfLinkEl.href,
+                window.location.href,
+              ).href;
+            }
+
+            let date = '';
+            const matchDate = vm.route.file.match(/(\d{4}-\d{2}-\d{2})/);
+            if (matchDate) {
+              date = matchDate[1];
+            }
+            const citationDate = date ? date.replace(/-/g, '/') : '';
+
+            let authors = [];
+            document
+              .querySelectorAll('.markdown-section p')
+              .forEach((p) => {
+                if (p.innerText.includes('Authors:')) {
+                  const text = p.innerText
+                    .replace('Authors:', '')
+                    .trim();
+                  authors = text
+                    .split(/,|，/)
+                    .map((a) => a.trim());
+                }
+              });
+
+            updateMetaTag('citation_title', title);
+            updateMetaTag(
+              'citation_journal_title',
+              'Daily Paper Reader (ArXiv)',
+            );
+            updateMetaTag('citation_pdf_url', pdfUrl, {
+              useFallback: false,
+            });
+            updateMetaTag('citation_publication_date', date);
+            updateMetaTag('citation_date', citationDate);
+
+            document
+              .querySelectorAll('meta[name="citation_author"]')
+              .forEach((el) => el.remove());
+            const authorList =
+              authors.length ? authors : defaultAuthors;
+            authorList.forEach((author) => {
+              const meta = document.createElement('meta');
+              meta.name = 'citation_author';
+              meta.content = author;
+              document.head.appendChild(meta);
+            });
+
+            document.dispatchEvent(
+              new Event('ZoteroItemUpdated', {
+                bubbles: true,
+                cancelable: true,
+              }),
+            );
+          } catch (e) {
+            console.error('Zotero meta update failed:', e);
+          }
+        }, 1); // 延迟执行，等待 DOM 渲染完毕
+      });
+    },
+  ],
+};
+
