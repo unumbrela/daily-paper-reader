@@ -6,5 +6,8 @@ pydantic<2.12
 requests
 pymupdf
 arxiv
+numpy
+sentence-transformers
+pyzotero
 
 #nginx

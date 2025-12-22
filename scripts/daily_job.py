@@ -118,6 +118,7 @@ def search_arxiv_today(keywords: list[str], max_results: int = 50) -> list[dict]
             continue
 
         title = (result.title or "").strip() or "Untitled"
+        summary = (getattr(result, "summary", "") or "").strip()
         authors = [a.name for a in result.authors] if result.authors else []
         pdf_url = result.pdf_url
         arxiv_id = result.get_short_id()
@@ -128,6 +129,7 @@ def search_arxiv_today(keywords: list[str], max_results: int = 50) -> list[dict]
         results.append(
             {
                 "title": title,
+                "summary": summary,
                 "authors": authors,
                 "pdf_url": pdf_url,
                 "published_date": published_date,

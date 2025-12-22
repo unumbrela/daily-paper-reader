@@ -1,14 +1,17 @@
-## 技术细节
-用户访问你的自定义域名 → EdgeOne → 回源 GitHub Pages。
+# 📖 3分钟建立你自己的 Daily Paper Reader
 
+### 1. 复制项目
+点击右上角的 **Fork** 按钮。
 
-## zotero密钥获取
+### 2. 开启自动更新
+[👉 点击这里前往 Actions 页面](../../actions) 
+* 点击绿色的 **"I understand my workflows, go ahead and enable them"** 按钮。
 
-User ID:
-enter:https://www.zotero.org/settings/security -> Applications -> User ID
+### 3. 发布网站
+[👉 点击这里前往 Pages 设置页面](../../settings/pages)
+* **Source** (来源): 选择 `Deploy from a branch`
+* **Branch** (分支): 选择 `main`，文件夹选 `/ (root)`
+* 点击 **Save** (保存)
 
-
-API_KEY:
-enter:https://www.zotero.org/settings/security -> Applications -> Create new private key
-
-Allow library access & Read Only
+---
+**🎉 恭喜！等待约 1 分钟，刷新页面，你就会看到顶部的链接，那就是你的专属网站！**
