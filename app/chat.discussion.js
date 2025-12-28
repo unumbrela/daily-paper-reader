@@ -381,6 +381,16 @@ window.PrivateDiscussionChat = (function () {
     });
 
     historyDiv.scrollTop = historyDiv.scrollHeight;
+
+    // 聊天历史渲染完成后，通知 Zotero 元数据刷新一次（包含最新对话）
+    try {
+      if (window.DPRZoteroMeta && window.DPRZoteroMeta.updateFromPage) {
+        // vm.route.file 在前端不可见，这里只传 paperId，后端函数会使用当前路由
+        window.DPRZoteroMeta.updateFromPage(paperId);
+      }
+    } catch {
+      // 忽略刷新失败
+    }
   };
 
   const sendMessage = async (paperId) => {
@@ -388,9 +398,44 @@ window.PrivateDiscussionChat = (function () {
     const btn = document.getElementById('send-btn');
     const statusEl = document.getElementById('chat-status');
     const question = input.value.trim();
+    let paperContent = '';
 
-    const paperContent =
-      (document.querySelector('.markdown-section') || {}).innerText || '';
+    // 优先使用与后端一致的 .txt 抽取全文作为上下文（不截断）
+    if (paperId) {
+      try {
+        const txtUrl = `docs/${paperId}.txt`;
+        const resp = await fetch(txtUrl);
+        if (resp.ok) {
+          const txt = await resp.text();
+          if (txt && txt.trim()) {
+            paperContent = txt;
+            const snippet = txt.slice(0, 50).replace(/\s+/g, ' ');
+            console.log(
+              `[DPR DEBUG] paper_txt_content (${paperId}): '${snippet}'`,
+            );
+          } else {
+            console.log(
+              `[DPR DEBUG] paper_txt_content (${paperId}): <empty or whitespace>`,
+            );
+          }
+        } else {
+          console.log(
+            `[DPR DEBUG] paper_txt_content (${paperId}): <http ${resp.status}>`,
+          );
+        }
+      } catch {
+        console.log(
+          `[DPR DEBUG] paper_txt_content (${paperId}): <fetch failed>`,
+        );
+      }
+    }
+
+    // 回退策略：如果 .txt 不存在，就用页面正文纯文本
+    if (!paperContent) {
+      paperContent =
+        (document.querySelector('.markdown-section') || {}).innerText ||
+        '';
+    }
 
     if (!question) return;
 
@@ -432,12 +477,36 @@ window.PrivateDiscussionChat = (function () {
     const aiAnswerDiv = aiItem.querySelector('.msg-content');
 
     const history = await loadChatHistory(paperId);
+
+    // 调试：打印历史消息前 50 个字符
+    try {
+      history.forEach((m, idx) => {
+        const role = m.role || 'unknown';
+        const snippet = (m.content || '').slice(0, 50).replace(/\s+/g, ' ');
+        console.log(
+          `[DPR DEBUG] history[${idx}] role=${role}: '${snippet}'`,
+        );
+      });
+      const qSnippet = question.slice(0, 50).replace(/\s+/g, ' ');
+      console.log(`[DPR DEBUG] current_question: '${qSnippet}'`);
+    } catch {
+      // 忽略调试输出错误
+    }
     history.push({
       role: 'user',
       content: question,
       time: nowStr,
     });
     await saveChatHistory(paperId, history);
+
+    // 用户发起提问后，立即刷新一次 Zotero 摘要（包含最新提问）
+    try {
+      if (window.DPRZoteroMeta && window.DPRZoteroMeta.updateFromPage) {
+        window.DPRZoteroMeta.updateFromPage(paperId);
+      }
+    } catch {
+      // 忽略刷新失败
+    }
 
     const cfg = loadLLMConfig();
     const deepCfg = cfg.deepseek || {};
@@ -586,15 +655,11 @@ window.PrivateDiscussionChat = (function () {
         content:
           '你是学术讨论助手，负责围绕当前论文内容进行深入分析与讨论。请使用中文回答，并使用 Markdown + LaTeX 表达公式。',
       });
-
-      const trimmedContent =
-        paperContent && paperContent.length > 8000
-          ? paperContent.slice(0, 8000)
-          : paperContent;
-      if (trimmedContent) {
+      // 使用全文上下文（优先 .txt 抽取结果），不再做 8000 字截断
+      if (paperContent) {
         messages.push({
           role: 'user',
-          content: `下面是当前论文正文的纯文本节选（可能不完整，仅供参考）：\n\n${trimmedContent}`,
+          content: `下面是当前论文的完整纯文本内容（可能包含自动抽取噪声，仅供参考）：\n\n${paperContent}`,
         });
       }
 
@@ -706,9 +771,18 @@ window.PrivateDiscussionChat = (function () {
       updated.push({
         role: 'ai',
         content: answerBuffer || '（模型未返回内容）',
-        time: nowStrAnswer,
-      });
-      await saveChatHistory(paperId, updated);
+      time: nowStrAnswer,
+    });
+    await saveChatHistory(paperId, updated);
+
+      // 新一轮对话完成后，再次刷新 Zotero 元数据
+      try {
+        if (window.DPRZoteroMeta && window.DPRZoteroMeta.updateFromPage) {
+          window.DPRZoteroMeta.updateFromPage(paperId);
+        }
+      } catch {
+        // 忽略刷新失败
+      }
 
       if (statusEl) {
         statusEl.textContent = `已使用模型 ${model}`;

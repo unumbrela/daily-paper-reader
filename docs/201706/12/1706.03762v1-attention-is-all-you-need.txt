@@ -1,0 +1,2 @@
+This is a demo plain-text file for the paper "Attention Is All You Need" (arXiv: 1706.03762).
+In the real pipeline, this file would contain the text extracted from the original PDF via PyMuPDF.

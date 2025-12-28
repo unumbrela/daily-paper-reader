@@ -47,6 +47,242 @@ window.$docsify = {
 
       const defaultAuthors = ['Daily Paper Reader Team', 'Docsify Renderer'];
 
+      // Zotero 摘要结构标记：方便后续在 Zotero 插件中重新解析
+      const START_MARKER = '【🤖 AI Summary】';
+      const CHAT_MARKER = '【💬 Chat History】';
+      const ORIG_MARKER = '【📄 Original Abstract】';
+
+      // Zotero 元数据更新函数：可被 Docsify 生命周期和聊天模块重复调用
+      const updateZoteroMetaFromPage = (paperId, vmRouteFile) => {
+        try {
+          const titleEl = document.querySelector('.markdown-section h1');
+          let title = titleEl ? titleEl.innerText : document.title;
+          if (title) {
+            // 清理标题中的多余空白与插件注入内容
+            title = title.replace(/\s+/g, ' ').trim();
+          }
+
+          let pdfLinkEl = document.querySelector('a[href*="arxiv.org/pdf"]');
+          if (!pdfLinkEl) {
+            pdfLinkEl = document.querySelector('a[href$=".pdf"]');
+          }
+
+          let pdfUrl = '';
+          if (pdfLinkEl) {
+            pdfUrl = new URL(pdfLinkEl.href, window.location.href).href;
+          }
+
+          let date = '';
+          const matchDate = vmRouteFile
+            ? vmRouteFile.match(/(\d{4}-\d{2}-\d{2})/)
+            : null;
+          if (matchDate) {
+            date = matchDate[1];
+          }
+          const citationDate = date ? date.replace(/-/g, '/') : '';
+
+          let authors = [];
+          let tagsLine = '';
+          document.querySelectorAll('.markdown-section p').forEach((p) => {
+            if (p.innerText.includes('Authors:')) {
+              let text = p.innerText.replace('Authors:', '').trim();
+              // 清理可能被其它扩展注入的换行和尾部信息，以及尾部日期
+              text = text.replace(/\s+/g, ' ').trim();
+              text = text
+                .replace(/Date\s*:\s*\d{4}-\d{2}-\d{2}.*/i, '')
+                .trim();
+              authors = text
+                .split(/,|，/)
+                .map((a) => a.trim())
+                .filter(Boolean);
+            } else if (p.innerText.includes('Tags:')) {
+              // 提取 Tags 行，用于 AI Summary 区块展示
+              tagsLine = (p.innerText || '').trim();
+            }
+          });
+
+          updateMetaTag('citation_title', title);
+          updateMetaTag('citation_journal_title', 'Daily Paper Reader (ArXiv)');
+          updateMetaTag('citation_pdf_url', pdfUrl, {
+            useFallback: false,
+          });
+          updateMetaTag('citation_publication_date', date);
+          updateMetaTag('citation_date', citationDate);
+
+          // 构造给 Zotero 用的“摘要”元信息：按「AI 总结 / 对话历史 / 原始摘要」分段组织
+          let abstractText = '';
+          const sectionEl = document.querySelector('.markdown-section');
+          if (sectionEl) {
+            let aiSummaryText = '';
+            let origAbstractText = '';
+
+            // 1) 从 Markdown 中提取“论文详细总结（自动生成）”这一节，作为 AI 总结
+            const h2List = Array.from(sectionEl.querySelectorAll('h2'));
+            const summaryHeader = h2List.find((h) =>
+              h.innerText.includes('论文详细总结'),
+            );
+            if (summaryHeader) {
+              let cursor = summaryHeader.nextElementSibling;
+              const parts = [];
+              while (
+                cursor &&
+                cursor.tagName !== 'H1' &&
+                cursor.tagName !== 'H2'
+              ) {
+                parts.push(cursor.innerText || '');
+                cursor = cursor.nextElementSibling;
+              }
+              aiSummaryText = parts.join('\n\n').trim();
+            }
+
+            // 2) 提取「原始摘要」区域（例如 "## Abstract" 或包含“摘要”的二级标题）
+            const abstractHeader = h2List.find((h) =>
+              /abstract|摘要/i.test(h.innerText || ''),
+            );
+            if (abstractHeader) {
+              let cursor = abstractHeader.nextElementSibling;
+              const parts = [];
+              while (
+                cursor &&
+                cursor.tagName !== 'H1' &&
+                cursor.tagName !== 'H2'
+              ) {
+                // 一旦遇到聊天容器（或其父容器），立即停止，避免把“私人研讨区”等内容当作摘要
+                if (
+                  cursor.id === 'paper-chat-container' ||
+                  (cursor.querySelector &&
+                    cursor.querySelector('#paper-chat-container'))
+                ) {
+                  break;
+                }
+                parts.push(cursor.innerText || '');
+                cursor = cursor.nextElementSibling;
+              }
+              origAbstractText = parts.join('\n\n').trim();
+            }
+
+            // 如果没有找到 AI 总结，就退回到正文前几段作为粗略总结
+            if (!aiSummaryText) {
+              const paras = [];
+              sectionEl.querySelectorAll('p').forEach((p) => {
+                if (paras.length >= 6) return;
+                // 跳过聊天区域中的段落，避免把私人研讨区内容当作总结
+                if (p.closest && p.closest('#paper-chat-container')) return;
+                paras.push(p);
+              });
+              aiSummaryText = paras
+                .map((p) => p.innerText || '')
+                .join('\n\n')
+                .trim();
+            }
+
+            // 3) 解析聊天历史，按「User / AI」打标签
+            let chatSection = '';
+            const chatRoot = document.getElementById('chat-history');
+            if (chatRoot) {
+              const items = chatRoot.querySelectorAll('.msg-item');
+              const lines = [];
+              items.forEach((item) => {
+                const roleEl = item.querySelector('.msg-role');
+                const contentEl = item.querySelector('.msg-content');
+                if (!roleEl || !contentEl) return;
+                const roleText = roleEl.textContent || '';
+                // 显式排除“思考过程”类消息（thinking）
+                if (roleText.includes('思考过程')) return;
+                let speaker = '';
+                if (roleText.includes('你')) {
+                  speaker = 'User';
+                } else if (roleText.includes('助手')) {
+                  speaker = 'AI';
+                } else {
+                  // 略过其它未知角色
+                  return;
+                }
+                const contentText = (contentEl.innerText || '').trim();
+                if (!contentText) return;
+                const icon = speaker === 'User' ? '👤' : '🤖';
+                lines.push(`${icon} ${speaker}: ${contentText}`);
+              });
+              if (lines.length) {
+                let joined = lines.join('\n\n');
+                const maxChatLen = 2000;
+                if (joined.length > maxChatLen) {
+                  joined = joined.slice(0, maxChatLen) + '\n...[对话已截断]';
+                }
+                chatSection = joined;
+              }
+            }
+
+            const parts = [];
+            if (aiSummaryText || tagsLine) {
+              // AI Summary 区块：保留 Tags 行，但不再包含 Authors 信息
+              let aiBlock = `${START_MARKER}\n`;
+              if (tagsLine) {
+                aiBlock += `${tagsLine}\n\n`;
+              }
+              if (aiSummaryText) {
+                aiBlock += aiSummaryText;
+              }
+              parts.push(aiBlock.trim());
+            }
+            if (chatSection) {
+              parts.push(`${CHAT_MARKER}\n${chatSection}`);
+            }
+            if (origAbstractText) {
+              parts.push(`${ORIG_MARKER}\n${origAbstractText}`);
+            }
+            abstractText = parts.join('\n\n\n').trim();
+          }
+
+          if (abstractText) {
+            // 为兼容 Zotero 的摘要存储行为，将换行统一替换为占位符 __BR__
+            const abstractForMeta = abstractText.replace(/\n/g, '__BR__');
+
+            // 写入多种摘要字段，提升 Zotero 等工具的识别率
+            updateMetaTag('citation_abstract', abstractForMeta, {
+              useFallback: false,
+            });
+            updateMetaTag('description', abstractForMeta, {
+              useFallback: false,
+            });
+            updateMetaTag('dc.description', abstractForMeta, {
+              useFallback: false,
+            });
+            updateMetaTag('abstract', abstractForMeta, {
+              useFallback: false,
+            });
+            updateMetaTag('DC.description', abstractForMeta, {
+              useFallback: false,
+            });
+          }
+
+          document
+            .querySelectorAll('meta[name="citation_author"]')
+            .forEach((el) => el.remove());
+          const authorList = authors.length ? authors : defaultAuthors;
+          authorList.forEach((author) => {
+            const meta = document.createElement('meta');
+            meta.name = 'citation_author';
+            meta.content = author;
+            document.head.appendChild(meta);
+          });
+
+          document.dispatchEvent(
+            new Event('ZoteroItemUpdated', {
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        } catch (e) {
+          console.error('Zotero meta update failed:', e);
+        }
+      };
+
+      // 导出给其它前端模块（例如聊天模块）主动刷新 Zotero 元数据
+      window.DPRZoteroMeta = window.DPRZoteroMeta || {};
+      window.DPRZoteroMeta.updateFromPage = (paperId, vmRouteFile) =>
+        updateZoteroMetaFromPage(paperId, vmRouteFile);
+
       // 公共工具：在指定元素上渲染公式
       const renderMathInEl = (el) => {
         if (!window.renderMathInElement || !el) return;
@@ -550,78 +786,7 @@ window.$docsify = {
         // G. Zotero 元数据注入逻辑 (带延时和唤醒)
         // ----------------------------------------------------
         setTimeout(() => {
-          try {
-            const titleEl = document.querySelector('.markdown-section h1');
-            const title = titleEl ? titleEl.innerText : document.title;
-
-            let pdfLinkEl = document.querySelector(
-              'a[href*="arxiv.org/pdf"]',
-            );
-            if (!pdfLinkEl) {
-              pdfLinkEl = document.querySelector('a[href$=".pdf"]');
-            }
-
-            let pdfUrl = '';
-            if (pdfLinkEl) {
-              pdfUrl = new URL(
-                pdfLinkEl.href,
-                window.location.href,
-              ).href;
-            }
-
-            let date = '';
-            const matchDate = vm.route.file.match(/(\d{4}-\d{2}-\d{2})/);
-            if (matchDate) {
-              date = matchDate[1];
-            }
-            const citationDate = date ? date.replace(/-/g, '/') : '';
-
-            let authors = [];
-            document
-              .querySelectorAll('.markdown-section p')
-              .forEach((p) => {
-                if (p.innerText.includes('Authors:')) {
-                  const text = p.innerText
-                    .replace('Authors:', '')
-                    .trim();
-                  authors = text
-                    .split(/,|，/)
-                    .map((a) => a.trim());
-                }
-              });
-
-            updateMetaTag('citation_title', title);
-            updateMetaTag(
-              'citation_journal_title',
-              'Daily Paper Reader (ArXiv)',
-            );
-            updateMetaTag('citation_pdf_url', pdfUrl, {
-              useFallback: false,
-            });
-            updateMetaTag('citation_publication_date', date);
-            updateMetaTag('citation_date', citationDate);
-
-            document
-              .querySelectorAll('meta[name="citation_author"]')
-              .forEach((el) => el.remove());
-            const authorList =
-              authors.length ? authors : defaultAuthors;
-            authorList.forEach((author) => {
-              const meta = document.createElement('meta');
-              meta.name = 'citation_author';
-              meta.content = author;
-              document.head.appendChild(meta);
-            });
-
-            document.dispatchEvent(
-              new Event('ZoteroItemUpdated', {
-                bubbles: true,
-                cancelable: true,
-              }),
-            );
-          } catch (e) {
-            console.error('Zotero meta update failed:', e);
-          }
+          updateZoteroMetaFromPage(paperId, vm.route.file);
         }, 1); // 延迟执行，等待 DOM 渲染完毕
       });
     },

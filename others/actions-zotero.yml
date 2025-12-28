@@ -1,0 +1,243 @@
+type: ActionsTagsBackup
+author: zwwen0711
+platformVersion: 7.0.30
+pluginVersion: 2.2.4
+timestamp: '2025-12-28T17:22:32.173Z'
+actions:
+  1766933168242-lENQeb2s:
+    event: 1
+    operation: 4
+    data: >-
+      // === 1. 定义标记 ===
+
+      const MARKER_SUMMARY = "【🤖 AI Summary】";
+
+      const MARKER_CHAT = "【💬 Chat History】";
+
+      const MARKER_ORIG = "【📄 Original Abstract】";
+
+
+      // 前端传来的占位符
+
+      const BR_PLACEHOLDER = /__BR__/g; 
+
+
+      // === 2. 获取选中条目 (针对 Actions & Tags 优化) ===
+
+      // 插件会自动注入 'item' (单体) 或 'items' (数组) 变量
+
+      var targetItem = null;
+
+
+      if (typeof item !== 'undefined') {
+          targetItem = item;
+      } else if (typeof items !== 'undefined' && items.length > 0) {
+          // 如果是批量选中，本脚本逻辑较复杂，建议暂时只处理第一个
+          // 或者你可以配合插件的 "Batch" 模式使用
+          targetItem = items[0];
+      }
+
+
+      if (!targetItem) return "❌ 错误：未接收到有效条目 (请确保选中了条目)";
+
+
+
+      // === 3. 检查内容 ===
+
+      var fullText = targetItem.getField('abstractNote');
+
+      if (!fullText || !fullText.includes("AI Summary")) {
+          return "⚠️ 摘要里没找到 'AI Summary' 标记，跳过。";
+      }
+
+
+      // === 4. 提取数据 ===
+
+      var pSummary = fullText.indexOf(MARKER_SUMMARY);
+
+      var pChat = fullText.indexOf(MARKER_CHAT);
+
+      var pOrig = fullText.indexOf(MARKER_ORIG);
+
+
+      if (pOrig === -1) return "❌ 找不到 Original Abstract 标记。";
+
+
+      var summaryEnd = (pChat > -1) ? pChat : pOrig;
+
+
+      var rawSummary = fullText.substring(pSummary + MARKER_SUMMARY.length,
+      summaryEnd).trim();
+
+      var rawChat = "";
+
+      if (pChat > -1) {
+          rawChat = fullText.substring(pChat + MARKER_CHAT.length, pOrig).trim();
+      }
+
+      var rawOrig = fullText.substring(pOrig + MARKER_ORIG.length).trim();
+
+
+
+      // === 5. 【核心逻辑】生成对话气泡 ===
+
+      function formatChatHistory(rawChatString) {
+          if (!rawChatString) return "";
+
+          let segments = rawChatString.split(/(?=👤 User:|🤖 AI:)/g);
+          let html = '<div style="display: flex; flex-direction: column; gap: 20px;">';
+
+          segments.forEach(seg => {
+              seg = seg.trim();
+              if (!seg) return;
+
+              // 还原换行符
+              let cleanText = seg.replace(BR_PLACEHOLDER, "\n").trim();
+              
+              if (cleanText.startsWith("👤 User:")) {
+                  let content = cleanText.replace("👤 User:", "").trim();
+                  // User: 明显淡蓝色 (#bbdefb)
+                  html += `
+                      <div style="align-self: flex-end; max-width: 85%;">
+                          <strong style="display:block; color:#0d47a1; font-size:0.8em; margin-bottom:4px; text-align:right;">👤 User</strong>
+                          <pre style="
+                              display: block !important;
+                              background-color: #bbdefb;
+                              color: #0d47a1;
+                              padding: 15px;
+                              border-radius: 15px 15px 0 15px;
+                              white-space: pre-wrap;
+                              font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                              margin: 0;
+                              font-size: 1em;
+                              line-height: 1.5;
+                              border: none;
+                              box-shadow: 1px 1px 2px rgba(0,0,0,0.05);
+                          ">${content}</pre>
+                      </div>
+                  `;
+              } else if (cleanText.startsWith("🤖 AI:")) {
+                  let content = cleanText.replace("🤖 AI:", "").trim();
+                  // AI: 灰色
+                  html += `
+                      <div style="align-self: flex-start; max-width: 90%;">
+                          <strong style="display:block; color:#616161; font-size:0.8em; margin-bottom:4px;">🤖 AI</strong>
+                          <pre style="
+                              display: block !important;
+                              background-color: #f5f5f5;
+                              color: #333;
+                              padding: 15px;
+                              border-radius: 15px 15px 15px 0;
+                              white-space: pre-wrap;
+                              font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                              margin: 0;
+                              font-size: 1em;
+                              line-height: 1.5;
+                              border: 1px solid #e0e0e0;
+                          ">${content}</pre>
+                      </div>
+                  `;
+              }
+          });
+
+          html += '</div>';
+          return html;
+      }
+
+
+      // === 6. 组装 & 保存 ===
+
+
+      // Summary: 纯白背景 + <br>换行修复
+
+      let summaryContent = rawSummary
+          .replace(BR_PLACEHOLDER, "\n")
+          .replace(/\n/g, "<br>"); 
+
+      var aiSummaryHTML = `
+          <div style="
+              display: block;
+              background-color: transparent; 
+              color: #333;
+              font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+              font-size: 1em; 
+              line-height: 1.6;
+              border: none;
+          ">${summaryContent}</div>
+      `;
+
+
+      var chatHTML = formatChatHistory(rawChat);
+
+      var originalAbstract = rawOrig.replace(BR_PLACEHOLDER, "\n");
+
+
+      var noteHTML = `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #333;">
+              
+              <h2 style="
+                  background: transparent; 
+                  color: #0277bd; 
+                  padding: 0; 
+                  margin-bottom: 15px; 
+                  border-bottom: 2px solid #e1f5fe; 
+                  display: inline-block;
+              ">
+                  🤖 AI Summary
+              </h2>
+              
+              <div style="margin-bottom: 30px;">
+                  ${aiSummaryHTML}
+              </div>
+      `;
+
+
+      if (chatHTML) {
+          noteHTML += `
+              <hr style="border: 0; border-top: 2px dashed #ccc; margin: 30px 0;">
+              
+              <h3 style="
+                  background: transparent; 
+                  color: #444; 
+                  padding: 0; 
+                  margin-bottom: 20px;
+                  border-bottom: 2px solid #eee;
+                  display: inline-block;
+              ">
+                  💬 Chat History
+              </h3>
+              
+              ${chatHTML}
+          `;
+      }
+
+      noteHTML += `</div>`;
+
+
+      // 写入
+
+      let newNote = new Zotero.Item('note');
+
+      newNote.setNote(noteHTML);
+
+      newNote.parentID = targetItem.id;
+
+      await newNote.saveTx();
+
+
+      targetItem.setField('abstractNote', originalAbstract);
+
+      await targetItem.saveTx();
+
+
+      return "🤖 AI Summary: ✅ 处理完成";
+    shortcut: ''
+    enabled: true
+    menu: ''
+    name: Process AI Summary
+    showInMenu:
+      item: false
+      collection: false
+      tools: false
+      reader: false
+      readerAnnotation: false
