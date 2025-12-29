@@ -251,28 +251,22 @@ article.markdown-section {
   display: none;
 }
 
-/* 已阅读论文在侧边栏中的高亮样式（灰白色） */
-.sidebar-nav li.sidebar-paper-read {
-  background-color: #f7f7f7;
-  border-radius: 4px;
-}
-
-/* 评价为“好”的论文（浅绿色文字，灰底保持一致） */
+/* 评价为“好”的论文（浅绿色文字，保持白底，仅文字变色） */
 .sidebar-nav li.sidebar-paper-good {
-  background-color: #f7f7f7;
+  background-color: #ffffff;
   border-radius: 4px;
 }
 .sidebar-nav li.sidebar-paper-good > a {
-  color: #389e0d;
+  color: #73d13d; /* 更浅的绿色 */
 }
 
-/* 评价为“差”的论文（浅红色文字，灰底保持一致） */
+/* 评价为“差”的论文（淡红色文字，保持白底，仅文字变色） */
 .sidebar-nav li.sidebar-paper-bad {
-  background-color: #f7f7f7;
+  background-color: #ffffff;
   border-radius: 4px;
 }
 .sidebar-nav li.sidebar-paper-bad > a {
-  color: #c41d7f;
+  color: #ff7875; /* 更浅的淡红色 */
 }
 
 /* 侧边栏交互状态：去掉下划线，悬停时仅在当前行右侧显示绿色小条 */
@@ -283,21 +277,27 @@ article.markdown-section {
   background-color: transparent;
 }
 
-/* 当前页面所在行：右侧绿色细边，仅对论文条目生效 */
+/* 当前页面所在行：仅通过淡蓝色椭圆背景高亮，不再使用右侧绿色细边 */
 .sidebar-nav li.sidebar-paper-item {
-  border-right: 3px solid transparent;
+  border-right: none;
+  /* 为椭圆背景预留左右内边距，避免文字紧贴边缘 */
+  padding-left: 10px;
+  padding-right: 10px;
 }
 .sidebar-nav li.sidebar-paper-item > a {
   text-decoration: none;
 }
-/* 悬停：浅绿色竖条 */
+/* 悬停：浅灰色圆角背景（作用在整行 li 上） */
 .sidebar-nav li.sidebar-paper-item:hover {
-  border-right: 3px solid #b7eb8f;
+  border-right: none;
+  background-color: #f5f5f5; /* 浅灰色 */
+  border-radius: 20px;
 }
-/* 正在阅读：深绿色竖条 + 加粗文字
-   Docsify 通常会给当前项的 li 加 active 类，这里以 li.active 为准 */
+/* 正在阅读：加粗文字 + 淡蓝色圆角背景（作用在整行 li 上） */
 .sidebar-nav li.sidebar-paper-item.active {
-  border-right: 3px solid #52c41a;
+  border-right: none;
+  background-color: #e6f7ff;
+  border-radius: 20px;
 }
 .sidebar-nav li.sidebar-paper-item.active > a {
   font-weight: 600;
@@ -313,6 +313,7 @@ article.markdown-section {
 .sidebar-nav a.router-link-active,
 .sidebar-nav li.active > a {
   color: inherit !important;
+  border-right: none !important; /* 移除 Docsify 主题默认的右侧彩色竖线 */
 }
 
 /* 对“不错 / 一般”评价的条目，选中时仍保持各自的绿色 / 粉色 */
@@ -320,14 +321,15 @@ article.markdown-section {
 .sidebar-nav li.sidebar-paper-good.active > a,
 .sidebar-nav li.sidebar-paper-good > a.active,
 .sidebar-nav li.sidebar-paper-good > a.router-link-active {
-  color: #389e0d !important;
+  color: #73d13d !important;
 }
 .sidebar-nav li.sidebar-paper-bad > a,
 .sidebar-nav li.sidebar-paper-bad.active > a,
 .sidebar-nav li.sidebar-paper-bad > a.active,
 .sidebar-nav li.sidebar-paper-bad > a.router-link-active {
-  color: #c41d7f !important;
+  color: #ff7875 !important;
 }
+
 
 /* 全局确保侧边栏链接在 hover 时不出现下划线 */
 .sidebar-nav a,
@@ -349,9 +351,23 @@ article.markdown-section {
 .sidebar-nav li.sidebar-paper-good > a,
 .sidebar-nav li.sidebar-paper-bad > a {
   display: block;
-  margin-left: -6px;  /* 向左扩一些，让灰底不紧贴文字 */
-  margin-right: -6px; /* 右边也保持对称 */
-  padding-left: 14px; /* 补回一些缩进 */
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 0;
+}
+
+/* 未阅读论文：标题右侧显示淡蓝色小圆点提示
+   条件：是具体论文条目（sidebar-paper-item），且没有 read/good/bad 状态 */
+.sidebar-nav li.sidebar-paper-item:not(.sidebar-paper-read):not(.sidebar-paper-good):not(.sidebar-paper-bad)
+  > a::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background-color: #91d5ff; /* 淡蓝色 */
+  vertical-align: middle;
 }
 
 /* 论文详情页标题区域的评价按钮 */
@@ -373,11 +389,11 @@ article.markdown-section {
 }
 .paper-rating-btn.good {
   background-color: #f6ffed; /* 浅绿色 */
-  color: #389e0d;
+  color: #73d13d;            /* 更浅的绿色 */
 }
 .paper-rating-btn.bad {
-  background-color: #fff0f6; /* 浅粉色 */
-  color: #c41d7f;
+  background-color: #fff2f0; /* 更浅的淡红背景 */
+  color: #ff7875;            /* 更浅的淡红文字色 */
 }
 .paper-rating-btn.active {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
