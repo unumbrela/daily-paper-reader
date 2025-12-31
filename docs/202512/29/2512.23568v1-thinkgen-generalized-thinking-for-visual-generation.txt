@@ -1,0 +1,2190 @@
+ThinkGen: Generalized Thinking for Visual Generation
+Siyu Jiao1∗Yiheng Lin1∗Yujie Zhong2† Qi She2 Wei Zhou2 Xiaohan Lan2
+Zilong Huang2 Fei Yu2 Yingchen Yu2 Yunqing Zhao2 Yao Zhao1 Yunchao Wei1†
+1 Beijing Jiaotong University
+2 Bytedance
+Home: https://github.com/jiaosiyuu/ThinkGen
+HF: https://huggingface.co/JSYuuu/ThinkGen
+Abstract
+Recent progress in Multimodal Large Language Models
+(MLLMs) demonstrates that Chain-of-Thought (CoT) rea-
+soning enables systematic solutions to complex understand-
+ing tasks. However, its extension to generation tasks re-
+mains nascent and limited by scenario-specific mechanisms
+that hinder generalization and adaptation. In this work, we
+present ThinkGen, the first think-driven visual generation
+framework that explicitly leverages MLLM’s CoT reasoning
+in various generation scenarios. ThinkGen employs a de-
+coupled architecture comprising a pretrained MLLM and a
+Diffusion Transformer (DiT), wherein the MLLM generates
+tailored instructions based on user intent, and DiT produces
+high-quality images guided by these instructions. We fur-
+ther propose a separable GRPO-based training paradigm
+(SepGRPO), alternating reinforcement learning between
+the MLLM and DiT modules. This flexible design enables
+joint training across diverse datasets, facilitating effective
+CoT reasoning for a wide range of generative scenarios.
+Extensive experiments demonstrate that ThinkGen achieves
+robust, state-of-the-art performance across multiple gener-
+ation benchmarks.
+1. Introduction
+Recent advances in Large Language Models (LLMs) [44,
+61, 66] and Multimodal Large Language Models (MLLMs)
+[18, 38, 48] have demonstrated the effectiveness of Chain-
+of-Thought (CoT) reasoning, where models generate ex-
+plicit intermediate steps to systematically solve complex
+tasks.
+CoT reasoning has significantly improved perfor-
+mance in areas such as mathematics, coding, and vision-
+language understanding. Building on these successes, re-
+searchers are now increasingly exploring how CoT reason-
+∗Equal Contribution. † Corresponding authors.
+w/o think
+w/ think
+Reasoning
+Long Prompt
+Text Rendering
+BAGEL
+Ours
+0.2
+0.0
+0.4
+0.6
+0.8
+0.2
+0.0
+0.4
+0.6
+0.8
+Semantic Comp.
++18%
++21%
++1%
++1%
++4%
+-3%
+-2%
+-24%
+Figure 1. Comparison between BAGEL [11] and our ThinkGen.
+ThinkGen achieves superior performance when adopting CoT rea-
+soning (w/ think) across a wide range of generation scenarios.
+ing can be leveraged to enhance generation tasks.
+Currently, CoT for generation remains at a preliminary
+stage. Pioneering work [19] conceptualizes the progressive
+generation of image tokens as a form of CoT like textual
+token generation, and focuses on optimizing this process.
+Recent studies [11, 23, 42, 53] advance the field by refin-
+ing generation instructions [11] or decomposing the genera-
+tion process into distinct steps [23, 42, 53], thereby improv-
+ing image quality in specific tasks. Despite these advances,
+current methods are constrained by a significant challenge:
+their CoT mechanisms are typically tailored to a single sce-
+nario, e.g., reasoning generation, and may degrade perfor-
+mance when applied to broader tasks (Fig. 1 left). As a
+result, these approaches typically require manual interven-
+tion to activate CoT reasoning for different generation tasks,
+preventing their flexibility across diverse scenarios.
+We attribute the aforementioned challenges to the fact
+that current frameworks often lack advanced reasoning ca-
+pabilities. In this work, we introduce ThinkGen, the first
+think-driven visual generation framework that explicitly
+leverages a Multimodal Large Language Model (MLLM)
+with <think> formatting, endowing the system with ro-
+bust reasoning abilities. This is followed by a dedicated Dif-
+fusion Transformer (DiT) for high-quality image synthesis.
+A key challenge lies in filtering out redundant information
+1
+arXiv:2512.23568v1  [cs.CV]  29 Dec 2025
+
+
+Image Generation
+Image Editing
+remove
+add
+style
+background
+Generation & Editing w/ Thinking
+A spooky night when children dress up and 
+collect sweet treats
+</think> Okay, the user wants an image of a spooky night when 
+children dress up and collect sweet treats. Let me break this down. 
+First, “spooky night” suggests Halloween, so the setting should 
+be nighttime with Halloween elements. Collecting sweet treats 
+implies candy, so there should be kids holding bags filled with 
+sweets. The atmosphere should be … </think>
+Generate a vibrant nighttime Halloween 
+scene with children in colorful costumes 
+trick-or-treating on a cobblestone street 
+lined with glowing jack-o'-lanterns, 
+haunted houses, and flickering porch 
+lights, while holding overflowing candy 
+bags and buckets under a moonlit sky 
+with swirling fog and autumn leaves.
+Draw an image showing the provided 
+object completed into a full car.
+<think> Got it, the user provided an image of a car that’s missing the rear 
+wheel. So the task is to add the rear wheel to make it a complete car. I 
+should describe the edit instruction clearly. The car is a sedan, silver, side 
+view. The rear wheel is missing, so I need to add a matching wheel. The 
+wheel has a white rim, so the rear wheel should match that style. Make sure 
+the wheel is properly attached The background is a plain beige wall
+and concrete floor. Make sure it's one sentence as 
+per the user's example. </think>
+Add a matching silver alloy wheel with white 
+accents to the rear of the sedan, ensuring proper 
+alignment with the car's body and maintaining 
+the existing side profile, front wheel, and 
+background elements.
+Reflection
+<user> A painting 
+of one blue birds 
+and a blue nest.
+<think>…</think> 
+Remove one blue 
+bird, and change 
+the yellow nest to 
+blue.
+<user> Matte 
+ceramic mug on the 
+right; clear glass 
+vase with a delicate 
+rose on the left.
+<think>…</think> 
+Replace the 
+eucalyptus leaves 
+in the glass vase 
+with delicate roses.
+Figure 2. ThinkGen enables think-driven generation across a wide range of scenarios, including text-to-image generation, text rendering,
+image editing, reasoning generation, reasoning editing, and reflection.
+from the chain-of-thought (CoT) reasoning process to make
+it suitable for guiding the DiT. To this end, we introduce the
+Visual Generation Instruction refinement (VGI-refine) mod-
+ule, which extracts concise instruction information from the
+MLLM’s reasoning chain and concatenates it with learnable
+Prepadding States. This enables adaptive adjustment of the
+MLLM’s representation distribution, ensuring better align-
+ment with the requirements of the DiT.
+Our training paradigm combines supervised learning
+with reinforcement learning.
+In the supervised learning
+stage, we develop a data-templete to generate pseudo-
+CoT annotations from image-text pairs, addressing the lack
+of explicit <think> labels in most existing generation
+datasets, enabling the DiT to be optimized in a reasoning-
+driven manner.
+In the RL stage, we introduce a sepa-
+rable GRPO-based training paradigm (SepGRPO), where
+GRPO is applied separately to the MLLM and DiT mod-
+ules.
+SepGRPO first freezes DiT while optimizing the
+MLLM, and then reverses the process by training DiT with
+the MLLM held fixed. To enhance generalization, we in-
+corporate multi-scenario training data, jointly training the
+entire model across diverse datasets to achieve robust CoT
+reasoning in a wide range of generation tasks.
+By per-
+forming the separable design, several advantages are pro-
+vided: 1) Flexible Reward Design: Distinct rewards can
+be tailored for each module, enabling more targeted and
+effective optimization. 2) Reduced Learning Complexity:
+The MLLM focuses on providing instructions that are well-
+2
+
+
+aligned with DiT’s preferences, while DiT specializes in
+producing high-quality images based on these tailored in-
+structions. 3) Lower Training Cost: The separate design
+significantly reduces GPU memory usage during training,
+greatly enhancing computational efficiency.
+We evaluate ThinkGen across various generation sce-
+narios. Extensive experiments demonstrate that ThinkGen
+achieves robust performance on diverse generation bench-
+marks, e.g., GenEval (0.89), CVTG (0.84), and ImgEdit
+(4.21).
+Notably, enabling CoT reasoning in ThinkGen
+yields substantial improvements on reasoning benchmarks:
+WISE: 0.55→0.76, RISEBench: 3.6→13.0.
+2. Related Work
+Unified Model for Generation and Understanding. Re-
+cently, building unified models for both generation and
+understanding has attracted significant attention.
+Lever-
+aging the strong multimodal understanding capabilities of
+MLLMs across images and text, image generation perfor-
+mance has seen further improvements.
+One line of work [9, 52, 55] adopts VQGAN-style to-
+kenizers [13] and trains MLLMs to generate discrete vi-
+sual tokens, producing images via next-token prediction in
+an autoregressive manner.
+[8, 28, 39, 56, 57] integrates
+MLLMs with text-to-image diffusion models [25, 40]. The
+powerful MLLMs is used to extract semantic features,
+which are then fed as conditions to a diffusion model for
+image generation. [57] uses the last hidden states as condi-
+tional features for generation, while [39] introduces learn-
+able queries to extract informative features for condition-
+ing. However, these methods primarily treat the MLLM as
+a feature extractor, without fully leveraging its CoT reason-
+ing capabilities. Additionally, some works [4, 11, 35, 63]
+fuse autoregressive and diffusion modeling. This paradigm
+autoregressively generates text tokens while producing im-
+age tokens via a multi-step diffusion process, combining the
+strengths of both approaches.
+Reinforcement Learning. Recently, reinforcement learn-
+ing (RL) has been used to enhance MLLMs and diffusion-
+based generative models.
+Online RL [18, 22, 43] for
+MLLMs has been effective at improving MLLMs reasoning
+capabilities and aligning outputs with human preferences.
+In particular, [18] shows that rule-based reward functions
+can elicit human-like, complex chain-of-thought reasoning,
+while also being memory-efficient by removing the need for
+a separate value model. A number of works [30, 33, 65] also
+apply GRPO to flow-matching models [14, 25] with task-
+specific rewards. This yields a stable approach for aligning
+visual outputs with human preferences, improving aesthet-
+ics, text rendering, and image–prompt consistency.
+3. Model Architecture
+We introduce ThinkGen, a think-driven unified model de-
+signed for various visual generation tasks, with its archi-
+tecture shown in Fig. 3.
+Our model utilizes decoupled
+MLLM and DiT modules, dedicated to understanding and
+generation, respectively. This design ensures optimal per-
+formance for each component while maintaining both scal-
+ability and modularity within the system. For generation
+tasks, the MLLM receives an image caption or reference im-
+age(s) along with editing instructions as input, and outputs
+rewritten generation instructions tailored to the preferences
+of DiT. The DiT module then uses these refined instructions
+to generate high-quality images.
+3.1. Multimodal Large Language Model
+As shown in Fig. 3, ThinkGen leverages a MLLM to pro-
+cess both visual and textual inputs, employing autoregres-
+sive generation for CoT reasoning. The MLLM is initial-
+ized with Qwen3-VL-8B-Think [48]. For image generation
+tasks, we design a specialized system prompt ([SYS]) to
+encourage the MLLM to understand user intent and provide
+appropriate rewrite instructions. We then extract the final
+two layers of hidden states generated after the </think>
+token as conditional inputs for DiT. Empirical results indi-
+cate that using the last two layers of hidden states signifi-
+cantly benefits visual generation.
+3.2. Diffusion Transformer
+ThinkGen employs a standard DiT architecture [28, 57]
+initialized with OmniGen2-DiT-4B [57], where the output
+from the MLLM is used as conditional textual input for gen-
+eration. In image edit task, additional reference image(s)
+are processed by a VAE [50] and incorporated as condi-
+tional visual inputs. The visual and textual inputs are con-
+catenated with the noisy latent features, enabling joint at-
+tention across modalities. We employ a simple linear layer
+as a connector to align features from multiple conditional
+inputs.
+We experimentally find that this straightforward
+linear projection outperforms MLP-based or more complex
+transformer-based connectors.
+VGI-refine. To address the redundancy in the MLLM’s
+autoregressive chain-of-thought (CoT) outputs [59, 64], we
+introduce Visual Generation Instruction Refinement (VGI-
+refine), which consists of two steps. First, instruction tokens
+following the special token </think> are extracted from
+the text tokens generated by the MLLM, thereby isolating
+the essential CoT results for downstream image generation.
+Second, we concatenate K learnable Prepadding States to
+the extracted instruction tokens. This concatenation regu-
+lates the data distribution of the output hidden states and is
+especially beneficial for short instructions (e.g., generate a
+dog or remove the cat). The resulting refined instruction
+states are then provided as conditional input to the DiT.
+3
+
+
+MLLM
+DiT
+“What if we increase the voltage of 
+the bulb in the image?”
+<think>When voltage 
+increasing, ...</think>
+...
+VGI-Refine
+Hidden States
+...
+Frozen
+MLLM-GRPO
+Frozen
+PT & FT
+Frozen
+DiT-GRPO
+Bulb’s filament appears bright 
+orange and glowing intensely.
+VAE
+Reward
+Diffusion
+Timestep
+Heuristic Instruction
+Reasoning
+Reflection
+Text Render
+….
+Connector
+Prepadding States  
+Figure 3. Overview of ThinkGen. Within ThinkGen, the MLLM and DiT architectures are decoupled for autoregressive CoT generation
+and diffusion-based image generation. The MLLM receives text/images as input and outputs generation instructions tailored to the prefer-
+ences of the DiT. Through a process called visual generation instruction refinement (VGI-Refine), the hidden states corresponding to these
+instructions are extracted and concatenated with Prepadding States, forming the conditional information for DiT’s image generation. For
+clarity, we omit the text encoder and vision encoder components within MLLM and DiT.
+4. Training Recipe
+Our ThinkGen training is divided into five distinct stages.
+Initially, we perform Supervised Pre-training on DiT (Stage
+1–3) to ensure high-quality image generation.
+Subse-
+quently, we introduce a separable MLLM and DiT rein-
+forcement learning approach called SepGRPO (Stage 4–5).
+Through SepGRPO training, the MLLM learns to generate
+captions or editing instructions that are optimally aligned
+with DiT’s preferences, while DiT is further refined to pro-
+duce superior images based on these tailored instructions.
+The overall training workflow is depicted in Fig. 4.
+4.1. Supervised Pre-training
+The Supervised Pre-training stages (Stage 1–3) are de-
+signed to align the DiT with the MLLM, while simulta-
+neously enhancing image generation quality.
+We adopt
+the Rectified Flow [32] training paradigm, which directly
+regress the velocity field vθ(xt, t) by minimizing the Flow
+Matching objective [29, 32]:
+L(θ) = Et, x0∼X0, x1∼X1
+h
+∥v −vθ(xt, t)∥2i
+,
+(1)
+here v = x1 −x0 denotes the target velocity field.
+Input Format.
+Rewriting each caption or edit instruc-
+tion during pre-training would be prohibitively expensive.
+Therefore, in Stage 1–3, we construct pseudo-CoT tem-
+plates to simulate the MLLM’s CoT process.
+Specifi-
+cally, we leave the content within <think> </think>
+empty and simply repeat the original caption or edit
+instruction as the answer.
+The resulting template
+is:
+[SYS]+[C]+<think> </think>+[C],
+where
+[SYS] denotes the system prompt, and [C] denotes the
+image caption or editing instruction.
+Stage1 Alignment. In this stage, we introduce K Learn-
+able prepadding states and align the DiT with the MLLM by
+training only the linear connector, while keeping the MLLM
+and DiT frozen. Each image is resized to ≤512×512px.
+Stage2 Pre-training. During this stage, all DiT parame-
+ters are trainable. The training corpus comprises 60M im-
+age samples, consisting of text-to-image, image edit, text
+rendering and in-context generation data. Each image is re-
+sized to no more than 512×512 pixels.
+Stage3 High-quality fine-tuning. In the supervised fine-
+tuning stage, we construct a 0.7M high-quality subset to
+enhance DiT’s instruction-following capability and image
+aesthetic.
+The maximum of training resolution is set to
+1024×1024 pixels.
+4.2. SepGRPO
+We propose SepGRPO, an RL training strategy designed
+to encourage the MLLM to generate captions/editing in-
+structions that are optimally aligned with DiT’s preferences,
+while enabling DiT to produce higher-quality images based
+on these instructions. SepGRPO decouples the rollout pro-
+cess for text and vision: first, DiT is fixed while GRPO
+is applied to the MLLM through joint multi-task training;
+then, the MLLM is fixed while GRPO is applied to DiT.
+Input Format. We design a specialized [SYS] during on-
+policy training to facilitate a cold start, allowing the MLLM
+to explore text conditions favored by DiT. Specifically, We
+concatenate the [SYS], the input sample [C], and a spe-
+cial <think> token as the input to the MLLM. The result-
+ing template is: [SYS]+[C]+<think>.
+Stage4 MLLM-GRPO. In this stage, we apply GRPO to
+the MLLM to encourage the generation of rewritten text that
+aligns with DiT’s preferences. We optimize the MLLM on
+multiple scenarios to enhance the generalization capability
+of CoT reasoning. Specifically, we select five representative
+generation scenarios: semantic composition, reasoning gen-
+4
+
+
+ MLLM
+DiT
+Connector
+Img size: 512px
+ MLLM
+DiT
+Connector
+Img size: 512px
+ MLLM
+DiT
+Connector
+Img size: 1024px
+Supervised Pre-training
+SepGRPO
+   MLLM
+DiT
+Connector
+Rollout Ȫׅ
+rule models
+update
+   MLLM
+DiT
+Connector
+Reward
+update
+Img
+Img
+Img
+Stage4: MLLM-GRPO
+Stage5: DiT-GRPO
+Stage1: connector training
+Stage2: pre-training
+Stage3: high-quality fine-tuning
+Img
+Img
+Img
+Rollout Ǡ
+Rollout Ǡ 
+Rollout Ȫׇ
+Figure 4. The training recipe of ThinkGen consists of three supervised pre-training stages: Connector training (stage 1), Pre-training (stage
+2), and High-quality fine-tuning (stage 3), as well as two SepGRPO stages: MLLM-GRPO (stage 4) and DiT-GRPO (stage 5).
+eration, text rendering, image editing, and reflection. For
+each scenario, we collect and curate dedicated datasets and
+design corresponding rule models to guide the optimization.
+The details of the datasets and rule models for each scenario
+are summarized in Table 1.
+Scenario
+Dataset
+Rule Model
+Semantic composition
+5K semantic prompts
+GenEval [17]
+Reasoning generation
+10K reasoning prompts
+HPSv3 [36]
+Text rendering
+3K text rendering prompts
+Word Acc. [12]
+Image editing
+3K editing samples
+SigLIP2 [49]
+Reflection
+3K reflection samples
+NED
+Table 1. Training data and Rule Models in MLLM-GRPO. No-
+tably, all training data and evaluation benchmarks are strictly non-
+overlapping, ensuring unbiased assessment.
+For each input to the MLLM, we perform N1 rollouts
+from the policy πθold to generate trajectories {oi}N1
+i=1, which
+are subsequently used by DiT to produce the corresponding
+images. Specifically, DiT generates one image for each tra-
+jectory. To mitigate the impact of image generation stochas-
+ticity, we ensure that all trajectories corresponding to the
+same input share identical latent noise. The corresponding
+rule models are then used to calculate a reward Ri for each
+trajectory. Subsequently the advantage ˆAi for the i-th tra-
+jectory is computed in a group-relative manner:
+ˆAi = Ri −mean({Ri}N1
+i=1)
+std({Ri}N1
+i=1)
+.
+(2)
+The policy πθold is then updated by optimizing the GRPO
+objective, which is a clipped surrogate function with KL-
+divergence regularization:
+JGRPO(θ) = E(q,a)∼D,{oi}G
+i=1∼πθold (·|q)
+"
+1
+PG
+i=1 |oi|
+G
+X
+i=1
+|oi|
+X
+t=1
+ 
+MIN −βDKL(πθ||πref)
+!#
+(3)
+MIN = min
+
+ri,t(θ) ˆ
+Ai, CLIP
+
+ri,t(θ), 1 −ε, 1 + ε
+
+,
+(4)
+where ri,j(θ) denotes the ratio between the probabilities of
+πθ and πθold for outputting the current token.
+In this process, DiT and the rule models jointly serve
+as reward models. This diverse reward design allows our
+model to adaptively apply CoT reasoning across a wide
+range of generation tasks. We provide detailed descriptions
+of the [SYS], training data distribution, and rule model set-
+tings in the appendix.
+Stage5 DiT-GRPO: In this stage, we apply FlowGRPO
+[30] to enhance the instruction-following capability of DiT.
+We utilize data from the Simple Scene and Text Rendering
+scenarios, along with their corresponding reward calcula-
+tion methods. The training data used in this stage is strictly
+non-overlapping with that of Stage 4. For each input, the
+frozen MLLM first performs a single rollout to generate a
+CoT reasoning trajectory, after which DiT conducts N2 roll-
+outs to generate N2 corresponding images. We then com-
+pute the advantages as defined in Equation 2 and update the
+DiT’s policy by maximizing the GRPO objective in Equa-
+tion 3. This process encourages the DiT to favor trajectories
+that yield higher rewards.
+Denoising Reduction: Denoising Reduction [30] (20 steps
+with 512px) is employed to accelerate the sampling process.
+This approach enables the efficient collection of low-quality
+yet informative trajectories during training.
+5
+
+
+Model
+Cultural
+Time
+Space
+Bioligy
+Physics
+Chemistry
+Overall
+GPT-4o [7]
+0.81
+0.71
+0.89
+0.83
+0.79
+0.74
+0.80
+Gen. Only
+SDXL [40]
+0.43
+0.48
+0.47
+0.44
+0.45
+0.27
+0.43
+SD-3.5-large [13]
+0.44
+0.50
+0.58
+0.44
+0.52
+0.31
+0.46
+FLUX.1-dev [25]
+0.48
+0.58
+0.62
+0.42
+0.51
+0.35
+0.50
+PixArt-α [5]
+0.45
+0.50
+0.48
+0.49
+0.56
+0.34
+0.47
+Und. and Gen.
+VILA-U [58]
+0.26
+0.33
+0.37
+0.35
+0.39
+0.23
+0.31
+Janus-Pro-7B [9]
+0.30
+0.37
+0.49
+0.36
+0.42
+0.26
+0.35
+Emu3 [52]
+0.34
+0.45
+0.48
+0.41
+0.45
+0.27
+0.39
+Show-o [63]
+0.28
+0.40
+0.48
+0.30
+0.46
+0.30
+0.35
+MetaQuery-XL [39]
+0.56
+0.55
+0.62
+0.49
+0.63
+0.41
+0.55
+BLIP3-o-8B [8]
+–
+–
+–
+–
+–
+–
+0.62
+BAGEL [11]
+0.44
+0.55
+0.68
+0.44
+0.60
+0.39
+0.52
+BAGEL* [11]
+0.76
+0.69
+0.75
+0.65
+0.75
+0.58
+0.70
+OmniGen2 [57]
+0.42
+0.52
+0.64
+0.43
+0.50
+0.34
+0.47
+STAR [27]
+0.61
+0.67
+0.61
+0.74
+0.69
+0.66
+0.66
+ThinkGen
+0.53
+0.55
+0.71
+0.51
+0.58
+0.40
+0.55
+ThinkGen*
+0.78
+0.73
+0.85
+0.74
+0.74
+0.68
+0.76
+Table 2. Evaluation of reasoning generation ability on WISE benchmark. * denotes that CoT reasoning is utilized during image generation.
+5. Experiments
+In this section, we first provide a brief overview of the data
+composition (Sec. 5.1) and evaluation setup (Sec. 5.2).
+Next, we evaluate ThinkGen across a variety of visual gen-
+eration benchmarks (Sec. 5.3). Furthermore, we conduct
+detailed ablation studies to verify the contribution of each
+component and training strategy (Sec. 5.4). We also ana-
+lyze the SepGRPO process (Sec. 5.5) .
+5.1. Data composition
+For text-to-image generation, our training dataset com-
+prises 54M image-text pairs sourced from publicly avail-
+able datasets [2, 7, 8, 15, 51]. For image editing tasks, we
+utilize a diverse set of open-source image editing datasets
+[7, 24, 34, 45, 54, 67, 72], totaly 5M samples. Furthermore,
+1M high-quality proprietary samples are used to further en-
+hance the model’s ability to generate visually appealing im-
+ages and text rendering ability, see the appendix for more
+details.
+5.2. Evaluation setup
+Reasoning Generation.
+We assess reasoning genera-
+tion capability on WISEBench [37], a world knowledge-
+informed semantic evaluation benchmark (1000 prompts).
+Reasoning Editing. Reasoning editing capability is evalu-
+ated on RISEBench [73] (360 pairs). RISEBench evaluates
+the model’s reasoning editing capability across four funda-
+mental types: temporal reasoning, causal reasoning, spatial
+reasoning, and logical reasoning.
+Text-to-image Evaluation. This task evaluates semantic
+consistency on GenEval [17] (553 prompts) and long-form
+generation ability on DPG-Bench [20] (1065 prompts), as
+well as text rendering capability on CVTG [12] (2000
+prompts). In the CVTG benchmark, we report the word
+accuracy of text rendering to assess model performance.
+Image Editing Evaluation. We assess image editing ca-
+pability on ImgEdit [68] (737 pairs), which covers object-
+level, background, style, and composite manipulations.
+Models
+Tem.
+Cau.
+Spa.
+Log.
+Avg.
+Closed-source
+GPT-4o [7]
+34.1
+32.2
+37.0
+10.6
+28.9
+Gemini-2.0 [47]
+8.2
+15.5
+23.0
+4.7
+13.3
+Open-source
+OmniGen [60]
+1.2
+1.0
+0.0
+1.2
+0.8
+EMU2 [46]
+1.2
+1.1
+0.0
+0.0
+0.5
+Step1X-Edit [31]
+0.0
+2.2
+2
+3.5
+1.9
+HiDream-Edit [1]
+0.0
+0.0
+0.0
+0.0
+0.0
+FLUX-Canny [26]
+0.0
+0.0
+0.0
+0.0
+0.0
+BAGEL [11]
+3.5
+4.4
+9.0
+5.9
+5.8
+BAGEL* [11]
+5.9
+17.8
+21.0
+1.2
+11.9
+OmniGen2 [57]
+0.0
+2.2
+7.0
+2.3
+3.0
+ThinkGen
+3.5
+2.2
+7.0
+1.1
+3.6
+ThinkGen*
+16.4
+17.7
+16.0
+1.1
+13.0
+Table 3. Evaluation of reasoning editing ability on RISEBench.
+5.3. Comparison with the state of the art methods
+We report results of ThinkGen w. and w.o. CoT reasoning.
+When generation w.o. CoT reasoning, we simulate the CoT
+process by adopting the Input Format described in Sec. 4.1.
+Reasoning Generation.
+We conduct experiments on
+WISEBench to evaluate the reasoning generation capa-
+6
+
+
+GenEval
+DPG
+CVTG
+Model
+Counting
+Position
+Overall
+Global
+Entity
+Attribute
+Relation
+Overall
+Acc.
+NED
+Gen. Only
+SDXL [40]
+0.39
+0.15
+0.55
+83.27
+82.43
+80.91
+86.76
+74.65
+-
+-
+FLUX.1-dev [25]
+0.75
+0.68
+0.82
+82.10
+89.50
+88.70
+91.10
+84.00
+0.49
+0.68
+PixArt-α [5]
+0.44
+0.08
+0.48
+–
+–
+–
+–
+–
+–
+SD3-Medium [14]
+0.72
+0.33
+0.74
+87.90
+91.01
+88.83
+80.70
+84.08
+0.65
+0.84
+Sana-1.6B [62]
+0.62
+0.21
+0.66
+–
+–
+–
+–
+–
+–
+–
+TextCrafter [12]
+–
+–
+–
+–
+–
+–
+–
+–
+0.76
+0.90
+Und. and Gen.
+Emu3-Gen [52]
+0.34
+0.17
+0.54
+85.21
+86.68
+86.84
+90.22
+80.60
+–
+–
+ILLUME+ [21]
+0.62
+0.42
+0.72
+–
+–
+–
+–
+–
+Janus-Pro [9]
+0.59
+0.79
+0.80
+86.90
+88.90
+89.40
+89.32
+84.19
+–
+–
+MetaQuery-XL [39]
+–
+–
+0.80
+–
+–
+–
+–
+82.05
+–
+–
+BLIP3-o-8B [8]
+–
+–
+0.84
+–
+–
+–
+–
+81.60
+–
+–
+BAGEL [11]
+0.81
+0.64
+0.82
+88.94
+90.37
+91.29
+90.82
+85.07
+0.35
+0.65
+BAGEL* [11]
+0.78
+0.52
+0.79
+90.13
+90.41
+88.73
+88.22
+83.46
+0.11
+0.39
+OmniGen2 [57]
+0.88
+0.55
+0.80
+88.81
+88.83
+90.18
+89.37
+83.57
+0.52
+0.77
+ThinkGen
+0.81
+0.79
+0.88
+90.32
+90.86
+91.23
+92.48
+85.14
+0.80
+0.91
+ThinkGen*
+0.84
+0.80
+0.89
+90.87
+91.36
+91.77
+91.52
+85.87
+0.84
+0.94
+Table 4. Evaluation of text-to-image generation ability on GenEval, DPG and CVTG benchmark.
+Model
+Add Adj. Rep. Rem.
+BG
+Sty.
+Overall
+GPT-4o [38]
+4.61
+4.33
+4.35
+3.66
+4.57 4.93
+4.20
+Gen. Only
+MagicBrush [70]
+2.84
+1.58
+1.97
+1.58
+1.75 2.38
+1.90
+Instruct-P2P [3]
+2.45
+1.83
+2.01
+1.50
+1.44 3.55
+1.88
+AnyEdit [69]
+3.18
+2.95
+2.47
+2.23
+2.24 2.85
+2.45
+UltraEdit [72]
+3.44
+2.81
+2.96
+1.45
+2.83 3.76
+2.70
+Step1X-Edit [31]
+3.88
+3.14
+3.40
+2.41
+3.16 4.63
+3.06
+ICEdit [71]
+3.58
+3.39
+3.15
+2.93
+3.08 3.84
+3.05
+Und. and Gen.
+OmniGen [60]
+3.47
+3.04
+2.94
+2.43
+3.21 4.19
+2.96
+Janus-4o [6]
+3.60
+3.25
+3.27
+2.28
+3.32 4.47
+3.26
+BAGEL [11]
+3.56
+3.31
+3.30
+2.62
+3.24 4.49
+3.20
+OmniGen2 [57]
+3.57
+3.06
+3.74
+3.20
+3.57 4.81
+3.44
+UniWorld [28]
+3.82
+3.64
+3.47
+3.24
+2.99 4.21
+3.26
+ThinkGen
+4.64
+4.12
+4.07
+3.95
+4.31 4.73
+4.14
+ThinkGen*
+4.75
+4.25
+4.15
+3.49
+4.3
+4.68
+4.21
+Table 5. Evaluation of image editing on ImgEdit benchmark.
+bility.
+Tn Tab.
+2, we compare ThinkGen with previ-
+ous well-known generative models and unified generation-
+understanding models. Our ThinkGen demonstrates a sig-
+nificant advantage over methods based on direct generation.
+By leveraging CoT reasoning, ThinkGen achieves a sub-
+stantial improvement of +21% (0.55 →0.76), and estab-
+lishes a new state-of-the-art performance on WISEBench.
+Reasoning Editing. As shown in Tab. 3, on RISEBench,
+ThinkGen’s CoT reasoning significantly surpasses open-
+source models (3.6→13.0) and achieves results competitive
+with the closed-source model Gemini-2.0.
+Text-to-image Generation. In Tab. 4, we present the per-
+formance of ThinkGen on the GenEval, DPG-Bench, and
+CVTG benchmarks. With CoT reasoning, ThinkGen con-
+sistently demonstrates improvements across all scenarios,
+and achieves the best results among many well-known mod-
+els. These results indicate that ThinkGen possesses strong
+instruction-following and text-rendering capabilities.
+Image Editing. In Tab. 5, we compare the performance
+of ThinkGen on ImgEdit. Compared with a range of open-
+source models, ThinkGen shows significantly superior met-
+rics, achieving performance comparable to GPT-4o.
+5.4. Ablation Study
+Training stage ablations. To understand the effect of each
+training stage in the ThinkGen, including the Supervised
+Pre-training and the SepGRPO. We start from a pretrained
+MLLM and DiT, and gradually apply each training stage
+(see Tab. 6). We present results on GenEval, WISE, and
+CVTG, which are used to evaluate instruction-following,
+reasoning generation, and text-rendering, respectively.
+• Stage1: Training only the connector yields inferior text-
+rendering performance (CVTG: 0.28), indicating insuffi-
+cient fine-grained alignment between MLLM and DiT.
+• Stage2: Large-scale pre-training results in notable im-
+provements in image quality, with GenEval increasing by
+10%, WISE by 9%, and CVTG by 35%.
+• Stage3: High-quality fine-tuning further enhances image
+details, resulting in an improvement of +12.0% in CVTG.
+• Stage4: GRPO applied to the MLLM introduces some
+representation shift in text conditions, slightly affecting
+image generation on GenEval (-0.01) and WISE (-0.01).
+However, incorporating CoT significantly boosts reason-
+ing and generation capabilities (WISE: 0.55 →0.76).
+• Stage5: DiT-GRPO further enhances image generation
+7
+
+
+50 step
+Generated images from 50 to 700 step 
+The object used to 
+find the heroine in 
+Cinderella
+Original caption
+300 step
+700 step
+The ancient 
+Chinese invention 
+used for navigation 
+during maritime 
+exploration
+CoT Length
+Reward Score
+Training Step
+100
+200
+300
+400
+500
+600
+700
+400
+500
+600
+700
+0.4
+0.5
+0.6
+0.7
+Figure 5. Visualization of the MLLM-GRPO process, the reward score steadily increases.
+quality, particularly in fine-grained text rendering tasks.
+(CVTG: 0.79 →0.84)
+Training stage
+GenEval
+WISE
+CVTG
+Stage1 Alignment
+0.78
+0.46
+0.28
+Stage2 Pre-training
+0.88
+0.55
+0.63
+Stage3 H.Q. Tuning
+0.88
+0.55
+0.75
+Stage4 MLLM-GRPO
+0.86
+0.54
+0.75
+Stage4 MLLM-GRPO
+0.86*
+0.76*
+0.79*
+Stage5 DiT-GRPO
+0.89*
+0.76*
+0.84*
+Table 6. Ablation of training stages of ThinkGen. We use the
+GenEval, WISE, CVTG for analysis. * denotes that cot reasoning
+is utilized during image generation.
+Prepadding States.
+We compare the results of Stage1
+with and without learnable prepadding states in Tab.
+7.
+Prepadding states significantly improve performance on the
+short-prompt benchmarks 0.64→0.78 GenEval, 0.37→0.46
+WISEBench, 0.24→0.28 CVTG and 3.46→3.93 ImgEdit,
+indicating that prepadding states can effectively adjust the
+representation distribution of MLLM output features and
+promote alignment between MLLM and DiT.
+Short-Prompt
+Long-Prompt
+GenEval
+WISE
+CVTG
+ImgEdit
+DPG
+w.o.
+0.64
+0.37
+0.24
+3.46
+80.90
+w.
+0.78
+0.46
+0.28
+3.93
+80.86
+Table 7. Ablation of the Prepadding States. We divide the eval-
+uation metrics into long-prompt (DPG-Bench) and short-prompt
+benchmarks (GenEval, WISE, CVTG, and ImgEdit) for analysis.
+Training strategy. In Tab. 8, we investigate the perfor-
+mance of applying SFT and MLLM-GRPO to the Stage3
+model with 10K reasoning data.
+An interesting phe-
+nomenon is observed: directly applying SFT to DiT with
+reasoning data does not improve performance on reasoning
+benchmarks, indicating that DiT does not possess the ability
+to generalize world knowledge to unseen domains. On the
+other hand, training the MLLM with MLLM-GRPO greatly
+enhances ThinkGen’s reasoning capability (WISE: 0.55 →
+0.74). Therefore, the improvement in ThinkGen’s reason-
+ing generation capabilities is attributable to the SepGRPO
+training strategy rather than the reasoning data itself.
+Training data
+GenEval
+WISE
+CVTG
+Stage3
+-
+0.88
+0.55
+0.75
+SFT
+10K reasoning data
+0.85 −0.03
+0.58 +0.03
+0.67 −0.08
+MLLM-GRPO
+10K reasoning data
+0.80 −0.08
+0.74 +0.19
+0.73 −0.02
+MLLM-GRPO
+24K multitask data
+0.86 −0.02
+0.76 +0.21
+0.79 +0.04
+Table 8. Ablation of the Training strategy. GenEval, WISE and
+CVTG results are used for analysis. Note: both SFT and Text-
+GRPO are initialized with the model weights from Stage3.
+5.5. Analysis of the SepGRPO Process
+We visualize the intermediate process of SepGRPO in Fig.
+5, including reward scores, CoT length, and generated im-
+ages. Several key observations emerge: 1) Increasing CoT
+Length: The average CoT length gradually grows, suggest-
+ing the model develops more sophisticated reasoning dur-
+ing training. 2) Unified Reward Growth: As training pro-
+gresses, the multi-task reward steadily increases, indicating
+ThinkGen learns to adaptively think across diverse scenar-
+ios. 3) Image Quality Improvement: Visualizations at 50,
+300, and 700 steps demonstrate a clear trend of improving
+image generation quality, with generated images exhibiting
+richer details and higher fidelity.
+6. Conclusion
+In this work, we introduced ThinkGen, a novel think-driven
+framework that automatically applies CoT reasoning across
+diverse generative tasks. Our approach features a decou-
+pled MLLM-DiT architecture trained with SepGRPO, en-
+abling it to formulate a high-quality plan before generation.
+Extensive experiments demonstrate that ThinkGen achieves
+significant improvements on reasoning-intensive tasks. Our
+work represents a key step towards building more intelli-
+gent and versatile generative models that seamlessly inte-
+grate reasoning and creation.
+8
+
+
+Appendix
+7. Data Construction
+7.1. Supervised Training
+As illustrated in Fig.
+6, we provide an overview of the
+data distribution utilized for supervised training across dif-
+ferent tasks. For the text-to-image generation task, we
+employ a diverse set of datasets, including ShareGPT-4o-
+Image [7], SFHQ [2], FLUX-Reason-6M [15], compris-
+ing a total of 51M samples. For the text rendering task,
+we utilize DenseFusion [51] and internally collected text-
+containing data, resulting in 3M samples. The image edit-
+ing task leverages UltraEdit [72], OmniConsistency [45],
+Echo4o [67], GPT-Image-Edit [54], ShareGPT-4o-Image
+[7], X2Edit [34], NHR [24], accumulating to 5M samples.
+For in-context generation, we use Nano-banana-150k1 and
+Echo-4o-Image [67], totaling 200K samples.
+Data Composition Distribution
+Data Categories
+Text-to-Image: 51M
+Image-Edit: 4.7M
+Text Rendering: 3M
+In-context: 0.2M
+Figure 6. Data distribution of supervised training.
+7.2. SepGRPO
+Semantic Composition Dataset. We employ the Geneval-
+style training dataset from Flow-GRPO [30] as our seman-
+tic composition dataset. This dataset comprises prompts
+that specify object count, color, and relative spatial relation-
+ships, making it well-suited for training models to improve
+semantic alignment between generated images and textual
+descriptions.
+Reasoning
+Generation
+Dataset.
+We
+collect
+10K
+prompt–prompt rewrite reasoning data pairs.
+In
+each
+pair,
+the
+prompt
+is
+intentionally
+ambiguous
+and necessitates world knowledge reasoning for text-
+to-image (T2I) generation, whereas the corresponding
+1. https://github.com/yejy53/Nano-banana-150k
+prompt rewrite is explicit and can be directly used for
+T2I image generation without further reasoning. Specifi-
+cally, we incorporate six types of world knowledge and their
+respective sub-categories, consistent with the WISE bench-
+mark [37]. For each sub-category, we employ GPT [38] to
+construct prompt–prompt rewrite pairs (Tab. 9). To
+ensure the uniqueness, we apply SequenceMatcher for rig-
+orous deduplication, guaranteeing no overlap between our
+synthesized pairs and the official WISE benchmark.
+Text Rendering Dataset. We sample 3,000 captions from
+DataComp-1B [16] and employ Qwen3-32B [66] to rewrite
+these captions. This rewriting process augments the original
+descriptions by inserting contextually appropriate text onto
+specified objects (e.g., placing the word “coffee” on a cup).
+As a result, the captions are enriched with renderable textual
+content, making them well-suited for training SepGRPO.
+Image Editing Dataset. We construct our image editing
+dataset by filtering 3,000 Pico-Banana-400K [41] samples
+with near-square aspect ratios (between 0.95 and 1.05).
+Since both source and target images are resized to square
+shapes during the MLLM-GRPO training stage, selecting
+near-square samples helps to minimize distortion caused by
+resizing. This preprocessing step also facilitates efficient,
+parallelized reward computation using the SigLIP-2 [49].
+Reflection Dataset. We collected 3,000 reflection samples
+from GenRef-wds [74], a dataset specifically designed for
+reflection-based image generation. To ensure consistency
+between images before and after reflection, we exclusively
+used the edit subset in GenRef-wds.
+8. Implementation Details
+ThinkGen
+integrates
+Qwen3-VL-8B-Think
+[48]
+with
+OmniGen2-DiT-4B [57].
+The connector is implemented
+as a simple linear layer that maps the hidden states from
+the last two layers of Qwen3-VL-8B-Think, reducing their
+dimensionality from 8,192 to 2,520 to match the input re-
+quirements of DiT. For the Prepadding States, we set K=25.
+As shown in Tab. 10, we adopt a multi-stage supervised
+training strategy using a dynamic mixture of the curated
+data described in Sec. 7. Specifically, an alignment stage
+(Stage1) for initializing the connector, a large-scale pre-
+training stage (Stage2), and a supervised fine-tuning stage
+(Stage3) for high-quality fine-tuning.
+During the SepGRPO phase, images are generated at a
+resolution 512×512 over 20 steps. The cfg parameter is
+set to 4 and is enabled only during the first 60% of steps to
+accelerate generation. The rollout parameters N1 and N2
+are set to 8 and 24, respectively. In the DiT-GRPO stage,
+the loss is backward only for the first 60% of steps.
+9
+
+
+###[System Role Instruction]
+You are a prompt engineering expert.
+###[User Input]
+Please generate two prompts for AI image generation.
+These two prompts must incorporate
+sub-category in category knowledge.
+- The first prompt (prompt1) is a more vague prompt that requires sub-category knowledge (this
+prompt should be as vague as possible and the sentence length should be as short as possible, less than
+10 words). For specific writing methods, you can refer to **prompt1** in the Example.
+- The second prompt (prompt rewrite) should provide a straightforward, concrete description of the
+desired image. This prompt is a clear text-to-image prompt, which can be used to generate images for
+the text-to-image model without logical reasoning. This T2I prompt should be as clear as possible. For
+specific writing methods, you can refer to **prompt rewrite** in the Example)
+**Return the output as Do not output anything else.
+Output only a JSON list, no extra explanation. Strictly generate a list of 5 samples, nothing else. Each
+sample is a dictionary containing the two keys: “prompt1”, and “prompt rewrite”.**
+Table 9. The template to generate reasoning data pairs.
+Stage1
+Stage2
+Stage3
+Learning Rate
+1.0 × 10−3
+2.5 × 10−4
+1.0 × 10−4
+Batch Size
+512
+1280
+64
+LR scheduler
+Cosine
+Constant
+Constant
+Weight decay
+0.0
+0.0
+0.0
+Gradient Clip
+1.0
+1.0
+1.0
+Optimizer
+AdamW (β1 = 0.9, β2 = 0.95, ϵ = 10−9)
+Warm-up steps
+500
+0
+0
+Training steps
+47K
+100K
+11k
+Drop Rate
+10%
+10%
+0.01%
+Data Size
+24M
+60M
+0.7M
+Gen resolution
+512×512
+512×512
+1024×1024
+Table 10. Implementation Details of ThinkGen.
+9. SepGRPO Training Details
+Input Format. During Supervised Pre-training and Sep-
+GRPO, we employ distinct data templates for generating
+pseudo-CoT annotations and for guiding the MLLM in CoT
+reasoning, as detailed in Sec. 4.1 and Sec. 4.2. Despite their
+differences, both templates share a common system prompt
+[SYS] (Tab. 11), which facilitating a cold start in the RL
+stages, and encouraging the MLLM to rewrite user input
+instructions favored by DiT.
+Rule Models. SepGRPO employs distinct rule models tai-
+lored to each task, as detailed below:
+• Semantic Composition. We use GenEval [17] to eval-
+uate the consistency between generated images and pro-
+vided instructions.
+• Reasoning generation: For this task, images are gen-
+erated from the prompt in our collected reasoning
+dataset.
+The generated image and its corresponding
+prompt rewrite are then scored using HPSv3 [36].
+• Text rendering: We utilize 3K prompts containing text
+rendering. The generated images are processed with OCR
+[10] to extract contained words, and generation quality is
+assessed via word accuracy [12].
+• Image editing: 3K editing samples [41] are used for CoT
+reasoning editing. Both the generated images and ground
+truth are resized to 512×512, features are extracted using
+SigLIP2 [49], and editing quality is measured by cosine
+similarity.
+• Reflection:
+For this task, 3K reflection samples are
+split evenly into prompt–bad image and prompt–
+good image pairs.
+The prompt–bad image pairs
+use the corresponding editing instruction as ground-truth,
+while prompt–good image pairs use “The generated
+image is well aligned with the caption.” as ground-truth.
+The Normalized Edit Distance (NED) is used to evaluate
+the MLLM’s output. DiT is not used for this evaluation.
+10. Supplemental Ablation Study
+In this section, we present ablation studies on connector de-
+sign and the extraction strategy for the </think> state to
+validate the effectiveness of our model architecture.
+Connector Design. Tab. 12 compares the Stage1 results
+using different connector designs: a linear layer, a MLP,
+and a causal-transformer [28]. The results indicate that the
+simple linear layer achieves the best performance, outper-
+forming more complex connectors such as MLP and causal-
+transformer.
+Extraction strategy for the </think> state. In VGI-
+10
+
+
+###[System Role Instruction]
+You are a helpful, general-purpose AI assistant with the ability to generate images and understand
+images.
+Your primary goal is to assist the user effectively.
+When generating an image, provide a clear,
+one-sentence caption that accurately describes the requested image.
+###[User Input]
+caption or reference images + edit instruction
+Table 11. [SYS] for CoT reasoning.
+GenEval
+WISEBench
+ImgEdit
+CVTG
+Stage1
+Stage2
+Stage3
+Figure 7. Data Scaling in Stage1-3.
+Training stage
+GenEval
+WISE
+ImgEdit
+Linear (default)
+0.78
+0.46
+3.93
+MLP
+0.73
+0.43
+3.78
+Transformer
+0.80
+0.44
+3.8
+Table 12. Stage1 results of different connector designs. We use
+GenEval, WISE, ImgEdit for analysis.
+refine block, we truncate the hidden states preceding the
+</think> token, feeding only the subsequent hidden
+states into the DiT. As shown in Tab. 13, this strategy yields
+consistent improvements across all benchmarks, particu-
+larly for short-prompt generation tasks (GenEval: +0.12,
+WISE: +0.15, CVTG: +0.10, ImgEdit: +0.50). These re-
+sults indicate that truncating the pre-</think> hidden
+states effectively eliminates redundant information, thereby
+enhancing image generation quality.
+Short-Prompt
+Long-Prompt
+GenEval
+WISE
+CVTG
+ImgEdit
+DPG
+CUT
+0.78
+0.46
+0.28
+3.93
+80.86
+ALL
+0.66
+0.31
+0.18
+3.43
+80.60
+Table 13. We analyze the impact of the extraction strategy in VGI-
+refine using GenEval, WISE, and CVTG. The CUT denotes using
+only the hidden states following the </think> token for image
+generation, while ALL employs all hidden states.
+11. Data Scaling
+We examine the scaling behavior of ThinkGen when in-
+creasing training data in Stage1-3 (Fig. 7).
+11
+
+
+Prompt
+Results
+Results w/Thinking
+A caterpillar having 
+completed its pupation 
+process
+<think> Okay, the user asked for "An animal, a symbol of strength in Brazil." Let me think about which animal 
+that is. Brazil has several national symbols, but the most prominent one related to strength is the jaguar. Jaguars 
+are apex predators, known for their power and agility. They're also the national animal of Brazil, right? Wait, 
+actually, the national animal of Brazil is the jaguar, but sometimes people might confuse it with the cockatoo or 
+other animals. Let me confirm. Yes, the jaguar is the national animal of Brazil and is often associated with 
+strength and power. So the user probably wants an image of a jaguar. I should make sure to specify that it's a 
+jaguar in the caption. The instruction should be clear: generate an image of a jaguar in its natural habitat, 
+showcasing its muscular build and intense gaze to emphasize strength. Let me check if there's any other animal 
+that could be considered. Maybe the capybara? No, capybaras are more known for being the largest rodents, not 
+symbols of strength. So jaguar is definitely the right choice. </think>
+Generate an image of a majestic jaguar standing powerfully in the Brazilian rainforest, showcasing its muscular 
+build, intense gaze, and distinctive spotted coat to symbolize strength and wilderness.
+<think> Okay, the user asked for an image of a caterpillar that has completed its pupation process. Let me break 
+this down. First, I need to recall the life cycle of a butterfly or moth. Caterpillars go through metamorphosis, 
+right? They start as eggs, then hatch into caterpillars, which eat and grow. Then they form a chrysalis or cocoon, 
+which is the pupation stage. After that, they emerge as adult butterflies or moths. Actually, once the pupation is 
+complete, the caterpillar is no longer a caterpillar. It's a butterfly or moth. So the user might have a 
+misunderstanding. But the request is to generate an image of a caterpillar after pupation. Maybe they want the 
+adult insect, but they called it a caterpillar by mistake. Alternatively, maybe they're referring to the chrysalis 
+stage, but the user said "completed," so it's the end result. </think>
+Generate a realistic image of a newly emerged adult butterfly with delicate wings still slightly crumpled, 
+standing on a leaf beside its empty chrysalis, showcasing vibrant wing patterns and fine details of its antennae 
+and body.
+An animal, a symbol 
+of strength in Brazil
+Most commonly 
+used tools during 
+Diwali in India
+<think> Okay, the user is asking about the most commonly used tools during Diwali in India. Let me start by 
+recalling what Diwali is. It‘s the Festival of Lights, celebrated with lights, fireworks, and various traditions. But 
+the user specifically mentioned “tools,” which is a bit tricky because Diwali isn’t typically associated with tools. 
+Maybe they mean items or objects used in the celebrations. The main ones are diyas, rangoli materials (colored 
+powders, rice, flowers), fireworks (firecrackers), sweets (like laddu, jalebi), and decorations (torans, lights).
+So, the response should clarify that while Diwali isn‘t about tools, the common items include diyas, rangoli 
+materials, fireworks, sweets, and decorations. Then, if they meant cleaning tools, mention those as well. But the 
+user said “most commonly used tools,” so maybe they’re referring to the items used in the rituals. </think>
+Generate an image showing a traditional Indian Diwali celebration scene with a woman lighting clay diyas
+(lamps) on a decorated home entrance, arranging colorful rangoli patterns with turmeric and rice powder, and 
+preparing sweets in a kitchen with copper utensils, while fireworks and diyas illuminate the background.
+Eggs which are 
+recently hatched
+<think> Okay, the user asked for “Eggs which are recently hatched.” Let me break this down. First, they want 
+images of eggs that have just hatched. But wait, eggs that have hatched would typically show the baby animal 
+emerging, right? So maybe they‘re looking for images of newly hatched chicks, ducklings, or other baby animals 
+coming out of their shells. I need to generate an image based on that. The correct approach would be to create an 
+image showing a newly hatched chick (or similar) emerging from its eggshell. The caption should clarify that it’s 
+a baby bird (like a chick) just hatched, with the eggshell partially broken. Alternatively, if it‘s a different animal, 
+but the most common example is a chicken. The user didn’t specify the animal, so using a chick is safe. Let me 
+confirm if there‘s any other possibility. Maybe ducklings or other birds, but chick is the standard example.
+</think>
+Generate a realistic image of a newborn chick with partially broken eggshell, standing on a nest of straw and 
+twigs, showcasing soft downy feathers, bright yellow beak, and curious expression under natural daylight.
+A field of 
+dandelions in 
+autumn
+<think> Okay, the user asked for “A field of dandelions in autumn.” Let me break this down. First, dandelions 
+in autumn—dandelions are typically associated with spring, but they do bloom in autumn too, especially in 
+temperate regions. The user probably wants a realistic scene showing dandelions during fall. I need to consider 
+the key elements: a field, dandelions, autumn setting. Autumn means colors like gold, orange, brown, maybe 
+some remaining green. Dandelions in autumn might have seed heads (the fluffy white balls) since they‘re late 
+bloomers. The field should look natural, maybe with some grasses, fallen leaves, and maybe a few trees in the 
+background to set the season. Let me check: dandelions bloom from spring to fall, so in autumn, they can have 
+both flowers and seed heads. So the image should have both. Maybe some yellow flowers and some white seed 
+heads. The field should look vibrant but with autumn colors. </think>
+Generate a realistic autumn landscape featuring a sunlit field of dandelions in various stages of bloom (yellow 
+flowers and fluffy seed heads), surrounded by golden grasses, scattered fallen leaves, and soft sunlight 
+highlighting the textures of the plants and earthy terrain.
+The instrument 
+used by the Italian 
+astronomer who 
+famously observed 
+the moons of 
+Jupiter in the 17th 
+century
+<think> Okay, the user is asking about the instrument used by the Italian astronomer who observed Jupiter‘s 
+moons in the 17th century. Let me recall who that astronomer is. It’s Galileo Galilei, right? He‘s famous for his 
+telescopic observations of Jupiter’s moons, which were a big deal back then. Now, the instrument he used. I 
+think it was a telescope, but I need to be specific. Galileo didn‘t invent the telescope, but he improved it and 
+used it for astronomical observations. The key here is to mention the type of telescope he used. I remember he 
+used a refracting telescope, which uses lenses to gather and focus light. I should phrase the response as: 
+“Generate an image of a Galilean telescope, the refracting telescope used by Galileo Galilei for his observations 
+of Jupiter’s moons in the 17th century.” That‘s precise and includes the key details. </think>
+Generate an image of a Galilean telescope, the refracting instrument used by Galileo Galilei for his 
+groundbreaking 17th-century observations of Jupiter's four largest moons.
+Figure 8. Comparison of image generation with thinking versus without.
+12
+
+
+Draw what this 
+species look like 
+more than two 
+million years ago
+<think> Got it, the user is asking to draw what this species (a modern human) looked like more 
+than two million years ago. The user said "this species" referring to the person in the image, which 
+is a modern human. So the task is to imagine what the ancestor of modern humans looked like 2 
+million years ago. So the correct species is Homo erectus (since Homo sapiens didn't exist then). 
+So the edit instruction should be: "Replace the modern human's features with those of Homo 
+erectus, including a more robust build, prominent brow ridges, a larger nose, a smaller braincase 
+relative to body size, and a more primitive facial structure, while maintaining the same pose and 
+background."</think>
+Edit the image to depict a Homo erectus ancestor from approximately 2 million years ago, 
+replacing the modern human's features with characteristics like a more robust skeletal structure, 
+prominent brow ridges, a larger nasal aperture, a smaller braincase relative to body size, and a 
+more primitive facial structure while retaining the same pose and background.
+Draw what it will 
+look like after two 
+years underwater
+<think> Got it, the user wants to know what the key would look like after two years underwater. 
+First, I need to consider the effects of water on metal. The key would have significant corrosion: 
+the metal would look dull, maybe with greenish or brownish patina (from copper corrosion), rust 
+spots, and the edges might be eroded. The numbers "2600" might be partially worn. The key's 
+surface would be rougher, with possible holes from corrosion. The wooden background might have 
+water damage, but the key is the main subject. </think>
+Edit the image to show the key with significant corrosion, including a dull, tarnished metallic 
+surface with greenish-brown patina, pitted edges, and partially eroded engravings (e.g., "2600" and 
+the brand name), while the wooden background shows water damage and discoloration from 
+prolonged submersion.
+Draw what it will 
+look like after one 
+month of being 
+neglected.
+<think> Got it, the user wants to know what the plant will look like after one month of neglect. 
+First, I need to analyze the current image. The plant is a potted houseplant, probably a type like a 
+Pothos or maybe a similar broad-leafed indoor plant. Neglecting a plant for a month typically 
+means no water, maybe no light, or both. Since it's on a windowsill, maybe the neglect is due to not 
+watering. The plant in the image has glossy leaves, so it's likely a plant that needs regular watering. 
+After one month without water, the soil would be dry, roots might start to die, leading to wilting. 
+The leaves could lose their sheen, become limp, and some might turn yellow or brown. Maybe the 
+plant starts to droop, and the overall appearance becomes less vibrant. </think>
+Edit the image to show the plant with wilted, yellowing leaves, brown edges, drooping stems, dry 
+soil, and a slightly dusty pot, indicating one month of neglect.
+Draw what it will 
+look like after the 
+knot is untied.
+<think> Got it, the user wants to know what the image would look like after the knot is untied. 
+First, I need to analyze the current image. It's a close-up of a complex, tightly knotted rope, 
+probably a type of knot like a bowline or a similar secure knot. The rope is light brown, braided, 
+and the knot is intricate with multiple loops and twists. When you untie a knot, the rope would 
+return to its original, unknotted state. So the image after untying would show the rope as a straight, 
+continuous braid without any knots. The background is plain white, so the unknotted rope would 
+just be the same rope laid out straight, maybe with some slight natural curves from how it was 
+handled, but no complex knots. So the edit instruction should be: "Remove the complex knot from 
+the rope, leaving the rope as a single, straight, braided strand with natural fibers, against the same 
+plain white background.” </think>
+Remove the intricate knot from the rope, leaving the rope as a single, straight, braided strand with 
+natural fibers and slight texture, against the same plain white background.
+Draw what it will 
+look like immediately 
+after someone stands 
+up from sitting on it 
+for a long time.
+<think> Got it, the user wants to know what the bean bag looks like after someone stands up from 
+sitting on it for a long time. First, I need to visualize the current state. The bean bag is a lime green, 
+plush, and has some creases from sitting. When someone sits on it, the fabric compresses, 
+especially in the seat area. After standing up, the fabric would sag a bit more because the weight 
+was removed, but the creases might remain. The bean bag might have a more pronounced dip or 
+indentation where the person was sitting, and the overall shape might be less rounded, with some 
+wrinkles or folds left behind. Also, the fabric might not fully return to its original shape 
+immediately, so there could be temporary sagging. </think>
+Edit the image to show the lime green bean bag with visible sagging and deeper creases in the seat 
+area, where the fabric has settled into a more pronounced indentation and relaxed folds after the 
+person stood up, while maintaining the overall soft, plush texture and subtle wrinkles from 
+prolonged sitting.
+Draw what it will look 
+like after popping.
+<think> Got it, the user provided an image of a corn kernel and asked to draw what it will 
+look like after popping. First, I need to recall that a popped corn kernel becomes a fluffy 
+popcorn. The original image is a single yellow corn kernel. After popping, it should transform 
+into a light, airy, and expanded structure with a white or pale yellow color, with a soft, porous 
+texture. The shape would be irregular and puffy, not the hard, smooth oval of the raw kernel. I 
+need to describe the edit instruction clearly. Let me make sure to capture the key elements: the 
+transformation from a small, hard kernel to a large, fluffy, white/pale yellow popped piece 
+with a soft, airy appearance. </think>
+Edit the image to transform the single yellow corn kernel into a fluffy, expanded popcorn 
+kernel with a light golden-brown, airy texture, showing the characteristic puffed, irregular 
+shape and soft, porous surface typical of popped corn.
+<think> Got it, the user wants me to describe what the window would look like after being hit by 
+a baseball. First, I need to visualize the original image: a window with wooden frames, curtains, 
+plants inside. A baseball hit would cause damage. Let's think about the impact. The window is 
+probably glass, so the baseball would shatter the glass. The wooden frame might get dented or 
+cracked, but the main damage is to the glass. The window sill might have debris from the broken 
+glass. I need to make sure the description is clear and accurate. Let me structure it: the glass is 
+shattered with cracks radiating from the impact point, pieces of glass scattered, curtains torn, 
+plants disturbed, frame possibly cracked. </think>
+Shatter the central glass pane of the window with radial cracks, scatter small glass fragments 
+across the sill and frame, tear the curtains slightly, and displace the indoor plants while keeping 
+the wooden frame intact but showing visible impact marks.
+Draw what it will 
+look like after being 
+hit by a baseball.
+Input Image
+Instruction
+Results
+Results w/Thinking
+Figure 9. Comparison of image editing with thinking versus without.
+13
+
+
+References
+[1] Hidream-i1. In https://github.com/HiDream-ai/HiDream-I1,
+2025. 6
+[2] David Beniaguev. Synthetic faces high quality - text 2 image
+(sfhq-t2i) dataset, 2024. 6, 9
+[3] Tim Brooks, Aleksander Holynski, and Alexei A Efros. In-
+structpix2pix: Learning to follow image editing instructions.
+In CVPR, 2023. 7
+[4] Siyu Cao, Hangting Chen, Peng Chen, Yiji Cheng, et al.
+Hunyuanimage 3.0 technical report, 2025. 3
+[5] Junsong Chen, Chongjian Ge, Enze Xie, Yue Wu, Lewei
+Yao, Xiaozhe Ren, Zhongdao Wang, Ping Luo, Huchuan Lu,
+and Zhenguo Li. Pixart-σ: Weak-to-strong training of diffu-
+sion transformer for 4k text-to-image generation. In ECCV,
+2024. 6, 7
+[6] Junying Chen, Zhenyang Cai, Pengcheng Chen, Shunian
+Chen, Ke Ji, Xidong Wang, Yunjin Yang, and Benyou Wang.
+Sharegpt-4o-image: Aligning multimodal models with gpt-
+4o-level image generation. arXiv:2506.18095, 2025. 7
+[7] Junying Chen, Zhenyang Cai, Pengcheng Chen, Shunian
+Chen, Ke Ji, Xidong Wang, Yunjin Yang, and Benyou Wang.
+Sharegpt-4o-image: Aligning multimodal models with gpt-
+4o-level image generation, 2025. 6, 9
+[8] Jiuhai Chen, Zhiyang Xu, Xichen Pan, Yushi Hu, Can Qin,
+Tom Goldstein, Lifu Huang, Tianyi Zhou, Saining Xie, Sil-
+vio Savarese, et al. Blip3-o: A family of fully open uni-
+fied multimodal models-architecture, training and dataset.
+arXiv:2505.09568, 2025. 3, 6, 7
+[9] Xiaokang Chen, Zhiyu Wu, Xingchao Liu, Zizheng Pan,
+Wen Liu, Zhenda Xie, Xingkai Yu, and Chong Ruan. Janus-
+pro: Unified multimodal understanding and generation with
+data and model scaling. arXiv:2501.17811, 2025. 3, 6, 7
+[10] Cheng Cui, Ting Sun, Manhui Lin, Tingquan Gao, Yubo
+Zhang, Jiaxuan Liu, Xueqing Wang, Zelun Zhang, Changda
+Zhou, Hongen Liu, et al.
+Paddleocr 3.0 technical report.
+arXiv preprint arXiv:2507.05595, 2025. 10
+[11] Chaorui Deng, Deyao Zhu, Kunchang Li, Chenhui Gou,
+Feng Li, Zeyu Wang, Shu Zhong, Weihao Yu, Xiaonan Nie,
+Ziang Song, et al. Emerging properties in unified multimodal
+pretraining. arXiv:2505.14683, 2025. 1, 3, 6, 7
+[12] Nikai Du, Zhennan Chen, Shan Gao, Zhizhou Chen, Xi
+Chen, Zhengkai Jiang, Jian Yang, and Ying Tai. Textcrafter:
+Accurately rendering multiple texts in complex visual
+scenes. arXiv preprint arXiv:2503.23461, 2025. 5, 6, 7, 10
+[13] Patrick Esser, Robin Rombach, and Bjorn Ommer. Taming
+transformers for high-resolution image synthesis.
+In Pro-
+ceedings of the IEEE/CVF conference on computer vision
+and pattern recognition, pages 12873–12883, 2021. 3, 6
+[14] Patrick Esser, Sumith Kulal, Andreas Blattmann, Rahim
+Entezari, Jonas M¨uller, Harry Saini, Yam Levi, Dominik
+Lorenz, Axel Sauer, Frederic Boesel, et al. Scaling recti-
+fied flow transformers for high-resolution image synthesis.
+In Forty-first international conference on machine learning,
+2024. 3, 7
+[15] Rongyao Fang, Aldrich Yu, Chengqi Duan, Linjiang Huang,
+Shuai Bai, Yuxuan Cai, Kun Wang, Si Liu, Xihui Liu, and
+Hongsheng Li. Flux-reason-6m & prism-bench: A million-
+scale text-to-image reasoning dataset and comprehensive
+benchmark. arXiv preprint arXiv:2509.09680, 2025. 6, 9
+[16] Samir Yitzhak Gadre, Gabriel Ilharco, Alex Fang, Jonathan
+Hayase, Georgios Smyrnis, Thao Nguyen, Ryan Marten,
+Mitchell Wortsman, Dhruba Ghosh, Jieyu Zhang, et al. Dat-
+acomp:
+In search of the next generation of multimodal
+datasets. Advances in Neural Information Processing Sys-
+tems, 36:27092–27112, 2023. 9
+[17] Dhruba Ghosh, Hannaneh Hajishirzi, and Ludwig Schmidt.
+Geneval: An object-focused framework for evaluating text-
+to-image alignment. Advances in Neural Information Pro-
+cessing Systems, 36:52132–52152, 2023. 5, 6, 10
+[18] Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song,
+Ruoyu Zhang, Runxin Xu, Qihao Zhu, Shirong Ma, Peiyi
+Wang, Xiao Bi, et al. Deepseek-r1: Incentivizing reasoning
+capability in llms via reinforcement learning. arXiv preprint
+arXiv:2501.12948, 2025. 1, 3
+[19] Ziyu Guo, Renrui Zhang, Chengzhuo Tong, Zhizheng Zhao,
+Rui Huang, Haoquan Zhang, Manyuan Zhang, Jiaming Liu,
+Shanghang Zhang, Peng Gao, et al. Can we generate images
+with cot? let’s verify and reinforce image generation step by
+step. arXiv preprint arXiv:2501.13926, 2025. 1
+[20] Xiwei Hu, Rui Wang, Yixiao Fang, Bin Fu, Pei Cheng,
+and Gang Yu.
+Ella:
+Equip diffusion models with
+llm for enhanced semantic alignment.
+arXiv preprint
+arXiv:2403.05135, 2024. 6
+[21] Runhui Huang, Chunwei Wang, Junwei Yang, Guansong Lu,
+Yunlong Yuan, Jianhua Han, Lu Hou, Wei Zhang, Lanqing
+Hong, Hengshuang Zhao, et al. Illume+: Illuminating uni-
+fied mllm with dual visual tokenization and diffusion refine-
+ment. arXiv:2504.01934, 2025. 7
+[22] Aaron Jaech, Adam Kalai, Adam Lerer, Adam Richard-
+son, Ahmed El-Kishky, Aiden Low, Alec Helyar, Aleksander
+Madry, Alex Beutel, Alex Carney, et al. Openai o1 system
+card. arXiv preprint arXiv:2412.16720, 2024. 3
+[23] Dongzhi Jiang, Ziyu Guo, Renrui Zhang, Zhuofan Zong,
+Hao Li, Le Zhuo, Shilin Yan, Pheng-Ann Heng, and Hong-
+sheng Li. T2i-r1: Reinforcing image generation with col-
+laborative semantic-level and token-level cot. arXiv preprint
+arXiv:2505.00703, 2025. 1
+[24] Maksim Kuprashevich, Grigorii Alekseenko, Irina Tolstykh,
+Georgii Fedorov, Bulat Suleimanov, Vladimir Dokholyan,
+and Aleksandr Gordeev. NoHumansRequired: Autonomous
+High-Quality Image Editing Triplet Mining. arXiv preprint
+arXiv:2507.14119, 2025. 6, 9
+[25] Black Forest Labs. Flux. https://github. com/black-forest-
+labs/flux, 2023. 3, 6, 7
+[26] Black Forest Labs. Flux1-canny. In https://github.com/black-
+forest-labs/flux, 2024. 6
+[27] UNIFIED MULTIMODAL LEARNING. Star: Stacked au-
+toregressive scheme for unified multimodal learning. 6
+[28] Bin Lin, Zongjian Li, Xinhua Cheng, Yuwei Niu, Yang Ye,
+Xianyi He, Shenghai Yuan, Wangbo Yu, Shaodong Wang,
+Yunyang Ge, et al.
+Uniworld: High-resolution semantic
+encoders for unified visual understanding and generation.
+arXiv:2506.03147, 2025. 3, 7, 10
+14
+
+
+[29] Yaron Lipman, Ricky TQ Chen, Heli Ben-Hamu, Maximil-
+ian Nickel, and Matt Le. Flow matching for generative mod-
+eling. arXiv preprint arXiv:2210.02747, 2022. 4
+[30] Jie Liu, Gongye Liu, Jiajun Liang, Yangguang Li, Jiaheng
+Liu, Xintao Wang, Pengfei Wan, Di Zhang, and Wanli
+Ouyang. Flow-grpo: Training flow matching models via on-
+line rl. arXiv preprint arXiv:2505.05470, 2025. 3, 5, 9
+[31] Shiyu Liu, Yucheng Han, Peng Xing, Fukun Yin, Rui Wang,
+Wei Cheng, Jiaqi Liao, Yingming Wang, Honghao Fu, Chun-
+rui Han, et al. Step1x-edit: A practical framework for general
+image editing. arXiv:2504.17761, 2025. 6, 7
+[32] Xingchao Liu, Chengyue Gong, and Qiang Liu.
+Flow
+straight and fast: Learning to generate and transfer data with
+rectified flow. arXiv preprint arXiv:2209.03003, 2022. 4
+[33] Xin Luo, Jiahao Wang, Chenyuan Wu, Shitao Xiao, Xiyan
+Jiang, Defu Lian, Jiajun Zhang, Dong Liu, et al. Editscore:
+Unlocking online rl for image editing via high-fidelity re-
+ward modeling. arXiv preprint arXiv:2509.23909, 2025. 3
+[34] Jian Ma, Xujie Zhu, Zihao Pan, Qirong Peng, Xu Guo,
+Chen Chen, and Haonan Lu. X2edit: Revisiting arbitrary-
+instruction image editing through self-constructed data and
+task-aware representation learning, 2025. 6, 9
+[35] Yiyang Ma, Xingchao Liu, Xiaokang Chen, Wen Liu,
+Chengyue Wu, Zhiyu Wu, Zizheng Pan, Zhenda Xie, Haowei
+Zhang, Xingkai Yu, et al. Janusflow: Harmonizing autore-
+gression and rectified flow for unified multimodal under-
+standing and generation. In Proceedings of the Computer Vi-
+sion and Pattern Recognition Conference, pages 7739–7751,
+2025. 3
+[36] Yuhang Ma, Xiaoshi Wu, Keqiang Sun, and Hongsheng Li.
+Hpsv3: Towards wide-spectrum human preference score. In
+Proceedings of the IEEE/CVF International Conference on
+Computer Vision, pages 15086–15095, 2025. 5, 10
+[37] Yuwei Niu, Munan Ning, Mengren Zheng, Weiyang Jin, Bin
+Lin, Peng Jin, Jiaqi Liao, Chaoran Feng, Kunpeng Ning,
+Bin Zhu, et al. Wise: A world knowledge-informed seman-
+tic evaluation for text-to-image generation. arXiv preprint
+arXiv:2503.07265, 2025. 6, 9
+[38] OpenAI. Introducing 4o image generation, 2025. 1, 7, 9
+[39] Xichen Pan, Satya Narayan Shukla, Aashu Singh, Zhuokai
+Zhao, Shlok Kumar Mishra, Jialiang Wang, Zhiyang Xu, Ji-
+uhai Chen, Kunpeng Li, Felix Juefei-Xu, et al.
+Transfer
+between modalities with metaqueries.
+arXiv:2504.06256,
+2025. 3, 6, 7
+[40] Dustin
+Podell,
+Zion
+English,
+Kyle
+Lacey,
+Andreas
+Blattmann, Tim Dockhorn, Jonas M¨uller, Joe Penna, and
+Robin Rombach.
+Sdxl: Improving latent diffusion mod-
+els for high-resolution image synthesis. arXiv:2307.01952,
+2023. 3, 6, 7
+[41] Yusu Qian, Eli Bocek-Rivele, Liangchen Song, Jialing Tong,
+Yinfei Yang, Jiasen Lu, Wenze Hu, and Zhe Gan.
+Pico-
+banana-400k: A large-scale dataset for text-guided image
+editing, 2025. 9, 10
+[42] Luozheng Qin, Jia Gong, Yuqing Sun, Tianjiao Li, Meng-
+ping Yang, Xiaomeng Yang, Chao Qu, Zhiyu Tan, and Hao
+Li.
+Uni-cot: Towards unified chain-of-thought reasoning
+across text and vision.
+arXiv preprint arXiv:2508.05606,
+2025. 1
+[43] John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Rad-
+ford, and Oleg Klimov. Proximal policy optimization algo-
+rithms. arXiv preprint arXiv:1707.06347, 2017. 3
+[44] Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Junx-
+iao Song, Mingchuan Zhang, YK Li, Y Wu, and Daya
+Guo.
+Deepseekmath: Pushing the limits of mathemati-
+cal reasoning in open language models.
+arXiv preprint
+arXiv:2402.03300, 2024. 1
+[45] Yiren Song, Cheng Liu, and Mike Zheng Shou. Omniconsis-
+tency: Learning style-agnostic consistency from paired styl-
+ization data. arXiv preprint arXiv:2505.18445, 2025. 6, 9
+[46] Quan Sun, Yufeng Cui, Xiaosong Zhang, Fan Zhang, Qiy-
+ing Yu, Yueze Wang, Yongming Rao, Jingjing Liu, Tiejun
+Huang, and Xinlong Wang.
+Generative multimodal mod-
+els are in-context learners. In Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition,
+pages 14398–14409, 2024. 6
+[47] Gemini Team, Rohan Anil, Sebastian Borgeaud, Jean-
+Baptiste Alayrac, Jiahui Yu, Radu Soricut, Johan Schalkwyk,
+Andrew M Dai, Anja Hauth, Katie Millican, et al. Gemini: a
+family of highly capable multimodal models. arXiv preprint
+arXiv:2312.11805, 2023. 6
+[48] Qwen Team. Qwen3-vl, https://github.com/qwenlm/qwen3-
+vl. 2025. 1, 3, 9
+[49] Michael Tschannen, Alexey Gritsenko, Xiao Wang, Muham-
+mad
+Ferjad
+Naeem,
+Ibrahim
+Alabdulmohsin,
+Nikhil
+Parthasarathy, Talfan Evans, Lucas Beyer, Ye Xia, Basil
+Mustafa, et al. Siglip 2: Multilingual vision-language en-
+coders with improved semantic understanding, localization,
+and dense features. arXiv preprint arXiv:2502.14786, 2025.
+5, 9, 10
+[50] Aaron Van Den Oord, Oriol Vinyals, et al. Neural discrete
+representation learning. Advances in neural information pro-
+cessing systems, 30, 2017. 3
+[51] Chen Wang, Danfei Xu, Yuke Zhu, Roberto Mart´ın-Mart´ın,
+Cewu Lu, Li Fei-Fei, and Silvio Savarese. Densefusion: 6d
+object pose estimation by iterative dense fusion. 2019. 6, 9
+[52] Xinlong Wang, Xiaosong Zhang, Zhengxiong Luo, Quan
+Sun, Yufeng Cui, Jinsheng Wang, Fan Zhang, Yueze Wang,
+Zhen Li, Qiying Yu, et al. Emu3: Next-token prediction is
+all you need. arXiv preprint arXiv:2409.18869, 2024. 3, 6,
+7
+[53] Yi Wang, Mushui Liu, Wanggui He, Longxiang Zhang, Zi-
+wei Huang, Guanghao Zhang, Fangxun Shu, Zhong Tao,
+Dong She, Zhelun Yu, et al. Mint: Multi-modal chain of
+thought in unified generative models for enhanced image
+generation. arXiv preprint arXiv:2503.01298, 2025. 1
+[54] Yuhan Wang, Siwei Yang, Bingchen Zhao, Letian Zhang,
+Qing Liu, Yuyin Zhou, and Cihang Xie.
+Gpt-image-edit-
+1.5 m: A million-scale, gpt-generated image dataset. arXiv
+preprint arXiv:2507.21033, 2025. 6, 9
+[55] Chengyue Wu, Xiaokang Chen, Zhiyu Wu, Yiyang Ma,
+Xingchao Liu, Zizheng Pan, Wen Liu, Zhenda Xie, Xingkai
+Yu, Chong Ruan, et al. Janus: Decoupling visual encod-
+ing for unified multimodal understanding and generation. In
+Proceedings of the Computer Vision and Pattern Recognition
+Conference, pages 12966–12977, 2025. 3
+15
+
+
+[56] Chenfei Wu, Jiahao Li, Jingren Zhou, Junyang Lin, Kaiyuan
+Gao, Kun Yan, Sheng-ming Yin, Shuai Bai, Xiao Xu, Yilei
+Chen, et al. Qwen-image technical report. arXiv preprint
+arXiv:2508.02324, 2025. 3
+[57] Chenyuan Wu, Pengfei Zheng, Ruiran Yan, Shitao Xiao, Xin
+Luo, Yueze Wang, Wanli Li, Xiyan Jiang, Yexin Liu, Junjie
+Zhou, et al. Omnigen2: Exploration to advanced multimodal
+generation. arXiv:2506.18871, 2025. 3, 6, 7, 9
+[58] Yecheng Wu, Zhuoyang Zhang, Junyu Chen, Haotian Tang,
+Dacheng Li, Yunhao Fang, Ligeng Zhu, Enze Xie, Hongxu
+Yin, Li Yi, et al. Vila-u: a unified foundation model integrat-
+ing visual understanding and generation. arXiv:2409.04429,
+2024. 6
+[59] Heming Xia, Yongqi Li, Chak Tou Leong, Wenjie Wang,
+and Wenjie Li.
+Tokenskip: Controllable chain-of-thought
+compression in llms, 2025. URL https://arxiv. org/abs/2502,
+12067. 3
+[60] Shitao Xiao, Yueze Wang, Junjie Zhou, Huaying Yuan, Xin-
+grun Xing, Ruiran Yan, Chaofan Li, Shuting Wang, Tiejun
+Huang, and Zheng Liu. Omnigen: Unified image genera-
+tion. In CVPR, 2025. 6, 7
+[61] LLM Xiaomi, Bingquan Xia, Bowen Shen, Dawei Zhu, Di
+Zhang, Gang Wang, Hailin Zhang, Huaqiu Liu, Jiebao Xiao,
+Jinhao Dong, et al. Mimo: Unlocking the reasoning potential
+of language model–from pretraining to posttraining. arXiv
+preprint arXiv:2505.07608, 2025. 1
+[62] Enze Xie, Junsong Chen, Junyu Chen, Han Cai, Haotian
+Tang, Yujun Lin, Zhekai Zhang, Muyang Li, Ligeng Zhu,
+Yao Lu, et al. Sana: Efficient high-resolution image syn-
+thesis with linear diffusion transformers. arXiv:2410.10629,
+2024. 7
+[63] Jinheng Xie, Zhenheng Yang, and Mike Zheng Shou. Show-
+o2: Improved native unified multimodal models.
+arXiv
+preprint arXiv:2506.15564, 2025. 3, 6
+[64] Silei Xu, Wenhao Xie, Lingxiao Zhao, and Pengcheng He.
+Chain of draft:
+Thinking faster by writing less.
+arXiv
+preprint arXiv:2502.18600, 2025. 3
+[65] Zeyue Xue, Jie Wu, Yu Gao, Fangyuan Kong, Lingting
+Zhu, Mengzhao Chen, Zhiheng Liu, Wei Liu, Qiushan Guo,
+Weilin Huang, et al. Dancegrpo: Unleashing grpo on visual
+generation. arXiv preprint arXiv:2505.07818, 2025. 3
+[66] An Yang, Anfeng Li, Baosong Yang, Beichen Zhang,
+Binyuan Hui, Bo Zheng, Bowen Yu, Chang Gao, Chengen
+Huang, Chenxu Lv, et al. Qwen3 technical report. arXiv
+preprint arXiv:2505.09388, 2025. 1, 9
+[67] Junyan Ye, Dongzhi Jiang, Zihao Wang, Leqi Zhu, Zheng-
+hao Hu, Zilong Huang, Jun He, Zhiyuan Yan, Jinghua Yu,
+Hongsheng Li, et al. Echo-4o: Harnessing the power of gpt-
+4o synthetic images for improved image generation. arXiv
+preprint arXiv:2508.09987, 2025. 6, 9
+[68] Yang Ye, Xianyi He, Zongjian Li, Bin Lin, Shenghai Yuan,
+Zhiyuan Yan, Bohan Hou, and Li Yuan. Imgedit: A uni-
+fied image editing dataset and benchmark. arXiv preprint
+arXiv:2505.20275, 2025. 6
+[69] Qifan Yu, Wei Chow, Zhongqi Yue, Kaihang Pan, Yang
+Wu, Xiaoyang Wan, Juncheng Li, Siliang Tang, Hanwang
+Zhang, and Yueting Zhuang.
+Anyedit: Mastering unified
+high-quality image editing for any idea. In CVPR, 2025. 7
+[70] Kai Zhang, Lingbo Mo, Wenhu Chen, Huan Sun, and Yu Su.
+Magicbrush: A manually annotated dataset for instruction-
+guided image editing. In NeurIPS, 2023. 7
+[71] Zechuan Zhang, Ji Xie, Yu Lu, Zongxin Yang, and Yi Yang.
+In-context edit: Enabling instructional image editing with
+in-context generation in large scale diffusion transformer.
+arXiv:2504.20690, 2025. 7
+[72] Haozhe Zhao, Xiaojian Shawn Ma, Liang Chen, Shuzheng
+Si, Rujie Wu, Kaikai An, Peiyu Yu, Minjia Zhang, Qing Li,
+and Baobao Chang. Ultraedit: Instruction-based fine-grained
+image editing at scale. In NeurIPS, 2024. 6, 7, 9
+[73] Xiangyu Zhao, Peiyuan Zhang, Kexian Tang, Xiaorong Zhu,
+Hao Li, Wenhao Chai, Zicheng Zhang, Renqiu Xia, Guang-
+tao Zhai, Junchi Yan, et al.
+Envisioning beyond the pix-
+els: Benchmarking reasoning-informed visual editing. arXiv
+preprint arXiv:2504.02826, 2025. 6
+[74] Le Zhuo, Liangbing Zhao, Sayak Paul, Yue Liao, Renrui
+Zhang, Yi Xin, Peng Gao, Mohamed Elhoseiny, and Hong-
+sheng Li. From reflection to perfection: Scaling inference-
+time optimization for text-to-image diffusion models via re-
+flection tuning. In Proceedings of the IEEE/CVF Interna-
+tional Conference on Computer Vision, pages 15329–15339,
+2025. 9
+16

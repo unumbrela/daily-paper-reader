@@ -1,0 +1,934 @@
+The Minimum Subgraph Complementation Problem
+Juan Gutiérrez∗
+Sagartanu Pal†
+Abstract
+Subgraph complementation is an operation that toggles all adjacencies inside a selected vertex
+set. Given a graph G and a target class C, the Minimum Subgraph Complementation problem asks
+for a minimum-size vertex set S such that complementing the subgraph induced by S transforms
+G into a graph belonging to C. While the decision version of Subgraph Complementation has
+been extensively studied and is NP-complete for many graph classes, the algorithmic complexity
+of its optimization variant has remained largely unexplored.
+In this paper, we study MSC from an algorithmic perspective. We present polynomial-
+time algorithms for MSC in several nontrivial settings. Our results include polynomial-time
+solvability for transforming graphs between bipartite, co-bipartite, and split graphs, as well as
+for complementing bipartite regular graphs into chordal graphs. We also show that MSC to the
+class of graphs of fixed degeneracy can be solved in polynomial time when the input graph is a
+forest. Moreover, we investigate MSC with respect to connectivity and prove that MSC to the
+class of disconnected graphs and to the class of 2-connected graphs can be solved in polynomial
+time for arbitrary inputs.
+1
+Introduction
+In this work, a graph is always simple and undirected, and the notation used is standard [6, 13].
+Given a graph G and a nonempty subset S of vertices of G, the graph G ⊕S is obtained from G by
+complementing the adjacencies between vertices of S, that is, by replacing the induced subgraph
+G[S] with its complement. Thus, when S consists of two vertices, the operation simply toggles the
+adjacency between them, while for larger sets S, it reverses all adjacencies among the vertices of S.
+This operation, known as subgraph complementation, was first introduced by Kamiński et al. [19] in
+the context of clique-width. A more systematic algorithmic investigation was later undertaken by
+Fomin et al. [16], who studied the following decision problem.
+Subgraph Complementation (SC)
+Input: A graph G and a graph class C.
+Question: Does there exist a subset S ⊆V (G) such that G ⊕S ∈C?
+They showed that for some classes C, such as triangle-free, bipartite, d-degenerate, or P4-free
+graphs, the problem is solvable in polynomial time, while it becomes NP-complete when C is
+the class of regular graphs. Subsequent studies [3, 5, 4] have refined these results, showing for
+∗Departamento de Ciencia de la Computación, Universidad de Ingeniería y Tecnología (UTEC), Lima, Perú.
+jgutierreza@utec.edu.pe
+†School
+of
+Computer
+Science
+Engineering
+and
+Technology,
+Bennett
+University,
+India.
+sagartanu.pal@bennett.edu.in, maxfi1987@gmail.com
+1
+arXiv:2512.23687v1  [cs.DS]  29 Dec 2025
+
+
+example that the problem is NP-complete when C consists of cycle-free graphs (for cycles on at least
+seven vertices), of tree-free graphs (excluding certain trees), or of H-free graphs for a 5-connected
+non-self-complementary prime graph H with at least 18 vertices. A survey of these and related
+edge-modification problems can be found in [10].
+In this paper, we adopt a different perspective. For many natural graph classes, the decision
+variant above is trivial, as every input graph admits a subset S such that G ⊕S belongs to the
+target class. In such cases, the relevant algorithmic question is not whether a valid subset exists, but
+rather how small such a subset can be. This motivates the following optimization version, which we
+call the Minimum Subgraph Complementation problem.
+Minimum Subgraph Complementation (MSC)
+Input: A graph G and a graph class C.
+Output: A subset S ⊆V (G) of minimum size such that G ⊕S ∈C, or report that no such
+subset exists.
+We note that MSC, viewed as an optimization problem, is NP-hard in general. Indeed, MSC is
+at least as hard as the corresponding SC decision problem, since an algorithm that computes an
+optimal solution would also decide whether there exists a solution. Therefore, for graph classes for
+which the SC is NP-complete [16, 3, 5], MSC is NP-hard.
+Studying this optimization version is meaningful even for pairs of classes (G, C) where every
+graph G ∈G can be complemented into a member of C. Indeed, the complexity and structure of a
+minimum complementing set S can vary significantly, revealing interesting combinatorial properties
+of the classes involved. For instance, while every bipartite graph can be complemented into a chordal
+graph by complementing one side of its bipartition, the size and structure of the minimum set S can
+differ substantially from graph to graph.
+Graph editing problems have been extensively studied as a way of measuring how far a given
+graph is from satisfying a desired property. In these problems, one seeks to modify a given graph
+by a minimum number of operations, such as edge additions or deletions, so that the resulting
+graph belongs to a target class. Such modifications provide a natural measure of the “distance” of a
+graph to a property of interest and have been investigated from both classical and parameterized
+complexity perspectives [23, 2, 14, 11].
+For instance, the Chordal Editing problem, which asks whether a graph can be made chordal by
+a minimum number of edge modifications, has received considerable attention due to the central
+role of chordal graphs in structural graph theory and algorithmic applications [8]. These studies
+illustrate that even when every graph in a certain class can be trivially transformed into the target
+class, the size and structure of a minimum modifying set can vary significantly, revealing interesting
+combinatorial properties of the graph classes involved. In this context, the MSC problem can be
+regarded as a structured variant of edge editing, where instead of modifying arbitrary edges, one
+flips all edges and non edges inside a single vertex subset.
+In this paper, we show positive results for the MSC problem in particular scenarios. To introduce
+the reader, we begin with an easy theorem about bipartite graphs. To motivate this particular
+case, observe that for any class of graphs G, every graph G whose complement belongs to G can
+be complemented into G by taking S = V (G). However, the set V (G) does not necessarily yield a
+minimum-size solution for complementability into G.
+For example, let G be the class of planar graphs and consider the nonplanar graph K5. If we
+take a set S = {u, v} consisting of the endpoints of any edge uv of K5, then toggling the edges with
+2
+
+
+both endpoints in S removes exactly the edge uv. The resulting graph K5 −uv is planar. Thus, K5
+is complementable to G using a set S of size 2, whereas the trivial bound |S| = |V (K5)| = 5 is far
+from optimal.
+This motivates the following particular case: solving the MSC problem when the input graph is
+not in G. In what follows, we show that this problem can be solved efficiently when G is the class of
+bipartite graphs or the class of co-bipartite graphs.
+Theorem 1. Let C be the class of co-bipartite graphs. Then MSC to C can be solved in polynomial
+time when the input graph is bipartite.
+Proof. Let G be a bipartite graph with bipartition (A, B). Let S ⊆V (G) such that G ⊕S is
+co-bipartite. Assume S ∩A ̸= ∅; we show that |A \ S| ≤1.
+Suppose, for contradiction, that |A \ S| ≥2, and pick any w ∈S ∩A. Since G is bipartite, the
+vertices of (A \ S) ∪{w} form an independent set in G. Toggling edges inside S does not introduce
+edges in this set, so it remains independent in G ⊕S. Hence G ⊕S contains an independent set of
+size at least three, contradicting that it is co-bipartite. Thus, either S ∩A = ∅or |A \ S| ≤1.
+The argument for B is symmetric. Therefore, every feasible S satisfies S ∩B = ∅or |B \ S| ≤1.
+It follows that it suffices to enumerate all subsets A′ ⊆A and B′ ⊆B such that |A′| ≥|A| −1
+and |B′| ≥|B| −1, forming candidate sets S ∈{A′ ∪B′, A′, B′}. There are polynomially many such
+candidates, and for each we can test in polynomial time whether G ⊕S is co-bipartite. A smallest
+feasible S is thus optimal.
+Now, although the case where G is co-bipartite and C is the class of bipartite graphs is fully
+analogous, we introduce a lemma that allows us to derive this result directly from Theorem 1.
+Lemma 2. Let C and D be two graph classes. If MSC to C can be solved in polynomial time when
+the input graph belongs to D, then MSC to C can also be solved in polynomial time when the input
+graph belongs to D.
+Proof. We first observe the following claim, already proven in Proposition 3 of [3].
+Claim 3. For every graph G and every set S ⊆V (G), G ⊕S = G ⊕S.
+Proof of Claim 3. Let u, v ∈V (G). If u, v ∈S, then their adjacency is toggled in both G ⊕S and
+G ⊕S. If at least one of u or v is not in S, then their adjacency is unchanged in both graphs. Hence
+uv is an edge of G ⊕S if and only if it is a non-edge of G ⊕S, proving the claim.
+Now let G ∈D. Then G ∈D. By assumption, we can compute in polynomial time a minimum-
+size set S ⊆V (G) such that G ⊕S ∈C. By Claim 3, G ⊕S = G ⊕S, and therefore G ⊕S ∈C. Thus
+S is a feasible solution for G with respect to C. The converse direction follows symmetrically.
+The following corollary follows directly from Theorem 1 and Lemma 2.
+Corollary 4. Let C be the class of bipartite graphs. Then MSC to C can be solved in polynomial
+time when the input graph is co-bipartite.
+Bipartite and co-bipartite graphs are particular cases of a more general class called (k, ℓ)-graphs,
+which we consider in Section 2. Our main results in this section show that the MSC problem can be
+solved efficiently for these graph classes:
+3
+
+
+• When the target class is the class of bipartite graphs and the input is a split graph (Theorem 6).
+• When the target class is the class of co-bipartite graphs and the input is a split graph
+(Corollary 7).
+• When the target class is the class of split graphs and the input is a bipartite graph (Theorem 19).
+• When the target class is the class of split graphs and the input is a co-bipartite graph
+(Corollary 20).
+Note that every split graph is also a chordal graph. Chordal graphs form a superclass of many
+well-behaved graph families, such as interval and split graphs, and allow efficient algorithms for
+problems that are NP-hard in general, including coloring, maximum clique, and recognition of
+minimal separators. Hence, it is natural to ask whether the MSC problem can be solved efficiently
+when the target class is chordal graphs and the input is bipartite. In Section 3, we show that this is
+indeed the case when the input graph is bipartite and regular (Theorem 27).
+From a structural perspective, every chordal graph is also k-degenerate, where k equals its
+maximal clique size minus one. The study of editing or modification problems in k-degenerate graphs
+has been considered in the literature [22], so it is natural to try to generalize results on bipartite
+graphs to graphs of degeneracy k. In Section 4, we show that this case can be solved in polynomial
+time when the input is a forest (Theorem 31).
+The last two sections of this work focus on modifying the connectivity of a graph. The problem
+of modifying a graph through local operations in order to increase its connectivity has been studied
+under several models. For instance, in the Connectivity Augmentation problem, the goal is to add
+the smallest possible set of edges so that a given graph becomes k-connected; polynomial-time
+algorithms are known for small fixed values of k, while the general problem is NP-hard [15, 25, 7].
+Also, problems aiming at destroying the connectivity of a graph have been studied before under the
+framework of edge- and vertex-deletion problems. In particular, Yannakakis [26] investigated the
+complexity of edge-deletion problems where the objective is to eliminate a given graph property,
+including connectivity. This line of work provides a natural conceptual background for our results
+on MSC when the target class is the class of disconnected graphs.
+Our main results show that the MSC problem can be solved efficiently in these settings:
+• When the target class is the class of 2-connected graphs and the input graph is arbitrary
+(Theorem 33).
+• When the target class is the class of disconnected graphs and the input graph is arbitrary
+(Theorem 40).
+2
+(k, ℓ)-graphs
+Bipartite and cobipartite graphs are particular cases of a more general definition. A graph G is a
+(k, ℓ)-graph if its vertex set admits a partition
+V (G) = C1 ∪· · · ∪Ck ∪I1 ∪· · · ∪Iℓ
+such that each Ci induces a clique in G and each Ij induces an independent set in G.
+4
+
+
+The classes of bipartite and cobipartite graphs can be described in terms of (k, ℓ)-graphs. In
+particular, (0, 2)-graphs are exactly the bipartite graphs and (2, 0)-graphs are exactly the cobipartite
+graphs. A graph G is a split graph if and only if it is a (1, 1)-graph: in this case, V (G) can be
+partitioned into one clique and one independent set.
+The next observation is immediate.
+Observation 5. Every (k, ℓ)-graph is complementable to any (k′, ℓ′)-graph whenever k + ℓ= k′ + ℓ′.
+Focusing on the case k + ℓ= 2, this implies that any bipartite or cobipartite graph is comple-
+mentable to a split graph, and that any split graph is complementable to a bipartite or a cobipartite
+graph. The cases (k, ℓ), (k′, ℓ′) ∈{(0, 2), (2, 0)} were solved in Theorem 1. In the remainder of this
+section, we focus on solving the four remaining cases.
+Theorem 6. Let C be the class of bipartite graphs. Then MSC to C can be solved in polynomial time
+when the input graph is a split graph.
+Proof. Let G be a split graph with partition V (G) = K ∪I, where K is a clique and I is an
+independent set. Consider a set S ⊆V (G) such that G ⊕S is bipartite.
+If S ∩K ̸= ∅, then at most one vertex of K may lie outside S. Indeed, suppose two vertices
+u, v ∈K lie outside S and some vertex w ∈K lies in S. Since all edges of K are present in G, every
+edge among {u, v, w} has at least one endpoint outside S, and hence all three edges survive in G ⊕S.
+Thus {u, v, w} induces a triangle in G ⊕S, contradicting bipartiteness. Hence |K \ S| ≤1.
+Similarly, if S ∩I ̸= ∅, then S ∩I contains at most two vertices. Otherwise, if three vertices of
+I lie in S, then all three edges among them appear after complementation, forming a triangle in
+G ⊕S, again contradicting bipartiteness. Thus |S ∩I| ≤2.
+Therefore any feasible solution S that intersects both K and I must satisfy
+|K \ S| ≤1
+and
+|S ∩I| ≤2.
+Consequently, every candidate solution S is of one of the following forms: S = K′,
+S =
+I′,
+S = K′ ∪I′, where K′ ⊆K and I′ ⊆I, and where |K′| ≥|K| −1
+and
+|I′| ≤2.
+There are O(|K|) possibilities for K′ and O(|I|2) possibilities for I′. For each candidate we test
+in polynomial time whether G ⊕S is bipartite, and return one of minimum size. This yields a
+polynomial-time algorithm for MSC to C when C is the class of bipartite graphs.
+As the class of split graphs coincides with the class of co-split graphs, the following corollary
+follows directly from Theorem 6 and Lemma 2.
+Corollary 7. Let C be the class of co-bipartite graphs. Then MSC to C can be solved in polynomial
+time when the input graph is a split graph.
+Finally, we consider the case where the target class is the class of split graphs and the input
+is a bipartite graph. This case requires more work than the previous ones, and we will need some
+auxiliary lemmas. A first observation is that we can ignore isolated vertices in the input graph.
+Indeed, note that a solution of minimum size cannot contain isolated vertices, as we can remove
+such a vertex from the solution, contradicting its minimum size.
+From now on, we fix a bipartite graph G that is not a split graph and does not have isolated
+vertices, and a bipartition (A, B) of G with |A|, |B| > 1. We call a subset of vertices a solution if
+5
+
+
+its complementation makes the graph a split graph. A solution S is special if |S| > 2 and either
+|S ∩B| = 1 or |S ∩A| = 1. Let Z be the set of vertices of B that has neighbors with degree one.
+For each z ∈Z, let Oz denote the set of such neighbors and let O = S
+z∈Z Oz.
+Lemma 8. We can decide whether G admits a special solution that is optimal, and if it exists, we
+can find one in polynomial time.
+Proof. Let S be a special solution that is also optimal. Let (K, I) be a split partition of G′ = G ⊕S.
+We may assume without loss of generality that |S ∩B| = 1. As A is a solution and S is optimal, the
+next claim is clear.
+Claim 9. A ̸⊆S.
+Claim 10. If u, v ∈A ∩K or u, v ∈B ∩K, then u, v ∈S.
+Proof. Suppose u, v ∈A ∩K. As u, v ∈A, we have uv /∈E(G). As u, v ∈K, we have uv ∈E(G′).
+Thus u, v ∈S. The proof when u, v ∈B ∩K is similar.
+Claim 11. |S ∩A ∩I| ≤1, |S ∩A ∩K| ≥1, A \ S ⊆I and |B ∩K| ≤1.
+Proof. Suppose for a moment that there exists u, v ∈S ∩A ∩I. In that case, as A is an independent
+set, uv ∈E(G′), a contradiction. Hence |S ∩A ∩I| ≤1. And, as |S ∩A| > 1, we must have
+|S ∩A ∩K| ≥1. Now, as there are no edges between vertices in A ∩S and A \ S, we must have
+A \ S ⊆I. Finally, as |B ∩S| = 1, if there are two vertices in B ∩K, at least one of them is not in
+S, so there is no edge between such vertex and any other vertex in B ∩K, a contradiction.
+Claim 12. A \ O ⊆S.
+Proof. Suppose, for a contradiction, that there exists u ∈A \ (O ∪S). Thus, as u /∈O and G has
+no isolated vertices, u has two neighbors x, y. By Claim 11, u ∈I. So x, y ∈B ∩K. By Claim 10,
+x, y ∈S, a contradiction to the assumption that S is special.
+Claim 13. If z ∈Z ∩I then Oz ⊆S.
+Proof. Suppose by contradiction that there exists u ∈Oz \ S. By Claim 11, there exists a vertex
+x ∈A ∩S ∩K. As xu /∈E(G′), because u /∈S, we must have u ∈I. But then, as uz ∈E(G′) and
+z ∈I, we have a contradiction.
+Claim 14. If z ∈Z ∩K then Oz ∩S = ∅.
+Proof. Let x ∈Oz and suppose by contradiction x ∈S. Now consider the set S′ = S −x and the
+sets K′ = K \ {x} and I′ = I ∪{x}. (Observe that if x ∈I then (I, K) = (I′, K′)). Note that,
+after complementing S′, as x ∈I′, no edges between vertices of K′ are lost. Moreover, as the only
+neighbor of x is z, which is in K′, no edges between vertices of I′ were added. Thus, (K′, I′) is a
+split partition of G ⊕S′, contradicting the minimality of S.
+Claim 15. |Z \ S| ≤1.
+6
+
+
+Proof. Suppose by contradiction that |Z \ S| ≥2. Let v ∈Z \ S and let x ∈Ov. Suppose for a
+moment that x /∈S. By Claim 11, x ∈I. As v /∈S, then xv ∈E(G′). So v ∈K. As v was arbitrary,
+every other vertex of Z \ S is also in K. This implies that |B ∩K| ≥2, a contradiction to Claim 11.
+Thus, every such x is in S, which implies that Ov ⊆S. As v was arbitrary, we must have O ⊆S
+and thus A ⊆S by Claim 12, contradicting Claim 9.
+We now continue with the proof of the lemma. If |Z| = 0 then, by Claim 12, A ⊆S and we
+contradict Claim 9. If |Z| ≥3, then, as |S ∩B| = 1, we must have |Z \ S| ≥2, a contradiction to
+Claim 15. Thus |Z| ∈{1, 2}. Now consider the following algorithm. First we find Z, answering no if
+|Z| /∈{1, 2}. If |Z| = 1, then we set z to the only vertex in Z and ask if {v} ∪(A \ Oz) is a valid
+solution for some v ∈B. If that is the case we return such solution. If |Z| = 2, then we let v and
+w be the two vertices of Z and ask if one of {v} ∪(A \ Ov), {v} ∪(A \ Ow) or {v} ∪(A \ O) is a
+valid solution. If that is the case we return one of minimum size. If no valid solution is found, the
+algorithm returns No.
+Now we show correctness. Let S be a special solution that is also optimal. As such a solution
+exists, we know |Z| ∈{1, 2}. First suppose |Z| = 1 and let z be the only vertex in Z. By Claims 13
+and 14, either Oz ⊆S or Oz ∩S = ∅. As A \ O ⊆S by Claim 12 and A ̸⊆S by Claim 9, we must
+have Oz ∩S = ∅. Hence S = {v} ∪(A \ Oz) for some v ∈B. As we iterated over all v ∈B, the
+solution given by the algorithm has the same size as S. Now suppose |Z| = 2 and let Z = {v, w}. By
+Claims 13 and 14, either Ov ⊆S or Ov ∩S = ∅, and either Ow ⊆S or Ow ∩S = ∅. Also, by Claim
+15, one of {v, w} is in S. If v ∈S then S is one of {v} ∪(A \ Ov), {v} ∪(A \ Ow) or {v} ∪(A \ O).
+As all these possibilities were tested, the solution given by the algorithm has the same size as S. As
+we can test if a graph is split in polynomial time [18], our algorithm is polynomial.
+Lemma 8 helps us solve the case of special solutions, that is, solutions that intersect exactly one
+side of the partition in exactly one vertex. We now characterize the more general solutions, namely,
+solutions that intersect both sides of the partition in more than one vertex.
+Lemma 16. Let S be a solution with |S ∩A| > 1 and |S ∩B| > 1. Then there exist sets Q, X ⊆V (G)
+such that S = Q ∪X and
+• Q ∈{∅, K1, K2};
+• (X, V (H) \ X) is a bipartition of H = G −Q;
+• NG(Q) ⊆X.
+Proof. Write SA := S ∩A, SB := S ∩B, S := V (G) \ S, SA := A ∩S and SB := B ∩S. Let
+G′ := G ⊕S, and let (K, I) be a split partition of G′. The following claim is immediate.
+Claim 17. If X is a clique in G′, then at most one vertex of X lies in I.
+Because G′[SA] and G′[SB] are cliques, Claim 17 implies that at most one vertex of SA and at
+most one vertex of SB can lie in I. Consider two subcases.
+Case 1:
+S ∩I = ∅.
+Then all vertices of S lie in K, so G′[S] is a clique. Thus S is an independent set in G. We claim
+also that S is independent in G. Suppose for contradiction there is an edge uv ∈E(G) with u ∈SA
+and v ∈SB. Since vertices of SA (resp. SB) lie in K and u has no neighbors in SA in G′, it follows
+7
+
+
+SA
+SB
+X
+u
+v
+A
+B
+(a)
+SA
+SB
+u
+Q
+X
+A
+B
+(b)
+Figure 1: Situations in the proof of Lemma. 16. (a) S ∩I = ∅. (b) S ∩I ̸= ∅. A dashed line implies
+the absence of an edge in the original graph.
+that u ∈I; similarly v ∈I. This contradicts that I is independent. Hence S is independent in G, so
+taking Q = ∅and X = S satisfies the lemma (Figure 2a).
+Case 2:
+At least one of SA or SB meets I.
+Let Q := S ∩I and X := S ∩K. Recall that |Q| ≤2, so Q induces either K1 or K2 (Q = ∅is Case
+1), proving the first item. We now show that (X, V (H) \ X) is a bipartition of H := G −Q. First
+observe that, as |S| ≥4 and |Q| ≤2, X ̸= ∅. Note that G′[X] is a clique (since X ⊆K), so X is
+independent in G. Take any u ∈V (H) \ X. If u ∈A \ X then u has no neighbors in SA ∩X, hence
+u ∈I. Similarly vertices in B \ X lie in I. Therefore there are no edges with both endpoints in
+V (H) \ X, so (X, V (H) \ X) is indeed a bipartition of H (Figure 2b). Finally, since Q ⊆I and
+vertices of V (H) \ X are also in I, Q has no neighbors in V (H) \ X. Thus all neighbors of Q in G
+(if any) must lie inside X, proving N(Q) ⊆X and completing the proof.
+We now prove a converse statement that will be useful for our algorithm.
+Lemma 18. Let Q be a clique (of size at most 2) in G. Let (X, Y ) be a bipartition of H = G −Q.
+Let S = X ∪Q. If N(Q) ⊆X, then S is a solution.
+Proof. Let K = X and let I = V (G) \ K. Since X is an independent set in G and X ⊆S, K is a
+clique in G ⊕S. Because Y is an independent set in G and Y ∩S = ∅, Y remains an independent set
+in G ⊕S. Finally, every vertex of Q has all its neighbors contained in X by assumption. Therefore
+Q has no neighbors in Y , and hence I = Y ∪(Q \ X) is an independent set in G ⊕S.
+We now prove our theorem.
+Theorem 19. Let C be the class of split graphs. Then MSC to C can be solved in polynomial time if
+the input is a bipartite graph.
+Proof. Let G be a bipartite graph. The algorithm begins by testing all sets of size at most 2 to check
+whether such a set is a solution, and, if so, returns one of minimum size. Otherwise, the algorithm
+8
+
+
+has two main phases, according to Lemmas 8 and 16. In the first phase, the algorithm tests whether
+there is a special solution that is also optimal, and if that is the case we return such a solution. If
+the answer is negative in this phase, we proceed to the next phase. By Lemma 8, this can be done
+in polynomial time.
+In the second phase, the algorithm considers all possibilities for Q ∈{∅, K1, K2} (all cliques of
+size at most two in G). Fix such a set Q. Let H := G −Q, and let C1, . . . , Ck be the components of
+H, which can be computed in polynomial time. For each component Ci, fix an arbitrary bipartition
+(Ai, Bi) of Ci such that |Ai| ≤|Bi|.
+If, for some i, N(Q) has non-empty intersection with both Ai and Bi, then we discard the choice
+of Q. Otherwise we set
+Wi :=
+
+
+
+
+
+
+
+Ai
+if N(Q) ∩Ai ̸= ∅,
+Bi
+if N(Q) ∩Bi ̸= ∅,
+the smaller of Ai and Bi
+if N(Q) ∩Ci = ∅.
+We then define X := Sk
+i=1 Wi and set SQ := Q ∪X. The algorithm computes |SQ| for all possible
+values of Q and outputs a set SQ∗of minimum cardinality.
+We now prove correctness. The pair (X, V (H)\X) forms a bipartition of H, and by construction
+N(Q) ⊆X. Thus Lemma 18 implies that SQ is a solution for every choice of Q tested in the second
+phase of the algorithm.
+Let R be an optimal solution. First, suppose that R is a special solution. By Lemma 8, as there
+exists such an R, the first phase of the algorithm returns a special solution that is also optimal.
+Suppose now that R intersects both A and B at least twice. By Lemma 16, R admits a decomposition
+R = QR ∪XR where QR ∈{∅, K1, K2}, N(QR) ⊆XR, and (XR, V (HR) \ XR) is a bipartition of
+HR := G −QR. Let C1, C2, . . . , Ck be the components of HR. As every Ci is connected, for any i,
+XR
+i := XR ∩Ci ∈{Ai, Bi}.
+Consider the iteration of the algorithm corresponding to the choice Q = QR.
+By (iii) of
+Lemma 16, N(QR) ⊆XR. Hence N(QR) does not intersect both parts of the partition of Ci. Thus,
+if N(QR) ∩Ai ̸= ∅, then |Wi| = |Ai| ≤|XR
+i |, if N(QR) ∩Bi ̸= ∅, then |Wi| = |Bi| ≤|XR
+i |, and
+otherwise Wi is the smaller of Ai and Bi, so again |Wi| ≤|XR
+i |. Hence |X| ≤|XR| and
+|SQR| = |QR| + |X| ≤|QR| + |XR| = |R|.
+Since R is optimal, equality must hold, so SQR is also optimal. The algorithm therefore returns an
+optimal solution.
+Finally, the algorithm tests a polynomial number of possibilities for Q, and each iteration runs
+in polynomial time. Therefore, MSC to C is solvable in polynomial time on bipartite graphs.
+As before, the next corollary is clear.
+Corollary 20. Let C be the class of split graphs. Then MSC to C can be solved in polynomial time
+if the input is a co-bipartite graph.
+3
+Bipartite graphs to chordal graphs
+A chord in a cycle of a graph is an edge between some vertices of the cycle that is not part of the
+cycle. A graph is chordal if any cycle of the graph has a chord. Equivalently, a graph is chordal if
+9
+
+
+there exists no induced cycle of length at least four. In this section, we are interested in solving the
+MSC problem when the input graph is bipartite and the target is the class of chordal graphs. Note
+that if we complement one of the partitions of a bipartite graph, it results in a chordal graph; hence,
+bipartite graphs are complementable to chordal graphs. The next proposition follows directly from
+the definition of chordal graphs.
+Proposition 21. Let G be a chordal graph with an edge uv. If there exists a cycle C in G that
+contains uv, then there exists a triangle uvw in G with vw ∈E(C).
+We begin this section by characterizing a solution of minimum size for this problem. After that,
+we apply this characterization to solve the problem in polynomial time for biregular graphs.
+Lemma 22. Let G = (A, B, E(G)) be a 2-connected bipartite graph. Let S ⊆V (G) such that G[S]
+is not a complete bipartite graph. Then G′ = G ⊕S is chordal if and only if the following hold:
+(i) S is a vertex cover in G, and
+(ii) G[S] is 2K2 induced free.
+Proof. If |V (G)| = 2 then the proof is straightforward, so let us assume that |V (G)| > 2. We begin
+by showing the only if part of the statement. Thus, let us assume that G′ is chordal. Suppose by
+contradiction that (i) is false, that is, S is not a vertex cover in G. Then, there exists an edge uv in
+G −S. As G is 2-connected and |V (G)| > 2, there exists an induced cycle C in G that contains
+uv. Suppose for a moment that C is also a cycle in G′. As G′ is chordal, either |C| = 3 or C has a
+chord, but in the latter case, by Proposition 21, there exists a chord of C incident to either u or v.
+As u, v /∈S, this edge also exists in G, a contradiction to the fact that C is an induced cycle in G.
+Thus, |C| = 3, a contradiction to the fact that G is bipartite.
+Hence C is not a cycle in G′, which implies that |V (C) ∩S| > 1. Since G[S] is not a complete
+bipartite graph, it follows that |S| ̸= 2, as a graph on two vertices with an edge is a complete
+bipartite graph. Consequently, |S| > 2.
+Let P be a maximal subpath of C whose vertices are in S, and let x and y be the endpoints of P.
+Let Cxy be the subpath of C from x to y avoiding edges of P. As G[S] is not a complete bipartite
+graph, and |S| > 2, there exists an edge ab in G′ with a, b ∈S, a ∈A, and b ∈B. (Note that it can
+be the case that either x = a or y = b). Now, if x and y are both in the same side of the bipartition,
+then Cxy · xy is a cycle in G′. Otherwise, assuming x ∈A and y ∈B, we have Cxy · xaby is a cycle
+in G′. In each case we concluded there exists a cycle, say C′, in G′. Moreover, let us assume that
+|C′| is minimum over all such cycles. As G′ is chordal, this implies that |C′| = 3. As u, v /∈S, all
+incident edges to u and v in G′ also exist in G, and thus C′ is also a cycle in G, a contradiction to
+the fact that G is bipartite. This proves (i). Now, suppose by contradiction that (ii) does not hold,
+that is, G[S] has an induced 2K2, say ab, a′b′, with a, a′ ∈A and b, b′ ∈B. But then the vertices
+a, b, a′, b′ induce a C4 in G′, contradicting that G′ is chordal.
+We now show the if part of the statement. Suppose by contradiction that conditions (i) and (ii)
+hold, but G′ is not chordal. As G′ is not chordal, it has an induced cycle C with |C| ≥4. We claim
+that all vertices of C are in S. Indeed, suppose for a moment that there exists a vertex in C not in
+S, say u. Let u′ and u′′ be the neighbors of u in C. As S is a vertex cover, u′, u′′ ∈S. But then
+u′u′′ is a chord of C, contradicting the assumption that C is an induced cycle. Now, suppose for a
+moment that |C| ≥5. By the pigeonhole principle, at least three vertices of C are in one side of the
+bipartition, say A. As |C| > 3, two of these vertices are not adjacent in C, so they form a chord in
+10
+
+
+C, a contradiction to the fact that C is induced. Hence, |C| = 4. But in that case G′[S] contains an
+induced C4 and, as G[S] = G′[S], G[S] contains an induced 2K2, a contradiction.
+Before focusing on bipartite regular graphs, we present another lemma that is also valid for any
+2-connected bipartite graph.
+Lemma 23. Let G = (A, B, E(G)) be a 2-connected bipartite graph. Let S ⊆A. If G′ = G ⊕S is
+chordal then S = A.
+Proof. Suppose by contradiction that S ̸= A. Let u ∈A \ S. As G is 2-connected, there exists an
+induced cycle in G, say C, that contains u. Consider any edge vw in C. As G is bipartite and
+S ⊆A, we have that at least one of v or w is not in S. Hence, vw ∈E(G′) and C is a cycle in
+G′. Let ux ∈E(C). By Proposition 21, as G′ is chordal, there exists a triangle in G′ that contains
+ux, say uxy. Recall that u /∈S. Also, since G is bipartite and S ⊆A, we have x /∈S. Hence, as
+xy, uy ∈E(G′), we must have xy, uy ∈E(G), a contradiction to the fact that G is bipartite.
+A biregular graph is a graph that is both bipartite and regular. In this section, we present a
+polynomial-time algorithm for k-biregular graphs, that is, biregular graphs in which all vertices have
+degree k. We begin by stating a well-known property of biregular graphs, which is a direct corollary
+of Hall’s Theorem (see, e.g., [21]).
+Proposition 24. Every biregular graph has a perfect matching.
+From now on, given a graph G, we refer to as a subset S ⊆V (G) a solution if G ⊕S is chordal.
+The next proposition is valid for any triangle-free graph.
+Proposition 25. Let G be a triangle-free graph. Let S be a minimum solution. If u ∈S, then
+N(u) ∩S ̸= ∅.
+Proof. Suppose by contradiction that all neighbors of u belong to S. Let G′ = G ⊕S, which is
+chordal by assumption. By the minimality of S, the graph G′′ = G ⊕(S \ {u}) is not chordal. Hence,
+G′′ contains an induced cycle C of length at least four. Since the only difference between G′ and G′′
+concerns adjacencies incident to u, the cycle C must contain u. Let x and y be the neighbors of u in
+C. Then x, y ∈S \ {u} and xy /∈E(G′′). Therefore, xy ∈E(G), which implies that G contains the
+triangle uxy, a contradiction to the fact that G is triangle-free.
+Lemma 26. Let G be a k-biregular graph with k ≥2 and at least 9 vertices. Let (A, B) be a
+bipartition of G. Then |S| = |A|.
+Proof. We begin by considering the case when G[S] is not a complete bipartite graph. As k ≥2, G
+is 2-connected. Hence, by Lemma 22, as G[S] is not complete,
+S is a vertex cover of G. By
+Proposition 24, G has a perfect matching. Note that this matching has size |A| and, by Kőnig’s
+Theorem [20], the size of a minimum vertex cover is also |A|. Hence |S| ≥|A|. Now, note that G ⊕A
+is a split graph, and thus also a chordal graph [17]. By the minimality of S, we have |S| ≤|A|. This
+completes the proof.
+Now consider the case when G[S] is a complete bipartite graph. Let a = |A|, r1 = |A ∩S|
+and r2 = |B ∩S|, and suppose without loss of generality that r2 ≥r1. As G ⊕A is a split graph and
+thus chordal, we must have
+|S| = r1 + r2 ≤a.
+(1)
+11
+
+
+Now, consider the subgraph induced by S. Let us call it H. Note that H cannot contain any
+induced cycle, hence
+|E(H)| ≤|V (H)| −1 = 2a −r1 −r2 −1.
+(2)
+Also, if k ≥r2+2, then any vertex in H has degree at least 2 and contains a cycle. Thus, k ≤r2+1,
+and by Proposition 25,
+k = r2 + 1.
+(3)
+Now, consider the subgraph induced by A \ S and S ∩B. Let us call it Q1. Note that, by (3),
+|E(Q1)| = r2(r2 −r1 + 1).
+(4)
+Analogously, if Q2 is the subgraph induced by S ∩A and B \ S, we have
+|E(Q2)| = r1(k −r2) = r1.
+(5)
+Note that |E(H ∪Q1)| = k(a−r1) = (r2 +1)(a−r1) and, analogously, |E(H ∪Q2)| = k(a−r2) =
+(r2 + 1)(a −r2). Hence, by (2),
+|E(Q1)| + |E(Q2)|
+=
+|E(H ∪Q1)| + |E(H ∪Q2)| −2|E(H)|
+≥
+(r2 + 1)(a −r1) + (r2 + 1)(a −r2) −2(2a −r1 −r2 −1)
+=
+(r2 + 1)(2a −r1 −r2) −2(2a −r1 −r2) + 2
+≥
+(r2 −1)(2a −r1 −r2) + 2
+≥
+(r2 −1)(r1 + r2) + 2,
+(6)
+where the last inequality follows by (1).
+Now, joining (4), (5) and (6), we obtain that
+(r1 −1)(r2 −1) ≤0.
+(7)
+If r1 −1 ≥1, then r2 ≤1, a contradiction, because r1 ≤r2. Hence, r1 ≤1. Thus, by (2),
+|E(H)| ≤2a −r2 −1.
+Now, as r1 ≤1, at most one vertex in G[H ∪B] has degree r2. Thus, |E(H)| ≥(r2 + 1)(a −r2) −1,
+which implies that
+a ≤(r2 + 1) +
+1
+r2 −1.
+(8)
+Suppose for a moment that r2 ≤2. In this case, by (8) a ≤4 and |V (G)| ≤8, a contradiction.
+Consider now the case when r2 > 2. This implies that a ≤r2 + 1 by (8). If r1 = 1 then |S| =
+r1 + r2 = 1 + r2 = a = |A|, and the proof follows. And, if r1 = 0 then r2 ≤a ≤r2 + 1 If a = r2,
+then |S| = r1 + r2 = r2 = a = |A| and the proof follows. Hence, r1 = 0 and a = r2 + 1, but this is a
+contradiction to Lemma 23.
+We are now ready to prove our main theorem.
+12
+
+
+Theorem 27. Let C be the class of chordal graphs. Then MSC to C can be solved in polynomial
+time if the input is a 2-connected biregular graph.
+Proof. Let G be a 2-connected k-biregular graph. As G is 2-connected, this implies k ≥2. If G
+has fewer than 9 vertices, then we iterate over all subsets of V (G) using brute force. Otherwise, by
+Lemma 26, we can find a bipartition for G in polynomial time and return one of the parts of the
+bipartition.
+4
+Forests to graphs of degeneracy k
+Let Fk denote the class of forests with at least 2k +2 vertices, for k ≥0. A graph G is k-degenerate if
+every induced subgraph of G has a vertex of degree at most k. The degeneracy of G is the minimum
+integer k for which G is k-degenerate. Let Dk denote the class of graphs of degeneracy exactly k,
+for k ≥0. We show that every graph in Fk can be complemented into Dk, and moreover, that
+MSC to Dk can be solved in polynomial time when the input graph belongs to Fk. The following
+characterization is immediate from the definition of degeneracy.
+Proposition 28. A graph G belongs to Dk if and only if
+(a) every induced subgraph of G has a vertex of degree at most k, and
+(b) there exists an induced subgraph of G in which every vertex has degree at least k.
+From now on, given a graph G, we refer to a subset S ⊆V (G) as a solution if G ⊕S ∈Dk.
+Proposition 29. Let k ≥2. Let G be a forest. If S is a solution, then |S| ≥k.
+Proof. As G ⊕S ∈Dk, by Proposition 28(b) there exists an induced subgraph H′ of G ⊕S such that
+every vertex of H′ has degree at least k. Let H = G[V (H′)]. Clearly, H is a forest, and hence H
+has a vertex, say v, of degree at most one in H. Since the degree of v in H′ is at least k, the vertex
+v is adjacent to at least k vertices of H′ in G ⊕S. At most one of these adjacencies can come from
+H, and therefore v must gain at least k −1 neighbors via the complementation on S. This is only
+possible if v ∈S and at least k −1 other vertices of H′ also belong to S. Hence, |S| ≥k.
+A set of independent vertices in a graph is called a sibling set if they have a common neighbor.
+The vertices in a sibling set are called siblings.
+Lemma 30. Every graph in Fk is complementable to Dk for any fixed k ≥2. Let G ∈Fk and S be
+a minimum solution. If G has a sibling set of size k, then |S| = k. Otherwise, |S| = k + 1.
+Proof. Let G ∈Fk. Suppose for a moment that G has a sibling set of size k, say S. We will show
+that G′ = G ⊕S has degeneracy k. As every vertex in G′[S ∪{u}], where u is the common neighbor
+of the sibling set, has degree k, part (b) of Proposition 28 follows. Let X ⊆V (G′). We need to show
+that there exists a vertex in G′[X] with degree at most k. If X ⊆S, then any vertex in G′[X] has
+degree at most k, so part (a) of Proposition 28 holds. Otherwise, X has a vertex in S.
+Note that G′[X ∩S] is a forest. If |X ∩S| = 1, then the only vertex in X ∩S has at most k
+neighbors in G[X ∩S], and therefore also in G′[X] and part (a) of Proposition 28 follows. Hence, we
+may assume that |X ∩S| > 1, which implies that G′[X ∩S] has two vertices, say v and w, of degree
+at most one. Suppose by contradiction that none of them has degree at most k in G′[X]. In that
+13
+
+
+case, both vertices have degree at least k + 1. As both vertices have degree at most one in G′[X ∩S],
+it implies that both v and w are adjacent, in G′, to all vertices in S. Note that this implies that,
+in G, they are also adjacent to all vertices in S, a contradiction to the fact that G is a forest since
+k ≥2. Now, by Proposition 29, S is a minimum solution and the proof follows.
+Finally, suppose that G does not have a sibling set of size k. As G has at least 2k + 2 vertices, it
+has an independent set, say S of size k +1. We will show that G′ = G⊕S is a graph with degeneracy
+k. As every vertex in G′[S] has degree k, then part (b) of Proposition 28 follows. Let X ⊆V (G′).
+We need to show that there exists a vertex in G′[X] with degree at most k. If X ⊆S, then any
+vertex in G′[X] has degree at most k, so part (a) of Proposition 28 holds. Otherwise, X has a vertex
+in S. Let v be a vertex of minimum degree in G′[X ∩S]. As G′[X ∩S] is a forest, such a vertex
+has degree at most one in G′[X ∩S]. As there is no subset of k siblings in G, v is adjacent to at
+most k −1 vertices in S. Hence, v has at most k neighbors in G′[X] and part (a) of Proposition 28
+follows. Next, we will show that S is a minimum solution.
+Suppose first that k = 2. Then G has at least 6 vertices. As G does not have a sibling set of size
+2, and G has no cycles, each component of G is either a K2 or a K1. Then for any subset S of size
+2, in G′ = G ⊕S, Proposition 28(b) is not true. Therefore, the size of the minimum solution is 3,
+i.e., k + 1.
+Consider now the case k ≥3. Suppose by contradiction that there exists R ⊆V (G) such that
+G′ = G ⊕R ∈Dk and |R| < |S| = k + 1. By Proposition 29, |R| = k. By Proposition 28(b), there
+exists X ⊆V (G′) such that every vertex in G′[X] has degree at least k, which implies that X \R ̸= ∅.
+We will show that G′[X ∩R] has no isolated vertices. For a contradiction, suppose G′[X ∩R] has an
+isolated vertex v. Since |R| = k and any vertex in G′[X] has degree at least k, v is adjacent to all
+the vertices of R in G′[X], which implies that R is a sibling set in G, a contradiction. Note that
+G′[X ∩R] is a forest. Let u and v be two vertices of degree 1 in the same component of G′[X ∩R].
+Then both u and v are adjacent to at least k −1 vertices of R in G′[X]. Since k ≥3, u and v have a
+common neighbor in X ∩R, which implies there exists a cycle in G, a contradiction.
+We prove Theorem 31 with the help of Lemma 30.
+Theorem 31. Let Dk be the class of graphs with degeneracy k (k ≥0). Then MSC to Dk can be
+solved in polynomial time if the input is a forest.
+Proof. We distinguish cases according to the value of k. Suppose first that k = 0. In this case, the
+class D0 consists precisely of edgeless graphs. If the input forest G is a set of isolated vertices, then
+the empty set is a minimum solution. Otherwise, if G contains an edge, then G ⊕S contains an
+edge for every non-empty S, except when G is isomorphic to K2 or K2 ∪nK1 (n ≥1), which can be
+checked directly. Hence, the MSC problem can be decided in polynomial time in this case.
+Now suppose that k = 1. In this case, the class D1 consists exactly of forests that contain at least
+one edge. If the input forest G contains an edge, then G ∈D1 and the empty set is a solution. If G
+consists of a single isolated vertex, then no solution exists. Otherwise, G has at least two isolated
+vertices, and complementing any two of them creates an edge, yielding a graph of degeneracy 1.
+Thus, the MSC problem can be solved in polynomial time.
+Finally, suppose that k ≥2. By Proposition 29, if |V (G)| < k, then G is not complementable
+to Dk, and we answer No. If k ≤|V (G)| ≤2k + 1, then G has constant size (for fixed k), and we
+can test all subsets of vertices to find a minimum solution in polynomial time. Now assume that
+|V (G)| ≥2k + 2, that is, G ∈Fk. We can verify in polynomial time whether G has a sibling set of
+size k by iterating over all vertices and checking whether some neighborhood has size at least k. If
+14
+
+
+such a set exists, we return it. Otherwise, since G is bipartite, we compute a maximum independent
+set in polynomial time and return any subset of size k + 1 of this set. Correctness follows from
+Lemma 30. This completes the proof.
+5
+Increasing the connectivity of a graph
+A graph G is said to be k-connected if |V (G)| > k and the removal of any set of fewer than k
+vertices leaves the graph connected. The connectivity of G, denoted by κ(G), is the largest integer k
+for which G is k-connected. Equivalently, κ(G) is the minimum number of vertices whose removal
+disconnects G or reduces it to a trivial graph. If G is disconnected, we define κ(G) = 0.
+Let G be a connected graph. A block of G is a maximal 2-connected subgraph of G; single edges
+that are not contained in any 2-connected subgraph also count as blocks. A vertex v ∈V (G) is
+called a cut vertex (or articulation point) if the removal of v increases the number of connected
+components of G. The block–cut tree (or BC-tree) of G is the bipartite graph TG defined as follows.
+The vertex set of TG consists of one node for each block of G and one node for each cut vertex of G.
+A cut vertex v is adjacent in TG to every block node B such that v ∈V (B).
+The main target of this section is to complement a graph into a 2-connected graph. From now
+on, given a graph G, a solution is a subset S ⊆V (G) such that G ⊕S is 2-connected.
+Lemma 32. Let G be a graph with κ(G) = 1. The size of a minimum solution equals the number of
+leaves of TG.
+Proof. We begin by showing that |S| is at least the number of leaves of TG. For this, it suffices to
+show that S contains at least one vertex of every block of G whose corresponding node is a leaf in
+TG. Suppose by contradiction that this is not the case. Then there exists a block B in G, whose
+corresponding node is a leaf in TG and S ∩V (B) = ∅. Let v be the node adjacent to B in TG. By
+the definition of TG, v is a cut vertex of G such that v ∈B. Since B is a block, it contains at least
+two vertices, so there exists u ∈V (B) \ {v}. As v is a cut vertex, there exists a vertex w in G −v
+with no path to u. As S ∩V (B) = ∅, there is also no path from u to w in (G ⊕S) −v, so v is a cut
+vertex in G ⊕S, a contradiction.
+We now show that |S| is at most the number of leaves of TG. For this, let S be the set formed
+by choosing an arbitrary non-cut vertex vB in each block B whose corresponding node is a leaf of
+TG. We claim that G′ = G ⊕S is 2-connected. It suffices to show that G′ −x is connected for
+every x ∈V (G′). Let u, w ∈V (G −x), and let B1 and B2 be the blocks of G such that u ∈B1
+and w ∈B2. If B1 = B2, then u and w are connected by a path inside B1, and all edges of B1 are
+preserved in G′, so they are connected in G′ −x.
+Otherwise, consider two leaf blocks Y and Z of TG such that there exists a path in TG from B1
+to Y and a path from B2 to Z that avoids the node corresponding to x (if x is a cut vertex). These
+paths correspond to paths in G −x from u to vY and from w to vZ. The vertices vY and vZ are
+adjacent in G′. Hence, u and w are connected in G′ −x. This proves that G′ is 2-connected.
+The block–cut tree can be obtained in linear time using Tarjan’s depth-first search algorithm
+[24]. From Lemma 32, we have the next result.
+Theorem 33. Let C be the class of 2-connected graphs. Then MSC to C can be solved in polynomial
+time.
+15
+
+
+Proof. Suppose first that the input graph G is connected. We compute the block–cut tree TG of
+G. If TG consists of a single node, then G is already 2-connected and we return the empty set.
+Otherwise, we return S = {vB : B is a leaf of TG}, which is optimal by Lemma 32.
+Now suppose that G is not connected.
+We compute the block–cut tree of each connected
+component of G. Let S = {vB : B is a leaf of the block–cut tree of some component of G}. We
+first prove that G ⊕S is 2-connected. By repeating the same argument given in Lemma 32, the
+subgraph of G ⊕S induced by each connected component of G is 2-connected.
+Moreover, since every component contributes at least one vertex to S, it follows from the definition
+of the operation ⊕that G ⊕S is connected. Now let v ∈V (G ⊕S) and let C be the component of
+G containing v. Since (G ⊕S)[V (C)] is 2-connected, the vertex v belongs to exactly one block of
+G ⊕S. In particular, v is not an articulation vertex of G ⊕S. As v was arbitrary, this implies that
+G ⊕S has no articulation vertices, and hence is 2-connected.
+We now prove that S is a minimum solution. Suppose, for a contradiction, that there exists a set
+R such that G ⊕R is 2-connected and |R| < |S|. Then there exists a component H of G such that
+|R ∩V (H)| < |S ∩V (H)|. Let RH = R ∩V (H) and SH = S ∩V (H). By Lemma 32, the set SH has
+minimum size among all solutions for H, and hence H ⊕RH is not 2-connected. Thus, H ⊕RH is
+either disconnected or has an articulation vertex u. We treat both cases simultaneously. If H ⊕RH
+has an articulation vertex u, let C and D be two distinct components of (H ⊕RH) −u. Otherwise,
+let C and D be two distinct components of H ⊕RH.
+Since G ⊕R is 2-connected, there exists a path in G ⊕R between any vertex of C and any vertex
+of D. Hence, there exists an edge of G ⊕R with one endpoint in C and the other outside H. Such
+an edge cannot belong to G, and therefore at least one of its endpoints lies in R. In particular,
+R ∩V (C) ̸= ∅. By symmetry, R ∩V (D) ̸= ∅. This implies that H ⊕RH contains an edge between
+C and D, a contradiction. Therefore, no such set R exists and S is a minimum solution.
+6
+Disconnecting a graph
+In this section we study the problem of disconnecting a graph. From now on, given a graph G, a
+solution is a subset S ⊆V (G) such that G ⊕S is disconnected. We begin by proving two basic
+properties.
+Proposition 34. Let G be a graph and let A ⊆V (G). Let S ⊆V (G) and let SA = S ∩A. Then
+G[A] ⊕SA is an induced subgraph of G ⊕S. In particular, if G ⊕S is disconnected, then G[A] ⊕SA
+is also disconnected.
+Proof. Let uv ∈E(G[A] ⊕SA). If both u and v belong to SA, then uv /∈E(G[A]). Since G[A] is an
+induced subgraph of G, we also have uv /∈E(G), and hence uv ∈E(G ⊕S). Otherwise, at least one
+of u or v does not belong to SA. In this case, the operation ⊕SA does not affect the edge uv, so
+uv ∈E(G[A]). As G[A] is induced, this implies uv ∈E(G), and therefore uv ∈E(G ⊕S).
+Proposition 35. Let G be a connected graph and let S be a solution. Then S intersects every
+component of G ⊕S.
+Proof. Suppose by contradiction that there exists a component C of G ⊕S such that V (C) ∩S = ∅.
+Since G is connected, there exists an edge uv ∈E(G) with u ∈V (C) and v /∈V (C). Let D be the
+component of G ⊕S containing v; clearly D ̸= C. As u /∈S, the operation ⊕S does not affect the
+16
+
+
+edge uv, and hence uv ∈E(G ⊕S). Therefore, u and v belong to the same component of G ⊕S,
+contradicting the assumption that C and D are distinct.
+For developing our algorithm, we rely on the following definition. A split of a graph G (not to
+be confused with a split graph) is a partition of V (G) into four sets (A2, A1, B1, B2) such that every
+vertex of A1 is adjacent to every vertex of B1, and there are no edges between A2 and B2. From
+now on, given such a split, we let A := A1 ∪A2 and B := B1 ∪B2. (Figure 2a). From now on, we
+fix a graph G and a split (A2, A1, B1, B2) of G.
+A2
+A1
+B1
+B2
+(a)
+vA
+A2
+A1
+(b)
+Figure 2: (a) A split (A2, A1, B1, B2) of a graph G. (b) The graph GA.
+The next lemma shows important properties for a valid solution.
+Lemma 36. Let S be a solution for G. Then
+• S ∩A2 = ∅or S ∩B2 = ∅
+• If S ∩B2 = ∅then S is also a solution for G[A ∪B1]. If S ∩A2 = ∅then S is also a solution
+for G[B ∪A1].
+• One of the next possibilities is true: S ⊆A, S ⊆B, A1 ⊆S or B1 ⊆S.
+Proof. We first show the first statement. Suppose, for contradiction, that there exist u, v ∈S with
+u ∈A2 and v ∈B2. Since uv /∈E(G), we have uv ∈E(G ⊕S). Hence u and v lie in the same
+component of G ⊕S, say C. As G ⊕S is not connected, there exists a component in G ⊕S, say
+D, distinct from C. Let w be a vertex in D. As, in G, v has no neighbors in A, we have w /∈A.
+Indeed, otherwise wv /∈E(G) and wv ∈E(G ⊕S), a contradiction. Hence w ∈B. But u ∈A2 has
+no neighbors in B in G, and the same reasoning shows that uw ∈E(G ⊕S), again contradicting
+w ∈D.
+For the second statement, assume that S ∩B2 = ∅. Since S ⊆A ∪B1, and A ∪B1 induces
+a subgraph of G, the claim follows from Proposition 34. For the third statement, suppose that
+S ̸⊆A and S ̸⊆B. By the first statement, S ∩A2 = ∅or S ∩B2 = ∅. Assume for the moment that
+S ∩B2 = ∅. We claim that A1 ⊆S or B1 ⊆S. Suppose by contradiction that there exist u ∈A1 \ S
+and v ∈B1 \ S. Let C be the component of G ⊕S containing v. Since v /∈S, for every a ∈A1 we
+have av ∈E(G) and hence av ∈E(G ⊕S); thus A1 ⊆V (C). Likewise, since u /∈S, every vertex of
+B1 is adjacent to u in G ⊕S, and therefore B1 ⊆V (C).
+Since G ⊕S is disconnected, there exists another component D ̸= C. By Proposition 35, D
+contains a vertex x ∈S. Because A1 ∪B1 ⊆V (C), this vertex x cannot lie in A1 or B1, so
+17
+
+
+x ∈A2 ∪B2. But our assumption S ∩B2 = ∅forces x ∈A2. Since S ̸⊆A, there exists a vertex
+y ∈S ∩B1. As x ∈A2 and y ∈B1, we have xy /∈E(G), and therefore xy ∈E(G ⊕S). This
+contradicts the fact that x ∈V (D) and y ∈V (C). Thus A1 ⊆S or B1 ⊆S, completing the proof
+(Figure).
+The main purpose of introducing the notion of a split is to solve the problem recursively by
+reducing it to smaller subgraphs of the original input [1, 9, 12]. For this purpose, we define GA as the
+graph whose vertex set consists of A together with a special vertex, denoted by vA, which represents
+all vertices of B1. The adjacencies in GA are defined as follows: the subgraph induced by A is exactly
+G[A], and the special vertex vA is adjacent to every vertex of A1 (Figure 2). Symmetrically, we
+define GB by exchanging the roles of A and B. From now on, we use GA, GB, vA and vB as defined
+before.
+Lemma 37. Let S be a solution for G[A ∪B1].
+• If B1 ∩S = ∅, then S is also a solution for GA.
+• If B1 ⊆S, then (S \ B1) ∪{vA} is a solution for GA.
+Proof. By identifying one vertex of B1 with vA, we have that G[A ∪{vA}] is an induced subgraph of
+G[A ∪B1]. By Proposition 34, G[A ∪{vA}] ⊕SA is disconnected, where SA = S ∩(A ∪{vA}). First,
+suppose that B1 ∩S = ∅. Then vA /∈S, and hence SA = S. Therefore, GA ⊕S is disconnected. Now
+suppose that B1 ⊆S. Then vA ∈S, and thus SA = (A ∩S) ∪{vA} = (S \ B1) ∪{vA}. Therefore,
+(S \ B1) ∪{vA} is a solution for GA.
+Lemma 38. Let R be a solution for GA. If vA /∈R then R is a solution for G. If vA ∈R then S is
+a solution for G, where S = (R \ {vA}) ∪B1.
+Proof. Since GA ⊕R is disconnected, there exist two components C and D in GA ⊕R.
+By
+Proposition 35, there exist x, y ∈R such that x ∈V (C) and y ∈V (D).
+Case 1: vA /∈R.
+Suppose, towards a contradiction, that G ⊕R is connected. As vA /∈R, both x and y lie in A.
+Because G ⊕R is connected, there exists a path P from x to y in G ⊕R. If all internal vertices of P
+lie in A, then P is also a path in GA ⊕R, contradicting that x and y lie in different components.
+Hence at least one internal vertex of P lies outside A, and thus in B1. Let Px be the maximal
+subpath of P starting at x whose vertices lie in A, and let x′ be the end of Px distinct from x.
+Similarly, we define Py and y′. Since x′, y′ ∈A1, and vA is adjacent to all vertices of A1 in GA,
+Px · x′vAy′ · Py
+is a path from x to y in GA ⊕R, contradicting again that x and y lie in different components. This
+proves the first statement.
+Case 2: vA ∈R.
+Assume towards a contradiction that G ⊕S is connected. As vA ∈R, we may assume without
+loss of generality that x = vA (otherwise, we proceed as in Case 1). Because G ⊕S is connected,
+there exists a path P in G ⊕S whose ends are y and some vertex z ∈B1. Choose P among such
+paths so that it has minimum length. By minimality of P, all internal vertices of P lie in A. Since
+vA is adjacent to every vertex of A1 in GA,
+P −z + vA
+18
+
+
+is a path in GA ⊕R joining y to x = vA. But x and y lie in different components of GA ⊕R, a
+contradiction.
+A split is trivial if |A| = 1 or |B| = 1. We say that a graph is prime if it admits only trivial
+splits. For a vertex u of a graph, we let N[u] = {u} ∪N(u).
+Lemma 39. Let G be a connected prime graph and let S be a solution for G. Then S = N[u] for
+some u ∈V (G).
+Proof. Since G ⊕S is disconnected, let C and D be two distinct connected components of G ⊕S.
+By Proposition 35, both C and D contain vertices of S. Set
+A1 = V (C) ∩S,
+A2 = V (C) \ S,
+B1 = V (D) ∩S,
+B2 = V (D) \ S.
+Note that ab /∈E(G ⊕S) for any a ∈V (C) and b ∈V (D). Since A1, B1 ⊆S and A2 ∩S =
+B2 ∩S = ∅, it follows that (A2, A1, B1, B2) is a split of G. As G is prime, this split must be trivial.
+Without loss of generality, we may assume that A2 = ∅and |A1| = 1. Thus S = N[a], where a is the
+unique vertex in A1.
+Finally, we can prove the main result of this section.
+Theorem 40. Let C be the class of disconnected graphs. Then MSC to C can be solved in polynomial
+time.
+Proof. We solve a weighted version of the problem: given a positive weight function w on V (G), we
+seek a minimum–weight solution S. If G is already disconnected, we return the empty set.
+If G is prime, then by Lemma 39, every feasible solution has the form N[u] for some vertex u.
+We simply test all vertices and return the set of minimum weight.
+Assume now that G admits a nontrivial split (A2, A1, B1, B2). We recurse on the two graphs
+obtained from the split. Let
+GA = G[A ∪{vA}]
+with w(vA) = w(B1),
+GB = G[B ∪{vB}]
+with w(vB) = w(A1).
+Let R1 and R2 be the solutions returned for GA and GB, respectively.
+From R1 we construct a feasible solution for G as follows: if vA /∈R1, set S1 = R1; if vA ∈R1,
+set S1 = (R1 \{vA})∪B1. In both cases, w(S1) = w(R1). Analogously, we construct S2 from R2. By
+Lemma 38, both G ⊕S1 and G ⊕S2 are disconnected. We return the solution of minimum weight.
+We now prove correctness. Let S be a minimum–weight set such that G ⊕S is disconnected. By
+Lemma 36, S ∩A2 = ∅or S ∩B2 = ∅. Assume without loss of generality that S ∩B2 = ∅. Then,
+again by Lemma 36, G[A ∪B1] ⊕S is disconnected, and one of the following holds:
+(i) S ⊆A,
+(ii) A1 ⊆S,
+(iii) B1 ⊆S.
+If S ⊆A, then by Lemma 37, GA ⊕S is disconnected, and thus the recursive solution satisfies
+w(R1) ≤w(S). Since G ⊕S1 is disconnected, minimality of S implies w(S) ≤w(R1) and w(S) ≤
+w(R2). Hence w(S) = w(R1) = min{w(R1), w(R2)}.
+If A1 ⊆S, then Lemma 37 implies that
+GB ⊕
+ (S \ A1) ∪{vB}
+
+19
+
+
+is disconnected, and therefore w(R2) ≤w(S). Again, by minimality, w(S) ≤w(R1) and w(S) ≤
+w(R2), which yields w(S) = w(R2) = min{w(R1), w(R2)}. The case B1 ⊆S is symmetric.
+Therefore, the algorithm always returns a minimum–weight solution. Each recursive call reduces
+the number of original vertices by at least one. Moreover, detecting whether G is prime and, if
+not, producing a nontrivial split can be done in polynomial time [12, Problem 1]. Thus, the overall
+running time is polynomial.
+References
+[1] Solving some np-complete problems using split decomposition. Discrete Applied Mathematics,
+156(14):2768–2780, 2008.
+[2] Noga Alon, Assaf Shapira, and Benny Sudakov. Additive approximation for edge-deletion
+problems. In Proceedings of the 46th IEEE Symposium on Foundations of Computer Science
+(FOCS 2005), pages 419–428, 2005.
+[3] Dhanyamol Antony, Jay Garchar, Sagartanu Pal, R. B. Sandeep, Sagnik Sen, and R. Subashini.
+On subgraph complementation to H-free graphs. Algorithmica, 84(10):2842–2870, 2022.
+[4] Dhanyamol Antony, Sagartanu Pal, and R. B. Sandeep. Algorithms for subgraph complementa-
+tion to some classes of graphs. Information Processing Letters, 188:106530, 2025.
+[5] Dhanyamol Antony, Sagartanu Pal, RB Sandeep, and R Subashini. Cutting a tree with subgraph
+complementation is hard, except for some small trees. Journal of Graph Theory, 107(1):126–168,
+2024.
+[6] J. A. Bondy and U. S. R. Murty. Graph Theory, volume 244 of Graduate Texts in Mathematics.
+Springer, New York, 2008.
+[7] Jarosław Byrka, Fabrizio Grandoni, and Afrouz Jabal Ameli. Breaching the 2-approximation
+barrier for connectivity augmentation:
+a reduction to steiner tree.
+In arXiv preprint
+arXiv:1911.02259, 2019.
+[8] Yixin Cao and Dániel Marx. Chordal editing is fixed-parameter tractable. In Proceedings of
+the 31st International Symposium on Theoretical Aspects of Computer Science (STACS 2014),
+pages 214–225. Schloss Dagstuhl – Leibniz-Zentrum für Informatik, 2014.
+[9] Serafino Cicerone and Gabriele Di Stefano. On the extension of bipartite to parity graphs.
+Discrete Applied Mathematics, 95(1):181–195, 1999.
+[10] Christophe Crespelle, Pål Grønås Drange, Fedor V. Fomin, and Petr A. Golovach. A survey
+of parameterized algorithms and the complexity of edge modification. Comput. Sci. Rev.,
+48:100556, 2023.
+[11] Christophe Crespelle, Pål Grønås Drange, Fedor V. Fomin, and Petr A. Golovach. A survey of
+parameterized algorithms and the complexity of edge modification. Computer Science Review,
+48:100556, 2023.
+[12] William H. Cunningham. Decomposition of directed graphs. SIAM Journal on Algebraic
+Discrete Methods, 3(2):214–228, 1982.
+20
+
+
+[13] Reinhard Diestel. Graph Theory, volume 173 of Graduate Texts in Mathematics. Springer, 5
+edition, 2017.
+[14] Tomasz Dzido and Krzysztof Krzywdziński. Edit distance measure for graphs. Czechoslovak
+Mathematical Journal, 65(3):829–836, 2015.
+[15] K. P. Eswaran and R. E. Tarjan. Augmentation problems. In Proceedings of the 17th Annual
+Symposium on Switching and Automata Theory (SWAT 1976), pages 347–352, 1976.
+[16] Fedor V. Fomin, Petr A. Golovach, Torstein J. F. Strømme, and Dimitrios M. Thilikos. Subgraph
+complementation. Algorithmica, 82(7):1859–1880, 2020.
+[17] Martin Charles Golumbic. Algorithmic Graph Theory and Perfect Graphs. Academic Press,
+1980.
+[18] Martin Charles Golumbic. Algorithmic Graph Theory and Perfect Graphs. Elsevier, second
+edition, 2004.
+[19] Marcin Kaminski, Vadim V. Lozin, and Martin Milanic. Recent developments on graphs of
+bounded clique-width. Discret. Appl. Math., 157(12):2747–2761, 2009.
+[20] Dénes Kőnig. Gráfok és alkalmazásuk a determinánsok és a halmazok elméletére. Matematikai és
+Természettudományi Értesítő, 34:104–119, 1916. Title in English: Graphs and Their Applications
+to the Theory of Determinants and Sets.
+[21] László Lovász and Michael D. Plummer. Matching Theory. North-Holland, 1986.
+[22] Luke Mathieson. The parameterized complexity of editing graphs for bounded degeneracy.
+Theoretical Computer Science, 411(34):3181–3187, 2010.
+[23] Assaf Natanzon, Ron Shamir, and Roded Sharan. Complexity classification of some edge
+modification problems. Discrete Applied Mathematics, 113(1):109–128, 2001.
+[24] Robert Endre Tarjan. Depth-first search and linear graph algorithms. SIAM Journal on
+Computing, 1(2):146–160, 1972.
+[25] Toshimasa Watanabe and Akira Nakamura. Edge-connectivity augmentation problems. Journal
+of Computer and System Sciences, 35(1):96–144, 1987.
+[26] Mihalis Yannakakis. Edge-deletion problems. SIAM Journal on Computing, 10(2):297–309,
+1981.
+21

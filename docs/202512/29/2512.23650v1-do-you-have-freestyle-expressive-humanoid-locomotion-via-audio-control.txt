@@ -1,0 +1,1857 @@
+Do You Have Freestyle? Expressive Humanoid Locomotion via Audio Control
+Zhe Li1*, Cheng Chi1∗‡, Yangyang Wei3∗, Boan Zhu4♡, Tao Huang5, Zhenguo Sun1,
+Yibo Peng1, Pengwei Wang1, Zhongyuan Wang1, Fangzhou Liu3, Chang Xu2, Shanghang Zhang6†
+1 BAAI, 2 University of Sydney, 3 Harbin Institute of Technology
+4 Hong Kong University of Science and Technology, 5 Shanghai Jiao Tong University
+6 Peking University
+Robot Dancer
+Robot Talker
+Robot Dancer
+Figure 1.
+RoboPerform makes humanoid perform as dancer and talker, which utilizes audio as signal to control humanoid locomotion,
+enabling poolicy to generate rhythm-aligned co-speech gestures and dance movements via input speech or music.
+Abstract
+Humans intuitively move to sound, but current humanoid
+robots lack expressive improvisational capabilities, confined
+to predefined motions or sparse commands. Generating mo-
+tion from audio and then retargeting it to robots relies on
+explicit motion reconstruction, leading to cascaded errors,
+high latency, and disjointed acoustic-actuation mapping. We
+propose RoboPerform, the first unified audio-to-locomotion
+framework that can directly generate music-driven dance
+and speech-driven co-speech gestures from audio. Guided by
+the core principle of “motion = content + style”, the frame-
+work treats audio as implicit style signals and eliminates
+the need for explicit motion reconstruction. RoboPerform
+integrates a ResMoE teacher policy for adapting to diverse
+motion patterns and a diffusion-based student policy for au-
+dio style injection. This retargeting-free design ensures low
+latency and high fidelity. Experimental validation shows that
+RoboPerform achieves promising results in physical plausi-
+bility and audio alignment, successfully transforming robots
+into responsive performers capable of reacting to audio.
+1. Introduction
+Humans move to sound. A drumbeat invites a step; a rising
+melody prompts a leap; spoken emphasis naturally evokes
+a gesture. These responses are not mere kinematic mimicry
+but arise from an intrinsic understanding of rhythm, phrasing,
+and intent, which is a process where perception precedes
+imitation. In contrast, most humanoid locomotion systems
+today are either constrained to mimic pre-defined motion
+clips [4, 7, 8, 10, 16, 28, 43] or to follow sparse language
+commands [23, 36, 45]. While effective for simple scripting,
+arXiv:2512.23650v1  [cs.RO]  29 Dec 2025
+
+
+these interfaces lack the capacity for expressive, context-
+sensitive control, and they bypass a crucial question for
+performative robots: Do you have freestyle?
+We argue that humanoid locomotion is fundamentally a
+generative problem: given a conditioning signal, synthesize
+physically plausible, stylistically aligned, and semantically
+grounded motion. This view invites richer modalities beyond
+text and motion capture, particularly audio, which is dense in
+temporal structure yet compact to transmit. Music encodes
+beat, tempo, and timbre that shape movement style; speech
+carries prosody, emphasis, and discourse rhythm that cue
+co-speech gestures. Treating audio as a first-class control
+signal transforms the robot from a replica to a performer:
+from mechanically replaying dance poses to improvising
+to the soundtrack; from reading a script to speaking with
+embodied gestures.
+However, dominant pipelines are ill-suited for audio-
+conditioned control. Explicitly generating human motion
+via audio-driven motion generators [2, 24, 26], followed by
+retargeting and tracking to the robot via a controller, inher-
+ently introduces three systemic issues: (1) cascaded error
+accumulation across decoding, retargeting, and tracking,
+which degrades both expressive fidelity and physical consis-
+tency; (2) significant inference latency induced by sequential
+multi-stage processing, which hinders practical deployment
+and rapid iteration; (3) loose coupling between high-level
+acoustic cues and low-level joint actuation, each module is
+optimized in isolation, failing to preserve fine-grained ex-
+pressions such as style, timing, and dynamics. Building on
+this observation, a more direct and natural insight emerges:
+bypass explicit motion reconstruction, directly encode raw
+audio, and treat stylistic elements (e.g., beats, prosody, and
+energy envelopes) as implicit control signals to modulate
+and refine humanoid locomotion.
+Our key insight is simple: motion = content + style.
+Building on latent motion representations [23], we define
+content as a high-level motion latent which is encoded from
+a text command (e.g., “a person is dancing”) via a text-to-
+motion model to specify the core task. We treat style as the
+audio signal (e.g., music beats or speech prosody), which
+dictates how that task is performed. We introduce RoboP-
+erform, a teacher-student framework designed to realize
+this decomposition. The teacher policy utilizes a ∆MoE, a
+residual mixture-of-experts architecture, where its experts
+specialize in diverse motion regimes and complement one
+another. This knowledge is then distilled into the student
+policy, a diffusion-based generator. This student policy ex-
+plicitly decomposes the generation: it is conditioned on the
+content latent to preserve the core task, while simultane-
+ously injecting the audio-driven style latents. This design
+achieves our goal, enabling the robot to perform the core
+task while precisely aligning its movements with acoustic
+details, such as synchronized steps to the beat and nuanced
+gestures aligned with prosody.
+Concretely, RoboPerform guides its diffusion policy us-
+ing two distinct sets of latents: high-level content latents
+that define the core task, and temporally-aligned style latents
+that encode kinematic and prosodic details. These combined
+latents serve as expressive anchors that guide the student
+policy to denoise executable actions on the humanoid. This
+retargeting-free, latent-driven design improves overall infer-
+ence efficiency, enhances motion fidelity, and ensures fine-
+grained temporal alignment via the motion latent space. It
+scales across behaviors, from rhythm- and genre-conditioned
+freestyle dance to presenter-style co-speech gestures that im-
+prove clarity and engagement.
+Extensive experiments validate the effectiveness and prac-
+ticality of RoboPerform across both music-to-dance and
+speech-to-gesture. RoboPerform delivers temporally aligned,
+physically plausible motion with smoother style control and
+significantly higher inference efficiency than retargeting-
+based pipelines. We further demonstrate its capabilities,
+enabling humanoids to perform freestyle dance to music and
+function as hosts, which are presented in Figure 1. In short,
+RoboPerform reframes humanoid control around audio,
+moving from motion replay to responsive performance.
+Our contributions can be summarized as follows:
+• To our knowledge, RoboPerform is the first framework to
+utilize audio as an implicit control modality for unified
+humanoid locomotion and gestural expression, bridging
+what is heard with how a humanoid moves.
+• We propose ∆MoE in the teacher policy specializes in
+diverse motion regimes via a mixture-of-experts design,
+while the student policy decomposes motion into con-
+tent and style to inject audio-driven style signals into a
+diffusion-based generator, preserving timing fidelity and
+reducing end-to-end latency.
+• We validate RoboPerform through extensive experiments
+across music-to-dance and speech-to-gesture tasks, demon-
+strating physically plausible, stylistically aligned, and real-
+time synchronized motion, enabling freestyle performance
+and embodied speech gestures.
+2. Related Work
+2.1. Humanoid Whole-body Control
+Traditional model-based whole-body control methods
+achieve precise task execution via accurate dynamics mod-
+els [5, 38], but suffer from intricate modeling and lim-
+ited generalization across skills or unmodeled dynamics.
+Learning-based paradigms rely on manually designed task-
+specific rewards, succeeding in locomotion [41], jump-
+ing [33], and fall recovery [11, 14, 21] while requiring elab-
+orate reward engineering and struggling to generate human-
+like motions. Some studies decompose control into inde-
+pendent policies [19, 48], compromising inter-body coordi-
+
+
+nation, while others use hierarchical frameworks for tasks
+like table tennis [39]. Whole-body motion tracking offers
+a paradigm shift [7]: it takes human motion as reference,
+formulating a unified control goal that obviates task-specific
+reward design and inherently fosters human-like coordina-
+tion across diverse skills.
+2.2. Humanoid Motion Tracking
+Humanoid motion tracking learns lifelike behaviors from
+human motion data. DeepMimic [32] pioneers a phase-based
+framework with random initialization and early termination
+for single-motion imitation. ASAP [9] addresses the sim-
+to-real gap via a multi-stage pipeline with a delta-action
+model for dynamic skills. HuB [47] and KungfuBot [43] use
+elaborate processing to accurately imitate highly dynamic
+single motions.
+For unified multi-motion policies, OmniH2O [8] intro-
+duces a universal controller inspiring subsequent works. Ex-
+Body2 [16] enhances expressiveness via target decomposi-
+tion and filtering. TWIST [46] and CLONE [20] achieve
+high-quality tracking but are tailored to teleoperation and
+low-dynamic motions. BumbleBee [42] uses motion cluster-
+ing, expert policy training, and distillation. GMT [4] enables
+robust dynamic motion tracking by prioritizing root velocity
+and pose over global position. UniTracker [44] supports
+dynamic tracking but lacks stability in long sequences due to
+global target dependence. BeyondMimic [25] achieves high-
+fidelity single-motion tracking via specialized objectives and
+system identification, further using a distilled diffusion pol-
+icy for task control. Kungfubot2 proposes an orthogonal
+MoE for general motion tracking, enabling versatile skill
+learning. Building on these, we develop a universal pol-
+icy for audio-driven humanoid action generation, endowing
+humanoids with the ability to perform.
+2.3. Modality-driven Humanoid Locomotion
+Recent works explore language-guided locomotion. Lang-
+WBC [36] trains a compact auxiliary network for online mo-
+tion generation but lacks scalability to complex distributions
+and unseen instructions. RLPF [45] finetunes an LLM with
+physical feasibility feedback from a tracking policy to align
+semantics with kinematics, but risks catastrophic forgetting
+due to decoder-focused gradient updates. RoboGhost [23]
+proposes a latent-driven retargeting-free framework to re-
+duce error accumulation and latency, treating locomotion
+as a generation task but only using language as input. In
+this work, we first leverage audio modality as a conditioning
+signal for humanoid locomotion, achieving "motion synchro-
+nized with sound."
+3. Method
+3.1. Overview
+We present a novel audio-driven framework for humanoid
+motion generation, eliminating error-prone retargeting to
+enable stylistically aligned, physically plausible actions via
+fused audio semantics and motion control. As shown in Fig-
+ure 2, its core includes three components: a Delta Mixture
+of Experts (∆MoE) teacher policy, an InfoNCE-optimized
+audio-motion alignment module, and a diffusion-based stu-
+dent policy with content-style disentanglement. It addresses
+generating expressive motions (e.g., dance and gesture) di-
+rectly from audio without motion templates or pose estima-
+tion.
+It begins with audio-motion alignment: an adaptor aug-
+mented with temporal attention processes raw audio latents
+laudio, aligning them with motion latents lmotion via the In-
+foNCE loss.
+This design embeds kinematic priors into
+audio latents, obviating the need for a dedicated audio-to-
+motion generator and ensuring rhythmic consistency be-
+tween audio and motion. For robust teacher policy training,
+we propose ∆MoE, which partitions 3D conditional inputs
+into nested subspaces {Si}4
+i=1 for four experts. A gating
+network dynamically weights experts via residual fusion
+(a = w1a1 +P4
+i=2 wi(ai −ai−1)), eliminating redundancy
+and enhancing expert complementarity. We then distill this
+oracle policy into a diffusion-based student policy grounded
+in the "motion=content+style" insight: motion latents from
+pretrained motion generator guide denoising, while aligned
+audio latents are injected across diffusion layers to modulate
+rhythmic expression.
+By integrating alignment, specialized teaching, and dis-
+entangled diffusion control, our framework achieves direct
+audio-to-action mapping with low latency and strong gener-
+alization. It uniquely enables audio-driven freestyle dance
+and speech-accompanied gestures, setting a new paradigm
+for retargeting-free, expressive humanoid control.
+3.2. Delta Mixture of Experts
+To maximize the diversity and complementarity of knowl-
+edge learned by different components, each of which pro-
+cesses a distinct subset of input conditions, we propose
+∆MoE as the teacher policy in Figure 3. The core design of
+∆MoE hinges on nested conditional subspace partitioning
+and residual incremental learning, which enforces mutual
+complementarity among experts while eliminating informa-
+tion redundancy. Fundamentally, ∆MoE can be interpreted
+as a structured generalization of Classifier-Free Guidance
+(CFG) [12] to continuous, multi-dimensional conditional
+settings, providing a rigorous theoretical foundation for its
+residual fusion mechanism.
+We formalize conditional inputs as a 3D vector c =
+[c1, c2, c3]T ∈R3. In standard CFG, models are trained
+
+
+𝑝𝑖
+𝑝𝑡
+𝑔𝑡
+𝑎𝑡
+Privileged 
+Information
+Proprioception
+Adaptor
+Motion
+Encoder
+Raw Motion
+Music or Speech
+Contrastive 
+Learning
+MoE
+Diffusion
+Adaptor
+ෝ𝒂𝒕
+𝑎𝑡
+DAgger
+Teacher Policy
+Audio-Motion Align
+Student  Policy
+Simulation
+Real-World
+Noise
+Audio
+“A person is 
+dancing/talking.”
+Motion 
+Generator
+Content
+Style
+Figure 2. Overview of RoboPerform. We propose a two-stage approach: train an adaptor to inject kinematic information into audio modality,
+then a ∆MoE teacher policy is trained with RL and a diffusion-based student policy is trained to denoise actions conditioned on audio latent.
+We propose that motion=content+style. Thus, we fix the motion latent as a constant condition and leverage different audio signals as style
+modulation signals to generate actions adaptive to diverse rhythms.
+Expert 1
+Expert 2
+Expert 3
+Weighted 
+Sum
+Action
+Expert 4
+-
+-
+-
+Gating 
+Network
+Zero Input
+Proprioception Information
+Historical Observations
+Reference Motion
+Figure 3. Overview of ∆MoE.
+in both conditional p(a | c) and unconditional p(a) forms,
+with inference leveraging interpolated fusion:
+a ∝p(a | c)γ
+p(a)1−γ
+In the log-space, this translates to an additive update that
+balances conditional alignment and unconditional diversity:
+∇a log p(a | c) + (γ −1)∇a log p(a | c)
+p(a)
+∆MoE extends this core insight to a nested hierarchy of par-
+tial conditions, defining a filtration of conditional subspaces:
+{0} = S1 ⊂S2 ⊂S3 ⊂S4 = R3
+∆MoE employs 4 experts {ei}4
+i=1, where each expert
+ei models a policy πi(a | cSi) that depends solely on the
+subspace Si: e1 takes S1 = {0} as input (modeling the
+unconditional prior p(a)), e2 conditions on S2 = {c1, 0, 0},
+e3 uses S3 = {c1, c2, 0} as input, e4 conditions on S4 =
+{c1, c2, c3}, modeling the full conditional p(a | c).
+A gating network processes c to output normalized
+weights w = [w1, ..., w4]T (P wk = 1). Residual fusion
+yields the final action:
+a = w1a1 +
+4
+X
+i=2
+wi(ai −ai−1)
+where ai is ei’s output, and ∆ai = ai −ai−1 (a0 = 0)
+denotes the marginal contribution of introducing the i-th
+conditional dimension. This formulation is equivalent to a
+
+
+weighted sum of conditional increments:
+a =
+4
+X
+i=1
+wi∆ai,
+where ∆ai = E[a | cSi] −E[a | cSi−1]
+Each ∆ai directly analogizes to the guidance term in
+CFG, quantifying the “information gain” from adding the
+i-th conditional dimension, just as CFG’s residual term disen-
+tangles conditional and unconditional signals, ∆ai ensures
+non-overlapping contributions across experts. This disentan-
+glement eliminates information redundancy while enforcing
+mutual complementarity: experts do not compete for shared
+signals but instead specialize in distinct conditional incre-
+ments.
+We adopt ∆MoE as our oracle policy, which takes both
+robot state observations and reference motion as input, and
+outputs the final action at optimized with several rewards.
+By generalizing CFG’s residual contrast to hierarchical con-
+ditional subspaces, ∆MoE achieves both precise conditional
+alignment via structured incremental learning and robust
+generalization via complementary expert knowledge.
+3.3. Audio-Motion Alignment
+To directly guide action generation by conditioning the pol-
+icy on the audio latent, thereby circumventing the need to
+train a dedicated audio-to-motion generator, we endow the
+audio latent with kinematic information. Specifically, we
+train an audio adaptor to align the audio latent laudio with the
+motion latent lmotion. The adaptor consists of a 6-layer Trans-
+former [40] that processes the audio latent, augmented with
+temporal attention to capture rhythmic structures inherent in
+the audio. The motion latent is extracted from our pretrained
+VAE, and the entire alignment process is optimized using the
+InfoNCE loss [30], effectively embedding kinematic priors
+into the audio latent through the adaptor.
+Formally, given a batch of N paired audio-motion latents
+{(l(i)
+audio, l(i)
+motion)}N
+i=1, we treat each pair (i, i) as a positive
+sample and all other (i, j) with j ̸= i as negative samples.
+Let sim(u, v) =
+u⊤v
+τ
+denote the scaled cosine similarity
+between two normalized latent vectors, where τ > 0 is
+a temperature hyperparameter. The InfoNCE loss is then
+defined as:
+LInfoNCE = −1
+N
+N
+X
+i=1
+log
+exp
+
+sim(l(i)
+audio, l(i)
+motion)
+
+PN
+j=1 exp
+
+sim(l(i)
+audio, l(j)
+motion)
+.
+(1)
+This objective encourages the adaptor to map audio latents
+closer to their corresponding motion latents in the embedding
+space while pushing them away from unrelated ones.
+3.4. Audio-conditioned Policy Distill
+We posit that motion=content+style. In the context of dance
+or gesture, the audio serves primarily as a style cue, modu-
+lating the underlying motion content in accordance with its
+rhythmic and temporal structure. To instantiate this disentan-
+glement, we first encode high-level semantic descriptions,
+e.g., “The person is dancing to the music” or “The person is
+giving a speech” into a motion latent using a pretrained mo-
+tion generator. During training, all motions share the same
+motion latent, which provides the content of the generated
+action. This motion latent is then employed as the primary
+conditioning signal to guide the denoising process in the
+diffusion model.
+Subsequently, the aligned audio latent is injected as an
+external style control signal into the diffusion backbone at
+multiple layers, which can be formulated as:
+oi = Layeri
+ oi−1, lmotion
+
++ αlaudio,
+(2)
+where oi denotes the output of layer i. This progressive
+injection steers the denoising trajectory toward rhythmically
+stylized motion, effectively modulating the base motion con-
+tent in an audio-aware manner.
+Follwing a DAgger-like approach [34], we roll out the
+student policy in simulation and query the teacher for op-
+timal actions ˆa at visited states. We employ a diffusion
+model as the student policy to perform action denoising. The
+forward process progressively corrupts the clean action a
+by adding Gaussian noise over T timesteps, yielding noisy
+samples xt = √¯αt a + √1 −¯αt ϵ, where ϵ ∼N(0, I) and
+¯αt = Qt
+s=1 αs denotes the cumulative signal-to-noise ratio
+at timestep t. For tractability, we adopt an x0-prediction pa-
+rameterization, where the student policy ϵθ(xt, t) is trained
+to predict the original clean action a. Specifically, we de-
+fine the reconstructed action as ˆat = xt−√1−¯αt ϵθ(xt,t)
+√¯αt
+and
+supervise the model by minimizing the mean squared error
+loss L = ∥a −ˆat∥2
+2.
+4. Experiments
+We evaluate RoboPerform on two tasks, including music-
+driven and speech-driven humanoid control, and rigorously
+assess whether humanoid locomotion can be effectively gen-
+erated from audio alone. Specifically, the input audio is first
+encoded and then processed by a pretrained adaptor to pro-
+duce a representation aligned with the motion latent space,
+which is subsequently fed into a policy network to generate
+executable actions. In our experiments, both the teacher
+and student policies are trained in the IsaacGym simulation
+environment, and the student policy is directly deployed on
+the Unitree G1 humanoid robot for real-world validation.
+4.1. Experimental Setups
+Dataset
+We train our model on FineDance [18] and
+BEAT2 [26] datasets. BEAT2 has 76 hours of data from
+30 speakers, standardized into a mesh representation with
+paired audio. FineDance is a fine-grained 3D full-body
+
+
+(a)    MoE
+(b) Vanilla MoE
+Figure 4. T-SNE visualization results of each component for ∆MoE
+and vanilla MoE.
+Method
+R@1 ↑R@2 ↑R@3 ↑MM-Dist ↓
+Music-Motion
+66.7
+78.8
+83.5
+1.154
+Speech-Motion
+64.6
+76.5
+82.1
+1.232
+Table 1. Audio-motion alignment performance on the BEAT2 and
+FineDance test sets.
+dataset, which has 7.7 hours of dance motion. It provides
+the SMPL-H [31] format motion data and music feature ex-
+tracted by librosa. All motions are sampled at 30FPS. Due
+to the excessive length of the original data, we segment each
+motion sequence and its corresponding audio into 10-second
+clips for both training and evaluation.
+Metrics
+We adopt two categories of evaluation metrics:
+audio-motion retrieval and motion tracking.
+For audio-
+motion retrieval, we only report retrieval precision R@1,2,3
+to evaluate the ability of audio adaptor. For motion tracking,
+evaluated in physics simulators aligning with prior works [8],
+we use success rate as the core indicator, supplemented
+by mean per-joint position error (EMPJPE) and mean per-
+keypoint position error (EMPKPE). Detailed metric definitions
+are provided in the Appendix.
+Implementation Details
+In ∆MoE, we employ 4 MLP-
+based experts together with an MLP gating network that
+assigns a weight to each expert.
+Since the FineDance
+dataset provides pre-encoded music features, we do not
+train a music encoder; however, for speech from the BEAT2
+dataset, we adopt the temporal convolutional network from
+EMAGE [26] to learn speech representations. We train a
+9-layer, 4-head transformer as the motion VAE and a 6-layer,
+4-head transformer as the music adaptor, where temporal
+attention is explicitly incorporated to capture temporal dy-
+namics. During DAgger training, we utilize a 4-layer MLP
+as the backbone of the diffusion model, with conditioning in-
+jected via AdaLN [15]. At inference, we employ a two-step
+DDIM sampling [37] schedule to ensure real-time perfor-
+mance during deployment. Further details regarding policy
+training can be found in the Appendix.
+Figure 5. Ablation study on tracking performance of music-to-
+dance and speech-to-gesture tasks in IsaacGym and MuJoCo. The
+baseline uses pretrained motion generators for each task to generate
+motions, which drive the student policy for action generation.
+4.2. Evaluation of Audio-Motion Retrieval
+To evaluate the alignment capability of the audio adaptor, we
+conduct alignment evaluation on the test sets of FineDance
+and BEAT2, specifically assessing whether the model can
+accurately align a given audio segment to the motion latent
+space to retrieve the corresponding motion latent. The results
+are shown in Table 1.
+4.3. Evaluation of Motion Tracking
+To further validate the motion tracking performance of our
+policy, we evaluate it on two audio-driven locomotion tasks:
+speech-to-locomotion and music-to-locomotion, reporting
+task success rate, Empjpe, Empkpe in IsaacGym and MuJoCo.
+The pipeline operates as follows: (i) the input audio is en-
+coded and processed by our trained adaptor to inject kine-
+matic priors into the audio features; (ii) the resulting motion-
+aligned latent representation conditions the student policy
+to generate physically executable actions. As shown in Ta-
+ble 2, our method achieves high task success rates on both
+the FineDance and BEAT2 datasets, along with low joint and
+keypoint errors, indicating strong alignment between audio
+semantics and feasible locomotion trajectories. The baseline
+employs pretrained models EMAGE [26] and FineNet [18]
+to first generate a deterministic motion, which is then retar-
+geted to G1 and executed by an explicit motion-driven policy
+based MLP.
+4.4. Qualitative Results
+We conduct a qualitative assessment of the motion tracking
+policy across three deployment settings: simulation (Isaac-
+Gym), cross-simulator transfer (MuJoCo), and real-world
+execution on the Unitree G1 humanoid robot. Figure 6
+presents representative tracking sequences, highlighting the
+
+
+A person is doing a speech:“My favorite room in my house would be my room...”
+A person is doing a speech:“My last trip was when I was about to graduate...”
+A person is doing a speech:“One time, I was travelling to Disney World....”
+A person is doing a speech:“I would much rather take a very long vacation...”
+A dancer is performing a Jazz dance
+A dancer is performing a Mix dance
+A dancer is performing a Folk dance
+A dancer is performing a Korean dance
+IsaacGym
+MuJoCo
+Figure 6. Qualitative results in the IsaacGym and MuJoCo. The upper half presents the tracking performance of music-to-locomotion, and
+the lower half presents that of speech-to-locomotion.
+Method
+IsaacGym
+MuJoCo
+Succ ↑Empjpe ↓Empkpe ↓Succ ↑Empjpe ↓Empkpe ↓
+BEAT2
+Baseline
+0.98
+0.07
+0.05
+0.94
+0.13
+0.12
+Ours
+0.99
+0.05
+0.04
+0.96
+0.10
+0.09
+FineDance
+Baseline
+0.88
+0.24
+0.21
+0.61
+0.32
+0.27
+Ours
+0.93
+0.18
+0.16
+0.67
+0.26
+0.24
+Table 2. Motion tracking performance comparison in simulation on
+the BEAT2 and FineDance test sets.
+policy’s ability to adhere to audio rhythm, maintain balance
+during dynamic transitions, and generalize across diverse
+physics engines and hardware platforms. Additional qualita-
+tive results in simulation and real-world settings are provided
+in Appendix.
+4.5. Ablation Studies
+To systematically validate the effectiveness of the proposed
+method, we present a set of ablation studies in this section,
+Method
+IsaacGym
+MuJoCo
+Succ ↑Empjpe ↓Empkpe ↓Succ ↑Empjpe ↓Empkpe ↓
+BEAT2
+Vanilla MoE 0.97
+0.14
+0.1
+0.94
+0.16
+0.14
+∆MoE
+0.99
+0.05
+0.04
+0.96
+0.10
+0.09
+FineDance
+Vanilla MoE 0.89
+0.24
+0.22
+0.61
+0.29
+0.26
+∆MoE
+0.93
+0.18
+0.16
+0.67
+0.26
+0.24
+Table 3. Ablation study on vanilla MoE and ∆MoE across both
+BEAT2 and FineDance datasets.
+covering four key aspects: (1) the efficacy of ∆MoE, (2) a
+comparison between pose-driven and audio-driven locomo-
+tion, (3) the necessity of semantic content for locomotion
+generation, and (4) the necessity of audio adaptor. More
+ablation studies can be seen in the Appendix.
+Audio-driven Vs Pose-driven
+To compare against explicit
+pose-driven approaches, we generate motions using EMAGE
+and FineNet and deploy the resulting explicit motion se-
+
+
+Method
+IsaacGym
+MuJoCo
+Succ ↑Empjpe ↓Empkpe ↓Succ ↑Empjpe ↓Empkpe ↓
+BEAT2
+- Content
+0.96
+0.11
+0.09
+0.91
+0.12
+0.10
++ Content 0.99
+0.05
+0.04
+0.96
+0.10
+0.09
+FineDance
+- Content
+0.91
+0.20
+0.17
+0.66
+0.25
+0.24
++ Content
+0.93
+0.18
+0.16
+0.67
+0.26
+0.24
+Table 4. Ablation study on whether to incorporate content infor-
+mation. Herein, the content for both tasks is fixed, with the same
+content latent used in each inference.
+quences for execution. The time cost reports the full infer-
+ence latency, baseline encompasses both motion generation
+and retargeting; specifically, we employ a 1000-iteration
+PBHC retargeting [43] procedure. As shown in Figure 5,
+such explicit action generation not only incurs additional
+computational overhead but also degrades task success rates
+and introduces extra tracking error.
+∆MoE Vs Vanilla MoE
+To investigate the performance
+gain introduced by our ∆MoE, we conduct an ablation study
+comparing the tracking performance of vanilla MoE and ∆
+MoE. As shown in Table 3, ∆MoE yields consistently more
+accurate tracking.
+Additionally, we visualize every component in MoE using
+t-SNE. For vanilla MoE, each component corresponds to the
+output of an individual expert. As illustrated in Figure 4
+(b), the features learned by each expert exhibit significant
+overlap, failing to achieve mutually independent information
+specialization across experts. In contrast, the components
+of ∆MoE correspond to the differences between experts
+conditioned on distinct signals (except for the first expert,
+which is conditioned on a zero vector). As shown in Figure 4
+(a), we perform clustering on {a1, a2 −a1, . . . , a4 −a3}.
+The results demonstrate that each component is mutually
+independent, which fully exploits the capacity of individual
+experts and enhances generalization. This mechanism is
+analogous to creating a complete painting: starting with
+a blank canvas, we incrementally add contour and color
+information, where each stroke introduces non-redundant
+details until the artwork is fully realized.
+With Content Vs Without Content
+We posit that motion
+can be decomposed into content and style. For expressive
+motions such as dance and speech gestures, audio serves
+primarily as a style modulation signal that shapes the tempo-
+ral structure, such as rhythm and beat patterns, rather than
+prescribing fine-grained kinematics. Accordingly, we treat
+the content latent from a pretrained motion generative model
+Method
+IsaacGym
+MuJoCo
+Succ ↑Empjpe ↓Empkpe ↓Succ ↑Empjpe ↓Empkpe ↓
+BEAT2
+- Adaptor
+0.88
+0.29
+0.27
+0.83
+0.36
+0.35
++ Adaptor 0.99
+0.05
+0.04
+0.96
+0.10
+0.09
+FineDance
+- Adaptor
+0.79
+0.49
+0.48
+0.51
+0.58
+0.53
++ Adaptor
+0.93
+0.18
+0.16
+0.67
+0.26
+0.24
+Table 5. Ablation study on whether to use adaptor inject kinematic
+information into audio modality. It can be observed that adaptor
+successfully aligns the audio and motion, improving the tracking
+performance and success rate.
+as the primary control signal, and progressively inject audio
+features into the diffusion process to modulate the denoising
+trajectory. Herein, LaMP-T2M [22] is adopted as the motion
+generator for both tasks. For the music-to-dance task, the in-
+put text is "The person is dancing to the music", while for the
+speech-to-gesture task, the input text is "The person is giving
+a speech". This design ensures that the generated actions
+preserve semantic content while aligning with the temporal
+dynamics of the input audio. As shown in Table 4, policies
+conditioned on the content latent achieve significantly more
+accurate tracking performance.
+With Adaptor Vs Without Adaptor
+To demonstrate that
+enriching the control signal with kinematic information leads
+to more accurate and rhythmically coherent action genera-
+tion, we conduct an ablation study on the use of the audio
+adaptor. As shown in Table 5, when the control signal is
+aligned with the motion latent space and imbued with kine-
+matic cues via the adaptor, it more effectively guides motion
+synthesis, yielding improved tracking accuracy and stronger
+rhythmic alignment. Additionally, we report the rhythm
+hit rate, a metric quantifying the temporal correspondence
+between generated motions and musical beats.
+5. Conclusion
+We present RoboPerform, a retargeting-free audio-to-
+locomotion framework that unifies music-driven dance and
+speech-driven co-speech gesture generation for humanoids.
+By formulating motion = content + style, our approach lever-
+ages a pretrained motion latent for semantic grounding and
+injects rhythm-aware audio features into a diffusion-based
+policy. Our proposed ∆MoE enhances behavioral diversity,
+while content-style disentanglement ensures temporally co-
+herent and physically plausible execution. RoboPerform
+achieves better tracking performance and faster speed during
+deployment. It reframes humanoid control as an expressive
+act, answering the question: Yes, humanoids can freestyle.
+
+
+Do You Have Freestyle? Expressive Humanoid Locomotion via Audio Control
+Supplementary Material
+Appendix Overview
+This appendix provides additional details and results, orga-
+nized as follows:
+• Section 6: Elaboration on some details during training,
+including dataset details, motion filter and retargeting,
+simulator, domain randomization, regularization, reward
+functions, curriculum learning, and adaptive sigma.
+• Section 7: Details about evaluation, including metrics
+about motion tracking and motion-audio alignment.
+• Section 8:
+Additional experiments, including audio-
+motion alignment evaluation, ablation studies on ∆MoE
+and diffusion policy.
+• Section 9: Extra qualitative experiment results and visual-
+izations, including in the simulation and in the real-world.
+6. Implementation Details
+This section details the state representation for policy train-
+ing, including proprioceptive states, privileged information,
+and network hyperparameters. As summarized in Table 6,
+the proprioceptive state components are shared between the
+teacher and student policies, with a critical distinction: the
+student policy leverages an extended observation history to
+compensate for the absence of privileged information, sub-
+stituting temporal context for direct auxiliary signals.
+Our proprioceptive information includes joint positions,
+joint velocities, root angular velocity, root projected grav-
+ity, and the aforementioned information from four historical
+frames, which is elaborated in Table 6. For privileged infor-
+mation, it forms the observation of the critic network together
+with proprioceptive information. Unlike prior works where
+both teacher and student policies receive explicit reference
+motion as part of observations, our framework restricts these
+target signals exclusively to the teacher. By contrast, the
+student policy additionally takes proprioceptive states from
+25 historical frames, motion latents for content representa-
+tion, and audio latents for style representation as inputs. The
+audio latents first feed into a pretrained adaptor to infuse
+kinematic information. Full details of the target state are
+provided in Table 7. Both policies output 23-dimensional
+target joint positions.
+The teacher policy is trained via PPO [35], taking privi-
+leged information, motion tracking targets, and propriocep-
+tive states as inputs, which are concatenated and processed
+by ∆MoE. The first expert takes all zeros as conditions to
+predict action a1. The second expert only receives propri-
+oceptive states as conditions, with all remaining positions
+filled with zeros. This pattern continues such that the fourth
+expert accepts all conditions to output action a4. The final
+action is obtained through a weighted sum of the outputs of
+all experts, where the weights wi are generated by a gating
+network. The student policy is trained with DAgger, lacking
+access to privileged information and explicit reference mo-
+tion, instead relying on extended observation histories and
+audio latent representations to enable a retargeting-free, au-
+dio latent-driven pipeline. First, audio features are extracted
+from the input audio. Then, our pretrained adaptor is uti-
+lized to infuse kinematic information into the audio features,
+enabling them to guide humanoid action generation more
+effectively. The inputs of student policy are concatenated
+and fed as conditions to a diffusion model with an MLP
+backbone, where AdaLN injects conditional signals through-
+out the denoising process. A final MLP layer projects the
+backbone output to the 23-dimensional action space, with
+conditional signals further integrated for alignment. Detailed
+hyperparameters for both policies are listed in Table 8.
+Motion Filter and Retargeting
+Following [43], we quan-
+tify stability by computing the ground-projected distance
+between the center of mass (CoM) and center of pressure
+(CoP) for each frame, with a predefined stability threshold.
+Let ¯pCoM
+t
+= (pCoM
+t,x , pCoM
+t,y ) and ¯pCoP
+t
+= (pCoP
+t,x , pCoP
+t,y ) repre-
+sent the 2D ground projections of CoM and CoP at frame
+t, respectively. We define ∆dt = ∥¯pCoM
+t
+−¯pCoP
+t
+∥2 as this
+distance. A frame is considered stable if ∆dt < ϵstab. A
+motion sequence is retained if its first and last frames are
+stable, and the longest consecutive unstable segment has
+fewer than 100 frames.
+Simulator
+Following established protocols in motion
+tracking policy research [9, 16], we adopt a three-stage
+evaluation pipeline: first, large-scale reinforcement learning
+training in IsaacGym; second, zero-shot transfer to MuJoCo
+to assess cross-simulator generalization; third, physical de-
+ployment on the Unitree G1 humanoid platform to validate
+real-world performance.
+Reference State Initialization
+Task initialization is criti-
+cal for reinforcement learning (RL) training. We observe that
+naively initializing episodes at the start of reference motions
+often leads to policy failure, especially for complex motions.
+This can cause the environment to overfit to simpler frames,
+neglecting the most challenging motion segments.
+To address this, we adopt the Reference State Initializa-
+tion (RSI) framework [32]. Specifically, we uniformly sam-
+ple time-phase variables over [0,1] to randomize the starting
+point within the reference motion that the policy must track.
+
+
+Proprioceptive States
+State Component
+Dim.
+DoF position
+23 × (1+4)
+DoF velocity
+23 × (1+4)
+Last action
+23 × (1+4)
+Root angular velocity
+3 × (1+4)
+Projected gravity
+3 × (1+4)
+Total dim
+75 × 5
+Privileged Information
+Root linear velocity
+3 × (1+4)
+Reference body position
+81
+Body position difference
+81
+Randomized base CoM offset
+3
+Randomized link mass
+22
+Randomized stiffness
+23
+Randomized damping
+23
+Randomized friction coefficient
+1
+Randomized control delay
+1
+Total dim
+250
+Table 6. Proprioceptive states and privileged information.
+Teacher Policy
+State Component
+Dim.
+Proprioceptive states
+75 × 5
+DoF position
+23
+Keypoint position
+81
+Root Velocity
+3
+Root Angular Velocity
+3
+Root Orientation
+3
+Total dim
+489
+Student Policy
+Motion Latent
+64
+Audio Latent
+256
+Proprioceptive States
+75 × (25+1)
+Total dim
+2270
+Table 7. Reference information in the teacher and student policies.
+Hyperparameter
+Value
+Optimizer
+Adam
+β1, β2
+0.9, 0.999
+Learning Rate
+1 × 10−3
+Batch Size
+8192
+Teacher Policy
+GAE Discount factor (γ)
+0.99
+GAE Decay factor (γ)
+0.95
+Clip Parameter
+0.2
+Entropy Coefficient
+0.01
+Max Gradient Norm
+1
+Learning Epochs
+5
+Mini Batches
+4
+Value Loss Coefficient
+1.0
+Value MLP Size
+[512, 256, 128]
+Actor MLP Size
+[768, 512, 128]
+Experts
+4
+Student Policy
+MLP Layers
+4 + 1 (final layer)
+MLP Size
+[1792, 1792, 1792, 23]
+Table 8. Hyperparameters for teacher and student policy training.
+The robot’s state, including root position, orientation, linear
+and angular velocities, and joint positions and velocities,
+is then initialized to the reference motion’s values at the
+sampled phase. This approach enhances motion tracking
+performance, particularly for highly dynamic whole-body
+motions, by enabling the policy to learn diverse movement
+segments in parallel rather than being constrained to strictly
+sequential learning.
+Domain Randomization and Regularization
+To improve
+the robustness and generalization of the pretrained policy,
+we utilize the domain randomization techniques and regular-
+ization items, which are listed in Table 9.
+Term
+Value
+Dynamics Randomization
+Friction
+U(0.2, 1.5)
+PD gain
+U(0.75, 1.25)
+Link mass (kg)
+U(0.9, 1.1) × default
+Ankle inertia (kg · m²)
+U(0.9, 1.1) × default
+Base CoM offset (m)
+U(−0.05, 0.05)
+ERFI [3] (N·m/kg)
+0.05 × torque limit
+Control delay (ms)
+U(0, 40)
+External Perturbation
+Random push interval (s)
+[5, 10]
+Random push velocity (m/s)
+0.5
+Table 9. Domain randomization settings.
+
+
+Motion Tracking Rewards
+As shown in Table 10, we
+define the reward function as the sum of task rewards and
+regularization, which are meticulously designed to improve
+both the performance and motion realism of the humanoid
+robot. Following [43], we enforce penalties for joint posi-
+tions exceeding soft limits, which are symmetrically derived
+from hard limits via a fixed scaling ratio (α = 0.95). Specif-
+ically, the midpoint m and range d of hard limits are first
+computed as:
+m = qmin + qmax
+2
+,
+(3)
+d = qmax −qmin,
+(4)
+where qmin and qmax denote the hard limits of joint position
+q. The soft limits are then determined by:
+qsoft-min = m −0.5 · d · α,
+(5)
+qsoft-max = m + 0.5 · d · α.
+(6)
+This computation extends to joint velocity ˙q and torque τ for
+their respective soft limits.
+Category
+Term
+Expression & Weight
+Reward
+Joint position
+exp
+
+−∥qt−ˆqt∥2
+2
+σjpos
+
+, 1.0
+Joint velocity
+exp
+
+−∥˙qt−ˆ˙qt∥2
+2
+σjvel
+
+, 1.0
+Body position
+exp
+
+−∥pt−ˆpt∥2
+2
+σpos
+
+, 1.0
+Body rotation
+exp
+
+−∥θt⊖ˆθt∥2
+2
+σrot
+
+, 0.5
+Body velocity
+exp
+
+−∥vt−ˆvt∥2
+2
+σvel
+
+, 0.5
+Body angular velocity
+exp
+
+−∥ωt−ˆωt∥2
+2
+σang
+
+, 0.5
+Body position VR 3 points
+exp
+
+−∥pvr,t−ˆpvr,t∥2
+2
+σpos_vr
+
+, 1.6
+Body position feet
+exp
+
+−∥pfeet,t−ˆpfeet,t∥2
+2
+σpos_feet
+
+, 1.0
+Max Joint position
+exp
+
+−∥qt−ˆqt∥∞
+σmax_jpos
+
+, 1.0
+Contact Mask
+1 −∥ct−ˆct∥1
+2
+, 0.5
+Regularization
+Joint position limits
+I(q /∈[qsoft-min, qsoft-max]), −10.0
+Joint velocity limits
+I( ˙q /∈[ ˙qsoft-min, ˙qsoft-max]), −5.0
+Joint torque limits
+I(τ /∈[τsoft-min, τsoft-max]), −5.0
+Slippage
+∥vfeet,xy∥2
+2 · I[∥Ffeet∥2 ≥1], −1.0
+Feet contact forces
+min
+ ∥Ffeet −400∥2
+2, 0
+
+, −0.01
+Feet air time
+I[Tair > 0.3], −1.0
+Stumble
+I[∥Ffeet,xy∥> 5 · Ffeet,z], −2.0
+Torque
+∥τ∥2
+2, −10−6
+Action rate
+∥at −at−1∥2
+2, −0.02
+Collision
+Icollision, −30
+Termination
+Itermination, −200
+Table 10. Reward terms and weights.
+Curriculum Learning
+To imitate highly dynamic motions,
+we follow [43], introduce two curriculum mechanisms: a
+termination curriculum that gradually reduces tracking er-
+ror tolerance, and a penalty curriculum that progressively
+increases the weight of regularization terms to promote more
+stable and physically plausible behaviors.
+• Termination Curriculum: The episode is terminated early
+when the humanoid’s motion deviates from the reference
+beyond a termination threshold θ. During training, this
+threshold is gradually decreased to increase the difficulty:
+θ ←clip (θ · (1 −δ), θmin, θmax) ,
+(7)
+where the initial threshold θ = 1.5, with bounds θmin =
+0.3, θmax = 2.0, and decay rate δ = 2.5 × 10−5.
+• Penalty Curriculum: To facilitate learning in the early
+training stages while gradually enforcing stronger regu-
+larization, we introduce a scaling factor α that increases
+progressively to modulate the influence of the penalty
+term:
+α ←clip (α · (1 + δ), αmin, αmax) ,
+ˆrpenalty ←α·rpenalty,
+(8)
+where the initial penalty scale α = 0.1, with bounds
+αmin = 0.0, αmax = 1.0, and growth rate δ = 1.0 × 10−4.
+Adaptive Sigma
+Inspired by [43], we employ adaptive
+sigma in the reward function. Task-specific rewards enforce
+alignment of joint states, rigid body states, and foot contact
+masks. All except the foot contact term adopt a bounded
+exponential form:
+A = exp
+
+−x2
+σ2
+
+,
+where x denotes tracking error and σ controls error toler-
+ance. This form outperforms negative error terms by stabi-
+lizing training and simplifying reward weighting.
+7. Evaluation Details
+Motion Tracking Metrics
+For motion tracking evaluation,
+we employ metrics standard in prior work [16]: Success Rate
+(Succ), Mean Per Joint Position Error (EMPJPE), and Mean
+Per Keybody Position Error (EMPKPE).
+• Success Rate (Succ): Evaluates whether the humanoid
+successfully follows the reference motion without falling.
+A trial fails if the average trajectory deviation exceeds 0.5
+meters at any point, or if the root pitch angle exceeds a
+predefined threshold.
+• Mean Per Joint Position Error (EMPJPE, in rad): Quanti-
+fies joint-level tracking accuracy via the average error in
+degree-of-freedom (DoF) rotations between reference and
+generated motions.
+• Mean Per Keybody Position Error (EMPKPE, in m): As-
+sesses keypoint tracking performance using the average
+positional discrepancy between reference and generated
+keypoint trajectories.
+
+
+Motion-Audio Alignment Metrics
+We evaluate our audio
+adaptor using motion-audio alignment metrics: retrieval ac-
+curacy (R@1, R@2, R@3), Multimodal Distance (MMDist),
+and Beat Alignment Score (BAS) [17].
+• Retrieval Accuracy (R-Precision): These metrics measure
+the relevance of audio to corresponding motion in a re-
+trieval setup. R@1 denotes the fraction of audio queries
+for which the correct motion is retrieved as the top match,
+reflecting the model’s precision in identifying the most
+relevant motion. R@2 and R@3 extend this notion, indi-
+cating recall within the top two and three retrieved motions,
+respectively.
+• Multimodal Distance (MMDist): This quantifies the aver-
+age feature-space distance between audios and their cor-
+responding motions, typically extracted via a pretrained
+retrieval model. Smaller MMDist values indicate stronger
+semantic alignment between audio and motion.
+• Beat Alignment Score (BAS): This metric evaluates the
+temporal alignment quality between kinematic beats and
+music beats. Audio beats are detected from audio sig-
+nals using Librosa [29], yielding a timestamp sequence
+By = {tj
+y} where tj
+y denotes the time of the j-th music
+beat. Kinematic beats are identified as the local minima of
+the motion’s kinetic velocity, capturing the key rhythmic
+frames of the motion sequence, resulting in a timestamp
+sequence Bx = {ti
+x} where ti
+x denotes the time of the i-th
+kinematic beat. The BAS metric is defined as the average
+of exponential-weighted distances between each kinematic
+beat and its nearest music beat. This exponential formu-
+lation emphasizes closer alignments while mitigating the
+impact of large discrepancies, and it is normalized via a
+parameter σ to adapt to sequences with fixed FPS. The
+formal definition is:
+BAS = 1
+m
+m
+X
+i=1
+exp
+ 
+−
+min∀tj
+y∈By ∥ti
+x −tj
+y∥2
+2σ2
+!
+,
+(9)
+where m is the number of kinematic beats in Bx. Consis-
+tent with our experimental setup (30 FPS), we fix σ = 3
+across all evaluations.
+7.1. Deployment Details
+Sim-to-Sim Transfer
+As noted in Humanoid-Gym [6],
+MuJoCo delivers more realistic dynamics than Isaac Gym.
+Aligning with standard protocols in motion tracking policy
+research [16], we conduct reinforcement learning training in
+Isaac Gym to capitalize on its high computational efficiency.
+To evaluate policy robustness and generalization capabil-
+ity, we perform zero-shot transfer to the MuJoCo simulator.
+This sim-to-sim transfer serves as an intermediate validation
+step before deploying the policy on a physical humanoid
+robot to verify the real-world motion tracking efficacy of our
+framework.
+Method
+IsaacGym
+MuJoCo
+BAS ↑
+Succ ↑Empjpe ↓Empkpe ↓Succ ↑Empjpe ↓Empkpe ↓
+BEAT2
+Baseline 0.98
+0.08
+0.06
+0.94
+0.16
+0.14
+0.163
+Ours
+0.99
+0.05
+0.04
+0.96
+0.10
+0.09
+0.197
+FineDance
+Baseline 0.86
+0.26
+0.23
+0.58
+0.35
+0.32
+0.176
+Ours
+0.93
+0.18
+0.16
+0.67
+0.26
+0.24
+0.214
+Table 11. Ablation study on whether to use adaptor to inject kine-
+matic information into the audio modality. It can be observed that
+the adaptor successfully aligns the audio and motion, improving
+the tracking performance and success rate.
+Sim-to-Real Deployment
+Real-world experiments are
+conducted on a Unitree G1 humanoid robot, integrated with
+an onboard Jetson Orin NX module for computation and
+communication. The control policy processes motion track-
+ing targets to generate target joint positions, then transmits
+control commands to the robot’s low-level controller at 50Hz,
+with a communication latency of 18–30ms. The low-level
+controller operates at 500Hz to guarantee stable real-time ac-
+tuation. Communication between the high-level policy and
+low-level interface is implemented via Lightweight Commu-
+nications and Marshalling (LCM) [13].
+8. Additional Experiments
+Audio-Motion Alignment
+To evaluate whether the co-
+speech gestures or dance motions generated by the robot
+adhere to rhythmic patterns, we compute the BAS for suc-
+cessful cases in the test set. Specifically, we retrieve the joint
+velocity of the robot’s motors and calculate the BAS value
+by correlating it with music beats. The results are presented
+in Table 11, where the Baseline corresponds to the outcome
+of concatenating music latents with other observations and
+motion latents as inputs to the student policy. It can be ob-
+served that when music is treated as an external condition to
+further modulate the content, the generated actions exhibit
+superior rhythmic alignment.
+Denoising Steps in Student Policy
+We evaluate DDIM
+sampling with different denoising steps, measuring aver-
+age per-action step time. Table 12 shows that increasing
+steps leads to higher latency, which is critical for real-world
+humanoid robot deployment as latency degrades execution
+outcomes.
+Noise Scale in Student Policy
+We ablate the noise scale
+βmax for DDIM sampling to study its impact on performance
+and latency. Table 13 shows that βmax = 0.20 achieves
+optimal success rate.
+
+
+Method
+Avg Time (s) ×10−3
+DDIM-2 sampling
+5.3
+DDIM-4 sampling
+11.6
+DDIM-6 sampling
+13.4
+DDIM-8 sampling
+17.6
+DDIM-10 sampling
+18.9
+Table 12. Average inference time across DDIM sampling steps.
+Noise Scale (βmax)
+Denoising Steps
+Success Rate (%)
+0.10
+2
+92.0
+0.15
+2
+92.0
+0.20
+2
+93.0
+0.25
+2
+91.0
+0.30
+2
+91.0
+Note: Fixed settings: cosine noise schedule, DDIM sampling (η = 0), βmax denotes
+the maximum βt over 50 training timesteps.
+Table 13. Fine-grained ablation on noise scale.
+Sampling Strategy
+Denoising Steps
+Success Rate (%)
+Latency (s ×10−3)
+DDIM (η = 0)
+2
+93.0
+5.3
+DDIM (η = 0.5)
+2
+86.0
+5.3
+DDPM (Stochastic)
+2
+65.0
+8.6
+Note: Fixed settings: cosine noise schedule, βmax = 0.20, η controls DDIM
+stochasticity.
+Table 14.
+Fine-grained ablation on sampling strategies in the
+FineDance dataset.
+Method
+IsaacGym
+MuJoCo
+Succ ↑Empjpe ↓Empkpe ↓Succ ↑Empjpe ↓Empkpe ↓
+ϵ-prediction
+0.72
+0.46
+0.43
+0.49
+0.58
+0.56
+x0-prediction 0.93
+0.18
+0.16
+0.67
+0.26
+0.24
+Table 15. Tracking performance across optimization objectives in
+the FineDance dataset.
+Noise Schedule Strategies in Student Policy
+We compare
+three sampling strategies: DDIM (η = 0, deterministic),
+DDIM (η = 0.5, semi-stochastic), and DDPM (stochastic).
+Table 14 shows that deterministic DDIM achieves the highest
+success rate and lowest latency. Stochastic strategies reduce
+performance and increase latency.
+Optimization Objective in Student Policy
+We ablate two
+supervision targets for the diffusion policy: ϵ-prediction and
+x0-prediction. Table 15 shows that x0-prediction achieves
+significantly better tracking performance compared to ϵ-
+prediction.
+Experts Number in ∆MoE
+We conduct ablation exper-
+iments on the number of experts in our ∆MoE. Since the
+number of experts in ∆MoE determines the dimensionality
+N
+IsaacGym
+MuJoCo
+Succ ↑Empjpe ↓Empkpe ↓Succ ↑Empjpe ↓Empkpe ↓
+3
+0.90
+0.23
+0.21
+0.63
+0.30
+0.28
+4
+0.93
+0.18
+0.16
+0.67
+0.26
+0.24
+5
+0.91
+0.22
+0.18
+0.66
+0.30
+0.27
+6
+0.92
+0.21
+0.18
+0.67
+0.27
+0.24
+Table 16. Tracking performance across different numbers of experts
+in the FineDance dataset.
+Method
+IsaacGym
+MuJoCo
+Succ ↑Empjpe ↓Empkpe ↓Succ ↑Empjpe ↓Empkpe ↓
+Random 0.93
+0.19
+0.16
+0.67
+0.26
+0.25
+Ours
+0.93
+0.18
+0.16
+0.67
+0.26
+0.24
+Table 17. Ablation study on the impact of different condition space
+partitioning methods on tracking performance in the FineDance
+Dataset.
+of the condition space, we split the condition into N −1
+partitions when training ∆MoE with different N experts. A
+critical constraint is that each condition partition ci must con-
+tain complete information. For instance, the dof positions in
+proprioceptive states must not be split in both c1 and c2.
+As shown in Table 16, the optimal performance is
+achieved when the number of experts is set to 4. Further-
+more, we verify that with a fixed number of experts, the
+partitioning of conditions has a negligible impact on the
+results, which is presented in Table 17.
+9. Qualitative Results
+Simulation
+To validate the advantages of the diffusion
+policy in such conditional control tasks, we visualize two
+cases in simulation. As shown in the upper part of Figure 7,
+the MLP policy exhibits poor tracking performance. In con-
+trast, the diffusion policy achieves superior tracking results
+by leveraging its enhanced robustness and ability to model
+distributions.
+Furthermore, we verify the freestyle capability of our
+policy. As illustrated in the lower part of Figure 7, when
+fed with a piece of music unseen during training to generate
+actions, the diffusion policy successfully completes the en-
+tire motion sequence due to its strong generalization ability,
+whereas the MLP policy immediately results in a fall.
+Retargeting Method
+When training the teacher oracle pol-
+icy, we investigate diverse retargeting approaches, encom-
+passing PHC [27] and GMR [1]. While GMR demonstrates
+robust performance in mitigating motion penetration, it gives
+rise to abrupt motion transitions, as visualized in Figure 8.
+Thus, we ultimately select PHC as the designated retargeting
+method for subsequent experimental evaluations. The related
+
+
+Poor Tracking Performance
+Better Tracking Performance
+MLP Policy
+Ours Diffusion Policy
+Failure
+Success
+Figure 7. Qualitative results in the MuJoCo. The upper half presents the tracking performance of the MLP policy and the diffusion policy on
+the same motion; the lower half demonstrates their respective freestyle capabilities when confronted with unseen music.
+Abrupt 
+transitions
+PHC
+GMR
+Figure 8. Qualitative results of PHC and GMR retargeting.
+video can be found in the supplementary material.
+Real-World
+We present real-world deployment for music-
+to-locomotion and speech-to-locomotion tasks, as shown in
+Figures 9, 10, and 11. A supplementary video showcasing
+real-robot deployments is provided in the supplementary
+material.
+References
+[1] Joao Pedro Araujo, Yanjie Ze, Pei Xu, Jiajun Wu, and C Karen
+Liu. Retargeting matters: General motion retargeting for
+humanoid motion tracking. arXiv preprint arXiv:2510.02252,
+2025. 5
+[2] Yuxuan Bian, Ailing Zeng, Xuan Ju, Xian Liu, Zhaoyang
+Zhang, Wei Liu, and Qiang Xu. Motioncraft: Crafting whole-
+body motion with plug-and-play multimodal controls. In
+Proceedings of the AAAI Conference on Artificial Intelligence,
+pages 1880–1888, 2025. 2
+[3] Luigi Campanaro, Siddhant Gangapurwala, Wolfgang Merkt,
+and Ioannis Havoutis. Learning and deploying robust locomo-
+tion policies with minimal dynamics randomization. In 6th
+Annual Learning for Dynamics & Control Conference, pages
+578–590. PMLR, 2024. 2
+[4] Zixuan Chen, Mazeyu Ji, Xuxin Cheng, Xuanbin Peng,
+Xue Bin Peng, and Xiaolong Wang. Gmt: General motion
+tracking for humanoid whole-body control. arXiv preprint
+arXiv:2506.14770, 2025. 1, 3
+[5] Hartmut Geyer, Andre Seyfarth, and Reinhard Blickhan. Pos-
+itive force feedback in bouncing gaits? Proceedings of the
+Royal Society of London. Series B: Biological Sciences, 270
+(1529):2173–2183, 2003. 2
+[6] Xinyang Gu, Yen-Jen Wang, and Jianyu Chen. Humanoid-
+gym: Reinforcement learning for humanoid robot with zero-
+shot sim2real transfer.
+arXiv preprint arXiv:2404.05695,
+2024. 4
+[7] Jinrui Han, Weiji Xie, Jiakun Zheng, Jiyuan Shi, Weinan
+Zhang, Ting Xiao, and Chenjia Bai. Kungfubot2: Learn-
+ing versatile motion skills for humanoid whole-body control.
+arXiv preprint arXiv:2509.16638, 2025. 1, 3
+[8] Tairan He, Zhengyi Luo, Xialin He, Wenli Xiao, Chong
+Zhang, Weinan Zhang, Kris Kitani, Changliu Liu, and
+Guanya Shi. Omnih2o: Universal and dexterous human-
+to-humanoid whole-body teleoperation and learning. arXiv
+preprint arXiv:2406.08858, 2024. 1, 3, 6
+[9] Tairan He, Jiawei Gao, Wenli Xiao, Yuanhang Zhang, Zi
+Wang, Jiashun Wang, Zhengyi Luo, Guanqi He, Nikhil Soban-
+bab, Chaoyi Pan, et al. Asap: Aligning simulation and real-
+world physics for learning agile humanoid whole-body skills.
+arXiv preprint arXiv:2502.01143, 2025. 3, 1
+[10] Tairan He, Wenli Xiao, Toru Lin, Zhengyi Luo, Zhenjia Xu,
+Zhenyu Jiang, Jan Kautz, Changliu Liu, Guanya Shi, Xi-
+aolong Wang, et al. Hover: Versatile neural whole-body
+controller for humanoid robots. In 2025 IEEE International
+Conference on Robotics and Automation (ICRA), pages 9989–
+9996. IEEE, 2025. 1
+[11] Xialin He, Runpei Dong, Zixuan Chen, and Saurabh Gupta.
+Learning getting-up policies for real-world humanoid robots.
+arXiv preprint arXiv:2502.12152, 2025. 2
+[12] Jonathan Ho and Tim Salimans. Classifier-free diffusion
+guidance. arXiv preprint arXiv:2207.12598, 2022. 3
+[13] Albert S Huang, Edwin Olson, and David C Moore. Lcm:
+Lightweight communications and marshalling.
+In 2010
+IEEE/RSJ International Conference on Intelligent Robots and
+Systems, pages 4057–4062. IEEE, 2010. 4
+
+
+Korean
+Jazz
+Chinese
+Folk
+Figure 9. Real-world music-to-locomotion.
+[14] Tao Huang, Junli Ren, Huayi Wang, Zirui Wang, Qingwei
+Ben, Muning Wen, Xiao Chen, Jianan Li, and Jiangmiao
+Pang. Learning humanoid standing-up control across diverse
+postures. arXiv preprint arXiv:2502.08378, 2025. 2
+[15] Xun Huang and Serge Belongie. Arbitrary style transfer in
+real-time with adaptive instance normalization. In Proceed-
+ings of the IEEE international conference on computer vision,
+pages 1501–1510, 2017. 6
+[16] Mazeyu Ji, Xuanbin Peng, Fangchen Liu, Jialong Li, Ge Yang,
+Xuxin Cheng, and Xiaolong Wang. Exbody2: Advanced
+
+
+Chinese
+Folk
+Jazz
+Jazz
+Figure 10. Real-world music-to-locomotion.
+expressive humanoid whole-body control. arXiv preprint
+arXiv:2412.13196, 2024. 1, 3, 4
+[17] Ruilong Li, Shan Yang, David A. Ross, and Angjoo
+Kanazawa. Ai choreographer: Music conditioned 3d dance
+generation with aist++, 2021. 4
+[18] Ronghui Li, Junfan Zhao, Yachao Zhang, Mingyang Su,
+Zeping Ren, Han Zhang, Yansong Tang, and Xiu Li.
+Finedance: A fine-grained choreography dataset for 3d full
+body dance generation. In Proceedings of the IEEE/CVF
+International Conference on Computer Vision, pages 10234–
+10243, 2023. 5, 6
+[19] Yitang Li, Yuanhang Zhang, Wenli Xiao, Chaoyi Pan,
+
+
+“I would much rather take a very long vacation rather than multiple short ones…”
+“As right now, it seems that I work every day with very little paid off…”
+“When you are on a long vacation, you can enjoy everything…”
+Figure 11. Real-world speech-to-locomotion.
+Haoyang Weng, Guanqi He, Tairan He, and Guanya Shi.
+Hold my beer: Learning gentle humanoid locomotion and
+end-effector stabilization control. In RSS 2025 Workshop on
+Whole-body Control and Bimanual Manipulation: Applica-
+tions in Humanoids and Beyond. 2
+[20] Yixuan Li, Yutang Lin, Jieming Cui, Tengyu Liu, Wei Liang,
+Yixin Zhu, and Siyuan Huang. Clone: Closed-loop whole-
+body humanoid teleoperation for long-horizon tasks. arXiv
+preprint arXiv:2506.08931, 2025. 3
+[21] Zhongyu Li, Xue Bin Peng, Pieter Abbeel, Sergey Levine,
+Glen Berseth, and Koushil Sreenath.
+Robust and versa-
+tile bipedal jumping control through reinforcement learning.
+arXiv preprint arXiv:2302.09450, 2023. 2
+[22] Zhe Li, Weihao Yuan, Yisheng He, Lingteng Qiu, Shenhao
+Zhu, Xiaodong Gu, Weichao Shen, Yuan Dong, Zilong Dong,
+and Laurence T Yang. Lamp: Language-motion pretrain-
+ing for motion generation, retrieval, and captioning. arXiv
+preprint arXiv:2410.07093, 2024. 8
+[23] Zhe Li, Cheng Chi, Yangyang Wei, Boan Zhu, Yibo Peng, Tao
+Huang, Pengwei Wang, Zhongyuan Wang, Shanghang Zhang,
+and Chang Xu. From language to locomotion: Retargeting-
+free humanoid control via motion latent guidance. arXiv
+preprint arXiv:2510.14952, 2025. 1, 2, 3
+[24] Zhe Li, Weihao Yuan, Weichao Shen, Siyu Zhu, Zilong Dong,
+and Chang Xu. Omnimotion: Multimodal motion genera-
+tion with continuous masked autoregression. arXiv preprint
+arXiv:2510.14954, 2025. 2
+[25] Qiayuan Liao, Takara E Truong, Xiaoyu Huang, Guy Tevet,
+Koushil Sreenath, and C Karen Liu. Beyondmimic: From
+motion tracking to versatile humanoid control via guided
+diffusion. arXiv preprint arXiv:2508.08241, 2025. 3
+[26] Haiyang Liu, Zihao Zhu, Giorgio Becherini, Yichen Peng,
+Mingyang Su, You Zhou, Xuefei Zhe, Naoya Iwamoto, Bo
+Zheng, and Michael J Black. Emage: Towards unified holistic
+co-speech gesture generation via expressive masked audio
+gesture modeling. In Proceedings of the IEEE/CVF Con-
+
+
+ference on Computer Vision and Pattern Recognition, pages
+1144–1154, 2024. 2, 5, 6
+[27] Zhengyi Luo, Jinkun Cao, Alexander W. Winkler, Kris Kitani,
+and Weipeng Xu. Perpetual humanoid control for real-time
+simulated avatars. In International Conference on Computer
+Vision (ICCV), 2023. 5
+[28] Jiageng Mao, Siheng Zhao, Siqi Song, Chuye Hong, Tian-
+heng Shi, Junjie Ye, Mingtong Zhang, Haoran Geng, Jitendra
+Malik, Vitor Guizilini, et al. Universal humanoid robot pose
+learning from internet human videos. In 2025 IEEE-RAS 24th
+International Conference on Humanoid Robots (Humanoids),
+pages 1–8. IEEE, 2025. 1
+[29] Brian McFee, Colin Raffel, Dawen Liang, Daniel PW Ellis,
+Matt McVicar, Eric Battenberg, and Oriol Nieto. librosa:
+Audio and music signal analysis in python. SciPy, 2015:
+18–24, 2015. 4
+[30] Aaron van den Oord, Yazhe Li, and Oriol Vinyals. Repre-
+sentation learning with contrastive predictive coding. arXiv
+preprint arXiv:1807.03748, 2018. 5
+[31] Georgios Pavlakos, Vasileios Choutas, Nima Ghorbani,
+Timo Bolkart, Ahmed AA Osman, Dimitrios Tzionas, and
+Michael J Black. Expressive body capture: 3d hands, face,
+and body from a single image.
+In Proceedings of the
+IEEE/CVF conference on computer vision and pattern recog-
+nition, pages 10975–10985, 2019. 6
+[32] Xue Bin Peng, Pieter Abbeel, Sergey Levine, and Michiel
+Van de Panne. Deepmimic: Example-guided deep reinforce-
+ment learning of physics-based character skills. ACM Trans-
+actions On Graphics (TOG), 37(4):1–14, 2018. 3, 1
+[33] Xue Bin Peng, Ze Ma, Pieter Abbeel, Sergey Levine, and
+Angjoo Kanazawa. Amp: Adversarial motion priors for styl-
+ized physics-based character control. ACM Transactions on
+Graphics (ToG), 40(4):1–20, 2021. 2
+[34] Stéphane Ross, Geoffrey Gordon, and Drew Bagnell. A re-
+duction of imitation learning and structured prediction to
+no-regret online learning. In Proceedings of the fourteenth in-
+ternational conference on artificial intelligence and statistics,
+pages 627–635. JMLR Workshop and Conference Proceed-
+ings, 2011. 5
+[35] John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Rad-
+ford, and Oleg Klimov. Proximal policy optimization algo-
+rithms. arXiv preprint arXiv:1707.06347, 2017. 1
+[36] Yiyang Shao, Xiaoyu Huang, Bike Zhang, Qiayuan Liao,
+Yuman Gao, Yufeng Chi, Zhongyu Li, Sophia Shao, and
+Koushil Sreenath. Langwbc: Language-directed humanoid
+whole-body control via end-to-end learning. arXiv preprint
+arXiv:2504.21738, 2025. 1, 3
+[37] Jiaming Song, Chenlin Meng, and Stefano Ermon. Denoising
+diffusion implicit models. arXiv preprint arXiv:2010.02502,
+2020. 6
+[38] Koushil Sreenath, Hae-Won Park, Ioannis Poulakakis, and
+Jessy W Grizzle. A compliant hybrid zero dynamics controller
+for stable, efficient and fast bipedal walking on mabel. The
+International Journal of Robotics Research, 30(9):1170–1193,
+2011. 2
+[39] Zhi Su, Bike Zhang, Nima Rahmanian, Yuman Gao, Qiayuan
+Liao, Caitlin Regan, Koushil Sreenath, and S Shankar Sastry.
+Hitter: A humanoid table tennis robot via hierarchical plan-
+ning and learning. arXiv preprint arXiv:2508.21043, 2025.
+3
+[40] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszko-
+reit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia
+Polosukhin. Attention is all you need. Advances in neural
+information processing systems, 30, 2017. 5
+[41] Huayi Wang, Zirui Wang, Junli Ren, Qingwei Ben, Tao
+Huang, Weinan Zhang, and Jiangmiao Pang.
+Beamdojo:
+Learning agile humanoid locomotion on sparse footholds.
+arXiv preprint arXiv:2502.10363, 2025. 2
+[42] Yuxuan Wang, Ming Yang, Ziluo Ding, Yu Zhang, Weishuai
+Zeng, Xinrun Xu, Haobin Jiang, and Zongqing Lu. From
+experts to a generalist: Toward general whole-body control
+for humanoid robots. arXiv preprint arXiv:2506.12779, 2025.
+3
+[43] Weiji Xie, Jinrui Han, Jiakun Zheng, Huanyu Li, Xinzhe
+Liu, Jiyuan Shi, Weinan Zhang, Chenjia Bai, and Xue-
+long Li. Kungfubot: Physics-based humanoid whole-body
+control for learning highly-dynamic skills. arXiv preprint
+arXiv:2506.12851, 2025. 1, 3, 8
+[44] Kangning Yin, Weishuai Zeng, Ke Fan, Minyue Dai, Zirui
+Wang, Qiang Zhang, Zheng Tian, Jingbo Wang, Jiangmiao
+Pang, and Weinan Zhang.
+Unitracker: Learning univer-
+sal whole-body motion tracker for humanoid robots. arXiv
+preprint arXiv:2507.07356, 2025. 3
+[45] Junpeng Yue, Zepeng Wang, Yuxuan Wang, Weishuai Zeng,
+Jiangxing Wang, Xinrun Xu, Yu Zhang, Sipeng Zheng, Ziluo
+Ding, and Zongqing Lu. Rl from physical feedback: Aligning
+large motion models with humanoid control. arXiv preprint
+arXiv:2506.12769, 2025. 1, 3
+[46] Yanjie Ze, Zixuan Chen, Joao Pedro Araújo, Zi-ang Cao,
+Xue Bin Peng, Jiajun Wu, and C Karen Liu. Twist: Tele-
+operated whole-body imitation system.
+arXiv preprint
+arXiv:2505.02833, 2025. 3
+[47] Tong Zhang, Boyuan Zheng, Ruiqian Nai, Yingdong Hu, Yen-
+Jen Wang, Geng Chen, Fanqi Lin, Jiongye Li, Chuye Hong,
+Koushil Sreenath, et al. Hub: Learning extreme humanoid
+balance. arXiv preprint arXiv:2505.07294, 2025. 3
+[48] Yuanhang Zhang, Yifu Yuan, Prajwal Gurunath, Tairan He,
+Shayegan Omidshafiei, Ali-akbar Agha-mohammadi, Marcell
+Vazquez-Chanlatte, Liam Pedersen, and Guanya Shi. Falcon:
+Learning force-adaptive humanoid loco-manipulation. arXiv
+preprint arXiv:2505.06776, 2025. 2

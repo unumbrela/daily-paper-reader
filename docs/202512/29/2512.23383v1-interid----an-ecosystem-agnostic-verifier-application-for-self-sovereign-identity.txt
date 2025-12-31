@@ -1,0 +1,337 @@
+Title: interID - An Ecosystem-agnostic Verifier Application for Self-sovereign Identity
+
+URL Source: https://arxiv.org/pdf/2512.23383v1
+
+Published Time: Tue, 30 Dec 2025 02:48:06 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# interID - An Ecosystem-agnostic Verifier Application for Self-sovereign Identity 
+
+Hakan Yildiz 
+
+Service-centric Networking Technische Universit¨ at Berlin 
+
+Berlin, Germany hakan.yildiz@tu-berlin.de 
+
+Axel K¨ upper 
+
+Service-centric Networking Technische Universit¨ at Berlin 
+
+Berlin, Germany axel.kuepper@tu-berlin.de 
+
+Abstract —Self-Sovereign Identity is a transformative paradigm in digital identity management, empowering individuals with full control over their credentials. However, the coexistence of diverse SSI ecosystems, such as the European Digital Identity and the European Blockchain Services Infrastructure, poses significant challenges for cross-ecosystem interoperability due to technological and trust framework differences. This paper introduces interID , a modular credential verification application that addresses this fragmentation by orchestrating ecosystem-specific verifier services. Our key contributions include: (1) an ecosystem-agnostic orchestration layer that interfaces with multiple SSI verification services, (2) a unified API that abstracts underlying protocol complexities for service providers, and (3) a practical implementation that bridges three major SSI ecosys-tems: Hyperledger Indy/Aries, EBSI, and EUDI. Evaluation results demonstrate that interID successfully verifies credentials across all tested wallets with minimal performance overhead, while maintaining a flexible architecture that can be extended to accept credentials from additional SSI ecosystems. This work offers both a technical solution and architectural pattern for achieving interoperability in SSI verifier implementations. 
+
+Index Terms —SSI, Identity, DDI, Interoperability 
+
+I. I NTRODUCTION 
+
+Self-Sovereign Identity (SSI) represents a fundamental paradigm shift in digital identities, enabling individuals to independently manage and control their identities without relying on centralized authorities. SSI addresses the critical limitations of traditional digital identity paradigms, such as restricted credential reusability, data privacy concerns, and limited user autonomy. The promises of SSI have led to the emergence of various technical frameworks, including the Hyperledger Indy 1/Aries 
+
+> 2
+
+, the European Blockchain Services Infrastructure (EBSI) 3,and the EU Digital Identity (EUDI) framework 4. These frame-works differ significantly in their technological foundations, 
+
+> 1
+
+Hyperledger Indy: https://lf-hyperledger.atlassian.net/wiki/spaces/indy/ overview 
+
+> 2
+
+Hyperledger Aries: https://lf-hyperledger.atlassian.net/wiki/spaces/ARIES/ overview 
+
+> 3
+
+European Blockchain Services Infrastructure: https://ec.europa.eu/ digital-building-blocks/sites/display/EBSI/Home 
+
+> 4
+
+European Digital Identity: https://commission.europa.eu/ strategy-and-policy/priorities-2019-2024/europe-fit-digital-age/ european-digital-identity en 
+
+exchange protocols, credential formats, and trust models [1], creating distinct SSI ecosystems that are not interoperable with each other. This fragmentation presents a critical chal-lenge: credentials issued within one SSI ecosystem cannot be validated across ecosystem boundaries, forcing organizations to implement multiple verification systems with increased complexity and costs. This paper introduces interID, a novel ecosystem-agnostic verifier application designed to bridge these interoperabil-ity gaps. interID enables verification of credentials across heterogeneous SSI ecosystems through a unified verification interface, allowing service providers (SPs) to integrate a single solution rather than integrating multiple ecosystem-specific verifier applications. Our primary contributions include:  
+
+> •
+
+A technology-agnostic credential verification orchestra-tion layer that interfaces with multiple SSI ecosystem-specific verifier services,  
+
+> •
+
+A unified northbound API that abstracts underlying pro-tocol complexities for SPs,  
+
+> •
+
+A modular architecture that allows efficient incorporation of additional SSI frameworks without modifying existing components,  
+
+> •
+
+Performance benchmarks demonstrating the feasibility of adding an orchestration layer for cross-ecosystem credential verification purposes. The rest of the paper is structured as follows. Section II provides background on SSI concepts and frameworks. Section III outlines interoperability challenges. Section IV reviews related work. Sections V and VI detail interID’s design and implementation. Section VII presents evaluation results and Sections VIII and IX discuss future work and conclusions. II. B ACKGROUND 
+
+SSI marks a significant departure from traditional digital identity paradigms, such as centralized and federated models. Traditional paradigms rely on Identity Providers (IdPs) to manage and verify user identities for other services (relying parties), typically after a login process like username and pass-word. In contrast, SSI empowers individuals by giving them direct control over their own digital identity. This user-centric approach naturally leads to new roles and different ways for organizations and individuals to interact when proving identity. 
+
+978-1-6654-2744-9/21/$31.00 ©2021 IEEE 
+
+> arXiv:2512.23383v1 [cs.ET] 29 Dec 2025
+
+A. SSI Roles and Interactions 
+
+In the SSI model, identity providers evolve into creden-tial issuers who create and cryptographically sign Verifiable Credentials (VCs). These VCs are issued to identity holders (typically end users). Identity holders store VCs in a wallet application within their domain, e.g., on their smartphones. Identity holders present them to verifiers (SPs or third-party services trusted by SPs) as Verifiable Presentations (VPs). VPs contain critical assurances, including proof of credential ownership and non-revocation, and incorporate features like audience restriction and nonce mechanisms to mitigate replay attacks. Furthermore, verification relies on trust registries, also known as verifiable data registries, that contain the relevant data needed to validate the integrity and authenticity of cre-dentials [2], without requiring direct communication between the issuers and the verifiers. Figure 1 depicts the interactions between issuers, identity holders, and verifiers as well as the role of verifiable data registries.  
+
+> Fig. 1. High-level SSI model
+
+B. SSI Frameworks 
+
+The SSI model has been implemented through several technological frameworks, each embodying the core principles of SSI while introducing distinct architectural approaches, pro-tocol choices for exchanging credentials, credential formats, and trust models. These technological divergences have led to multiple siloed ecosystems that, while functionally similar in adhering to the SSI paradigm, differ significantly in their technical underpinnings. In the following, we describe the technological differences of three prominent frameworks. 
+
+1) Hyperledger Indy/Aries: Hyperledger Indy provides a purpose-built distributed ledger as a trust registry to store required data for the credential verification, such as identifiers for issuers, credential definitions, and revocation registries [3]. Complementing this, Hyperledger Aries serves as an agent framework facilitating peer-to-peer communication through DIDComm, a secure, encrypted protocol that enables direct interactions between parties without intermediaries [4]. For credential exchange, this framework employs the Aries Issue Credential protocol for issuance and the Aries Present Proof protocol for verification, both standardized through DIDComm messaging with versions supporting different credential for-mats [5]–[8]. Regarding credential formats, Indy/Aries primar-ily supports AnonCreds, designed for privacy-preserving use cases with zero-knowledge proofs enabling selective disclosure [9], and has added support for W3C JSON-LD VCs with in-tegrity proofs, which provide semantic context through shared vocabularies [10]. The Hyperledger Indy/Aries framework underpins national SSI deployments in Canada and Bhutan. 
+
+2) European Blockchain Services Infrastructure (EBSI): 
+
+EBSI is a collaborative initiative of the European Commission and the European Blockchain Partnership that establishes a blockchain-based infrastructure for delivering cross-border public services throughout the European Union. EBSI utilizes a permissioned blockchain network operated by EU member states as its trust registry, maintaining records of trusted issuers, schemas, and accreditation information [11]. Unlike Indy/Aries, EBSI employs client-server commu-nications using standard web protocols rather than peer-to-peer agent communication. For credential exchanges, EBSI framework contains OpenID for Verifiable Credential Issuance (OID4VCI) for issuance and OpenID for Verifiable Presenta-tions (OID4VP) for verification, extending OpenID Connect standards [12], [13]. The EBSI ecosystem supports W3C JSON-LD VCs with integrity proofs and Selective Disclosure JWT (SD-JWT), which enables presentation of a subset of claims within the VC while maintaining its integrity [14]. 
+
+3) EU Digital Identity (EUDI): EUDI represents a compre-hensive framework aiming to standardize the identification and authentication of natural and legal persons across the member states. EUDI relies on the existing EU trust infrastructure and trusted lists rather than blockchain technology for its trust registry, maintaining a centralized Trusted Lists Registrar [15]. Similar to EBSI, EUDI employs client-server interactions using standard web protocols for communication. Its exchange protocols include OID4VCI for issuance, and both ISO/IEC 18013-5 for proximity-based exchanges and OID4VP for remote credential presentations [16]. EUDI primarily supports Mobile Driver’s Licenses (mDoc) based on ISO/IEC 18013-5, which defines standardized data elements and security features [16], and SD-JWTs as credential formats. 
+
+C. Framework Comparison            
+
+> TABLE I COMPARISON OF SSI TECHNOLOGY STACKS
+> Features Indy/Aries EBSI EUDI
+> Credential For-mats AnonCreds, JSON-LD JSON-LD, SD-JWT mDL, SD-JWT Exchange Pro-tocols DIDComm (Present Proof v1/v2) OID4VCI, OID4VP OID4VCI, OID4VP, ISO 18013-5 Communication Peer-to-peer Client-server Client-server Trust Registry Distributed Ledger Distributed Ledger PKI-based Trust Registries
+
+These technological differences create significant challenges for verifiers, who must integrate multiple framework-specific verification services to validate credentials from different ecosystems. The verifier role is particularly critical, as it often serves as the gateway to services, directly interacting with identity holders seeking access to resources. III. P ROBLEM STATEMENT 
+
+The diversity of SSI frameworks described in Section II has led to fragmented ecosystems that cannot easily interoperate despite implementing the same fundamental SSI model. This interoperability challenge manifests itself at multiple technical levels. 
+
+A. Interoperability Challenges 
+
+The peer-to-peer DIDComm-based protocols used in Hy-perledger Aries are fundamentally different from the client-server OpenID-based protocols used in EBSI and EUDI, mak-ing direct communication between wallets and verifiers from different ecosystems impossible. Different credential formats (AnonCreds, JSON-LD, mDoc) have distinct data structures and verification mechanisms, while divergent trust models (blockchain-based vs. PKI-based) create incompatible trust validation paths. These technical differences prevent the use of credentials across the ecosystem. Consider a real-world scenario: a Cana-dian citizen with an Indy/Aries-based eID attempts to authen-ticate to a European service that only supports credentials from EUDI ecosystem. Despite possessing a valid government-issued credential, The authentication fails because the Euro-pean service’s verifier can neither request the credential nor process the Canadian credential’s format or its root of trust. 
+
+B. Organizational and User Challenges 
+
+For organizations deploying SSI verification capabilities, the current fragmentation creates substantial challenges. First, SPs must implement and maintain multiple verification systems, which increases integration costs. Moreover, each new verifi-cation system demands specialized knowledge, increasing the required human resources. Finally, users experience inconsis-tent verification flows depending on the underlying framework of their credentials, leading to confusion and a reduction in user acceptance. 
+
+C. Need for an Interoperable Verification Solution 
+
+A unified verifier solution that can validate credentials across multiple SSI ecosystems would address these chal-lenges. Such a solution would abstract the complexities of different verification protocols and credential formats, present a consistent interface to SPs, support multiple trust models simultaneously, and scale efficiently to incorporate additional frameworks as the SSI landscape evolves. The interID application presented in this paper directly addresses this need by providing a multi-ecosystem credential verification orchestration layer that enables SPs to integrate a single solution rather than multiple ecosystem-specific verifier services. IV. R ELATED WORK 
+
+Interoperability in SSI ecosystems has been addressed through both standardization efforts and academic research. 
+
+A. Standardization Efforts 
+
+Standardization initiatives have primarily focused on achiev-ing interoperability by creating profiles. A profile typically refers to a selected combination of protocols, credential for-mats, and trust anchors, along with a tighter configuration of those protocols. This tighter configuration is necessary because many protocols in the SSI space contain numerous optional parameters or allow for multiple configuration options, which hinders interoperability without explicit alignment. The Hyperledger community developed the Aries Interop-erability Profiles (AIP) [17], which define standardized agent interactions within the Hyperledger Aries ecosystem but do not address the verification of credentials from non-Aries ecosystems. The Decentralized Identity Foundation (DIF) introduced the Wallet and Credential Interaction (WACI) profile [18] and Presentation Exchange specifications. Although WACI is designed to be credential-agnostic, implementations typically remain bound to specific ecosystems that rely on peer to peer communications. OpenID Connect-based standards, including OID4VCI and OID4VP [12], [13], have gained widespread adoption in client-server SSI models. The High-Assurance Interoperability Profile (HAIP) [19] for EUDI and the EBSI Interoperability Profile (EBSI v3) [20] enable credential issuance and verifi-cation capabilities within their contained ecosystems. 
+
+B. Academic Research 
+
+Academic research on SSI interoperability has explored multiple dimensions, offering insights into the complex chal-lenges of achieving seamless credential verification across different technological ecosystems. From a conceptual perspective, Yildiz et al. developed a comprehensive reference model for SSI interoperability [1], [21], identifying critical requirements such as protocol align-ment, trust establishment, and secure communications. How-ever, their work primarily focused on theoretical frameworks, falling short of providing concrete implementation strategies for cross-ecosystem verifiers. Moreover, from a comparative studies standpoint, re-searchers have systematically analyzed the technological land-scape. Pava-D´ ıaz et al. conducted an extensive analysis of nine distributed ledger-based SSI frameworks [22], revealing significant divergences in verification processes. Building upon this, ˇ Cuˇ cko and Turkanovi´ c’s systematic mapping study [23] critically highlighted that verifier-level integration between ecosystems remains a largely underdeveloped area of academic research. From an implementation approaches perspective, Gr¨ uner et al. provided an in-depth analysis of SSI interoperability [24]. Their research meticulously evaluated major frameworks against key criteria including data format compatibility, trust model characteristics, and credential exchange mechanisms. While they compellingly argued that true interoperability necessitates alignment at both technical and conceptual levels, their contribution remained predominantly theoretical, without offering a practical implementation blueprint. Furthermore, Krul et al. made a significant contribution by identifying divergent trust models as a fundamental barrier to cross-platform verification [25]. This insight underscores the complexity of achieving interoperability in decentralized identity systems, highlighting the need for more sophisticated integration approaches. 
+
+C. Research Gap 
+
+Our analysis reveals a significant gap between theoretical interoperability models and practical verification implementa-tions. While standardization efforts have made progress within specific ecosystems, and academic research has established conceptual frameworks, there is a critical absence of imple-mented solutions that enable verification across heterogeneous SSI ecosystems. This absence of practical cross-ecosystem verification mechanisms represents a significant barrier to SSI adoption in multi-framework environments where SPs must navigate technological fragmentation. V. C ONCEPT AND DESIGN 
+
+To address this research gap, we propose interID, an orches-tration layer that enables verification of credentials across het-erogeneous SSI ecosystems through architectural abstraction rather than protocol harmonization. The fundamental insight driving interID’s design is that ecosystem interoperability can be achieved at the orchestration layer without requiring mod-ifications to existing credential exchange protocols, credential formats, or trust models. By integrating with framework-specific verification services and exposing a unified north-bound interface, interID creates a bridge between fragmented ecosystems from the verifier perspective and allows SPs to integrate with their backend conveniently. 
+
+A. Design Requirements 
+
+The design of interID is guided by four essential non-functional requirements: 
+
+Interoperability: interID must support multiple SSI ecosys-tems simultaneously, enabling the verification of credentials across technological and ecosystem boundaries. This can be achieved through ecosystem-specific adapters that translate be-tween interID’s unified API and the distinct request parameters and bodies of each verification service endpoints. 
+
+Reliability: The system must reliably transmit verification results to SPs by consistently delivering accurate and cryp-tographically verifiable validation results that encompass the requested attributes. This reliability requirement is essential, as SPs base authorization decisions for access to goods and ser-vices on these verification results, making the trustworthiness of interID’s output a critical operational parameter. 
+
+Extensibility: The overall system must be modular. The modular architecture enables straightforward integration of additional SSI frameworks without disrupting existing func-tionality. New verification services can be added by the implementation of well-defined interfaces, allowing interID to evolve alongside the SSI landscape. 
+
+Performance: As a critical component in authentication flows, the system must only add minimal overhead beyond what is required by the underlying verification services them-selves. 
+
+B. System Architecture 
+
+interID employs a three-layered architecture designed to abstract the complexities of different SSI ecosystems:  
+
+> •
+
+Service Layer: Integrates with framework-specific ver-ifier services responsible for validating credentials ac-cording to their respective protocols, formats, and trust models.  
+
+> •
+
+Controller Layer: Orchestrates the verification process across different services, maps unified proof templates to framework-specific formats, and provides consistent re-sponse handling regardless of the underlying verification service used.  
+
+> •
+
+Presentation Layer: Offers a user interface for adminis-trators to configure proof templates and for identity hold-ers to initiate verification processes with their preferred wallet application. This layered approach enables interID to maintain a clean separation of concerns while providing extensibility for future SSI frameworks and verification services. Figure 2 illustrates the high-level architecture of interID, showing how it bridges multiple SSI ecosystems through their respective verification services.  
+
+> Fig. 2. interID high-level architecture showing orchestration of multiple verification services
+
+C. Core Capabilities 1) Proof Template Management: interID introduces the concept of proof templates that allow SPs to define verifi-cation requirements once and apply them across multiple SSI ecosystems. A proof template serves as a container that can include contents of the verification request for each supported ecosystem.  
+
+> •
+
+For Hyperledger Aries: AnonCreds proof requests via Aries Present Proof protocol v1 or v2 and JSON-LD presentation requests using Aries Present Proof protocol v2  
+
+> •
+
+For EBSI: JSON-LD or SD-JWT presentation requests using OID4VP in EBSI profile configuration  
+
+> •
+
+For EUDI: mDoc or SD-JWT presentation requests using OID4VP in HAIP configuration This approach enables SPs to maintain consistent verifica-tion requirements across different frameworks without manag-ing multiple verification systems. 
+
+2) Credential Exchange Workflow: The credential exchange process follows a consistent pattern regardless of the underly-ing SSI ecosystem: 1) A SP initiates a proof request through interID’s API, referencing a previously created proof template 2) The identity holder selects a compatible wallet applica-tion from the options presented by interID 3) interID invokes the appropriate verification service based on the selected wallet type with the proof request stored in the template 4) The verification service and the identity holder conduct the credential exchange using the protocol and format supported by the selected wallet 5) The verification service validates the presented creden-tials according to ecosystem-specific rules 6) interID standardizes the verification results and returns them to the SP in a consistent and verifiable format VI. I MPLEMENTATION 
+
+interID integrates multiple verifier services: specifically Hyperledger Aries Cloud Agent Python (ACA-Py), Walt.id, and the EUDI Reference Implementation, ensuring broad compatibility with with Hyperledger-based, EUDI, and EBSI ecosystems. Each verifier service is deployed as a Docker container to provide a consistent and straightforward deploy-ment across different environments. Furthermore, each verifier service supports credential resolution mechanisms suitable for their targeted SSI ecosystem. 
+
+A. Verifier Backends 
+
+InterID integrates three specialized verifier services as Docker containers, each targeting specific SSI ecosystems. ACA-Py supports Hyperledger Indy/Aries credentials through both Present Proof v1 (for AnonCreds) and v2 protocols (for AnonCreds and JSON-LD), leveraging multi-ledger con-figuration to interact with various trust registries. Walt.id provides verification capabilities for the EBSI ecosystem using OID4VP, supporting both JSON-LD and SD-JWT credential formats in EBSI v3 profile configuration. The EUDI verifier handles mDoc and SD-JWT credentials according to the HAIP. Each verifier service implements credential resolution mechanisms appropriate for its ecosystem’s trust model. 
+
+B. interID Backend 
+
+The backend implements a modular, service-oriented archi-tecture using Node.js with TypeScript, comprising four core modules. This modular approach enables clean separation of concerns while facilitating extension with additional SSI ecosystems. 
+
+Components module encapsulates domain-specific logic, including handling proof requests and managing proof tem-plates. It defines the controllers and endpoints responsible for processing incoming requests, orchestrating interactions, and managing business logic. 
+
+Routes define RESTful API endpoints with standardized request/response patterns, facilitating consistent interactions with frontend applications and service providers. 
+
+Services module manages integration logic with the con-tainerized verification services. This module also responsible for handling the credential verification processes and aggre-gates verification results. 
+
+Utils provide functions for cross-cutting concerns, including structured logging via Winston, Redis-based session man-agement for correlation between verification requests and responses, and input validation through Zod schema validation. 
+
+C. Template Creation and Proof Request Handling 
+
+interID simplifies complex and proof request processes through robust template management and streamlined proof re-quest handling. These capabilities enhance consistency, reduce integration complexity, and facilitate interoperability across multiple SSI frameworks. This subsystem comprises three primary elements: Proof Template Creation, Proof Request Templates, and Proof Request and Response handling. 
+
+D. Proof Templates and Proof Request Handling 
+
+InterID implements proof templates as reusable configu-rations that define verification requirements across multiple SSI ecosystems. Templates persist in MongoDB using a flexi-ble schema that allows ecosystem-specific sections for each supported verification protocol. The ProofTemplateSchema defines a unified container with fields for different protocol implementations: v1 and v2 for AnonCreds via Aries Present Proof protocols, dif for JSON-LD credentials, waltid for EBSI-compliant verification, and pid for EUDI credentials. This design enables service providers to define verification requirements once while applying them across heterogeneous ecosystems. The implementation maps unified attribute requests to ecosystem-specific formats through specialized query builders. AnonCredQueryBuilder transforms generic at-tribute requests into AnonCreds proof requests with re-quested attributes and requested predicates sections, handling comparative operators through appropriate predicate mapping. 
+
+DIFQueryBuilder generates DIF Presentation Exchange structures with appropriate constraints and input descriptors for JSON-LD verification. WaltQueryBuilder addresses the specific requirements of the EBSI implementation in Walt.id, while PIDQueryBuilder generates format-specific requests for both mDoc and SD-JWT within the EUDI frame-work. These transformations abstract the protocol-specific complexities from service providers while enabling verifica-tion across technological boundaries. Proof request handling implements distinct verification flows for each ecosystem. Aries verification involves a two-phase process of creating a presentation request and gen-erating an out-of-band invitation with the request attached. Walt.id verification posts requests to its verification endpoint with webhook callbacks for results, while EUDI verification constructs appropriate presentation definitions for both mDoc and SD-JWT formats. Session management utilizes Redis with a 7200-second expiration to maintain stateful connec-tions between initial requests and eventual verification results, enabling the system to correlate asynchronous verification outcomes with specific user sessions. 
+
+1) Proof Template Creation: Proof templates enable SPs to create standardized and reusable structures for initiat-ing credential verification requests. Each proof template is uniquely identified by a universally unique identifier (UUID), acting as a container for proof request queries specific to each integrated verifier service. The implementation utilizes MongoDB with Mongoose as the object-document mapper, persisting templates with the following schema structure:                                         
+
+> Listing 1. Proof Template Schema Definition
+> const ProofTemplateSchema =new Schema({ _id: {type: String, required: true, default: () => uuidv4() }, name: {type: String, required: true, }, createdAt: {type: Date, default: Date.now, }, v1: {type: Schema.Types.Mixed, required: false }, v2: {type: Schema.Types.Mixed, required: false }, dif: {type: Schema.Types.Mixed, required: false }, waltid: {type: Schema.Types.Mixed, required: false }, pid: {type: Schema.Types.Mixed, required: false }});
+
+This schema design allows a single template to contain verification configurations for all supported SSI ecosystems, with each field targeting a specific protocol and, in the case of ACA-Py, credential format. The backend maintains these templates, facilitating simple retrieval, modification, and reuse, which significantly reduces repetitive configuration tasks. 
+
+2) Proof Request Template: Proof request templates encap-sulate detailed queries that specify the credentials and claims requested by the verifier from identity holders. Due to varying syntax requirements among verifier services (ACA-Py, Walt.id, EUDI), interID abstracts these complexities by offering a unified API. Internally, the backend service dynamically maps unified templates to backend-specific proof request structures:  
+
+> •
+
+ACA-Py: Supports proof request language for AnonCreds (v1 and v2 schemas, allocated for Present Proof Protocols v1 and v2, respectively). The implementation uses the AnonCredQueryBuilder 
+
+to transform generic attribute requests into structures with requested_attributes and 
+
+requested_predicates , supporting complex operators like greater-than or less-than comparisons. ACA-Py also supports DIF Presentation Exchange for JSON-LD credentials (dif schema, allocated for Present Proof v2), whereas the DIFQueryBuilder transforms the attribute requests to structures supported by the ACA-Py.  
+
+> •
+
+Walt.id: Utilizes DIF Presentation Exchange query lan-guage via the OID4VP protocol, in accordance with the EBSI profile. However, walt.id request parameters and body is different than what is expected from DIF Presen-tation Exchange. Therefore, the WaltQueryBuilder 
+
+maps the presentation request query to the format pro-cessable by walt.id verifier backend.  
+
+> •
+
+EUDI Reference Implementation: Employs OID4VP protocol with DIF Presentation Exchange definitions aligned with the HAIP. The PIDQueryBuilder gen-erates format-specific requests for both mDoc and SD-JWT credential formats with appropriate descriptors and constraints. Figure 3 illustrates how proof templates and proof request templates are created.  
+
+> Fig. 3. Sequence diagram of credential verification through interID
+
+3) Proof Request and Response Handling: To initiate proof verification, SPs invoke a standardized endpoint provided by interID, referencing a pre-defined proof template. The 
+
+ProofRequestController orchestrates the verification process through a unified RESTful API while accommodating the distinct protocols of each ecosystem:  
+
+> •
+
+For Hyperledger Aries, verification involves a two-phase process: 
+
+– Creating a presentation request via ACA-Py’s 
+
+/present-proof/create-request endpoint 
+
+– Generating an out-of-band invitation via 
+
+/out-of-band/create-invitation 
+
+endpoint with the presentation request attached. • For the Walt.id EBSI implementation: 
+
+– The controller posts the verification request to the 
+
+/openid4vc/verify endpoint 
+
+– It captures the state identifier from the response URL for session tracking  
+
+> •
+
+For EUDI verification: 
+
+– The controller constructs a PID-specific verification request to the /ui/presentations endpoint us-ing appropriate presentation definition parameters 
+
+– It handles format-specific verification paths for both mDOC and SD-JWT credential types Upon generating verification requests for each ecosystem, interID supports two distinct verification flows that accommo-date varying user device configurations. In the same device flow , when verification is initiated on the device hosting the wallet, interID renders ecosystem-specific deeplinks such as eudi-openid4vp:// or didcomm:// that directly launch the compatible wallet application. Conversely, in scenarios where the wallet resides on a differ-ent device from the verification initiation point, cross-device flow is supported by generating QR codes that encode the identical proof request, enabling identity holders to complete the verification process by scanning the code with their wallet-equipped device. All verification processes utilize Redis for session manage-ment, maintaining stateful connections between initial request, user interaction, and verification completion. Redis stores mapping between session identifiers, verification exchanges, and user login information, with appropriate timeout settings to prevent resource leaks. Lastly, upon successful verification, interID aggregates and returns structured responses detailing validation outcomes in a JWT. This structured response provides clear, actionable feed-back for SPs, facilitating informed decision-making processes. Figure 4 illustrates an examplary sequence, highlighting how interID abstracts the ecosystem-specific details from both the SP and the identity holder. 
+
+E. Frontend Implementation 
+
+The frontend implementation serves as a multi-purpose graphical user interface (GUI) to support various interID work-flows. Its primary functions include enabling SPs to create and manage proof templates, facilitating the configuration of service-specific proof request templates, and providing identity holders with an interface to select their preferred wallet during verification processes. Moreover, the interface offers granular control over proof re-quest parameters for SPs, allowing them to specify which cre-dential claims require validation, designate acceptable issuers, and define constraint conditions (e.g., equivalence, greater than or equal to, less than or equal to) for specific claim values. This functionality enables SPs to precisely define the verification requirements without requiring them to know protocol-specific query parameters. The implementation utilizes React with TypeScript for robust frontend development, employing Tailwind CSS for interface styling and Vite as the build optimization tool. The architecture follows a component-based design pattern to en-hance maintainability and code reusability. Backend commu-nication is implemented through RESTful API endpoints that handle proof template management, proof request initiation, and verification result processing. 
+
+F. Implementation Challenges 
+
+The implementation of interID encountered several chal-lenges that highlight the current state of the SSI ecosystem and provide valuable insights for similar interoperability initiatives. The proof requests generated by the ACA-Py encountered significant data transmission challenges during interID’s im-plementation. Specifically, the out-of-band invitation, when encoded in QR codes, exceeded processing capabilities of the Aries wallets under examination. To mitigate this technical constraint, interID integrated a URL shortening mechanism that dynamically generates compact endpoint references. This approach enables the backend to invoke and retrieve the full out-of-band invitation, effectively circumventing the data transmission limitations inherent in the current Aries wallet implementations. Moreover, the continuous evolution of reference imple-mentations, particularly for Walt.id and the EUDI frame-work, presented ongoing integration challenges. During our implementation period, both frameworks underwent significant updates that altered API behaviors and protocol implemen-tations. These changes required multiple adaptations to our integration code and underscored the importance of developing loosely coupled interfaces that can accommodate evolving specifications without requiring extensive refactoring of the orchestration layer. VII. E VALUATION 
+
+To ensure that the implemented system meets its design objectives and operational requirements, interID is evaluated based on four criteria: interoperability, performance, reliability, and extensibility. 
+
+A. Interoperability 
+
+To assess interoperability, comprehensive tests were de-signed to validate credential verification across the supported technology stacks: Hyperledger Aries, Walt.id (EBSI), and the EUDI reference implementation. The evaluation focused on verifying that interID effectively abstracts backend-specific complexities, offering a unified and standardized northbound interface to SPs. Specifically, interoperability was tested with two ACA-Py-compatible wallets configured for different Indy ledgers as trust anchors: Indicio Test Network and BC Gov Test Network. Credential verification tests successfully requested and validated AnonCreds via the Aries Present Proof v1 Protocol (AIP 1.0). Additionally, another ACA-Py instance was configured to handle JSON-LD Credentials, tested through the Aries Present Proof v2 Protocol (AIP 2.0). Fig. 4. Sequence diagram of credential verification through interID 
+
+In the context of EBSI, interoperability was validated by testing JSON-LD Credential presentations using the OID4VP protocol, specifically configured to the EBSI v3 Profile. Credential exchanges were successfully conducted using the Walt.id web wallet, demonstrating effective interoperability with this ecosystem. Lastly, interoperability within the EUDI framework was tested using both iOS and Android versions of the reference implementation wallets. Credential exchanges were verified for Personal Identification (PID) requests, The SD-JWT format of PID could be validated while the mDoc validation fails due to missing... Results demonstrated successful credential exchanges and validations across all integrated protocols and credential for-mats, confirming that interID effectively achieves its interop-erability objectives. Table II summarizes the credential formats and exchange protocols verified by the individual verifier services and illus-trates interID’s collective capability to validate all credentials:                 
+
+> TABLE II INTEROPERABILITY TEST RESULTS
+> Wallet ACA-Py Walt.id (EBSI) EUDI Ref. Impl. interID
+> Indicio Wallet ✓✓
+> BC Gov Wallet ✓✓
+> ACA-Py JSON-LD Wallet ✓✓
+> Walt.id Web Wallet ✓✓
+> EUDI Wallet (iOS/Android) ✓✓
+
+B. Performance 
+
+The performance evaluation quantified the overhead in-troduced by interID compared to direct interactions with individual verifier backends. The benchmarks were designed to determine whether interID’s abstraction layer introduces significant latency in credential verification processes. Since end-to-end credential validation involves user-device interactions and network variability that could obscure in-terID’s direct performance impact, our measurements focused specifically on the initiation of proof requests. Each test was executed 100 times to establish statistically reliable averages and eliminate outliers. The evaluation targeted each endpoint responsible for creating proof request templates and forward-ing them to the underlying verifier services. To quantify interID’s overhead, we measured the request and response times when (1) routing through interID and (2) directly accessing the respective verifier service endpoints. All tests were conducted in a controlled local environment using an Intel i5-1135G7 processor with 24 GB of RAM. Table III presents the comparative latency results, illustrat-ing interID’s overhead relative to individual verifier services. The overhead percentage was calculated as the relative in-crease in processing time when using interID compared to native implementation ((interID time - native time) / native time × 100%). The results demonstrate that interID introduces varying degrees of overhead across different verifier implementations. While the walt.id integration showed the highest relative TABLE III PERFORMANCE COMPARISON : INTER ID O VERHEAD VS . N ATIVE                                                          
+
+> IMPLEMENTATION (IN MS )
+> Verifier With interID Native Overhead (%) Avg Min Max Avg Min Max Avg Min Max
+> Aries V1 69.44 55 108 59.29 44 79 17.12 25.00 36.71 Aries V2 47.38 36 117 41.92 28 131 13.02 28.57 -10.69 Aries DIF 49.18 36 131 42.94 29 127 14.53 24.14 3.15 walt.id 15.90 10 28 9.84 519 61.60 100.00 47.37 EUDI Verifier 137.07 128 175 129.46 125 167 5.88 2.40 4.79
+
+overhead (61.60% on average), it is important to note that the absolute latency remains low (15.90ms with interID versus 9.84ms native). The EUDI Verifier demonstrated the low-est relative overhead (5.88%), and Aries integration showed moderate overhead ranging from 13.02% to 17.12%. These findings indicate that while interID’s abstraction layer does introduce some processing overhead, the absolute latency values remain within acceptable ranges for the feasibility of using a verification orchestrator to achieve cross-ecosystem verifier interoperability. 
+
+C. Reliability 
+
+Reliability evaluation focused on the consistency and in-tegrity of verification results transmitted to SPs through JWT responses. Our testing methodology compared the attribute claims requested in proof templates against those delivered following successful verification across all supported SSI ecosystems. This assessment confirmed that interID consis-tently delivers precisely the requested attribute claims without data loss, ensuring that SPs receive accurate information for making authorization decisions. 
+
+D. Extensibility 
+
+The extensibility evaluation analyzed how easily new veri-fier services could be integrated into interID. This capability was primarily assessed by our own integration of multiple verifier services. Specifically, extending interID with addi-tional verifier services can be achieved efficiently due to the clearly structured backend architecture. Integrating a new verifer service typically involves the following steps:  
+
+> •
+
+Adding a New Dockerized Container: A new verifier service can be encapsulated within its Docker container. Additionally, the docker-compose.yml file has to be con-figured to start the newly added docker container.  
+
+> •
+
+Environment Configuration: The integration of addi-tional services involves updates to environment config-uration files (.env). These files define endpoint URLs and other service-specific parameters, enabling simple configuration and management of new verifier services.  
+
+> •
+
+Controller Layer Adjustments: Within the controller layer, new controllers must be created to handle the interactions with the additional verifier service. Clearly defined interfaces and modularized controllers facilitate minimal and localized changes, ensuring integration with-out affecting existing functionalities.  
+
+> •
+
+Proof Template and Proof Request Modifications: 
+
+Proof template schemas and proof request controllers require minor updates to accommodate any new protocol specifics introduced by the new verifier service. The modular schema and controller structures allow rapid incorporation of such changes without changes in the architecture.  
+
+> •
+
+Frontend Integration: Minor updates to the frontend are typically required to allow SPs and users to select and interact with the newly added verification service, leveraging the existing modular UI framework and API interfaces. VIII. F UTURE WORK 
+
+Future development efforts will focus on transitioning in-terID into a Software-as-a-Service (SaaS) solution, removing the necessity for SPs to deploy interID within their own infrastructure. Offering interID as a cloud-based service, com-plemented by user-friendly integration interfaces and user management capabilities, has the potential to significantly enhance its accessibility and adoption. This transition could further accelerate the broader acceptance and utilization of SSI among SPs. Additionally, the current implementation transmits proof verification results to SPs as JWT. While sufficient for deploy-ments within a secure and controlled service-provider domain, this method lacks the necessary security guarantees for a SaaS environment. Future implementations should explore and integrate established secure token exchange mechanisms such as Security Assertion Markup Language (SAML) or OpenID Connect (OIDC). Employing these standards would allow SPs to reliably authenticate responses and verify their integrity, analogous to how ID tokens are utilized in OIDC-based workflows. This approach would provide E2E interoperability between the SPs relying on SAML or OIDC for authentication and various SSI ecosystems via interID. IX. C ONCLUSION 
+
+This paper introduced interID , a verifier application de-signed to operate across heterogeneous SSI ecosystems by sup-porting multiple frameworks in different ecosystem-specific profiles and configurations. By abstracting protocol-specific behaviors and leveraging a layered architecture, interID en-ables credential verification irrespective of the underlying SSI ecosystem. Our approach addresses a pressing need in the SSI landscape: verifier-side interoperability. Through practical im-plementation and early integration efforts with European EUDI and EBSI initiatives and Hyperledger Indy based ecosystems, we demonstrate the feasibility and impact of such a bridge. X. A CKNOWLEDGEMENT 
+
+REFERENCES [1] H. Yildiz, A. K”upper, D. Thatmann, S. G”ond”or, and P. Herbke, “Toward Interoperable Self-Sovereign Identities,” IEEE Access , vol. 11, pp. 114 080–114 116, 2023. [2] A. Preukschat and D. Reed, Self-sovereign identity . Manning Publica-tions, 2021. [3] A. Shcherbakov, “Hyperledger Indy Besu as a permissioned ledger in Self-sovereign Identity,” in Proceedings of OID 2024 , 2024, pp. 127– 137. [4] D. Hardman, “Aries RFC 0005: DID Communication,” Hyperledger Foundation, Tech. Rep., 2019, last accessed on 2025-03-30. [Online]. Available: https://github.com/hyperledger/aries-rfcs/blob/main/concepts/ 0005-didcomm/README.md [5] N. Khateev, “Aries RFC 0036: Issue Credential Protocol 1.0,” Hyperledger Foundation, Tech. Rep., 2019, last accessed on 2025-03-30. [Online]. Available: https://github.com/hyperledger/aries-rfcs/tree/ main/features/0036-issue-credential [6] N. Khateev, S. Klump, and S. Curran, “Aries RFC 0453: Issue Credential Protocol 2.0,” Hyperledger Foundation, Tech. Rep., 2020, last accessed on 2025-03-30. [Online]. Available: https://github.com/hyperledger/ aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md [7] N. Khateev, “Aries RFC 0037: Present Proof Protocol 1.0,” Hyperledger Foundation, Tech. Rep., 2019, last accessed on 2025-03-30. [Online]. Available: https://github.com/hyperledger/aries-rfcs/tree/ main/features/0037-present-proof [8] N. Khateev and S. Curran, “Aries RFC 0454: Present Proof Protocol 2.0,” Hyperledger Foundation, Tech. Rep., 2020, last accessed on 2025-03-30. [Online]. Available: https://github.com/hyperledger/aries-rfcs/ blob/main/features/0454-present-proof-v2/README.md [9] S. Curran, A. Philipp, H. Yildiz, S. Curren, and V. M. Jurado, “AnonCreds Specification,” Hyperledger Foundation, Tech. Rep., 2023, last accessed on 2025-03-30. [Online]. Available: https: //hyperledger.github.io/anoncreds-spec/ [10] T. Glastra and G. Aristy, “Aries RFC 0593: JSON-LD Credential Attachment Format for Requesting and Issuing Credentials,” Hyperledger Foundation, Tech. Rep., 2021, last accessed on 2025-03-30. [Online]. Available: https://github.com/hyperledger/ aries-rfcs/blob/main/features/0593-json-ld-cred-attach/README.md \
+
+#ld-proof-vc-detail-attachment-format [11] E. Tan, E. Lerouge, J. Du Caju, and D. Du Seuil, “Verification of Education Credentials on European Blockchain Services Infrastructure (EBSI): Action Research in a Cross-Border Use Case between Belgium and Italy,” Big Data and Cognitive Computing , 2023. [12] T. Lodderstedt, K. Yasuda, and T. Looker, “OpenID for Verifiable Credential Issuance,” OIDF, Tech. Rep., 2022, last accessed on 2025-03-28. [Online]. Available: https://openid.net/specs/ openid-4-verifiable-credential-issuance-1 0.html [13] O. Terbu, T. Lodderstedt, K. Yasuda, A. Lemmon, and T. Looker, “OpenID for Verifiable Presentations,” OIDF, Tech. Rep., 2021, last accessed on 2025-03-28. [Online]. Available: https://openid.net/specs/ openid-4-verifiable-presentations-1 0.html [14] D. Fett, K. Yasuda, and B. Campbell, “Selective Disclosure for JWTs (SD-JWT),” IETF, Tech. Rep., 2023, last accessed on 2025-03-30. [Online]. Available: https://datatracker.ietf.org/doc/ draft-ietf-oauth-selective-disclosure-jwt/ [15] eIDAS Expert Group, “European Digital Identity Architecture and Reference Framework Version 1.6.1,” https://eu-digital-identity-wallet. github.io/eudi-doc-architecture-and-reference-framework/1.6.1/, 2025, accessed: 2025-03-30. [16] “ISO/IEC 18013-5:2021 - Personal identification – ISO-compliant driving license – Part 5: Mobile driving licence (mDL) application,” International Organization for Standardization, 2021. [Online]. Available: https://www.iso.org/standard/69084.html [17] S. Curran and J. Jordan, “Aries RFC 0302: Aries Interop Profile,” Hyperledger Foundation, Tech. Rep., 2019, last accessed on 2025-03-29. [Online]. Available: https://github.com/hyperledger/aries-rfcs/blob/ main/concepts/0302-aries-interop-profile/README.md [18] O. Steele and B. Zundel, “WACI-DIDComm Interop Profile,” accessed: 2024-03-10. [Online]. Available: https://identity.foundation/ waci-didcomm/ [19] K. Yasuda and T. Lodderstedt, “OID4VC High-Assurance Interoperability Profile,” accessed: 2024-03-10. [Online]. Available: https://openid.net/specs/ openid4vc-high-assurance-interoperability-profile-sd-jwt-vc-1 0-00. html [20] E. Commission, “EBSI Interoperability Profile,” accessed: 2024-03-10. [Online]. Available: https://hub.ebsi.eu/conformance/build-solutions/ holder-wallet-functional-flows [21] H. Yildiz, A. Philipp, A. Schulte, A. K”upper, S. G”ond”or, and S. Ro-driguez Garzon, “Interoperable selbstsouver”ane identit”aten: Ein digital markets act f”ur endnutzer?” HMD Praxis der Wirtschaftsinformatik ,vol. 60, no. 2, pp. 405–421, 2023. [22] R. A. Pava-D´ ıaz, J. Gil-Ruiz, and D. A. L´ opez-Sarmiento, “Self-sovereign identity on the blockchain: contextual analysis and quantifica-tion of SSI principles implementation,” Frontiers in Blockchain , 2024. [23] v. Cˇ ucko and M. Turkanovi´ c, “Decentralized and Self-Sovereign Iden-tity: Systematic Mapping Study,” IEEE Access , vol. 9, pp. 139 009– 139 027, 2021. [24] A. Gr”uner, A. M”uhle, and C. Meinel, “Analyzing Interoperability and Portability Concepts for Self-Sovereign Identity,” in 2021 IEEE 20th International Conference on Trust, Security and Privacy in Computing and Communications (TrustCom) , 2021, pp. 587–597. [25] E. Krul, H.-Y. Paik, S. Ruj, and S. Kanhere, “SoK: Trusting Self-Sovereign Identity,” Proceedings on Privacy Enhancing Technologies ,vol. 2024, pp. 297–313, 2024.

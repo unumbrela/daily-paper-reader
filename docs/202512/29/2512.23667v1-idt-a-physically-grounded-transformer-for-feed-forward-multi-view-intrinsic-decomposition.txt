@@ -1,0 +1,955 @@
+IDT: A Physically Grounded Transformer for Feed-Forward Multi-View
+Intrinsic Decomposition
+Kang Du1
+Yirui Guan3
+Zeyu Wang1,2*
+1The Hong Kong University of Science and Technology (Guangzhou)
+2The Hong Kong University of Science and Technology
+3Tencent
+Figure 1. Teaser illustration of IDT inference. IDT jointly reasons over multiple views to decompose each image into diffuse reflectance,
+diffuse shading, and specular shading in a single feed-forward pass. These intrinsic factors faithfully reconstruct the original appearance
+and support relighting by altering illumination while maintaining consistent material properties across views.
+Abstract
+Intrinsic image decomposition is fundamental for visual un-
+derstanding, as RGB images entangle material properties,
+illumination, and view-dependent effects. Recent diffusion-
+based methods have achieved strong results for single-
+view intrinsic decomposition; however, extending these ap-
+proaches to multi-view settings remains challenging, of-
+*Corresponding author.
+ten leading to severe view inconsistency. We propose In-
+trinsic Decomposition Transformer (IDT), a feed-forward
+framework for multi-view intrinsic image decomposition.
+By leveraging transformer-based attention to jointly reason
+over multiple input images, IDT produces view-consistent
+intrinsic factors in a single forward pass, without iterative
+generative sampling.
+IDT adopts a physically grounded
+image formation model that explicitly decomposes images
+into diffuse reflectance, diffuse shading, and specular shad-
+arXiv:2512.23667v1  [cs.CV]  29 Dec 2025
+
+
+ing. This structured factorization separates Lambertian and
+non-Lambertian light transport, enabling interpretable and
+controllable decomposition of material and illumination ef-
+fects across views. Experiments on both synthetic and real-
+world datasets demonstrate that IDT achieves cleaner dif-
+fuse reflectance, more coherent diffuse shading, and better-
+isolated specular components, while substantially improv-
+ing multi-view consistency compared to prior intrinsic de-
+composition methods.
+1. Introduction
+Intrinsic image decomposition aims to separate an image
+into its underlying material and illumination components,
+providing a more interpretable representation than raw RGB
+images.
+Such decomposition is fundamental for a wide
+range of visual tasks, including relighting, material editing,
+3D reconstruction, and world modeling, where entangled
+appearance factors often limit generalization and controlla-
+bility [5]. Despite decades of research, intrinsic decomposi-
+tion remains challenging due to the complex interaction be-
+tween geometry, illumination, and view-dependent effects.
+Recent advances in large-scale learning have signifi-
+cantly improved intrinsic decomposition from a single im-
+age. Learning-based methods, including convolutional and
+transformer-based architectures, have demonstrated strong
+performance under single-view settings [4]. Beyond pure
+RGB inputs, several works have explored incorporating ad-
+ditional geometric or modality cues (e.g., depth or sur-
+face normals) to reduce intrinsic ambiguities, following the
+broader RGB-X paradigm. More recently, diffusion-based
+models have further advanced single-view intrinsic decom-
+position by leveraging powerful generative priors and itera-
+tive refinement. However, these approaches typically oper-
+ate on each image independently and are primarily designed
+for per-view appearance generation, without explicitly en-
+forcing consistency across views.
+Extending intrinsic decomposition to multi-view settings
+introduces a fundamental challenge: view consistency. In-
+dependently decomposed views often exhibit inconsisten-
+cies in material appearance and illumination, especially in
+the presence of view-dependent effects such as specular
+highlights. Such inconsistencies severely limit the applica-
+bility of intrinsic decomposition in multi-view reconstruc-
+tion and downstream 3D scene understanding. Moreover,
+iterative generative formulations are not naturally suited for
+enforcing cross-view coherence, as they lack a mechanism
+for joint reasoning across multiple observations.
+In this work, we take a different perspective. We build
+upon recent progress in feed-forward geometric reasoning
+with transformers, where multi-view images are jointly pro-
+cessed to infer consistent scene geometry.
+Transformer-
+based architectures such as VGGT demonstrate that at-
+tention mechanisms can effectively aggregate information
+across views and produce coherent geometric representa-
+tions in a single forward pass [27]. Motivated by this prop-
+erty, we leverage transformer attention to perform feed-
+forward, multi-view intrinsic decomposition, jointly reason-
+ing over multiple input images without iterative sampling.
+Beyond multi-view consistency, we emphasize the im-
+portance of physically grounded intrinsic decomposition,
+particularly in indoor environments. Rather than treating in-
+trinsic components as abstract latent factors or unstructured
+residuals, we explicitly model image formation as the com-
+bination of diffuse reflectance (albedo), diffuse shading, and
+specular shading. This formulation is consistent with phys-
+ically motivated rendering decompositions adopted in large-
+scale indoor datasets such as Hypersim [25], and enforces
+a clear separation between Lambertian and non-Lambertian
+light transport. As a result, the resulting intrinsic represen-
+tations are more interpretable and controllable across differ-
+ent viewpoints.
+Based on these insights, we propose Intrinsic Decom-
+position Transformer (IDT), a feed-forward multi-view
+framework that unifies transformer-based geometric reason-
+ing with a physically grounded intrinsic formulation. IDT
+jointly infers view-consistent albedo, diffuse shading, and
+specular shading from multiple input images, enabling ro-
+bust intrinsic decomposition in challenging multi-view in-
+door scenarios.
+Our contributions are summarized as follows:
+• We introduce a feed-forward transformer framework for
+view-consistent multi-view intrinsic image decomposi-
+tion, inspired by recent advances in multi-view geometric
+reasoning.
+• We propose a physically grounded intrinsic formulation
+that explicitly separates diffuse reflectance, diffuse shad-
+ing, and specular shading, leading to interpretable intrin-
+sic factors.
+• We demonstrate improved multi-view consistency and
+decomposition quality on both synthetic and real-world
+indoor datasets compared to prior intrinsic decomposition
+methods.
+2. Related Work
+Inverse rendering and physically grounded scene de-
+composition.
+Inverse rendering aims to recover geometry,
+material, and illumination using explicit physical models or
+differentiable rendering, often trained with large-scale syn-
+thetic data [1, 2, 6, 10, 13, 14, 19, 22, 24, 26, 31–34]. These
+approaches provide strong physical interpretability and en-
+able downstream tasks such as relighting and view syn-
+thesis. However, they typically rely on iterative optimiza-
+tion, volumetric rendering, or explicit scene representations,
+leading to high computational cost and limited scalability.
+As a result, they are not well suited for efficient, feed-
+
+
+forward intrinsic factorization directly from multi-view im-
+ages.
+Intrinsic image decomposition.
+Intrinsic image decom-
+position seeks to separate reflectance and illumination-
+related factors from images without explicitly reconstruct-
+ing full scene geometry. Classical Retinex-based formula-
+tions [3, 16, 17, 30, 36, 38] and benchmark datasets [11]
+establish the foundational problem setting and highlight its
+inherent ambiguity. Learning-based approaches [4, 23, 35]
+significantly improve visual quality by directly regressing
+intrinsic components.
+Nevertheless, most methods per-
+form per-image inference and treat intrinsic factors inde-
+pendently across views, making it difficult to maintain con-
+sistency under view-dependent effects or multi-view obser-
+vations.
+Diffusion-based intrinsic decomposition.
+Recently, dif-
+fusion models have been adopted as powerful generative
+priors for intrinsic decomposition and material estima-
+tion [9, 15, 18]. By modeling the distribution of plausi-
+ble intrinsic solutions, these methods achieve strong per-
+formance in ambiguous single-view settings. Despite their
+effectiveness, diffusion-based approaches require iterative
+sampling at inference time and operate independently on
+each image, which limits their efficiency, scalability, and
+ability to enforce cross-view consistency in multi-view sce-
+narios.
+Multi-view reasoning and feed-forward transformers.
+Multi-view vision has been significantly advanced by neu-
+ral scene representations such as NeRF [21], which en-
+able high-quality novel view synthesis from sparse obser-
+vations. However, such methods rely on volumetric ren-
+dering and per-scene optimization and are not designed for
+direct intrinsic decomposition. More recent feed-forward
+transformer architectures [20, 27–29, 39] demonstrate that
+multi-view information can be aggregated efficiently in a
+single forward pass. While effective for geometry or view
+synthesis, existing methods do not explicitly model intrin-
+sic image factors or the separation of material and illumi-
+nation, leaving multi-view intrinsic decomposition largely
+unexplored.
+3. Method
+We propose Intrinsic Decomposition Transformer (IDT),
+a feed-forward framework for physically grounded intrin-
+sic image decomposition from multiple views. Given a set
+of images observing the same static scene from different
+viewpoints, IDT jointly infers view-consistent intrinsic fac-
+tors under an explicit image formation model. Our design
+is motivated by a key observation: intrinsic decomposi-
+tion fundamentally differs from geometric reconstruction.
+While geometry benefits from aggregating all cross-view
+correspondences, intrinsic factors require selective reason-
+ing over appearance, illumination, and view-dependent ef-
+fects. IDT addresses this challenge by combining multi-
+view transformer aggregation with factor-specific appear-
+ance adapters, as shown in Figure 3.
+3.1. Problem Formulation and Image Formation
+Model
+We study intrinsic image decomposition in a multi-view set-
+ting. Given a set of V images
+I = {Iv}V
+v=1,
+(1)
+captured from different viewpoints observing the same
+static scene, our goal is to recover intrinsic factors that ex-
+plain material appearance and illumination while remaining
+consistent across views.
+Image
+formation
+model.
+We
+adopt
+a
+physically
+grounded image formation model that separates Lamber-
+tian and non-Lambertian light transport. For each view v,
+the observed image is modeled as
+Iv(x) = A(x) ⊙Sdiff
+v (x) + Sspec
+v
+(x),
+(2)
+where
+A
+denotes
+view-invariant
+diffuse
+reflectance
+(albedo),
+Sdiff
+v
+denotes
+diffuse
+shading
+capturing
+illumination-dependent
+Lambertian
+effects,
+and
+Sspec
+v
+models view-dependent non-Lambertian effects such as
+specular highlights.
+This formulation follows a standard rendering approx-
+imation widely adopted in intrinsic image decomposition
+and inverse rendering. Under a diffuse–specular BRDF de-
+composition, the rendering equation is linear in reflectance,
+yielding an additive separation between diffuse and specu-
+lar contributions [2, 24]. Assuming Lambertian diffuse re-
+flectance causes the diffuse term to factorize into a view-
+invariant albedo and a view-dependent irradiance term, mo-
+tivating the multiplicative form A ⊙Sdiff
+v
+[3, 17]. In con-
+trast, specular reflection depends strongly on view direction
+and microfacet alignment, and cannot be reliably factorized
+without explicit BRDF parameters such as roughness [8].
+We therefore model it as an additive, view-dependent com-
+ponent. Explicitly isolating specular effects prevents view-
+dependent appearance from leaking into albedo, which is
+a primary source of inconsistency in per-view intrinsic de-
+composition.
+Illumination representation.
+Intrinsic decomposition is
+inherently coupled with illumination.
+To capture shared
+lighting structure across views, we introduce a compact
+
+
+Figure 2. Overview of the IDT pipeline. Given multiple images of a static scene, IDT first aggregates cross-view information using a
+multi-view transformer encoder. The shared latent tokens are then selectively routed by factor-specific appearance adapters to predict
+view-invariant albedo, view-dependent diffuse and specular shading, and a shared scene-level illumination representation. All intrinsic
+factors are inferred in a single feed-forward pass and are jointly constrained by a physically grounded image formation model.
+scene-level illumination representation parameterized as a
+Spherical Gaussian Mixture (SGM). Spherical Gaussians
+provide an efficient and differentiable approximation of en-
+vironment lighting and have been widely used in inverse
+rendering and neural relighting [24]. Rather than perform-
+ing explicit physically based rendering, this representation
+is used as a conditioning signal for shading prediction,
+avoiding the need for explicit BRDF parameters such as
+roughness.
+3.2. Feed-Forward Multi-View Intrinsic Decompo-
+sition
+Instead of decomposing each image independently, IDT
+performs joint inference over all views in a single forward
+pass. Formally, given the multi-view input I, the model
+predicts
+F =
+
+A, {Sdiff
+v }V
+v=1, {Sspec
+v
+}V
+v=1, L
+	
+,
+(3)
+where albedo A and illumination L are shared across all
+views, while shading components remain view-dependent.
+This feed-forward formulation enforces cross-view consis-
+tency at the representation level and avoids iterative genera-
+tive inference commonly used in prior intrinsic and inverse
+rendering approaches, as shown in ??.
+3.3. Emergent Geometry–Appearance Token Spe-
+cialization
+To enable joint reasoning across views, we adopt a VGGT-
+style multi-view transformer encoder. Given the input im-
+ages I, the encoder produces a single set of latent tokens
+Z = E(I).
+(4)
+Importantly, IDT does not explicitly partition Z into
+geometry and appearance tokens.
+Instead, geometry–
+appearance specialization emerges implicitly through task-
+specific supervision and routing. During training, tokens
+that are strongly supervised by geometric objectives (e.g.,
+depth, surface normal, or camera estimation) become spe-
+cialized for geometric reasoning, while other tokens are pri-
+marily shaped by intrinsic decomposition losses and encode
+appearance-related information such as material and illumi-
+nation cues. We conceptually denote these roles as Zgeo
+and Zapp, while emphasizing that this distinction arises from
+training dynamics rather than hard token splitting.
+This
+design preserves the flexibility of transformer representa-
+tions and is consistent with emergent token specialization
+observed in multi-task transformer models [7].
+3.4. Appearance Adapters for Intrinsic Prediction
+Appearance-related representations produced by the multi-
+view transformer are expressive but highly redundant. In
+multi-view intrinsic decomposition, different intrinsic fac-
+tors rely on distinct and partially conflicting cues: diffuse
+reflectance (albedo) should emphasize view-invariant ma-
+terial properties, whereas diffuse and specular shading are
+strongly influenced by view-dependent effects and global
+illumination. Directly feeding the shared token set into all
+prediction heads often leads to entanglement between ma-
+terial and illumination cues.
+
+
+Figure 3. Illustration of the physically grounded image forma-
+tion model. For each view, the observed image is decomposed
+into a view-invariant diffuse reflectance, a view-dependent shad-
+ing term modeling Lambertian illumination, and an additive view-
+dependent specular component capturing non-Lambertian effects.
+This formulation yields a multiplicative separation between albedo
+and diffuse shading and explicitly isolates specular appearance to
+prevent view-dependent effects from leaking into material proper-
+ties.
+To enable selective and factor-specific reasoning, we in-
+troduce appearance adapters that route information from
+the shared token set to each intrinsic head. For each intrinsic
+factor k ∈{alb, diff, spec}, an adapter extracts a compact,
+task-specific representation:
+˜Zk = Ak(Z),
+(5)
+where Z denotes the aggregated multi-view tokens from the
+encoder.
+Scene-conditioned cross-attention.
+Each adapter is im-
+plemented as a lightweight cross-attention block. Crucially,
+the queries are not learned parameters but are derived from
+the encoder outputs: we construct queries by pooling scene-
+level tokens (e.g., camera and register tokens) across views,
+while keys and values are formed from patch tokens across
+all views. This design allows scene-level representations to
+attend selectively to multi-view appearance cues, producing
+a compact scene-conditioned context for each intrinsic fac-
+tor. By conditioning attention on scene tokens rather than
+learned slots, the adapter preserves geometric and cross-
+view coherence while remaining fully feed-forward.
+Relation to adapter-based learning.
+Conceptually, our
+appearance adapters are related to task-specific routing
+and adapter modules used in multi-task transformer learn-
+ing [12], but differ in that they operate over structured multi-
+view token sets and use scene-derived queries rather than
+additional learnable parameters. This makes them particu-
+larly well suited for intrinsic decomposition, where factors
+share a common scene context but require different appear-
+ance cues.
+Using the adapted representations, intrinsic factors are
+predicted as
+A = halb(˜Zalb),
+(6)
+Sdiff
+v
+= hdiff(˜Zdiff,v, L),
+(7)
+Sspec
+v
+= hspec(˜Zspec,v, L),
+(8)
+where L denotes the shared Spherical Gaussian Mixture
+(SGM) illumination representation. Conditioning shading
+heads on L enables illumination-aware prediction without
+enforcing explicit physically based rendering equations.
+3.5. Training Objectives
+We supervise intrinsic factors using loss functions consis-
+tent with their physical interpretations. When ground-truth
+intrinsic layers are available, we apply direct supervision
+on each factor; otherwise, learning is regularized through
+image reconstruction under the proposed image formation
+model.
+Albedo loss.
+Lalb = ∥A −A∗∥1 ,
+(9)
+where A ∈RH×W ×3 denotes the predicted view-invariant
+diffuse reflectance (albedo), A∗is the corresponding
+ground truth when available, and ∥· ∥1 is the element-wise
+ℓ1 norm over spatial locations and color channels. We adopt
+an ℓ1 loss to preserve sharp material boundaries and reduce
+color bleeding.
+Diffuse shading loss.
+Ldiff =
+log
+ Sdiff + ϵ
+
+−log
+ Sdiff∗+ ϵ
+2
+2 ,
+(10)
+where Sdiff
+v
+∈RH×W ×3 denotes the predicted diffuse shad-
+ing (irradiance) for view v, Sdiff∗
+v
+is the ground truth, ϵ is a
+small constant for numerical stability, and ∥· ∥2
+2 denotes the
+squared ℓ2 norm. The logarithmic formulation emphasizes
+relative intensity errors and is robust to global illumination
+scale changes.
+Specular shading loss.
+Lspec = ∥log (Sspec + ϵ) −log (Sspec∗+ ϵ)∥2
+2 ,
+(11)
+where Sspec
+v
+denotes the predicted view-dependent specu-
+lar component for view v and Sspec∗
+v
+is the correspond-
+ing supervision when available. This loss prevents sparse,
+high-intensity highlights from dominating training and en-
+courages a clean separation between diffuse and non-
+Lambertian effects.
+Reconstruction loss.
+Lrecon = 1
+V
+V
+X
+v=1
+A ⊙Sdiff
+v
++ Sspec
+v
+−Iv
+
+1 ,
+(12)
+where V is the number of input views, Iv is the observed
+RGB image for view v, and ⊙denotes element-wise mul-
+tiplication. This term enforces consistency with the image
+formation model and regularizes intrinsic predictions when
+explicit supervision is incomplete or unavailable.
+
+
+Illumination loss.
+Lillum = ∥L −L∗∥2
+2 ,
+(13)
+where L denotes the predicted scene-level illumination pa-
+rameters (e.g., Spherical Gaussian Mixture coefficients) and
+L∗is the corresponding ground truth when available. This
+loss is applied only on datasets with explicit illumination
+supervision.
+Overall objective.
+The final training objective is a
+weighted sum of all loss terms:
+L = λalbLalb+λdiffLdiff+λspecLspec+λreconLrecon+λillumLillum,
+(14)
+where λ· are scalar weights balancing the contributions of
+different objectives.
+4. Experiments
+We evaluate the proposed Intrinsic Decomposition Trans-
+former (IDT) on both synthetic and real-world datasets to
+assess intrinsic decomposition accuracy, multi-view con-
+sistency, and generalization.
+All experiments are con-
+ducted under the physically grounded image formation
+model introduced in Sec. 3, with a particular focus on view-
+consistent decomposition of material and illumination fac-
+tors.
+4.1. Datasets
+Hypersim & InteriorVerse.
+We evaluate our method on
+both synthetic and real-world indoor datasets.
+Hyper-
+sim [25] provides physically based renderings with full in-
+trinsic annotations, including diffuse reflectance, diffuse il-
+lumination, and non-diffuse residuals, and is used as our pri-
+mary benchmark for quantitative evaluation and ablations
+under controlled supervision.
+InteriorVerse [37] consists
+of real-world or photorealistic indoor scenes with diverse
+geometry, materials, and lighting, serving as a challenging
+testbed to assess generalization and robustness in realistic
+settings where full intrinsic ground truth is unavailable. For
+both datasets, we construct multi-view samples by group-
+ing V images observing the same static scene from nearby
+viewpoints, unless otherwise specified.
+4.2. Evaluation Metrics
+We evaluate intrinsic decomposition along three comple-
+mentary dimensions.
+Intrinsic decomposition accuracy.
+On Hypersim, where
+ground-truth intrinsic factors are available, we evaluate dif-
+fuse reflectance (albedo), diffuse shading, and specular
+shading using standard image regression metrics, includ-
+ing mean absolute error (MAE), peak signal-to-noise ra-
+tio (PSNR), and structural similarity (SSIM). For shading-
+related factors, metrics are additionally computed in the log-
+arithmic domain to account for their high dynamic range.
+Multi-view consistency.
+To quantify cross-view consis-
+tency, we measure the agreement of predicted intrinsic fac-
+tors across different views of the same scene. Specifically,
+predicted albedo and diffuse shading maps from each view
+are warped to a reference view using available camera ge-
+ometry, and the average ℓ1 difference is computed. Lower
+values indicate better cross-view consistency.
+Reconstruction quality.
+We also evaluate reconstruction
+quality by recomposing images using the predicted intrinsic
+factors according to Eq. (2). Reconstruction quality is mea-
+sured using PSNR and SSIM on both Hypersim and Interi-
+orVerse. This metric is applicable even when ground-truth
+intrinsic factors are unavailable and reflects how well the
+predicted decomposition explains the input images.
+4.3. Baselines
+We compare IDT against representative intrinsic decompo-
+sition baselines covering both single-view and feed-forward
+multi-view settings.
+Single-view intrinsic decomposition.
+We include classic
+and learning-based single-image intrinsic decomposition
+methods, which are applied independently to each view:
+Intrinsic Images in the Wild (IIW-CNN) [5] and Intrinsic-
+Net [4]. Although these methods are not designed to en-
+force multi-view consistency, they provide reference points
+for per-image decomposition quality.
+Diffusion-based intrinsic decomposition.
+We also com-
+pare against recent diffusion-based intrinsic decomposition
+approaches, which generate intrinsic factors from a single
+image using iterative generative sampling. These methods
+are applied independently to each view and do not explicitly
+enforce cross-view consistency.
+Multi-view feed-forward baseline.
+To isolate the effect
+of joint multi-view reasoning, we construct a strong feed-
+forward baseline based on VGGT [27]. This baseline uses
+the same backbone, prediction heads, training data, and loss
+functions as IDT, but processes each view independently
+without joint attention across views. As a result, any per-
+formance difference can be attributed to the proposed joint
+multi-view inference mechanism rather than network capac-
+ity or supervision.
+
+
+Figure 4. Qualitative multi-view intrinsic decomposition results on synthetic and real-world scenes. Given three input images from different
+viewpoints, IDT performs feed-forward joint inference to produce view-consistent diffuse reflectance, diffuse shading, specular shading,
+and surface normals. The results highlight effective separation of Lambertian and non-Lambertian effects across views.
+Table 1. Quantitative results on the Hypersim dataset. We evaluate intrinsic decomposition accuracy, multi-view consistency, and recon-
+struction quality. Single-view methods are applied independently to each view. Lower is better for MAE and consistency metrics, while
+higher is better for PSNR and SSIM.
+Method
+Albedo
+Diffuse Shading
+Specular Shading
+Reconstruction
+MAE ↓
+PSNR ↑
+SSIM ↑
+MAE ↓
+SSIM ↑
+MAE ↓
+SSIM ↑
+PSNR ↑
+SSIM ↑
+IntrinsicNet [4] (single-view)
+–
+–
+–
+–
+–
+–
+–
+–
+–
+IIW-CNN [5] (single-view)
+–
+–
+–
+–
+–
+–
+–
+–
+–
+VGGT (per-view) [27]
+–
+–
+–
+–
+–
+–
+–
+–
+–
+IDT (Ours)
+–
+–
+–
+–
+–
+–
+–
+–
+–
+4.4. Implementation Details
+IDT is implemented using a transformer-based multi-view
+encoder with intrinsic adapters and lightweight prediction
+heads. All models are trained in a fully feed-forward man-
+ner using the Adam optimizer, with a fixed learning rate and
+identical training schedules across methods to ensure fair
+comparison. Each training sample consists of V views ran-
+domly sampled from the same scene, enabling joint multi-
+view inference during training.
+To stabilize training and encourage effective disentangle-
+ment of intrinsic factors, we adopt a two-stage training strat-
+egy. In the first stage, we freeze the multi-view aggregator
+and train only the intrinsic adapters and prediction heads for
+50 epochs, allowing the model to learn task-specific intrin-
+sic mappings on top of a fixed multi-view representation.
+In the second stage, we unfreeze the aggregator and jointly
+fine-tune the entire network for an additional 100 epochs,
+enabling end-to-end refinement of multi-view representa-
+tions and intrinsic predictions. Unless otherwise specified,
+all reported results are obtained from models trained with
+this two-stage schedule.
+
+
+Table 2. Multi-view consistency on Hypersim. Consistency is
+measured as the average ℓ1 difference between intrinsic predic-
+tions warped to a reference view. Lower is better.
+Method
+A-Cons. ↓S-Cons. ↓
+IntrinsicNet [4] (SV)
+–
+–
+VGGT (per-view) [27]
+–
+–
+IDT (Ours)
+–
+–
+Training is performed on 8 NVIDIA H100 GPUs with
+80 GB memory per GPU using distributed data-parallel
+training. All models are trained to convergence under the
+same computational budget.
+Unless otherwise specified,
+batch size, learning rate, optimizer parameters, and archi-
+tectural hyperparameters are kept consistent across experi-
+ments.
+During
+training,
+we
+supervise
+diffuse
+reflectance
+(albedo), diffuse shading, and specular shading using the
+loss functions described in Sec. 3.5. Illumination supervi-
+sion is applied only when lighting information is available;
+otherwise, illumination representations are learned implic-
+itly through shading prediction and image reconstruction
+under the proposed image formation model. Detailed net-
+work architectures, training schedules, and hyperparameter
+settings are provided in the supplementary material for re-
+producibility.
+4.5. Quantitative Results
+Quantitative results on Hypersim are reported in Ta-
+ble 1.
+IDT consistently outperforms single-view intrin-
+sic decomposition baselines in terms of intrinsic accuracy
+while achieving substantially better multi-view consistency.
+Compared to the feed-forward VGGT per-view baseline,
+IDT yields significantly lower cross-view inconsistency for
+both albedo and diffuse shading, while maintaining compa-
+rable or improved reconstruction quality.
+These results demonstrate that joint multi-view inference
+with shared intrinsic representations is critical for enforcing
+physically meaningful consistency across views.
+We further report explicit multi-view consistency metrics
+in Table 2, where IDT achieves the lowest inconsistency
+across all evaluated methods.
+4.6. Ablation Studies
+We conduct ablation studies on Hypersim to analyze the
+contribution of key components in IDT.
+Effect of joint multi-view inference.
+We compare IDT
+with a per-view variant that processes each view indepen-
+dently. Removing joint multi-view aggregation results in a
+clear degradation of cross-view consistency, confirming the
+importance of transformer-based joint reasoning.
+Effect of intrinsic adapters.
+We evaluate a variant of
+IDT without intrinsic adapters, where prediction heads di-
+rectly consume aggregated transformer tokens. This vari-
+ant exhibits reduced intrinsic decomposition quality and
+increased entanglement between material and illumination
+factors, highlighting the role of adapters in guiding factor-
+specific prediction.
+Effect of illumination conditioning.
+We further evaluate
+a variant of IDT without SGM-based illumination condi-
+tioning. Removing illumination conditioning leads to less
+stable shading estimates and increased leakage of illumi-
+nation effects into albedo, demonstrating the importance of
+a shared illumination representation even without explicit
+physically based rendering.
+4.7. Qualitative Results
+Figure 4 presents qualitative comparisons on Hypersim and
+InteriorVerse. On Hypersim, IDT produces cleaner diffuse
+reflectance and more coherent diffuse shading compared to
+baseline methods, closely matching ground truth intrinsic
+factors. On InteriorVerse, IDT generalizes well to realistic
+indoor scenes, yielding view-consistent albedo and stable
+shading across viewpoints. Notably, specular highlights are
+better isolated into the specular shading component, reduc-
+ing contamination of diffuse reflectance.
+Overall, qualitative results further confirm the advan-
+tages of physically grounded, feed-forward multi-view in-
+trinsic decomposition.
+5. Conclusion
+We presented Intrinsic Decomposition Transformer
+(IDT), a feed-forward framework for physically grounded
+multi-view intrinsic image decomposition. By jointly rea-
+soning over multiple views with a transformer architec-
+ture, IDT infers view-consistent intrinsic factors in a sin-
+gle forward pass, avoiding iterative generative inference.
+Through an explicit image formation model that separates
+diffuse reflectance, diffuse shading, and specular effects,
+the proposed formulation improves the disentanglement of
+material and illumination across views.
+Experiments on
+both synthetic and real-world indoor datasets demonstrate
+that IDT yields cleaner intrinsic decompositions and signif-
+icantly improved multi-view consistency compared to prior
+methods. We believe IDT provides a simple yet effective
+foundation for scalable multi-view intrinsic understanding
+and can serve as a building block for physically grounded
+reasoning in downstream vision tasks.
+
+
+References
+[1] Jonathan T. Barron and Jitendra Malik. Shape, illumination,
+and reflectance from shading. In Proceedings of the Euro-
+pean Conference on Computer Vision (ECCV), 2012. 2
+[2] Jonathan T. Barron and Jitendra Malik. Shape, illumination,
+and reflectance from shading. IEEE Transactions on Pattern
+Analysis and Machine Intelligence, 2015. 2, 3
+[3] Harry G. Barrow and Jay M. Tenenbaum. Recovering intrin-
+sic scene characteristics from images. In Computer Vision
+Systems. 1978. 3
+[4] Anil S. Baslamisli, Timo Groenestege, S. Das, and Theo
+Gevers.
+All about intrinsics:
+A comprehensive study
+of intrinsic image decomposition.
+In Proceedings of the
+IEEE/CVF Conference on Computer Vision and Pattern
+Recognition (CVPR), 2018. 2, 3, 6, 7, 8
+[5] Sean Bell, Kavita Bala, and Noah Snavely. Intrinsic images
+in the wild. ACM Transactions on Graphics, 33(4), 2014. 2,
+6, 7
+[6] Sai Bi, Zexiang Xu, Pratul Srinivasan, Ben Mildenhall,
+Kalyan Sunkavalli, Miloˇs Haˇsan, Yannick Hold-Geoffroy,
+David Kriegman, and Ravi Ramamoorthi.
+Neural Re-
+flectance Fields for Appearance Acquisition. arXiv preprint
+arXiv:2008.03824, 2020. 2
+[7] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas
+Usunier, Alexander Kirillov, and Sergey Zagoruyko. End-to-
+end object detection with transformers. In Proceedings of the
+European Conference on Computer Vision (ECCV), 2020. 4
+[8] Robert L. Cook and Kenneth E. Torrance.
+A reflectance
+model for computer graphics. ACM Transactions on Graph-
+ics, 1(1):7–24, 1982. 3
+[9] Hala Djeghim, Nathan Piasco, Luis Rold˜ao, Moussab Ben-
+nehar, Dzmitry Tsishkou, C´eline Loscos, and D´esir´e Sidib´e.
+Sail: Self-supervised albedo estimation from real images
+with a latent diffusion model, 2025. 3
+[10] Kang Du, Zhihao Liang, and Zeyu Wang. Gs-id: Illumina-
+tion decomposition on gaussian splatting via diffusion prior
+and parametric light source optimization, 2024. 2
+[11] Roger Grosse, Micah K. Johnson, Edward H. Adelson, and
+William T. Freeman. Ground truth dataset and baseline eval-
+uations for intrinsic image algorithms. In Proceedings of the
+IEEE International Conference on Computer Vision (ICCV),
+2009. 3
+[12] Neil Houlsby, Andrei Giurgiu, Stanislaw Jastrzebski, et al.
+Parameter-efficient transfer learning for nlp.
+In Proceed-
+ings of the International Conference on Machine Learning
+(ICML), 2019. 5
+[13] Yingwenqi Jiang, Jiadong Tu, Yuan Liu, Xifeng Gao, Xiaox-
+iao Long, Wenping Wang, and Yuexin Ma. GaussianShader:
+3D Gaussian Splatting With Shading Functions for Reflec-
+tive Surfaces. In Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, pages 5322–
+5332, 2024. 2
+[14] Haian Jin, Isabella Liu, Peijia Xu, Xiaoshuai Zhang, Song-
+fang Han, Sai Bi, Xiaowei Zhou, Zexiang Xu, and Hao
+Su. Tensoir: Tensorial inverse rendering. In Proceedings of
+the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pages 165–174, 2023. 2
+[15] Peter Kocsis, Vincent Sitzmann, and Matthias Nießner. In-
+trinsic image diffusion. arXiv preprint arXiv:2312.12274,
+2023. 3
+[16] Peter Kocsis, Vincent Sitzmann, and Matthias Nießner. In-
+trinsic image diffusion for indoor single-view material es-
+timation.
+In Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, pages 5198–
+5208, 2024. 3
+[17] Edwin H. Land and John J. McCann. Lightness and retinex
+theory. Journal of the Optical Society of America, 61(1):1–
+11, 1971. 3
+[18] Zhibing Li, Tong Wu, Jing Tan, Mengchen Zhang, Jiaqi
+Wang, and Dahua Lin. IDArb: Intrinsic decomposition for
+arbitrary number of input views and illuminations. In The
+Thirteenth International Conference on Learning Represen-
+tations, 2025. 3
+[19] Zhihao Liang, Qi Zhang, Ying Feng, Ying Shan, and Kui Jia.
+Gs-ir: 3d gaussian splatting for inverse rendering. CoRR,
+abs/2311.16473, 2023. 2
+[20] Dominic Maggio, Hyungtae Lim, and Luca Carlone. Vggt-
+slam: Dense rgb slam optimized on the sl (4) manifold. Ad-
+vances in Neural Information Processing Systems, 39, 2025.
+3
+[21] Ben Mildenhall, Pratul P. Srinivasan, Matthew Tancik,
+Jonathan T. Barron, Ravi Ramamoorthi, and Ren Ng. Nerf:
+Representing scenes as neural radiance fields for view syn-
+thesis. In Proceedings of the European Conference on Com-
+puter Vision (ECCV), 2020. 3
+[22] Jacob Munkberg, Jon Hasselgren, Tianchang Shen, Jun Gao,
+Wenzheng Chen, Alex Evans, Thomas M¨uller, and Sanja Fi-
+dler. Extracting Triangular 3D Models, Materials, and Light-
+ing From Images. In Proceedings of the IEEE/CVF Con-
+ference on Computer Vision and Pattern Recognition, pages
+8280–8290, 2022. 2
+[23] Takuya Narihira, Michael Maire, and Stella X. Yu. Direct in-
+trinsics: Learning albedo-shading decomposition by convo-
+lutional regression. In Proceedings of the IEEE International
+Conference on Computer Vision (ICCV), 2015. 3
+[24] Ravi Ramamoorthi and Pat Hanrahan. A signal-processing
+framework for inverse rendering.
+ACM Transactions on
+Graphics, 2001. 2, 3, 4
+[25] Mike Roberts, Jason Ramapuram, Anurag Ranjan, Atulit
+Kumar, Miguel Angel Bautista, Nathan Paczan, Russ Webb,
+and Joshua M. Susskind. Hypersim: A photorealistic syn-
+thetic dataset for holistic indoor scene understanding.
+In
+Proceedings of the IEEE/CVF International Conference on
+Computer Vision (ICCV), 2021. 2, 6
+[26] Pratul P Srinivasan,
+Boyang Deng,
+Xiuming Zhang,
+Matthew Tancik, Ben Mildenhall, and Jonathan T Barron.
+NeRV: Neural Reflectance and Visibility Fields for Relight-
+ing and View Synthesis. In Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition,
+pages 7495–7504, 2021. 2
+[27] Jianyuan Wang, Minghao Chen, Nikita Karaev, Andrea
+Vedaldi, Christian Rupprecht, and David Novotny.
+Vggt:
+Visual geometry grounded transformer. In Proceedings of
+the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, 2025. 2, 3, 6, 7, 8
+
+
+[28] Yifan Wang, Jianjun Zhou, Haoyi Zhu, Wenzheng Chang,
+Yang Zhou, Zizun Li, Junyi Chen, Jiangmiao Pang, Chunhua
+Shen, and Tong He. Pi 3: Permutation-equivariant visual
+geometry learning. arXiv preprint arXiv:2507.13347, 2025.
+[29] Alex Yu, Vickie Ye, Matthew Tancik, and Angjoo Kanazawa.
+pixelnerf: Neural radiance fields from one or few images.
+In Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition (CVPR), 2021. 3
+[30] Zheng Zeng, Valentin Deschaintre, Iliyan Georgiev, Yannick
+Hold-Geoffroy, Yiwei Hu, Fujun Luan, Ling-Qi Yan, and
+Milos Hasan. Rgb↔x: Image decomposition and synthesis
+using material- and lighting-aware diffusion models. In SIG-
+GRAPH (Conference Paper Track), page 75. ACM, 2024. 3
+[31] Jingsen Zhang, Shunsuke Saito, and Matthias Nießner. Neilf:
+Neural incident light field for material and lighting estima-
+tion. In Proceedings of the European Conference on Com-
+puter Vision (ECCV), 2022. 2
+[32] Kai Zhang, Fujun Luan, Qianqian Wang, Kavita Bala, and
+Noah Snavely. Physg: Inverse rendering with spherical gaus-
+sians for physics-based material editing and relighting. In
+Proceedings of the IEEE/CVF Conference on Computer Vi-
+sion and Pattern Recognition, pages 5453–5462, 2021.
+[33] Xiuming Zhang, Pratul P Srinivasan, Boyang Deng, Paul De-
+bevec, William T Freeman, and Jonathan T Barron. NeRFac-
+tor: Neural Factorization of Shape and Reflectance Under
+an Unknown Illumination. ACM Transactions on Graphics
+(ToG), 40(6):1–18, 2021.
+[34] Yuanqing Zhang, Jiaming Sun, Xingyi He, Huan Fu, Rongfei
+Jia, and Xiaowei Zhou. Modeling Indirect Illumination for
+Inverse Rendering. In Proceedings of the IEEE/CVF Con-
+ference on Computer Vision and Pattern Recognition, pages
+18643–18652, 2022. 2
+[35] Tinghui Zhou, Philipp Kr¨ahenb¨uhl, and Alexei A. Efros.
+Learning data-driven reflectance priors for intrinsic image
+decomposition.
+In Proceedings of the IEEE International
+Conference on Computer Vision (ICCV), 2015. 3
+[36] Jingsen Zhu, Fujun Luan, Yuchi Huo, Zihao Lin, Zhihua
+Zhong, Dianbing Xi, Rui Wang, Hujun Bao, Jiaxiang Zheng,
+and Rui Tang. Learning-based inverse rendering of complex
+indoor scenes with differentiable monte carlo raytracing. In
+SIGGRAPH Asia, pages 6:1–6:8. ACM, 2022. 3
+[37] Jingsen Zhu, Fujun Luan, Yuchi Huo, Zihao Lin, Zhihua
+Zhong, Dianbing Xi, Rui Wang, Hujun Bao, Jiaxiang Zheng,
+and Rui Tang. Learning-based inverse rendering of complex
+indoor scenes with differentiable monte carlo raytracing. In
+SIGGRAPH Asia 2022 Conference Papers. ACM, 2022. 6
+[38] Rui Zhu, Zhengqin Li, Janarbek Matai, Fatih Porikli, and
+Manmohan Chandraker. Irisformer: Dense vision transform-
+ers for single-image inverse rendering in indoor scenes. In
+Proceedings of the IEEE/CVF Conference on Computer Vi-
+sion and Pattern Recognition, pages 2822–2831, 2022. 3
+[39] Dong Zhuo, Wenzhao Zheng, Jiahe Guo, Yuqi Wu, Jie Zhou,
+and Jiwen Lu. Streaming 4d visual geometry transformer.
+arXiv preprint arXiv:2507.11539, 2025. 3

@@ -20,6 +20,61 @@ window.SubscriptionsKeywords = (function () {
       .replace(/'/g, '&#39;');
   };
 
+  // 校验关键词语法，避免生成无法被 YAML 正常解析的配置
+  const validateKeywordSyntax = (keyword) => {
+    const raw = (keyword || '').trim();
+    if (!raw) {
+      return { valid: false, message: '关键词不能为空' };
+    }
+
+    // 1）OR 语法校验：只允许使用连续的 "||" 作为 OR
+    if (raw.includes('|')) {
+      if (!raw.includes('||')) {
+        return {
+          valid: false,
+          message: 'OR 语法必须使用连续的 "||"，不能拆开写成单个 "|"。',
+        };
+      }
+    }
+
+    // 2）AND 语法校验：只允许使用连续的 "&&" 作为 AND
+    if (raw.includes('&')) {
+      if (!raw.includes('&&')) {
+        return {
+          valid: false,
+          message: 'AND 语法必须使用连续的 "&&"，不能拆开写成单个 "&"。',
+        };
+      }
+    }
+
+    // 3）冒号语法校验：目前只允许使用 author: 前缀，且大小写不敏感
+    //    冒号可以与 author 之间有空格，例如 "author : xxx"
+    //    如果出现其它前缀 + 冒号，会导致 YAML 解析混乱，这里直接拦截
+    const idxNormal = raw.indexOf(':');
+    const idxFullWidth = raw.indexOf('：'); // 兼容全角冒号
+    let idx = -1;
+    if (idxNormal >= 0 && idxFullWidth >= 0) {
+      idx = Math.min(idxNormal, idxFullWidth);
+    } else if (idxNormal >= 0) {
+      idx = idxNormal;
+    } else if (idxFullWidth >= 0) {
+      idx = idxFullWidth;
+    }
+
+    if (idx >= 0) {
+      const prefix = raw.slice(0, idx).trim().toLowerCase();
+      if (prefix && prefix !== 'author') {
+        return {
+          valid: false,
+          message:
+            '当前仅支持使用 "author:" 作为前缀，其它带冒号的写法可能导致 config.yaml 解析失败。',
+        };
+      }
+    }
+
+    return { valid: true, message: '' };
+  };
+
   const render = (items) => {
     if (!keywordsListEl) return;
     if (!items || !items.length) {
@@ -102,6 +157,23 @@ window.SubscriptionsKeywords = (function () {
       }
       return;
     }
+
+    // 关键词语法校验（支持 || / && / author:，但禁止其它带冒号的写法）
+    const { valid, message } = validateKeywordSyntax(keyword);
+    if (!valid) {
+      if (msgEl) {
+        msgEl.textContent = message || '关键词格式不合法';
+        msgEl.style.color = '#c00';
+      }
+      return;
+    }
+
+    // 检测高级搜索语法，用于提醒用户：这些语法会按原样保存到 config.yaml，
+    // 并在后台抓取脚本中被解释为 OR / AND / 作者限定查询
+    const hasAdvancedSyntax =
+      keyword.includes('||') ||
+      keyword.includes('&&') ||
+      keyword.toLowerCase().includes('author:');
     if (!alias) {
       if (msgEl) {
         msgEl.textContent = '备注为必填项';
@@ -129,7 +201,13 @@ window.SubscriptionsKeywords = (function () {
       });
 
       if (msgEl) {
-        msgEl.textContent = '关键词已添加到本地草稿，点击「保存」后才会同步到云端。';
+        if (hasAdvancedSyntax) {
+          msgEl.textContent =
+            '检测到高级搜索语法（|| / && / author:），已按原样写入本地草稿，点击「保存」后会同步到 config.yaml。';
+        } else {
+          msgEl.textContent =
+            '关键词已添加到本地草稿，点击「保存」后才会同步到云端。';
+        }
         msgEl.style.color = '#666';
       }
       keywordInput.value = '';
@@ -156,6 +234,13 @@ window.SubscriptionsKeywords = (function () {
     if (keywordsListEl && !keywordsListEl._initialized) {
       keywordsListEl._initialized = true;
       render([]);
+    }
+
+    if (keywordInput && !keywordInput._advancedPlaceholderSet) {
+      keywordInput._advancedPlaceholderSet = true;
+      // 提示用户支持使用 || / && / author: 语法
+      keywordInput.placeholder =
+        '关键词，支持使用 "||" 作为 OR、"&&" 作为 AND，或使用 "author:姓名" 仅搜索作者';
     }
 
     if (addBtn && !addBtn._bound) {

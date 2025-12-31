@@ -188,6 +188,89 @@
   color: #999;
 }
 
+/* 首次进入时的密钥解锁遮罩与对话框 */
+.secret-gate-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.secret-gate-hidden {
+  display: none;
+}
+.secret-gate-modal {
+  width: min(420px, 92vw);
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 16px 18px 14px 18px;
+  box-sizing: border-box;
+}
+.secret-gate-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.secret-gate-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  background: #fff;
+}
+.secret-gate-btn.primary {
+  background: #3b8eed;
+  border-color: #3b8eed;
+  color: #fff;
+}
+.secret-gate-btn.primary:disabled,
+.secret-gate-btn.secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.secret-gate-btn.secondary {
+  background: #f8f8f8;
+}
+
+/* 初始化配置向导中的模型价格提示小气泡 */
+.secret-model-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  border-radius: 50%;
+  border: 1px solid #999;
+  font-size: 11px;
+  line-height: 16px;
+  color: #666;
+  cursor: default;
+  position: relative;
+}
+.secret-model-tip-popup {
+  display: none;
+  position: absolute;
+  top: 120%;
+  left: 0;
+  z-index: 2100;
+  padding: 6px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  max-width: 280px;
+  line-height: 1.4;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.secret-model-tip:hover .secret-model-tip-popup {
+  display: block;
+}
+
 /* 覆盖 Docsify 主题默认的中间滚动容器，只保留最外层页面滚动 */
 .content {
   height: auto !important;
@@ -245,7 +328,8 @@ article.markdown-section {
 .sidebar-day-toggle-arrow {
   font-size: 12px;
   margin-left: 6px;
-  opacity: 0.7;
+  opacity: 0;        /* 隐藏小三角但保留占位，避免布局抖动 */
+  pointer-events: none;
 }
 .sidebar-day-collapsed > ul {
   display: none;
@@ -280,12 +364,18 @@ article.markdown-section {
 /* 当前页面所在行：仅通过淡蓝色椭圆背景高亮，不再使用右侧绿色细边 */
 .sidebar-nav li.sidebar-paper-item {
   border-right: none;
-  /* 为椭圆背景预留左右内边距，避免文字紧贴边缘 */
+  /* 统一行内边距与外边距，确保圆角背景完整填充整行 */
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  /* 为椭圆背景预留左右内边距，避免文字紧贴边缘，同时给右侧小蓝点留出空间 */
   padding-left: 10px;
-  padding-right: 10px;
+  padding-right: 18px;
 }
 .sidebar-nav li.sidebar-paper-item > a {
   text-decoration: none;
+  display: block; /* 让链接占满整行，避免背景只覆盖部分区域 */
 }
 /* 悬停：浅灰色圆角背景（作用在整行 li 上） */
 .sidebar-nav li.sidebar-paper-item:hover {
@@ -357,17 +447,21 @@ article.markdown-section {
 }
 
 /* 未阅读论文：标题右侧显示淡蓝色小圆点提示
-   条件：是具体论文条目（sidebar-paper-item），且没有 read/good/bad 状态 */
-.sidebar-nav li.sidebar-paper-item:not(.sidebar-paper-read):not(.sidebar-paper-good):not(.sidebar-paper-bad)
-  > a::after {
+   条件：是具体论文条目（sidebar-paper-item），且没有 read/good/bad 状态）。
+   使用 li 的绝对定位伪元素，避免标题过长时小圆点被文本挤出视口。 */
+.sidebar-nav li.sidebar-paper-item:not(.sidebar-paper-read):not(.sidebar-paper-good):not(.sidebar-paper-bad) {
+  position: relative;
+}
+.sidebar-nav li.sidebar-paper-item:not(.sidebar-paper-read):not(.sidebar-paper-good):not(.sidebar-paper-bad)::after {
   content: '';
-  display: inline-block;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 6px;
   height: 6px;
-  margin-left: 6px;
   border-radius: 50%;
   background-color: #91d5ff; /* 淡蓝色 */
-  vertical-align: middle;
 }
 
 /* 论文详情页标题区域的评价按钮 */

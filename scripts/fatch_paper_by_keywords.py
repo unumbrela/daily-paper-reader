@@ -28,7 +28,7 @@ os.makedirs(DOCS_DIR, exist_ok=True)
 
 # 大模型配置
 LLM_API_KEY = os.getenv("LLM_API_KEY", "6db3f0f8d95a4e3491a47bf349467f11.uh6Hh5ucQySi7rXk")
-LLM_MODEL = os.getenv("LLM_MODEL", "glm-4.6")
+LLM_MODEL = os.getenv("LLM_MODEL", "glm-4.7")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://open.bigmodel.cn/api/coding/paas/v4")
 CLIENT = openai.OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
 

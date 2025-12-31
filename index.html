@@ -31,11 +31,48 @@
   <!-- YAML 解析：用于在前端读写 config.yaml -->
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
 
+  <!-- Libsodium：用于在前端加密写入 GitHub Secrets -->
+  <script src="https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.13/dist/modules/libsodium-wrappers.js"></script>
+
   <!-- 自定义样式，包含评论区、订阅浮层、侧边栏拖拽等 UI -->
   <link rel="stylesheet" href="app/app.css">
 </head>
 <body>
+  <!-- 首次进入时的密钥解锁 / 游客模式选择 -->
+  <div id="secret-gate-overlay" class="secret-gate-overlay secret-gate-hidden">
+    <div id="secret-gate-modal" class="secret-gate-modal">
+      <h2 style="margin-top:0;">🔐 解锁密钥</h2>
+      <p style="font-size:13px; color:#555; margin-bottom:8px;">
+        为保护你的大模型 API Key 等敏感配置，请输入本地密码解锁，
+        或选择以游客身份访问（仅支持阅读论文，无法使用后台面板和大模型对话）。
+      </p>
+      <label for="secret-gate-password" style="font-size:13px; color:#333; display:block; margin-bottom:4px;">
+        解锁密码（至少 8 位，包含数字、小写字母、大写字母和特殊符号）：
+      </label>
+      <input
+        id="secret-gate-password"
+        type="password"
+        autocomplete="off"
+        style="width:100%; box-sizing:border-box; padding:6px 8px; margin-bottom:6px; font-size:13px;"
+      />
+      <div id="secret-gate-error" style="min-height:18px; font-size:12px; color:#999; margin-bottom:8px;">
+        密码仅在本地用于解密，不会上传到服务器。
+      </div>
+      <div class="secret-gate-actions">
+        <button id="secret-gate-guest" type="button" class="secret-gate-btn secondary">
+          以游客身份访问
+        </button>
+        <button id="secret-gate-unlock" type="button" class="secret-gate-btn primary">
+          解锁密钥
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="app">加载中...</div>
+
+  <!-- 密钥会话管理（需在其他模块之前加载，以便设置 DPR_ACCESS_MODE / decoded_secret_private） -->
+  <script src="app/secret.session.js"></script>
 
   <!-- Docsify 配置与公共插件（评论区 + Zotero 元数据） -->
   <script src="app/docsify-plugin.js"></script>

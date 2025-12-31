@@ -3,12 +3,14 @@ github:
   repo: "daily-paper-reader"
 
 crawler:
-  days_window: 2
+  days_window: 4
   max_results: 50
   docs_dir: docs
 subscriptions:
   keywords:
     - keyword: symbolic regression
       alias: 符号回归（示例）
+    - keyword: transformer
+      alias: 大语言模型
   llm_queries: []
   tracked_papers: []

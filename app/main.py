@@ -29,7 +29,7 @@ if not LLM_API_KEY:
     raise RuntimeError("缺少环境变量 LLM_API_KEY，请设置大模型的 API Key")
 
 # 从环境变量读取模型名称和可选的 Base URL
-LLM_MODEL = os.getenv("LLM_MODEL", "glm-4.6")
+LLM_MODEL = os.getenv("LLM_MODEL", "glm-4.7")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://open.bigmodel.cn/api/coding/paas/v4")
 
 # 使用 OpenAI 兼容客户端，建议选择支持 200k 上下文长度的模型

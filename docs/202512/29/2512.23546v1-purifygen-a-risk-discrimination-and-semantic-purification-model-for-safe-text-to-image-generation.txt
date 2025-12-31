@@ -1,0 +1,1267 @@
+PurifyGen: A Risk-Discrimination and Semantic-Purification
+Model for Safe Text-to-Image Generation
+Zongsheng Cao∗
+agiczsr@gmail.com
+Researcher
+Yangfan He∗
+he000577@umn.edu
+UMN
+Anran Liu†
+anniegogo1008@gmail.com
+Researcher
+Jun Xie
+xiejun@lenovo.com
+PCIE
+Feng Chen
+chenfeng@lenovo.com
+PCIE
+Zepeng Wang†
+wangzpb@lenovo.com
+PCIE
+Abstract
+Recent advances in diffusion models have notably enhanced text-
+to-image (T2I) generation quality, but they also raise the risk of
+generating unsafe content. Traditional safety methods like text
+blacklisting or harmful content classification have significant draw-
+backs: they can be easily circumvented or require extensive datasets
+and extra training. To overcome these challenges, we introduce Pu-
+rifyGen, a novel, training-free approach for safe T2I generation
+that retains the model’s original weights. PurifyGen introduces a
+dual-stage strategy for prompt purification. First, we evaluate the
+safety of each token in a prompt by computing its complementary
+semantic distance, which measures the semantic proximity between
+the prompt tokens and concept embeddings from predefined toxic
+and clean lists. This enables fine-grained prompt classification with-
+out explicit keyword matching or retraining. Tokens closer to toxic
+concepts are flagged as risky. Second, for risky prompts, we apply
+a dual-space transformation: we project toxic-aligned embeddings
+into the null space of the toxic concept matrix, effectively removing
+harmful semantic components, and simultaneously align them into
+the range space of clean concepts. This dual alignment purifies
+risky prompts by both subtracting unsafe semantics and reinforc-
+ing safe ones, while retaining the original intent and coherence.
+We further define a token-wise strategy to selectively replace only
+risky token embeddings, ensuring minimal disruption to safe con-
+tent. PurifyGen offers a plug-and-play solution with theoretical
+grounding and strong generalization to unseen prompts and models.
+Extensive testing shows that PurifyGen surpasses current meth-
+ods in reducing unsafe content across five datasets and competes
+well with training-dependent approaches. The code can refer to
+https://github.com/AI-Researcher-Team/PurifyGen.
+CCS Concepts
+• Computing methodologies →Natural language processing.
+∗Equal contribution
+†Corresponding author
+Permission to make digital or hard copies of all or part of this work for personal or
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation
+on the first page. Copyrights for components of this work owned by others than the
+author(s) must be honored. Abstracting with credit is permitted. To copy otherwise, or
+republish, to post on servers or to redistribute to lists, requires prior specific permission
+and/or a fee. Request permissions from permissions@acm.org.
+MM’25, October 27–31, 2025, Dublin, Ireland
+© 2025 Copyright held by the owner/author(s). Publication rights licensed to ACM.
+ACM ISBN 979-8-4007-2035-2/2025/10
+https://doi.org/10.1145/3746027.3754595
+Keywords
+Text to Image, Diffusion Model, Risk-Discrimination
+ACM Reference Format:
+Zongsheng Cao, Yangfan He, Anran Liu, Jun Xie, Feng Chen, and Zepeng
+Wang. 2025. PurifyGen: A Risk-Discrimination and Semantic-Purification
+Model for Safe Text-to-Image Generation. In Proceedings of the 33th ACM
+International Conference on Multimedia (MM ’25), October 27–31, 2025, Dublin,
+Ireland. ACM, New York, NY, USA, 10 pages. https://doi.org/10.1145/3746027.
+3754595
+1
+Introduction
+In just a few years, generative AI has evolved from simple text com-
+pletion into a comprehensive creative toolkit that now powers di-
+verse media pipelines. Breakthroughs first showcased by large-scale
+language models [1] have since migrated to automated program
+synthesis [4], fully synthetic audio tracks [6, 25], photorealistic im-
+age fabrication [16, 42], and the generation of temporally coherent
+video sequences [16, 24, 38, 53]. Flagship systems such as DALL·E
+3 [37] and OpenAI’s Sora [38] have ignited fresh workflows across
+digital illustration, augmented/virtual reality, and educational me-
+dia production. At the same time, these models carry a darker
+potential: they can amplify societal bias, propagate discriminatory
+narratives, or produce explicit and violent visuals, prompting urgent
+debate on guardrails and responsible deployment. Breakthroughs
+first showcased by large-scale language models [1] have since mi-
+grated to automated program synthesis [4], fully synthetic audio
+tracks [6, 25], photorealistic image fabrication [16, 42], and the
+generation of temporally coherent video sequences [16, 24, 38, 53].
+Flagship systems such as DALL·E 3 [37] and OpenAI’s Sora [38]
+have ignited fresh workflows across digital illustration, augmented/
+virtual reality, and educational media production. At the same time,
+these models carry a darker potential: they can amplify societal bias,
+propagate discriminatory narratives, or produce explicit and vio-
+lent visuals, prompting urgent debate on guardrails and responsible
+deployment.
+Recent efforts to render text-to-image (T2I) generators safer
+have coalesced around two divergent toolkits. Unlearning methods
+deliberately push the network through another round of training
+so that it “forgets” objectionable visual patterns altogether [20, 40,
+48, 54]. While this can scrub out unwanted content, the procedure
+is computationally heavy and must be repeated whenever a new
+harmful motif surfaces. Running on a different track, model-editing
+algorithms perform pinpoint parameter surgery to steer generation
+away from unsafe regions of the data manifold [10, 39, 49]. These
+arXiv:2512.23546v1  [cs.CV]  29 Dec 2025
+
+
+MM’25, October 27–31, 2025, Dublin, Ireland
+Zongsheng Cao et al.
+Figure 1: We present PurifyGen, a risk-discrimination and semantic-
+purification model for T2I that identifies and filters out a variety
+of user-defined concepts. Unlike the previous approach of filter-
+ing prompts directly, which may impair the semantics of normal
+prompts, PurifyGen enables the safe and faithful generation in an
+interpretable manner that can remove toxic concepts and create a
+safer version of inappropriate prompts without requiring any model
+updates.
+edits often carry a cost: image fidelity may degrade, or the model’s
+broader capabilities may become destabilized, making it difficult to
+remove toxic elements while preserving the user’s original intent.
+An emerging, more promising line of research focuses on training-
+free, filtering-based approaches. These methods aim to filter and
+modify input prompts to prevent unsafe content generation while
+preserving the model’s original generative capabilities. Despite
+their appeal, existing filtering techniques face two critical limita-
+tions. First, they lack a nuanced risk-discrimination mechanism: by
+employing a hard filtering strategy that uniformly alters the input
+prompt, they fail to identify and target only the risky components,
+often leading to inefficient processing and unnecessary semantic
+loss. Second, these methods do not incorporate a mechanism for
+semantic purification, making it difficult to precisely cleanse harm-
+ful elements without disrupting the intended prompt meaning. In
+light of these deficiencies, it is natural to ask: Can we develop a
+unified framework that both discriminates between safe and risky
+prompt components and effectively sanitizes the unsafe portions while
+preserving the original intent?
+To overcome the limitations of existing safety approaches in
+text-to-image generation, we propose PurifyGen, a training-free,
+adaptive, and plug-and-play framework that ensures safe genera-
+tion without modifying the pretrained weights of diffusion models.
+Unlike retraining-based or rule-based systems, PurifyGen operates
+entirely in the prompt embedding space, making it highly efficient,
+interpretable, and broadly compatible across model architectures.
+Building such a framework requires addressing two core challenges:
+(C1) Prompts often contain a mixture of safe and unsafe semantics,
+demanding fine-grained, token-level identification of risk rather
+than coarse, prompt-level decisions. (C2) Removing risky semantics
+must be done without distorting the prompt’s intended meaning,
+requiring a purification strategy that both filters out harmful com-
+ponents and restores alignment with safe content.
+To tackle (C1), PurifyGen introduces a new semantic risk as-
+sessment mechanism. We compute the complementary semantic
+distance between prompt token embeddings and semantic concept
+spaces to quantify their relative association with safe or unsafe
+meanings. This enables fine-grained, token-wise risk discrimina-
+tion that is generalizable and does not rely on hand-crafted keyword
+matching. To address (C2), we propose a novel dual-space purifi-
+cation strategy. Risky tokens are projected into the null space of
+unsafe semantics to remove harmful content and simultaneously
+aligned into the range space of clean semantics to reinforce safe
+meaning. This transformation is performed selectively at the to-
+ken level, ensuring that the remaining content remains coherent
+and faithful to the original prompt. Extensive experiments demon-
+strate that PurifyGen achieves state-of-the-art performance on five
+widely used safe T2I benchmarks: I2P [44], P4D [5], Ring-A-Bell [46],
+MMA-Diffusion [51], and UnlearnDiff [57]. It outperforms other
+training-free methods and delivers competitive results compared
+to top training-based methods.
+Our contributions are threefold:
+• We propose PurifyGen, a novel training-free framework for
+safe text-to-image generation that performs fine-grained,
+token-level risk assessment. By employing complementary
+semantic distance with user-defined blacklist and whitelist
+embeddings, PurifyGen enables interpretable and adaptive
+identification of unsafe prompt components without requir-
+ing model retraining or handcrafted keyword filtering.
+• We introduce a dual-space purification mechanism that com-
+bines null space projection to suppress toxic semantics and
+range space alignment to enhance safe content. This geometry-
+driven approach enables selective semantic editing at the
+embedding level, ensuring both safety and semantic coher-
+ence. The method is model-agnostic and can be integrated
+seamlessly as a plug-in module for various diffusion-based
+generative models.
+• We demonstrate that PurifyGen achieves state-of-the-art per-
+formance across public safety benchmarks, outperforming
+existing training-free methods and performing competitively
+against fine-tuned baselines. Our method exhibits strong
+generalization to unseen prompts, concepts, and model ar-
+chitectures, making it a practical and scalable solution for
+safety-critical generative applications.
+2
+Related Work
+2.1
+T2I attacks
+Recent studies have highlighted vulnerabilities in generative mod-
+els, including large language models (LLMs) [32, 41], vision-language
+models (VLMs) [58], and text-to-image (T2I) models [29, 47, 52].
+One notable vulnerability is cross-modality jailbreaks, as demon-
+strated by [45], which combine adversarial images with prompts
+to bypass VLM safeguards without directly targeting the language
+model. Tools such as Ring-A-Bell [46] and automated adversarial
+frameworks developed by [23] and [27] focus on model-agnostic
+red-teaming techniques and adversarial prompt generation, un-
+covering safety weaknesses. Additionally, techniques by [35], [51],
+and [36] exploit text embeddings and multimodal inputs to evade
+model protections, employing strategies like adversarial prompt
+
+
+PurifyGen: A Risk-Discrimination and Semantic-Purification Model for Safe Text-to-Image Generation
+MM’25, October 27–31, 2025, Dublin, Ireland
+optimization and in-context learning [5, 33]. Collectively, these
+works emphasize the significant security vulnerabilities present in
+T2I models.
+2.2
+Safe T2I generation
+Safe T2I has attract extensive attention in the past and there are
+mainly two branches for the safe T2I generation as follow.
+Most prior attempts to curb unsafe or undesirable content in-
+tervene inside the generative model. Early work concentrates on
+excising objectionable visual or textual patterns from the network
+through fine-tuning or negative guidance. For example, [55] en-
+larges the safety margin by stripping away hazardous motifs, while
+[29] and [9] demonstrate similar effects with concept erasure. A
+complementary line of inquiry frames the problem adversarially:
+[22] suppresses harmful embeddings via a race-conditioned discrim-
+inator, whereas [8, 40] removes disallowed representations or opti-
+mizes preference scores to steer the generator away from toxic re-
+gions. Beyond these, researchers have explored targeted parameter
+updates, such as cross-attention refinement [34], continual-learning
+filters [14], and latent-space surgery enabled by self-supervision
+[28, 31]. Although these approaches can be effective, they usually
+require extensive retraining, incur notable computational overhead,
+and often introduce collateral degradation in visual quality.
+The second is the training-free paradigm. Safety mechanisms
+that sidestep any full re-training can be grouped into two broad
+camps. The first is closed-form weight editing techniques, where
+closed-form adjustments are computed once and grafted onto the
+generator’s parameters to excise disallowed content while leav-
+ing its creative range intact. Examples include model-projection
+editing [10], target-embedding surgery [11], and the micro-update
+recipe of [39] for diffusion backbones. A second line of work keeps
+the weights frozen and instead steers generation during inference
+through Safe Latent Diffusion with classifier-free guidance [44], or
+via prompt-level refinements in the Ethical Diffusion framework [2].
+Both families, however, have struggled to retain reliability once
+deployed on previously unseen prompts. Our own approach adopts
+a risk-aware, semantic purification pipeline: it screens and sanitises
+the output on the fly, adapting its filters to the user’s query with-
+out touching the underlying weights, thereby achieving stronger
+robustness and far better scalability in practice.
+3
+Preliminary
+3.1
+Latent Diffusion Models
+Diffusion generators [17] tackle image synthesis by beginning with
+pure Gaussian noise and then iteratively cleaning it across 𝑇dis-
+crete steps until a coherent picture emerges. At each timestep 𝑡, the
+network is tasked with predicting the residual noise still present,
+effectively acting as a time-conditioned denoiser. Latent diffusion
+refines this recipe by performing the entire noise-to-signal proce-
+dure in a compact latent manifold and only decoding the final latent
+tensor back to pixel space at the end [43]. When extended to text-
+to-image generation, the model’s denoising function is additionally
+conditioned on a user prompt 𝑝. For instance, via classifier-free
+guidance [18], the evolving sample gravitates toward an image
+whose semantics match the supplied description.
+Let 𝜖𝜃(𝑧𝑡,𝑡, 𝑝) denote the noise estimation function parameter-
+ized by 𝜃. At time step 𝑡(0 < 𝑡≤𝑇), the guided noise estimate is
+given by:
+ˆ𝜖𝜃(𝑧𝑡,𝑡, 𝑝) = 𝜖𝜃(𝑧𝑡,𝑡, ∅) + 𝛾(𝜖𝜃(𝑧𝑡,𝑡, 𝑝) −𝜖𝜃(𝑧𝑡,𝑡, ∅)) ,
+(1)
+where𝛾is the guidance scale and ∅represents an empty prompt. At
+the initial step𝑡= 𝑇,𝑧𝑡is sampled from a Gaussian distribution. The
+latent variable 𝑧𝑡−1 is then modeled as a Gaussian with parameters
+derived from 𝑧𝑡and the predicted noise:
+𝑝(𝑧𝑡−1|𝑧𝑡, 𝑝) = N
+ 
+𝑧𝑡−1;
+1
+√𝛼𝑡
+ 
+𝑧𝑡−𝛽𝑡
+√︁
+𝛽𝑡
+ˆ𝜖𝜃(𝑧𝑡,𝑡, 𝑝)
+!
+,
+¯𝛽𝑡−1𝛽2
+𝑡
+¯𝛽2
+𝑡
+I
+!
+,
+(2)
+where 𝛽𝑡denotes the noise schedule at step 𝑡, 𝛼𝑡= 1−𝛽𝑡defines the
+retained signal ratio, ¯𝛼𝑡= Î𝑡
+𝑖=1 𝛼𝑖, and ¯𝛽𝑡= √1 −¯𝛼𝑡. Following the
+Markov property, we can compute ˆ𝑧0 to approximate the denoised
+latent representation 𝑧0 [17]:
+ˆ𝑧0 =
+1
+√¯𝛼𝑡
+ 𝑧𝑡−¯𝛽𝑡ˆ𝜖𝜃(𝑧𝑡,𝑡, 𝑝) .
+(3)
+In this way, Eq.(3) mbodies the pivotal inferential step of the
+diffusion process: recovering a noise-free representation from its
+corrupted counterpart. Once that estimate is available, the model
+channels both the timestep-specific latent code 𝑧𝑡and its refined
+prediction ˆ𝑧0 through a latent-to-pixel decoder. This mapping pro-
+duces the provisional reconstruction 𝑥𝑡, reflecting the system’s
+current state, and culminates in the fully denoised image ˆ𝑥0.
+3.2
+Null Space and Range Space: Theoretical
+Foundation
+In our proposed framework, semantic purification is realized through
+a dual-space projection strategy where the null space is for remov-
+ing toxic semantics and the range space is for aligning with clean
+semantics. To ground this approach in mathematical rigor [13], we
+review the foundational concepts of null space and range space, and
+explain how they support our token embedding transformations in
+the context of safe text-to-image generation.
+Definition 3.1. Let 𝑪∈R𝑑×𝑘be a matrix formed by stacking
+embedding vectors associated with a set of known toxic concepts,
+where 𝑑is the embedding dimension and 𝑘is the number of toxic
+concept vectors. From the linear algebra such as [13], the null
+space of 𝑪, denoted as Null(𝑪), is defined as:
+Null(𝑪) =
+
+𝒙∈R𝑘| 𝑪𝒙= 0
+	
+.
+This space contains all vectors that, when linearly combined with
+the columns of 𝑪, result in zero. Intuitively, projecting a prompt
+token embedding into the null space of 𝑪suppresses any compo-
+nents that align with toxic semantics, effectively removing harmful
+latent information.
+Definition 3.2. Let 𝑹∈R𝑑×𝑘′ be a matrix composed of embedding
+vectors corresponding to clean or safe concepts. The range space
+(also known as the column space) of 𝑹, denoted as Range(𝑹), is
+defined as:
+Range(𝑹) =
+n
+𝒚∈R𝑑| ∃𝒙∈R𝑘′ such that 𝒚= 𝑹𝒙
+o
+.
+This space encompasses all vectors that can be represented as linear
+combinations of the clean concept embeddings. Projecting a prompt
+
+
+MM’25, October 27–31, 2025, Dublin, Ireland
+Zongsheng Cao et al.
+token embedding into the range space of 𝑹reinforces its alignment
+with safe, desirable semantics.
+Why Null and Range Spaces Matter for Safe T2I. These two
+subspaces play complementary roles in our semantic purification
+strategy. The null space of 𝑪captures directions that are orthogonal
+to all toxic concepts; any projection into this space effectively elim-
+inates toxic semantic components. On the other hand, the range
+space of 𝑹captures the span of clean semantics, and projecting into
+this space encourages alignment with intended safe meanings.
+According to the fundamental theorem of linear algebra, if we
+consider the full Euclidean space R𝑑, the null space and row space
+of a matrix are orthogonal complements, and likewise for the range
+space and left null space. Specifically, applying the Rank-Nullity
+Theorem to 𝑪, we have:
+dim(Null(𝑪)) + dim(Range(𝑪)) = 𝑑,
+which guarantees that any prompt embedding can be decomposed
+into components lying in these two orthogonal subspaces.
+Connection to Our Method. In our framework, we leverage this
+decomposition for semantic filtering and alignment as follows. The
+projection onto Null(𝑪) removes the latent toxic semantics by fil-
+tering out components in the direction of toxic concept embeddings.
+The projection onto Range(𝑹) ensures the prompt remains seman-
+tically aligned with safe concepts, enhancing content relevance
+and generation quality. This dual-space view provides a principled
+geometric perspective for prompt purification. Unlike heuristic-
+based editing methods, our projection-based approach is grounded
+in linear algebra and applies directly in the embedding space. It
+is thus interpretable, efficient, and generalizable across tasks and
+models, laying a solid theoretical foundation for safe and faithful
+generation in diffusion models.
+4
+PurifyGen Framework
+Recent approaches [3, 10, 11, 34, 50] have demonstrated the ef-
+fectiveness of weight modification through unlearning or model
+editing to prevent the generation of harmful (e.g., pornography, self-
+harm, violence), biased (e.g., racial or social stereotypes, ageism),
+or otherwise undesirable (e.g., public, copyrighted) visual content
+in text-to-image generation models. However, these methods have
+limited flexibility as they require storing individual model weights
+for each concept to be removed, inherently reduce the backbone
+model’s generative capabilities through unlearning, and necessitate
+separate solutions for safe generation across different models (i.e.,
+modified model weights).
+To overcome these challenges, we introduce PurifyGen. Our ap-
+proach aims to position the prompt close to a list of clean concepts
+and distant from toxic ones. Initially, we measure the distances be-
+tween the prompt tokens and these lists to assess the prompt’s risk
+level. We employ the complementary semantic distance to gauge
+the similarity between the prompt and both the clean and toxic lists.
+If the prompt’s token embeddings are nearer to the clean list than
+the toxic list, we classify it as safe, allowing direct input into the
+diffusion model. Otherwise, we transform the prompt embeddings
+using null and range spaces as semantic regularizers—the former to
+deter toxic information and the latter to align with safe information.
+This method enables dual-level alignment, thereby ensuring the
+generation of safe contexts.
+4.1
+Discriminate the Safety of Prompts
+In text-to-image generation tasks, prompts often contain a mix
+of both toxic and clean content rather than being entirely one or
+the other. This necessitates the identification of individual tokens
+within the prompt to determine whether they are safe or pose a
+risk. For instance, assuming 𝑝T2I=“a man gets killed", only the verb
+“killed" is related to “murder", while “a”, “man”, and “gets” carry no
+harmful concept.
+To this end, we propose to detect token embeddings that trigger
+inappropriate image generation and generate the toxic and clean
+lists of the concepts as follows:
+𝑪= [𝒄0; 𝒄1; . . . ; 𝒄𝐾−1] ∈R𝐷×𝐾,
+𝑹= [𝒄′
+0; 𝒄′
+1; . . . ; 𝒄′
+𝐾−1] ∈R𝐷×𝐾,
+(4)
+which represents the embedding matrix that denotes the toxic sub-
+space. In this way, each column vector 𝒄𝑘∈𝑪corresponds to the
+embedding of the relevant text associated with the user-defined
+toxic concept, such as Sexual Acts or Pornography for Nudity con-
+cepts. Each column vector 𝒄′
+𝑘∈𝑹corresponds to the embedding
+of the clean text associated contract with the user-defined toxic
+concept, such as purity or modesty for non-violence concepts.
+Merely checking the cosine similarity between a token and the
+toxic anchors is unreliable: a high-dimensional embedding can be
+close to both safe and unsafe directions, or to neither. What we truly
+need is a score that reflects the residual information that survives
+outside each concept subspace. In this way, for the prompt 𝑝, moti-
+vated by previous work [11, 21], we identify the complementary
+semantic distance of 𝑝with 𝑪or 𝑹as follows:
+D(𝑪, 𝒑) = (𝑰−𝑪)𝒑𝑇,
+(5)
+D(𝑹, 𝒑) = (𝑰−𝑹)𝒑𝑇,
+(6)
+where 𝑰is the identity matrix. 𝐼−C and 𝐼−R act as lightweight
+projectors onto the complements of Stox and Ssafe, respectively.
+Intuitively, if the token is closer to the safe concepts than the
+unsafe concepts in the latent space, the token of the prompt is safe.
+Otherwise, it is unsafe:
+𝑝𝑖=
+(
+risky,
+if D(𝑪, 𝒑𝑖) ≤D(𝑹, 𝒑𝑖),
+safe,
+if D(𝑪, 𝒑𝑖) > D(𝑹, 𝒑𝑖).
+(7)
+One can observe that this operation is highly efficient and incurs
+minimal computational overhead, as 𝒉𝑐can be pre-computed and
+stored for fast inference. In this way, we classify the prompt as safe
+or unsafe. Unsafe prompts are filtered, safe prompts are generated
+directly, and for risky prompts, we purify them as follows.
+4.2
+Purification for Prompts
+Null space projection is a common technique for removing the
+influence of a given perturbation. In this work, we adopt the null
+space projection method to purify the prompt. Specifically, we first
+compute the null space of the covariance matrix of the prompt, and
+then project the prompt onto the null space to remove the influence
+of the perturbation. Following the existing methods for conducting
+
+
+PurifyGen: A Risk-Discrimination and Semantic-Purification Model for Safe Text-to-Image Generation
+MM’25, October 27–31, 2025, Dublin, Ireland
+Figure 2: Illustrations of our framework. Given the white and black checklist and the prompt, we first mine the semantic
+relationship between prompts with toxic/clean concepts. Later, we determine whether it is a safe, unsafe, or risky prompt, and
+for the risky ones, we perform the dual-space alignment purification operation. Then, based on our purified prompt embedding,
+we generate a secure image.
+null space projection, we first apply a singular value decomposition
+(SVD) to 𝑪:
+{𝑈, Λ, (𝑈)𝑇} = SVD (𝑪) ,
+(8)
+where each column in 𝑈is an eigenvector of 𝑪. Then, we remove
+the eigenvectors in 𝑈that correspond to non-zero eigenvalues, and
+define the remaining submatrix as ˆ𝑈. Based on this, the projection
+matrix 𝑃can be defined as 𝑽= ˆ𝑈( ˆ𝑈)𝑇. Then we have the projected
+prompt as follows:
+𝒑purification
+𝑖
+= (𝑰−𝑽𝑽𝑇)𝒑𝒊,
+(9)
+In the above, we propose to leverage the null space projection to
+avoid toxic information. However, previous work often overlooks
+the alignment with safe information, and push them into the safe
+space. Then we design the alignment as follows:
+Let 𝑹be a matrix representing safe information, and let 𝑷be
+an input matrix. The projection of 𝒑𝑖onto the space spanned by 𝑹
+ensures alignment with safe information, as defined by:
+𝒑align
+𝑖
+= 𝒑𝑖𝑹𝑇(𝑹𝑇)†𝑹,
+(10)
+where (𝑹𝑇)† is the Moore-Penrose pseudoinverse of 𝑹𝑇. This op-
+eration ensures that 𝑷align lies in the column space of 𝑹, thereby
+aligning 𝑷with the safe information represented by 𝑹.
+Suppose that 𝑷is the embeddings of the prompt, and 𝑅is the
+mebeddings of the reverse matrix. Then we have the dual-space
+alignment theory as follows:
+𝑷∗=𝑷purification + 𝑷align
+=
+(𝑰−𝑽𝑽𝑇)𝑷
+|        {z        }
+Avoid Toxic Information
++
+𝑷𝑹𝑇(𝑹𝑇)†𝑹
+|         {z         }
+Align with Safe Information
+.
+(11)
+In this way, we generate the new prompt 𝑷∗from the original
+prompt 𝑷by avoiding the toxic information and aligning with the
+safe information. Different from previous work, we do not need
+to train a new model to generate the safe prompt. Instead, we can
+directly generate the safe prompt from the original prompt.
+4.3
+Safe Generation
+We aim to project toxic concept tokens into a safer space to en-
+courage the model to generate appropriate images. In the previ-
+ous sections, we introduced a dual-space alignment strategy that
+combines null space projection to remove semantic components
+associated with toxic concepts and range space alignment to re-
+inforce similarity with clean, safe concepts. This transformation
+yields a purified prompt embedding 𝑷∗, which is semantically safer
+and better aligned for responsible generation. However, directly
+substituting the entire prompt with its purified counterpart may
+not always be optimal.
+In most real-world queries, the objectionable meaning is con-
+centrated in a handful of words; the remainder of the prompt is in-
+nocuous yet vital for conveying intent with natural flow. A blanket
+overhaul, whether by masking every token or applying a uniform
+replacement, shreds that fluency and expressiveness, particularly
+when the “toxic slice" is small. Equally crude fixes, such as stuffing
+flagged slots with random vocabulary, zero vectors, or a static “safe"
+stub, fracture sentence structure and introduce semantic drift, often
+yielding gibberish generations.
+To avoid these pitfalls, we adopt an adaptive, token-wise purifi-
+cation routine. Let P𝑖be the embedding of the 𝑖-th token. Using
+the Semantic-based risk test from Section 4.1, we label each token
+as risky or benign. Risky embeddings are swapped for sanitised
+counterparts P∗
+𝑖generated by our dual-space aligner, while benign
+ones remain untouched to preserve fidelity. The resulting prompt
+
+
+MM’25, October 27–31, 2025, Dublin, Ireland
+Zongsheng Cao et al.
+embedding is therefore
+Psafe
+𝑖
+=
+
+
+P∗
+𝑖,
+if the token is risky,
+P𝑖,
+otherwise.
+(12)
+Compared to prior methods that indiscriminately suppress or
+remove toxic cues, our approach offers a more fine-grained and
+context-aware solution.This design ensures minimal perturbation
+to the input prompt, offering a balance between semantic safety
+and content preservation.
+5
+Experimental Results
+5.1
+Experimental Setup
+Our experimental backbone is Stable Diffusion v1.4 (SD-v1.4) [43],
+the same engine that underpins several recent safety-oriented
+studies [9–11]. To probe each method’s resilience, we barrage it
+with adversarial prompts sourced from five red-teaming pipelines:
+I2P [44], P4D [5], Ring-a-Bell [46], MMA-Diffusion [51], and Un-
+learnDiff [57]. Following the evaluation recipe in [9], we addition-
+ally assess the capacity to strip copyrighted or trademarked artistic
+styles. All these styles can be reproducible by SD-v1.4, making them
+a stringent test bed for style-suppression techniques.
+Baselines. Our method is compared against several training-free
+approaches: SLD [44] and UCE [10]. For training-based methods,
+including ESD [9], SA [14], CA [26], MACE [34], SDID [28], SAFREE
+[21], and RECE [11].
+Evaluation Metrics. We quantify how effectively each defence
+blocks illicit nudity requests by reporting the attack success rate
+(ASR) introduced in [11]; lower is safer. For benign generations we
+sample 1 000 COCO-30k captions [30] and compute three comple-
+mentary metrics: Fréchet Inception Distance (FID) [15] for distri-
+butional realism, the CLIP similarity score for semantic alignment,
+and TIFA [19] for text–image faithfulness. When evaluating artist-
+signature removal, visual discrepancy between the output and an
+unaltered reference is gauged with LPIPS [56]. In addition, we recast
+the task as a multi-choice quiz: an autonomous GPT-4o agent [12]
+is asked to guess the artist underlying each generated picture. A
+higher error rate implies more successful style suppression.
+5.2
+Experimental Results
+Overall Performance. We subjected each safety mechanism to
+a rigorous suite of red-team prompts and tallied the fraction of
+queries that still slipped through, reported as the attack success
+rate (ASR). As summarised in Table 1, PurifyGen posts the lowest
+ASR across every attack variant, eclipsing all other training-free
+baselines. Compared with the strongest prior defences, such as I2P,
+MMA-Diffusion, and UnlearnDiff. Our method drives the success
+rate sharply downward, underscoring a step-change in robustness
+against adversarial provocations.
+Comparison to Training-based Methods. In our comparison
+with training-based approaches, we find that PurifyGen achieves
+performance on par with these techniques. As demonstrated in
+Table 1 and Figure 3, while methods such as SA and MACE demon-
+strate strong safety capabilities, they often cause significant degra-
+dation in image quality due to the extensive modifications to the SD
+weights. These alterations typically introduce noticeable distortions,
+making these methods impractical for real-world use. In contrast,
+as demonstrated on the COCO-30k dataset, PurifyGen provides
+similar safeguarding performance while maintaining high-quality
+image generation without training.
+Figure 2 illustrates qualitative comparisons across multiple base-
+lines and our proposed method PurifyGen for two representative
+concept removal scenarios: nudity (Case 1) and Van Gogh style (Case
+2). These examples provide compelling evidence of PurifyGen’s
+ability to precisely remove undesired content while maintaining
+semantic fidelity and image quality. In Case 1, where the goal is
+to eliminate nudity, we observe that baselines such as CA, UCE,
+and RECE either fail to completely suppress explicit content or
+introduce significant visual artifacts and distortions. For example,
+CA and UCE often preserve recognizable body parts while crudely
+masking others, leading to incoherent or ambiguous images. On
+the other hand, SLD attempts to suppress nudity but occasionally
+over-censors the image, introducing structural inconsistencies or
+damaging the prompt’s intent. In contrast, PurifyGen successfully
+removes the nudity while preserving the context, pose, and artis-
+tic style of the original image. The output images remain faithful
+to the prompt’s broader semantics, such as clothing style or char-
+acter composition, highlighting the precision of our token-wise
+purification mechanism.
+In Case 2, we task each method with removing stylistic attributes
+associated with the "Van Gogh" concept. Again, baseline methods
+struggle to decouple style from content. For instance, CA, UCE, and
+RECE only partially reduce Van Gogh’s characteristic brushstroke
+patterns, often leaving residual stylization or transforming the
+prompt into low-quality outputs. SLD, while better at abstraction,
+sometimes introduces unnatural textures or degrades the vibrancy
+of the image. By contrast, PurifyGen consistently generates outputs
+that are stylistically distinct from Van Gogh’s artwork while main-
+taining the original scene layout and compositional structure. For
+example, our method transforms Van Gogh-style sunflowers into
+realistic floral arrangements, preserving subject matter without
+carrying over unwanted stylistic influence.
+Ablation Studies. We assess the contributions of three key com-
+ponents of PurifyGen in Table 4 using SD-v1.4. We denote the com-
+ponent including discriminating the risky of prompt as DSP. We
+denote the purification component as PP. We denote the alignment
+component as PA. In this way, one can observe that all variants
+substantially reduce the performance from adversarial prompts,
+confirming the effectiveness of our components.
+With all three modules active the system achieves the uniformly
+best numbers: 0.377 on P4D, 0.550 on MMA, and a mere 0.126 on
+Ring-a-Bell, up to a 55 % reduction in the hardest setting, while
+simultaneously improving image realism (FID 134.2) and text-image
+correspondence (CLIP 30.1). The monotonic improvement from
+single- to dual-component variants, and the decisive leap with the
+full trio, demonstrates that DSP pinpoints the threat, PP neutralises
+it, and PA restores coherence; the trio works synergistically to
+shrink the adversarial surface and polish visual quality, showing
+that safety enforcement need not compromise generative fidelity
+in a training-free pipeline.
+
+
+PurifyGen: A Risk-Discrimination and Semantic-Purification Model for Safe Text-to-Image Generation
+MM’25, October 27–31, 2025, Dublin, Ireland
+Table 1: The ASR and generation quality comparison with several popular safe T2I generation methods. Risk-D Ability denortes
+the risk-discrimination ability. MMA denotes MMA-Diffusion. The ones marked with * indicate training-based methods, which
+are not included in the performance comparison for fairness. The best results are bolded.
+Method Properties
+Attack Success Rate
+COCO Metrics
+Method
+No Weights
+Modification
+Training
+-Free
+Risk-D
+Ability I2P ↓P4D ↓Ring-A-Bell ↓MMA ↓UDA ↓FID ↓CLIP ↑TIFA ↑
+SD-v1.4
+-
+-
+-
+0.178 0.987
+0.831
+0.957
+0.697 163.5
+31.3
+0.3166
+ESD [9]∗
+✗
+✗
+✗
+0.140 0.750
+0.528
+0.873
+0.761
+-
+29.7
+-
+SA [14]∗
+✗
+✗
+✗
+0.062 0.623
+0.329
+0.205
+0.268 210.2
+29.6
+0.290
+CA [26]∗
+✗
+✗
+✗
+0.178 0.927
+0.773
+0.855
+0.866 158.1 30.02
+0.293
+MACE [34]∗
+✗
+✗
+✗
+0.023 0.146
+0.076
+0.183
+0.176 195.6
+29.4
+0.265
+SDID [28]∗
+✗
+✗
+✗
+0.270 0.933
+0.696
+0.907
+0.697
+89.4
+29.5
+0.299
+UCE [10]
+✗
+✓
+✗
+0.103 0.667
+0.331
+0.867
+0.430 120.7 30.33
+0.300
+RECE [11]
+✗
+✓
+✗
+0.064 0.381
+0.134
+0.675
+0.655 145.2
+29.9
+0.294
+SLD-Medium [44]
+✓
+✓
+✗
+0.142 0.934
+0.646
+0.942
+0.648 117.3 30.01
+0.292
+SLD-Strong [44]
+✓
+✓
+✗
+0.131 0.861
+0.620
+0.920
+0.570 152.6
+29.4
+0.286
+SLD-Max [44]
+✓
+✓
+✗
+0.115 0.742
+0.570
+0.837
+0.479 188.1
+28.6
+0.267
+SAFREE [21]
+✓
+✓
+✗
+0.034 0.412
+0.295
+0.585
+0.282 137.4 29.05
+0.291
+Ours
+✓
+✓
+✓
+0.028 0.377
+0.126
+0.553
+0.174 134.2 30.47 0.301
+(a) Case 1
+(b) Case 2
+Figure 3: Generated examples of PurifyGen and safe T2I baselines. The two cases demonstrate nudity and Van Gogh concept
+removal.
+5.3
+Further Experimantal Analysis
+Evaluating PurifyGen on Artist Concept Removal Tasks. In
+Table 2, we show that PurifyGen outperforms baseline methods in
+terms of LPIPS𝑒and LPIPS𝑢scores. We focus on comparing with
+the training-free methods. The improved performance is attributed
+to our approach’s denoising process, which is guided by a coher-
+ent, projected conditional embedding within the input space. To
+evaluate whether the generated art styles are accurately removed
+or preserved, we frame these tasks as a multiple-choice question-
+answering problem, moving beyond simple feature-level distance
+measures. In this context, Acc𝑒and Acc𝑢represent the average
+accuracy of removed and retained artist styles predicted by GPT-4o
+based on the corresponding text prompts. As shown in Table 2,
+PurifyGen demonstrates strong performance in removing targeted
+
+
+MM’25, October 27–31, 2025, Dublin, Ireland
+Zongsheng Cao et al.
+Table 2: Comparison of Artist Concept Removal tasks: Fa-
+mous (left) and Modern artists (right).
+Remove “Van Gogh"
+Remove “Kelly McKernan"
+Method
+LPIPS𝑒↑LPIPS𝑢↓Acc𝑒↓Acc𝑢↑LPIPS𝑒↑LPIPS𝑢↓Acc𝑒↓Acc𝑢↑
+SD-v1.4
+-
+-
+0.95
+0.95
+-
+-
+0.80
+0.83
+CA
+0.30
+0.13
+0.65
+0.90
+0.22
+0.17
+0.50
+0.76
+RECE
+0.31
+0.08
+0.80
+0.93
+0.29
+0.04
+0.55
+0.76
+UCE
+0.25
+0.05
+0.95
+0.98
+0.25
+0.03
+0.80
+0.81
+SLD-Medium
+0.21
+0.10
+0.95
+0.91
+0.22
+0.18
+0.50
+0.79
+SAFREE
+0.42
+0.31
+0.35
+0.85
+0.40
+0.39
+0.40
+0.78
+Ours
+0.48
+0.25
+0.31
+0.87
+0.44
+0.33
+0.37
+0.79
+Table 3: Comparison of methods on sensitive content metrics.
+↓indicates lower is better.
+Methods
+Violence ↓Terrorism ↓Racism ↓Sexual ↓Animal Abuse ↓
+ZeroScopeT2V
+71.68
+76.00
+73.33
+51.51
+66.66
+ZeroScopeT2V + Ours
+48.61
+50.09
+53.47
+13.26
+35.14
+CogVideoX-5B
+80.12
+76.00
+73.33
+75.75
+92.59
+CogVideoX-5B + Ours
+49.23
+54.00
+63.24
+28.40
+44.27
+Table 4: Adversarial Prompt and CoCo evaluation results.
+MMA denotes MMA-Diffusion.
+DSP
+PP
+PA
+Adversarial Prompt
+CoCo
+P4D ↓
+MMA ↓
+Ring-a-Bell ↓
+FID ↓
+CLIP ↑
+×
+✓
+✓
+0.425
+0.613
+0.285
+139.2
+28.0
+✓
+✓
+×
+0.412
+0.595
+0.295
+137.4
+29.1
+✓
+×
+✓
+0.428
+0.583
+0.295
+136.9
+29.6
+✓
+✓
+✓
+0.377
+0.55
+0.126
+134.2
+30.1
+Table 5: Model Efficiency Comparison. All experiments are
+tested on a single A6000, 100 steps, and with a setting that
+removes the nudity concept.
+Method
+Training/Editing
+Time (s)
+Inference
+Time (s/sample)
+Model
+Modification (%)
+ESD
+∼4500
+6.78
+94.65
+CA
+∼484
+5.94
+2.23
+UCE
+∼1
+6.78
+2.23
+RECE
+∼3
+6.80
+2.23
+SLD-Max
+0
+9.82
+0
+SAFREE
+0
+9.85
+0
+Ours
+0
+9.83
+0
+artist concepts, while baseline methods struggle to eliminate key
+representations of the target artists.
+Transfer to Text–to–Video. We next test whether PurifyGen’s
+safeguards extend beyond still imagery by grafting it onto two
+leading T2V diffusion systems: ZeroScopeT2V, whose denoiser is
+UNet-based, and CogVideoX-5B, built around a Diffusion Trans-
+former. Both hybrids are evaluated on the SafeSora benchmark [7],
+which spans a comprehensive roster of unsafe themes. Results (Ta-
+ble 3, Fig. 4) reveal a steep contraction of harmful frames across all
+five risk classes. Concretely, ZeroScopeT2V’s sexual-content rate
+Figure 4: Experimental results with CogVideoX.
+falls from 51.51 % to 13.26 %, with violent scenes dropping from
+71.68 % to 48.61 %. An analogous pattern appears for CogVideoX-
+5B. These outcomes confirm that PurifyGen generalises smoothly
+to moving-image synthesis and remains effective across disparate
+generative backbones, positioning it as a scalable safety layer for
+both video and image pipelines.
+Efficiency of PurifyGen. In this section, we compare the efficiency
+of various methods, including the training-based ESD/CA, which
+relies on online optimization and loss to update model weights,
+and the training-free UCE/RECE, which modify model attention
+weights through closed-form edits. Our method (PurifyGen), similar
+to SLD, is training-free and based on filtering without requiring
+any alterations to the diffusion model weights. As shown in Table 5,
+while UCE/RECE allows for rapid model editing, they still require
+additional time for model updates. In contrast, PurifyGen does
+not necessitate any model edits or modifications, offering greater
+flexibility for model development across varying conditions while
+maintaining competitive generation speeds. Based on the results
+presented in Table 5, PurifyGen demonstrates superior performance
+in concept safeguarding, generation quality, and flexibility, making
+it a highly efficient solution.
+6
+Conclusion
+In this paper, we propose PurifyGen, an effective solution for safe
+text-to-image generation that requires neither model retraining
+nor additional data. By leveraging dual-space semantic transfor-
+mations, it ensures both the removal of harmful content and the
+preservation of prompt intent. Its token-wise purification strategy
+minimizes collateral degradation of safe information. Experimental
+results demonstrate its strong generalization and superior safety
+performance across diverse benchmarks. Moreover, PurifyGen is
+compatible with a wide range of diffusion backbones, making it
+a practical and scalable choice for real-world deployment. Future
+work will explore extending this purification framework to multi-
+modal generation tasks and interactive prompt refinement.
+7
+Acknowledgments
+This work was supported by the Science and Technology Innovation
+2030-Key Project under Grant 2021ZD0201404.
+
+
+PurifyGen: A Risk-Discrimination and Semantic-Purification Model for Safe Text-to-Image Generation
+MM’25, October 27–31, 2025, Dublin, Ireland
+References
+[1] Tom B Brown. 2020. Language models are few-shot learners. arXiv preprint
+arXiv:2005.14165 (2020).
+[2] Yuzhu Cai, Sheng Yin, Yuxi Wei, Chenxin Xu, Weibo Mao, Felix Juefei-Xu, Siheng
+Chen, and Yanfeng Wang. 2024. Ethical-Lens: Curbing Malicious Usages of
+Open-Source Text-to-Image Models. arXiv preprint arXiv:2404.12104 (2024).
+[3] Ruchika Chavhan, Da Li, and Timothy Hospedales. 2024. ConceptPrune: Con-
+cept Editing in Diffusion Models via Skilled Neuron Pruning. arXiv preprint
+arXiv:2405.19237 (2024).
+[4] Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan, Henrique Ponde
+De Oliveira Pinto, Jared Kaplan, Harri Edwards, Yuri Burda, Nicholas Joseph,
+Greg Brockman, et al. 2021. Evaluating large language models trained on code.
+arXiv preprint arXiv:2107.03374 (2021).
+[5] Zhi-Yi Chin, Chieh-Ming Jiang, Ching-Chun Huang, Pin-Yu Chen, and Wei-Chen
+Chiu. 2024. Prompting4Debugging: Red-Teaming Text-to-Image Diffusion Models
+by Finding Problematic Prompts. In Proceedings of the International Conference
+on Machine Learning (ICML).
+[6] Jade Copet, Felix Kreuk, Itai Gat, Tal Remez, David Kant, Gabriel Synnaeve, Yossi
+Adi, and Alexandre Défossez. 2024. Simple and controllable music generation.
+Advances in Neural Information Processing Systems 36 (2024).
+[7] Josef Dai, Tianle Chen, Xuyao Wang, Ziran Yang, Taiye Chen, Jiaming Ji, and
+Yaodong Yang. 2024. SafeSora: Towards Safety Alignment of Text2Video Genera-
+tion via a Human Preference Dataset. arXiv preprint arXiv:2406.14477 (2024).
+[8] Anudeep Das, Vasisht Duddu, Rui Zhang, and N Asokan. 2024. Espresso: Robust
+Concept Filtering in Text-to-Image Models. arXiv preprint arXiv:2404.19227
+(2024).
+[9] Rohit Gandikota, Joanna Materzynska, Jaden Fiotto-Kaufman, and David Bau.
+2023. Erasing concepts from diffusion models. In Proceedings of the International
+Conference on Computer Vision (ICCV).
+[10] Rohit Gandikota, Hadas Orgad, Yonatan Belinkov, Joanna Materzyńska, and
+David Bau. 2024. Unified concept editing in diffusion models. In Proceedings of
+the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV).
+[11] Chao Gong, Kai Chen, Zhipeng Wei, Jingjing Chen, and Yu-Gang Jiang. 2024.
+Reliable and Efficient Concept Erasure of Text-to-Image Diffusion Models. In
+Proceedings of the European Conference on Computer Vision (ECCV).
+[12] gpt 4o. 2024. https://openai.com/index/hello-gpt-4o/.
+[13] Werner H Greub. 2012. Linear algebra. Vol. 23.
+[14] Alvin Heng and Harold Soh. 2023. Selective amnesia: A continual learning ap-
+proach to forgetting in deep generative models. In Advances in Neural Information
+Processing Systems (NeurIPS).
+[15] Martin Heusel, Hubert Ramsauer, Thomas Unterthiner, Bernhard Nessler, and
+Sepp Hochreiter. 2017. Gans trained by a two time-scale update rule converge to
+a local nash equilibrium. In Advances in Neural Information Processing Systems
+(NIPS).
+[16] Jonathan Ho, William Chan, Chitwan Saharia, Jay Whang, Ruiqi Gao, Alexey
+Gritsenko, Diederik P Kingma, Ben Poole, Mohammad Norouzi, David J Fleet,
+et al. 2022. Imagen video: High definition video generation with diffusion models.
+arXiv preprint arXiv:2210.02303 (2022).
+[17] Jonathan Ho, Ajay Jain, and Pieter Abbeel. 2020. Denoising diffusion probabilistic
+models. In Advances in neural information processing systems. 6840–6851.
+[18] Jonathan Ho and Tim Salimans. 2022. Classifier-free diffusion guidance. arXiv
+preprint arXiv:2207.12598 (2022).
+[19] Yushi Hu, Benlin Liu, Jungo Kasai, Yizhong Wang, Mari Ostendorf, Ranjay Kr-
+ishna, and Noah A Smith. 2023. Tifa: Accurate and interpretable text-to-image
+faithfulness evaluation with question answering. In Proceedings of the Interna-
+tional Conference on Computer Vision (ICCV).
+[20] Chi-Pin Huang, Kai-Po Chang, Chung-Ting Tsai, Yung-Hsuan Lai, and Yu-
+Chiang Frank Wang. 2023. Receler: Reliable concept erasing of text-to-image
+diffusion models via lightweight erasers. arXiv preprint arXiv:2311.17717 (2023).
+[21] Yoon Jaehong, Yu Shoubin, Patil Vaidehi, Yao Huaxiu, and Mohit Bansal. 2024.
+SAFREE: Training-Free and Adaptive Guard for Safe Text-to-Image And Video
+Generation. arXiv preprint (2024).
+[22] Changhoon Kim, Kyle Min, and Yezhou Yang. 2024. RACE: Robust Adversarial
+Concept Erasure for Secure Text-to-Image Diffusion Model. In Proceedings of the
+European Conference on Computer Vision (ECCV).
+[23] Minseon Kim, Hyomin Lee, Boqing Gong, Huishuai Zhang, and Sung Ju Hwang.
+2024. Automatic Jailbreaking of the Text-to-Image Generative AI Systems. arXiv
+preprint arXiv:2405.16567 (2024).
+[24] Dan Kondratyuk, Lijun Yu, Xiuye Gu, José Lezama, Jonathan Huang, Rachel
+Hornung, Hartwig Adam, Hassan Akbari, Yair Alon, Vighnesh Birodkar, et al.
+2023. Videopoet: A large language model for zero-shot video generation. arXiv
+preprint arXiv:2312.14125 (2023).
+[25] Felix Kreuk, Gabriel Synnaeve, Adam Polyak, Uriel Singer, Alexandre Défossez,
+Jade Copet, Devi Parikh, Yaniv Taigman, and Yossi Adi. 2022. Audiogen: Textually
+guided audio generation. arXiv preprint arXiv:2209.15352 (2022).
+[26] Nupur Kumari, Bingliang Zhang, Sheng-Yu Wang, Eli Shechtman, Richard Zhang,
+and Jun-Yan Zhu. 2023. Ablating concepts in text-to-image diffusion models. In
+Proceedings of the International Conference on Computer Vision (ICCV).
+[27] Guanlin Li, Kangjie Chen, Shudong Zhang, Jie Zhang, and Tianwei Zhang. 2024.
+ART: Automatic Red-teaming for Text-to-Image Models to Protect Benign Users.
+arXiv preprint arXiv:2405.19360 (2024).
+[28] Hang Li, Chengzhi Shen, Philip Torr, Volker Tresp, and Jindong Gu. 2024. Self-
+discovering interpretable diffusion latent directions for responsible text-to-image
+generation. In Proceedings of the IEEE International Conference on Computer Vision
+and Pattern Recognition (CVPR).
+[29] Xinfeng Li, Yuchen Yang, Jiangyi Deng, Chen Yan, Yanjiao Chen, Xiaoyu Ji,
+and Wenyuan Xu. 2024. SafeGen: Mitigating Unsafe Content Generation in
+Text-to-Image Models. arXiv preprint arXiv:2404.06666 (2024).
+[30] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays, Pietro Perona, Deva
+Ramanan, Piotr Dollár, and C Lawrence Zitnick. 2014. Microsoft coco: Common
+objects in context. In Computer Vision–ECCV 2014: 13th European Conference,
+Zurich, Switzerland, September 6-12, 2014, Proceedings, Part V 13. Springer, 740–
+755.
+[31] Runtao Liu, Ashkan Khakzar, Jindong Gu, Qifeng Chen, Philip Torr, and Fabio
+Pizzati. 2024. Latent guard: a safety framework for text-to-image generation. In
+Proceedings of the European Conference on Computer Vision (ECCV).
+[32] Sijia Liu, Yuanshun Yao, Jinghan Jia, Stephen Casper, Nathalie Baracaldo, Peter
+Hase, Xiaojun Xu, Yuguang Yao, Hang Li, Kush R Varshney, et al. 2024. Rethinking
+machine unlearning for large language models. In Proceedings of the IEEE/CVF
+Winter Conference on Applications of Computer Vision (WACV).
+[33] Yi Liu, Guowei Yang, Gelei Deng, Feiyue Chen, Yuqi Chen, Ling Shi, Tianwei
+Zhang, and Yang Liu. 2024. Groot: Adversarial Testing for Generative Text-
+to-Image Models with Tree-based Semantic Transformation. arXiv preprint
+arXiv:2402.12100 (2024).
+[34] Shilin Lu, Zilan Wang, Leyang Li, Yanzhu Liu, and Adams Wai-Kin Kong. 2024.
+Mace: Mass concept erasure in diffusion models. In Proceedings of the IEEE Inter-
+national Conference on Computer Vision and Pattern Recognition (CVPR).
+[35] Jiachen Ma, Anda Cao, Zhiqing Xiao, Jie Zhang, Chao Ye, and Junbo Zhao. 2024.
+Jailbreaking Prompt Attack: A Controllable Adversarial Attack against Diffusion
+Models. arXiv preprint arXiv:2404.02928 (2024).
+[36] Ninareh Mehrabi, Palash Goyal, Christophe Dupuy, Qian Hu, Shalini Ghosh,
+Richard Zemel, Kai-Wei Chang, Aram Galstyan, and Rahul Gupta. 2023. Flirt:
+Feedback loop in-context red teaming. arXiv preprint arXiv:2308.04265 (2023).
+[37] openai. 2023. https://openai.com/dall-e-3.
+[38] openai. 2024. https://openai.com/sora.
+[39] Hadas Orgad, Bahjat Kawar, and Yonatan Belinkov. 2023. Editing implicit as-
+sumptions in text-to-image diffusion models. In Proceedings of the IEEE/CVF
+International Conference on Computer Vision. 7053–7061.
+[40] Yong-Hyun Park, Sangdoo Yun, Jin-Hwa Kim, Junho Kim, Geonhui Jang,
+Yonghyun Jeong, Junghyo Jo, and Gayoung Lee. 2024.
+Direct Unlearning
+Optimization for Robust and Safe Text-to-Image Models.
+arXiv preprint
+arXiv:2407.21035 (2024).
+[41] Vaidehi Patil, Peter Hase, and Mohit Bansal. 2023. Can sensitive information
+be deleted from llms? objectives for defending against extraction attacks. arXiv
+preprint arXiv:2309.17410 (2023).
+[42] Dustin Podell, Zion English, Kyle Lacey, Andreas Blattmann, Tim Dockhorn, Jonas
+Müller, Joe Penna, and Robin Rombach. 2023. Sdxl: Improving latent diffusion
+models for high-resolution image synthesis. arXiv preprint arXiv:2307.01952
+(2023).
+[43] Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Björn
+Ommer. 2022. High-resolution image synthesis with latent diffusion models. In
+Proceedings of the IEEE International Conference on Computer Vision and Pattern
+Recognition (CVPR).
+[44] Patrick Schramowski, Manuel Brack, Björn Deiseroth, and Kristian Kersting.
+2023. Safe latent diffusion: Mitigating inappropriate degeneration in diffusion
+models. In Proceedings of the IEEE International Conference on Computer Vision
+and Pattern Recognition (CVPR).
+[45] Erfan Shayegani, Yue Dong, and Nael Abu-Ghazaleh. 2023. Jailbreak in pieces:
+Compositional adversarial attacks on multi-modal language models. In The
+Twelfth International Conference on Learning Representations.
+[46] Yu-Lin Tsai, Chia-Yi Hsu, Chulin Xie, Chih-Hsun Lin, Jia-You Chen, Bo Li, Pin-Yu
+Chen, Chia-Mu Yu, and Chun-Ying Huang. 2024. Ring-A-Bell! How Reliable are
+Concept Removal Methods for Diffusion Models?. In Proceedings of the Interna-
+tional Conference on Learning Representations (ICLR).
+[47] Zhongqi Wang, Jie Zhang, Shiguang Shan, and Xilin Chen. 2024. T2IShield:
+Defending Against Backdoors on Text-to-Image Diffusion Models. In Proceedings
+of the European Conference on Computer Vision (ECCV).
+[48] Yongliang Wu, Shiji Zhou, Mingzhuo Yang, Lianzhe Wang, Wenbo Zhu, Heng
+Chang, Xiao Zhou, and Xu Yang. 2024. Unlearning Concepts in Diffusion Model
+via Concept Domain Correction and Concept Preserving Gradient. arXiv preprint
+arXiv:2405.15304 (2024).
+[49] Tianwei Xiong, Yue Wu, Enze Xie, Zhenguo Li, and Xihui Liu. 2024. Editing Mas-
+sive Concepts in Text-to-Image Diffusion Models. arXiv preprint arXiv:2403.13807
+(2024).
+[50] Tianyun Yang, Juan Cao, and Chang Xu. 2024. Pruning for Robust Concept
+Erasing in Diffusion Models. arXiv preprint arXiv:2405.16534 (2024).
+
+
+MM’25, October 27–31, 2025, Dublin, Ireland
+Zongsheng Cao et al.
+[51] Yijun Yang, Ruiyuan Gao, Xiaosen Wang, Tsung-Yi Ho, Nan Xu, and Qiang Xu.
+2024. Mma-diffusion: Multimodal attack on diffusion models. In Proceedings of
+the IEEE International Conference on Computer Vision and Pattern Recognition
+(CVPR).
+[52] Yijun Yang, Ruiyuan Gao, Xiao Yang, Jianyuan Zhong, and Qiang Xu. 2024.
+GuardT2I: Defending Text-to-Image Models from Adversarial Prompts. arXiv
+preprint arXiv:2403.01446 (2024).
+[53] Jaehong Yoon, Shoubin Yu, and Mohit Bansal. 2024. RACCooN: Remove, Add,
+and Change Video Content with Auto-Generated Narratives. arXiv preprint
+arXiv:2405.18406 (2024).
+[54] Gong Zhang, Kai Wang, Xingqian Xu, Zhangyang Wang, and Humphrey Shi.
+2023. Forget-me-not: Learning to forget in text-to-image diffusion models. arXiv
+preprint arXiv:2303.17591 (2023).
+[55] Hongxiang Zhang, Yifeng He, and Hao Chen. 2024. SteerDiff: Steering towards
+Safe Text-to-Image Diffusion Models. arXiv preprint arXiv:2410.02710 (2024).
+[56] Richard Zhang, Phillip Isola, Alexei A Efros, Eli Shechtman, and Oliver Wang.
+2018. The unreasonable effectiveness of deep features as a perceptual metric. In
+Proceedings of the IEEE International Conference on Computer Vision and Pattern
+Recognition (CVPR).
+[57] Yimeng Zhang, Jinghan Jia, Xin Chen, Aochuan Chen, Yihua Zhang, Jiancheng
+Liu, Ke Ding, and Sijia Liu. 2023. To generate or not? safety-driven unlearned
+diffusion models are still easy to generate unsafe images... for now. arXiv preprint
+arXiv:2310.11868 (2023).
+[58] Yunqing Zhao, Tianyu Pang, Chao Du, Xiao Yang, Chongxuan Li, Ngai-Man Man
+Cheung, and Min Lin. 2023. On evaluating adversarial robustness of large vision-
+language models. In Advances in Neural Information Processing Systems (NeurIPS).

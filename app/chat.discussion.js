@@ -1,142 +1,29 @@
 // 私人研讨区模块：负责聊天 UI、LLM 配置与本地记忆（IndexedDB）
 window.PrivateDiscussionChat = (function () {
-  const LLM_CONFIG_KEY = 'dpr_llm_config_v1';
   const CHAT_HISTORY_KEY = 'dpr_chat_history_v1'; // 仅用于旧版本迁移
   const CHAT_DB_NAME = 'dpr_chat_db_v1';
   const CHAT_STORE_NAME = 'paper_chats';
 
-  const loadLLMConfig = () => {
-    try {
-      if (!window.localStorage) return {};
-      const raw = window.localStorage.getItem(LLM_CONFIG_KEY);
-      if (!raw) return {};
-      const obj = JSON.parse(raw);
-      if (!obj || typeof obj !== 'object') return {};
-
-      // 新结构：包含 deepseek / plato 键时直接返回
-      if (obj.deepseek || obj.plato) {
-        return obj;
-      }
-
-      // 兼容旧结构：{ provider, apiKey, models, selectedModel }
-      if (obj.provider) {
-        const migrated = {
-          deepseek: {},
-          plato: {},
-          selectedModel: obj.selectedModel || undefined,
-        };
-        if (obj.provider === 'deepseek' || obj.provider === 'plato') {
-          migrated[obj.provider] = {
-            apiKey: obj.apiKey || '',
-            okModels: Array.isArray(obj.models) ? obj.models : [],
-          };
-        }
-        return migrated;
-      }
-
-      return obj;
-    } catch {
-      return {};
-    }
-  };
-
-  const saveLLMConfig = (cfg) => {
-    try {
-      if (!window.localStorage) return;
-      window.localStorage.setItem(LLM_CONFIG_KEY, JSON.stringify(cfg));
-    } catch {
-      // ignore
-    }
-  };
-
-  const MODEL_PROVIDER_MAP = {
-    'deepseek-reasoner': 'deepseek',
-    'gpt-5.2-thinking': 'plato',
-    'gemini-3-pro-preview': 'plato',
-    'gemini-2.5-pro': 'plato',
-  };
-
-  const getProviderMeta = (provider) => {
-    if (provider === 'plato') {
-      return {
-        id: 'plato',
-        label: '柏拉图',
-        endpoint: 'https://api.bltcy.ai/v1/chat/completions',
-      };
-    }
-    return {
-      id: 'deepseek',
-      label: 'DeepSeek',
-      endpoint: 'https://api.deepseek.com/chat/completions',
-    };
-  };
-
-  const getCandidateModelsForProvider = (provider) => {
-    return Object.keys(MODEL_PROVIDER_MAP).filter(
-      (m) => MODEL_PROVIDER_MAP[m] === provider,
-    );
-  };
-
-  const getAllCandidateModels = () => Object.keys(MODEL_PROVIDER_MAP);
-
-  const getProviderForModel = (model) => MODEL_PROVIDER_MAP[model] || null;
-
-  const getDefaultModelForProvider = (provider) => {
-    if (provider === 'plato') {
-      return 'gemini-2.5-pro';
-    }
-    return 'deepseek-reasoner';
-  };
-
-  const testModels = async (apiKey, provider) => {
-    const okModels = getCandidateModelsForProvider(provider);
-
-    if (provider === 'deepseek') {
-      try {
-        const resp = await fetch('https://api.deepseek.com/user/balance', {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-          },
+  // 从 secret.private 解密结果中生成可用的 Chat 模型列表
+  const getChatLLMConfig = () => {
+    const secret = window.decoded_secret_private || {};
+    const chatList = Array.isArray(secret.chatLLMs) ? secret.chatLLMs : [];
+    const models = [];
+    chatList.forEach((item) => {
+      if (!item || !item.models || !Array.isArray(item.models)) return;
+      const baseUrl = (item.baseUrl || '').trim();
+      const apiKey = (item.apiKey || '').trim();
+      item.models.forEach((m) => {
+        const name = (m || '').trim();
+        if (!name || !apiKey || !baseUrl) return;
+        models.push({
+          name,
+          apiKey,
+          baseUrl,
         });
-        if (!resp.ok) {
-          return { okModels: [], info: `HTTP ${resp.status}` };
-        }
-        const data = await resp.json().catch(() => null);
-        if (!data || !data.is_available || !Array.isArray(data.balance_infos)) {
-          return { okModels: [], info: '余额信息获取失败' };
-        }
-        const first = data.balance_infos[0] || {};
-        const total = first.total_balance || '0';
-        return { okModels, info: `余额：¥${total}` };
-      } catch (e) {
-        return { okModels: [], info: '请求失败' };
-      }
-    }
-
-    if (provider === 'plato') {
-      try {
-        const resp = await fetch('https://api.bltcy.ai/v1/token/quota', {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-          },
-        });
-        if (!resp.ok) {
-          return { okModels: [], info: `HTTP ${resp.status}` };
-        }
-        const data = await resp.json().catch(() => null);
-        const quota =
-          data && typeof data.quota === 'number' ? data.quota : 0;
-        const used = -quota;
-        const usedStr = used.toFixed(2);
-        return { okModels, info: `已用：${usedStr}` };
-      } catch (e) {
-        return { okModels: [], info: '请求失败' };
-      }
-    }
-
-    return { okModels: [], info: '未知服务商' };
+      });
+    });
+    return models;
   };
 
   let chatDbPromise = null;
@@ -262,28 +149,8 @@ window.PrivateDiscussionChat = (function () {
           <button id="send-btn">发送</button>
         </div>
         <div class="chat-footer">
-          <button id="chat-settings-btn" class="chat-settings-btn">⚙️ 模型设置</button>
           <select id="chat-llm-model-select" class="chat-model-select"></select>
           <span id="chat-status" class="chat-status"></span>
-        </div>
-        <div id="chat-settings-panel" class="chat-settings-panel" style="display:none;">
-          <div class="chat-settings-row">
-            <label for="chat-llm-deepseek-api-key">DeepSeek：</label>
-            <input id="chat-llm-deepseek-api-key" type="password" autocomplete="off" placeholder="DeepSeek API Key" />
-            <span id="chat-llm-deepseek-status" class="chat-settings-inline-status"></span>
-          </div>
-          <div class="chat-settings-row">
-            <label for="chat-llm-plato-api-key">柏拉图：</label>
-            <input id="chat-llm-plato-api-key" type="password" autocomplete="off" placeholder="柏拉图 API Key" />
-            <span id="chat-llm-plato-status" class="chat-settings-inline-status"></span>
-          </div>
-          <div class="chat-settings-actions">
-            <button id="chat-settings-save-btn">测试并保存</button>
-            <button id="chat-settings-cancel-btn" type="button">关闭</button>
-          </div>
-          <div class="chat-settings-hint">
-            模型配置与对话内容仅保存在本机浏览器，不会上传到服务器。
-          </div>
         </div>
       </div>
     `;
@@ -394,6 +261,22 @@ window.PrivateDiscussionChat = (function () {
   };
 
   const sendMessage = async (paperId) => {
+    // 游客模式或尚未解锁密钥时，禁止直接调用大模型
+    if (window.DPR_ACCESS_MODE === 'guest' || window.DPR_ACCESS_MODE === 'locked') {
+      const statusEl = document.getElementById('chat-status');
+      if (statusEl) {
+        statusEl.textContent =
+          '当前为游客模式或尚未解锁密钥，无法直接与大模型对话。';
+        statusEl.style.color = '#c00';
+      }
+      const historyDiv = document.getElementById('chat-history');
+      if (historyDiv && !historyDiv._guestHintShown) {
+        historyDiv._guestHintShown = true;
+        historyDiv.innerHTML =
+          '<div style="text-align:center; color:#999; padding:8px 0;">当前为游客模式，解锁密钥后可启用大模型对话。</div>';
+      }
+      return;
+    }
     const input = document.getElementById('user-input');
     const btn = document.getElementById('send-btn');
     const statusEl = document.getElementById('chat-status');
@@ -508,20 +391,15 @@ window.PrivateDiscussionChat = (function () {
       // 忽略刷新失败
     }
 
-    const cfg = loadLLMConfig();
-    const deepCfg = cfg.deepseek || {};
-    const platoCfg = cfg.plato || {};
-    const deepOk = Array.isArray(deepCfg.okModels) ? deepCfg.okModels : [];
-    const platoOk = Array.isArray(platoCfg.okModels) ? platoCfg.okModels : [];
-    const models = Array.from(new Set([...deepOk, ...platoOk]));
+    const chatModels = getChatLLMConfig();
     const modelSelect = document.getElementById('chat-llm-model-select');
 
-    if (!models.length) {
+    if (!chatModels.length) {
       aiAnswerDiv.textContent =
-        '尚未测试可用模型，请在「⚙️ 模型设置」中点击“测试并保存”。';
+        '当前未在密钥配置中找到可用的 Chat 模型，请先完成首页「新配置指引」。';
       if (statusEl) {
         statusEl.textContent =
-          '尚未测试可用模型，请先使用「测试并保存」。';
+          '未检测到可用 Chat 模型，请检查密钥配置。';
         statusEl.style.color = '#c00';
       }
       input.disabled = false;
@@ -530,29 +408,27 @@ window.PrivateDiscussionChat = (function () {
       return;
     }
 
-    // 选择默认模型：优先用户上次选的，其次各平台推荐默认，再其次任何已通过测试的模型
-    const preferredDeep = getDefaultModelForProvider('deepseek');
-    const preferredPlato = getDefaultModelForProvider('plato');
-    const selectedModel =
-      (modelSelect && models.includes(modelSelect.value) && modelSelect.value) ||
-      (cfg.selectedModel && models.includes(cfg.selectedModel) && cfg.selectedModel) ||
-      (models.includes(preferredDeep) && preferredDeep) ||
-      (models.includes(preferredPlato) && preferredPlato) ||
-      models[0];
-    const model = selectedModel;
+    // 选择默认模型：优先下拉框当前值，否则取列表第一项
+    let selectedModelName = '';
+    if (modelSelect && modelSelect.value) {
+      selectedModelName = modelSelect.value;
+    } else if (chatModels.length) {
+      selectedModelName = chatModels[0].name;
+    }
+    const modelEntry =
+      chatModels.find((m) => m.name === selectedModelName) ||
+      chatModels[0] ||
+      null;
 
-    const providerId = getProviderForModel(model);
-    const meta = getProviderMeta(providerId);
-    const providerCfg =
-      providerId === 'plato' ? platoCfg : deepCfg;
-    const apiKey = (providerCfg.apiKey || '').trim();
+    const apiKey = modelEntry ? (modelEntry.apiKey || '').trim() : '';
+    const baseUrl = modelEntry ? (modelEntry.baseUrl || '').trim() : '';
+    const model = modelEntry ? modelEntry.name : '';
 
     if (!apiKey) {
       aiAnswerDiv.textContent =
-        '尚未配置大模型 API Key，请点击下方「⚙️ 模型设置」后重试。';
+        '未检测到可用的 Chat LLM API Key，请检查密钥配置。';
       if (statusEl) {
-        statusEl.textContent =
-          '未配置模型，请先在「⚙️ 模型设置」中填入 API Key。';
+        statusEl.textContent = '未配置 Chat LLM API Key。';
         statusEl.style.color = '#c00';
       }
       input.disabled = false;
@@ -563,9 +439,9 @@ window.PrivateDiscussionChat = (function () {
 
     if (!model) {
       aiAnswerDiv.textContent =
-        '尚未配置模型名称，请在「⚙️ 模型设置」中填写 model。';
+        '未指定 Chat 模型，请检查密钥配置。';
       if (statusEl) {
-        statusEl.textContent = '未配置模型名称，请在设置中填写。';
+        statusEl.textContent = '未配置 Chat 模型。';
         statusEl.style.color = '#c00';
       }
       input.disabled = false;
@@ -575,7 +451,7 @@ window.PrivateDiscussionChat = (function () {
     }
 
     if (statusEl) {
-      statusEl.textContent = `正在调用 ${meta.label} · 模型 ${model}...`;
+      statusEl.textContent = `正在调用 Chat 模型 ${model}...`;
       statusEl.style.color = '#666';
     }
 
@@ -649,6 +525,24 @@ window.PrivateDiscussionChat = (function () {
     };
 
     try {
+      const chatModels = getChatLLMConfig();
+      const modelSelect = document.getElementById('chat-llm-model-select');
+      if (modelSelect) {
+        modelSelect.innerHTML = '';
+        const names = Array.from(
+          new Set(chatModels.map((m) => (m.name || '').trim()).filter(Boolean)),
+        );
+        names.forEach((name) => {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          modelSelect.appendChild(opt);
+        });
+        if (names.length) {
+          modelSelect.value = names[0];
+        }
+      }
+
       const messages = [];
       messages.push({
         role: 'system',
@@ -678,7 +572,7 @@ window.PrivateDiscussionChat = (function () {
           content: question,
       });
 
-      const resp = await fetch(meta.endpoint, {
+      const resp = await fetch(baseUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -694,7 +588,7 @@ window.PrivateDiscussionChat = (function () {
       if (!resp.ok) {
         aiAnswerDiv.textContent = `请求失败: HTTP ${resp.status}`;
         if (statusEl) {
-          statusEl.textContent = `调用 ${meta.label} 失败: HTTP ${resp.status}`;
+          statusEl.textContent = `调用 Chat 模型失败: HTTP ${resp.status}`;
           statusEl.style.color = '#c00';
         }
         return;
@@ -815,289 +709,34 @@ window.PrivateDiscussionChat = (function () {
 
     const sendBtnEl = document.getElementById('send-btn');
     const inputEl = document.getElementById('user-input');
-    const settingsBtn = document.getElementById('chat-settings-btn');
-    const settingsPanel = document.getElementById('chat-settings-panel');
-    const deepKeyInput = document.getElementById('chat-llm-deepseek-api-key');
-    const platoKeyInput = document.getElementById('chat-llm-plato-api-key');
-    const deepStatusEl = document.getElementById('chat-llm-deepseek-status');
-    const platoStatusEl = document.getElementById('chat-llm-plato-status');
-    const saveBtn = document.getElementById('chat-settings-save-btn');
-    const cancelBtn = document.getElementById('chat-settings-cancel-btn');
     const statusEl = document.getElementById('chat-status');
     const modelSelect = document.getElementById('chat-llm-model-select');
 
+    const inGuestMode =
+      window.DPR_ACCESS_MODE === 'guest' || window.DPR_ACCESS_MODE === 'locked';
+
     if (sendBtnEl) {
-      sendBtnEl.addEventListener('click', () => {
-        sendMessage(paperId);
-      });
+      if (inGuestMode) {
+        sendBtnEl.disabled = true;
+        sendBtnEl.title = '当前为游客模式或未解锁密钥，无法直接提问。';
+      } else {
+        sendBtnEl.addEventListener('click', () => {
+          sendMessage(paperId);
+        });
+      }
     }
     if (inputEl) {
-      inputEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-          e.preventDefault();
-          sendMessage(paperId);
-        }
-      });
-    }
-
-    if (
-      settingsBtn &&
-      settingsPanel &&
-      deepKeyInput &&
-      platoKeyInput &&
-      saveBtn
-    ) {
-      const cfg = loadLLMConfig();
-      const deepCfg = cfg.deepseek || {};
-      const platoCfg = cfg.plato || {};
-
-      deepKeyInput.value = deepCfg.apiKey || '';
-      platoKeyInput.value = platoCfg.apiKey || '';
-
-      // 初始化状态与下拉模型列表
-      if (modelSelect) {
-        const hasAnyApiKey = !!deepCfg.apiKey || !!platoCfg.apiKey;
-        const deepOk = Array.isArray(deepCfg.okModels)
-          ? deepCfg.okModels
-          : [];
-        const platoOk = Array.isArray(platoCfg.okModels)
-          ? platoCfg.okModels
-          : [];
-        const allModels = getAllCandidateModels();
-        modelSelect.innerHTML = '';
-
-        // 构建所有候选模型项（始终展示四个模型）
-        allModels.forEach((m) => {
-          const opt = document.createElement('option');
-          opt.value = m;
-          opt.textContent = m;
-
-          const provider = getProviderForModel(m);
-          const providerCfg =
-            provider === 'plato' ? platoCfg : deepCfg;
-          const providerHasKey = !!(providerCfg && providerCfg.apiKey);
-          const providerOk =
-            provider === 'plato' ? platoOk : deepOk;
-
-          if (!providerHasKey) {
-            opt.disabled = true;
-            opt.title = '需先为对应服务商配置 API Key';
-          } else if (providerOk.length && !providerOk.includes(m)) {
-            opt.disabled = true;
-            opt.title =
-              '该模型尚未通过测试，请使用上方「测试并保存」按钮重新测试';
-          } else if (!providerOk.length) {
-            opt.disabled = true;
-            opt.title =
-              '已配置 API Key，请使用上方「测试并保存」获取可用模型列表';
+      if (inGuestMode) {
+        inputEl.disabled = true;
+        inputEl.placeholder = '当前为游客模式，解锁密钥后才能向大模型提问。';
+      } else {
+        inputEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+            e.preventDefault();
+            sendMessage(paperId);
           }
-
-          modelSelect.appendChild(opt);
-        });
-
-        // 选择默认值（即便是灰色项，主要用于展示当前偏好）
-        const preferredDeep = getDefaultModelForProvider('deepseek');
-        const preferredPlato = getDefaultModelForProvider('plato');
-        const initial =
-          (cfg.selectedModel && allModels.includes(cfg.selectedModel)) ||
-          (allModels.includes(preferredDeep) && preferredDeep) ||
-          (allModels.includes(preferredPlato) && preferredPlato) ||
-          allModels[0];
-        if (initial) {
-          modelSelect.value = initial;
-        }
-        modelSelect.style.display = 'inline-block';
-        modelSelect.disabled = false;
-
-        if (statusEl) {
-          const enabledModels = new Set([...deepOk, ...platoOk]);
-          if (!hasAnyApiKey) {
-            statusEl.textContent =
-              '未配置模型，请点击右侧「⚙️ 模型设置」。';
-            statusEl.style.color = '#c00';
-          } else if (!enabledModels.size) {
-            statusEl.textContent =
-              '已配置 API Key，请点击「测试并保存」获取可用模型列表。';
-            statusEl.style.color = '#666';
-          } else {
-            const selectedModel = modelSelect.value;
-            statusEl.textContent = `已配置模型 ${selectedModel}`;
-            statusEl.style.color = '#4caf50';
-          }
-        }
-      } else if (statusEl) {
-        statusEl.textContent = '请先配置 API Key';
-        statusEl.style.color = '#666';
-      }
-
-      settingsBtn.addEventListener('click', () => {
-        const visible =
-          settingsPanel.style.display &&
-          settingsPanel.style.display !== 'none';
-        settingsPanel.style.display = visible ? 'none' : 'block';
-      });
-
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => {
-          settingsPanel.style.display = 'none';
         });
       }
-
-      saveBtn.addEventListener('click', async () => {
-        const deepKey = (deepKeyInput.value || '').trim();
-        const platoKey = (platoKeyInput.value || '').trim();
-        const newCfg = loadLLMConfig();
-        newCfg.deepseek = newCfg.deepseek || {};
-        newCfg.plato = newCfg.plato || {};
-
-        newCfg.deepseek.apiKey = deepKey;
-        newCfg.plato.apiKey = platoKey;
-
-        if (statusEl) {
-          statusEl.textContent = '正在测试各模型可用性...';
-          statusEl.style.color = '#666';
-        }
-        if (deepStatusEl) {
-          deepStatusEl.textContent = deepKey ? '测试中...' : '未配置';
-          deepStatusEl.style.color = deepKey ? '#666' : '#999';
-        }
-        if (platoStatusEl) {
-          platoStatusEl.textContent = platoKey ? '测试中...' : '未配置';
-          platoStatusEl.style.color = platoKey ? '#666' : '#999';
-        }
-
-        const tasks = [];
-        if (deepKey) {
-          tasks.push(
-            testModels(deepKey, 'deepseek').then((result) => {
-              newCfg.deepseek.okModels = result.okModels || [];
-              if (deepStatusEl) {
-                if (result.okModels && result.okModels.length) {
-                  deepStatusEl.textContent =
-                    result.info || '测试成功，余额信息已获取';
-                  deepStatusEl.style.color = '#4caf50';
-                } else {
-                  deepStatusEl.textContent =
-                    result.info || '测试失败';
-                  deepStatusEl.style.color = '#c00';
-                }
-              }
-            }),
-          );
-        } else {
-          newCfg.deepseek.okModels = [];
-        }
-
-        if (platoKey) {
-          tasks.push(
-            testModels(platoKey, 'plato').then((result) => {
-              newCfg.plato.okModels = result.okModels || [];
-              if (platoStatusEl) {
-                if (result.okModels && result.okModels.length) {
-                  platoStatusEl.textContent =
-                    result.info || '测试成功，额度信息已获取';
-                  platoStatusEl.style.color = '#4caf50';
-                } else {
-                  platoStatusEl.textContent =
-                    result.info || '测试失败';
-                  platoStatusEl.style.color = '#c00';
-                }
-              }
-            }),
-          );
-        } else {
-          newCfg.plato.okModels = [];
-        }
-
-        await Promise.all(tasks);
-
-        // 选择全局默认模型：优先 DeepSeek 默认，其次柏拉图默认，再次任意可用模型
-        const deepOk = Array.isArray(newCfg.deepseek.okModels)
-          ? newCfg.deepseek.okModels
-          : [];
-        const platoOk = Array.isArray(newCfg.plato.okModels)
-          ? newCfg.plato.okModels
-          : [];
-        const allEnabled = Array.from(new Set([...deepOk, ...platoOk]));
-
-        let selectedModel = newCfg.selectedModel;
-        if (!selectedModel || !allEnabled.includes(selectedModel)) {
-          const preferredDeep = getDefaultModelForProvider('deepseek');
-          const preferredPlato = getDefaultModelForProvider('plato');
-          if (allEnabled.includes(preferredDeep)) {
-            selectedModel = preferredDeep;
-          } else if (allEnabled.includes(preferredPlato)) {
-            selectedModel = preferredPlato;
-          } else {
-            selectedModel = allEnabled[0] || '';
-          }
-        }
-        newCfg.selectedModel = selectedModel;
-        saveLLMConfig(newCfg);
-
-        // 更新下拉框与总状态
-        if (modelSelect) {
-          const allModels = getAllCandidateModels();
-          modelSelect.innerHTML = '';
-          allModels.forEach((m) => {
-            const opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m;
-            const provider = getProviderForModel(m);
-            const okList =
-              provider === 'plato'
-                ? newCfg.plato.okModels || []
-                : newCfg.deepseek.okModels || [];
-            const hasKey =
-              provider === 'plato'
-                ? !!newCfg.plato.apiKey
-                : !!newCfg.deepseek.apiKey;
-            if (!hasKey) {
-              opt.disabled = true;
-              opt.title = '需先为对应服务商配置 API Key';
-            } else if (okList.length && !okList.includes(m)) {
-              opt.disabled = true;
-              opt.title =
-                '该模型尚未通过测试，请重新测试或选择已通过测试的模型';
-            } else if (!okList.length) {
-              opt.disabled = true;
-              opt.title =
-                '已配置 API Key，请使用上方「测试并保存」获取可用模型列表';
-            }
-            modelSelect.appendChild(opt);
-          });
-          if (selectedModel) {
-            modelSelect.value = selectedModel;
-          }
-          modelSelect.disabled = false;
-          modelSelect.style.display = 'inline-block';
-
-          modelSelect.onchange = () => {
-            const cfgNow = loadLLMConfig();
-            cfgNow.selectedModel = modelSelect.value;
-            saveLLMConfig(cfgNow);
-            if (statusEl) {
-              statusEl.textContent = `已配置模型 ${modelSelect.value}`;
-              statusEl.style.color = '#4caf50';
-            }
-          };
-        }
-
-        if (statusEl) {
-          if (allEnabled.length) {
-            statusEl.textContent = `测试成功，可用模型：${allEnabled.join(
-              ', ',
-            )}`;
-            statusEl.style.color = '#4caf50';
-          } else {
-            statusEl.textContent =
-              '尚未找到可用模型，请检查 API Key 或稍后重试。';
-            statusEl.style.color = '#c00';
-          }
-        }
-
-        // 测试完成后保留设置面板开启，方便查看余额和额度
-      });
     }
 
     renderHistory(paperId).catch(() => {});

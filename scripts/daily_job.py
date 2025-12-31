@@ -131,11 +131,17 @@ DB_FILE = os.path.join(ROOT_DIR, "app", "chat.db")
 
 # 大模型配置（与 app/main.py 保持一致）
 LLM_API_KEY = os.getenv("LLM_API_KEY")
-LLM_MODEL = os.getenv("LLM_MODEL", "glm-4.6")
+LLM_MODEL = os.getenv("LLM_MODEL", "glm-4.7")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://open.bigmodel.cn/api/coding/paas/v4")
 LLM_CLIENT = None
 if LLM_API_KEY:
     LLM_CLIENT = openai.OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+
+# 重排序（rerank）配置
+RERANK_API_KEY = os.getenv("RERANK_API_KEY")
+RERANK_MODEL = os.getenv("RERANK_MODEL", "qwen3-embedding-4b")
+RERANK_ENDPOINT = os.getenv("RERANK_ENDPOINT", "https://api.bltcy.ai/v1/rerank")
+RERANK_QUERY = os.getenv("RERANK_QUERY", "这个问题和attention模型挂钩吗")
 
 
 def get_keywords() -> list[str]:
@@ -187,22 +193,90 @@ def get_keywords() -> list[str]:
     return ["Symbolic Regression"]
 
 
-def build_arxiv_query(keywords: list[str]) -> str:
+def build_arxiv_query(raw_keyword: str) -> str:
     """
-    构建 arxiv 包的搜索 query。
-    保持与之前一致的语义：
-    - 每个关键词当作一个整体，用 all:"xxx" 来搜索
-    - 关键词之间使用 OR 连接，实现“或”的逻辑
+    基于单个原始关键词字符串构建 arxiv 搜索 query。
+
+    支持的语法：
+    - 使用 "||" 作为 OR 分隔符，例如：
+      "LLM || foundation model" -> all:"LLM" OR all:"foundation model"
+    - 使用 "&&" 作为 AND 分隔符，例如：
+      "LLM && RL" -> all:"LLM" AND all:"RL"
+      "LLM && RL || diffusion" -> (all:"LLM" AND all:"RL") OR all:"diffusion"
+    - 使用 "author:" 前缀仅按作者搜索，例如：
+      "author:Goodfellow" -> au:"Goodfellow"
+      "author:LeCun || GAN" -> au:"LeCun" OR all:"GAN"
     """
-    parts = []
-    for kw in keywords:
-        parts.append(f'all:"{kw}"')
-    return " OR ".join(parts)
+    if not raw_keyword:
+        return ""
+
+    # 内部辅助：从单个片段生成一个 arxiv 字段查询（作者/全字段）
+    def build_term(part: str) -> str | None:
+        s = (part or "").strip()
+        if not s:
+            return None
+
+        # 兼容 "author:xxx" / "author : xxx" / "Author：xxx"
+        idx_normal = s.find(":")
+        idx_full = s.find("：")
+        idx = -1
+        if idx_normal >= 0 and idx_full >= 0:
+            idx = min(idx_normal, idx_full)
+        elif idx_normal >= 0:
+            idx = idx_normal
+        elif idx_full >= 0:
+            idx = idx_full
+
+        if idx >= 0:
+            prefix = s[:idx].strip().lower()
+            value = s[idx + 1 :].strip()
+            if prefix == "author":
+                if not value:
+                    return None
+                return f'au:"{value}"'
+
+        # 默认：全字段搜索
+        return f'all:"{s}"'
+
+    # 先按 "||" 拆分为多个 OR 组，每个组内再按 "&&" 做 AND 组合
+    raw_or_groups = [p.strip() for p in raw_keyword.split("||") if p.strip()]
+    if not raw_or_groups:
+        return ""
+
+    group_exprs: list[str] = []
+    for group in raw_or_groups:
+        and_parts = [p.strip() for p in group.split("&&") if p.strip()]
+        if not and_parts:
+            continue
+
+        term_exprs: list[str] = []
+        for part in and_parts:
+            term = build_term(part)
+            if term:
+                term_exprs.append(term)
+
+        if not term_exprs:
+            continue
+
+        # 为了保持逻辑明确，这里为 AND 组加上括号
+        if len(term_exprs) == 1:
+            group_exprs.append(term_exprs[0])
+        else:
+            group_exprs.append("(" + " AND ".join(term_exprs) + ")")
+
+    return " OR ".join(group_exprs)
 
 
 def search_arxiv_today(keywords: list[str], max_results: int = 50) -> list[dict]:
     """
     使用 arxiv 包调用 arXiv 搜索接口，获取“最近 N 天（按 UTC）发布”的论文。
+
+    调整后的策略：
+    - 从配置中获取若干个原始关键词（每一项对应面板中的一行配置）；
+    - 针对每一个关键词单独发起一次搜索请求；
+    - 每个关键词最多抓取 max_results 篇论文（单关键词上限）；
+    - 每个关键词之间 sleep 3 秒，避免请求过于频繁；
+    - 不限制 arXiv 的学科领域，仅按关键词语义搜索。
 
     返回列表中的每个元素形如：
     {
@@ -225,49 +299,128 @@ def search_arxiv_today(keywords: list[str], max_results: int = 50) -> list[dict]
     utc_today = datetime.datetime.utcnow().date()
     cutoff_date = utc_today - datetime.timedelta(days=days_window - 1)
 
-    query = build_arxiv_query(keywords)
-    search = arxiv.Search(
-        query=query,
-        max_results=max_results,
-        sort_by=arxiv.SortCriterion.SubmittedDate,
-        sort_order=arxiv.SortOrder.Descending,
-    )
     client = arxiv.Client()
 
-    results: list[dict] = []
-    for result in client.results(search):
-        # published 是 datetime
-        published_dt = result.published
-        if not isinstance(published_dt, datetime.datetime):
-            continue
-        pub_date = published_dt.date()
-        published_date = pub_date.strftime("%Y-%m-%d")
+    # 使用字典去重：同一篇论文可能被多个关键词命中
+    results_by_id: dict[str, dict] = {}
 
-        # 只保留最近 N 天（UTC）的结果
-        if pub_date < cutoff_date:
+    for idx, raw_kw in enumerate(keywords):
+        kw = (raw_kw or "").strip()
+        if not kw:
             continue
 
-        title = (result.title or "").strip() or "Untitled"
-        summary = (getattr(result, "summary", "") or "").strip()
-        authors = [a.name for a in result.authors] if result.authors else []
-        pdf_url = result.pdf_url
-        arxiv_id = result.get_short_id()
-
-        if not pdf_url:
+        query_str = build_arxiv_query(kw)
+        if not query_str:
             continue
 
-        results.append(
-            {
-                "title": title,
-                "summary": summary,
-                "authors": authors,
-                "pdf_url": pdf_url,
-                "published_date": published_date,
-                "arxiv_id": arxiv_id,
-            }
+        print(f"[INFO] 使用关键词（单独搜索）：{kw}")
+        print(f"[DEBUG] 构造的 arxiv query: {query_str}")
+
+        search = arxiv.Search(
+            query=query_str,
+            max_results=max_results,
+            sort_by=arxiv.SortCriterion.SubmittedDate,
+            sort_order=arxiv.SortOrder.Descending,
         )
 
-    return results
+        try:
+            for result in client.results(search):
+                # published 是 datetime
+                published_dt = result.published
+                if not isinstance(published_dt, datetime.datetime):
+                    continue
+                pub_date = published_dt.date()
+                published_date = pub_date.strftime("%Y-%m-%d")
+
+                # 只保留最近 N 天（UTC）的结果
+                if pub_date < cutoff_date:
+                    continue
+
+                title = (result.title or "").strip() or "Untitled"
+                summary = (getattr(result, "summary", "") or "").strip()
+                authors = [a.name for a in result.authors] if result.authors else []
+                pdf_url = result.pdf_url
+                arxiv_id = result.get_short_id()
+
+                if not pdf_url:
+                    continue
+
+                if arxiv_id in results_by_id:
+                    # 已经收集过的论文，这里只做去重，不额外记录
+                    continue
+
+                results_by_id[arxiv_id] = {
+                    "title": title,
+                    "summary": summary,
+                    "authors": authors,
+                    "pdf_url": pdf_url,
+                    "published_date": published_date,
+                    "arxiv_id": arxiv_id,
+                }
+        except Exception as e:
+            print(f"[WARN] 使用关键词「{kw}」搜索 arxiv 时出错，将跳过该关键词：{e}")
+        finally:
+            # 关键词之间间隔 3 秒，避免请求过于频繁
+            if idx < len(keywords) - 1:
+                time.sleep(3)
+
+    return list(results_by_id.values())
+
+
+def call_rerank_for_papers(papers: list[dict]) -> None:
+    """
+    使用外部 Rerank API 对已经抓取到的论文进行重排序打分。
+
+    当前仅负责按 50 篇一组的方式发起请求，并打印响应结果，暂不改变后续处理顺序。
+    后续如果你拿到更明确的返回结构，我们可以基于返回的 score/index
+    来调整 papers 列表的排序或做过滤。
+    """
+    if not papers:
+        return
+    if not RERANK_API_KEY:
+        print("[WARN] 未配置 RERANK_API_KEY，跳过重排序请求。")
+        return
+
+    # 每篇论文的文档内容：标题 + 摘要
+    documents: list[str] = []
+    for p in papers:
+        title = (p.get("title") or "").strip()
+        summary = (p.get("summary") or "").strip()
+        if summary:
+            doc = f"{title}\n\n{summary}"
+        else:
+            doc = title
+        documents.append(doc)
+
+    total = len(documents)
+    print(f"[RERANK] 准备对 {total} 篇论文调用重排序接口，每 50 篇一组。")
+
+    headers = {
+        "Authorization": f"Bearer {RERANK_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    batch_size = 50
+    for start in range(0, total, batch_size):
+        end = min(start + batch_size, total)
+        batch_docs = documents[start:end]
+        payload = {
+            "model": RERANK_MODEL,
+            "query": RERANK_QUERY,
+            "top_n": len(batch_docs),
+            "documents": batch_docs,
+        }
+        batch_idx = start // batch_size + 1
+        try:
+            print(f"[RERANK] 调用第 {batch_idx} 组（索引 {start}~{end - 1}）...")
+            resp = requests.post(RERANK_ENDPOINT, json=payload, headers=headers, timeout=60)
+            print(f"[RERANK] 第 {batch_idx} 组返回状态码：{resp.status_code}")
+            # 先简单打印前 200 个字符作为调试信息，方便你观察返回结构
+            text = resp.text or ""
+            preview = text[:200].replace("\n", " ")
+            print(f"[RERANK] 第 {batch_idx} 组响应前 200 字符：{preview}")
+        except Exception as e:
+            print(f"[RERANK][WARN] 第 {batch_idx} 组调用重排序接口失败：{e}")
 
 
 def slugify(title: str) -> str:
@@ -296,6 +449,46 @@ def extract_pdf_text(pdf_path: str) -> str:
     return "\n\n".join(texts)
 
 
+def fetch_paper_markdown_via_jina(pdf_url: str, max_retries: int = 3) -> str | None:
+    """
+    优先通过 https://r.jina.ai/ 获取结构化 Markdown 文本：
+    - 直接请求：https://r.jina.ai/{pdf_url}
+    - 默认最多重试 max_retries 次；
+    - 请求成功且返回非空文本时，直接作为论文的“文本内容”使用；
+    - 如果多次请求都失败，则返回 None，调用方可回退到本地 PyMuPDF 抽取。
+    """
+    if not pdf_url:
+        return None
+
+    base = "https://r.jina.ai/"
+    full_url = base + pdf_url
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"[JINA] 第 {attempt} 次请求：{full_url}")
+            resp = requests.get(full_url, timeout=60)
+            if resp.status_code != 200:
+                print(
+                    f"[JINA][WARN] 状态码 {resp.status_code}，响应内容前 100 字符："
+                    f"{(resp.text or '')[:100].replace(os.linesep, ' ')}"
+                )
+            else:
+                text = (resp.text or "").strip()
+                if text:
+                    print("[JINA] 获取到结构化 Markdown 文本，将直接用作 .txt 内容。")
+                    return text
+                else:
+                    print("[JINA][WARN] 返回内容为空，重试中...")
+        except Exception as e:
+            print(f"[JINA][WARN] 请求失败（第 {attempt} 次）：{e}")
+
+        # 简单退避，避免过于频繁
+        time.sleep(2 * attempt)
+
+    print("[JINA][ERROR] 多次请求 https://r.jina.ai/ 失败，将回退到 PyMuPDF 抽取。")
+    return None
+
+
 def generate_paper_summary(paper_id: str, md_file_path: str, txt_file_path: str, max_retries: int = 3) -> str | None:
     """
     调用大模型为指定论文生成一段详细总结：
@@ -314,7 +507,7 @@ def generate_paper_summary(paper_id: str, md_file_path: str, txt_file_path: str,
         print(f"[WARN] Markdown 文件不存在，无法生成总结：{md_file_path}")
         return None
 
-    # 读取 Markdown 与文本内容（为避免上下文过长，这里截断到一定长度）
+    # 读取 Markdown 与文本内容（不再对上下文进行截断，直接使用完整内容）
     with open(md_file_path, "r", encoding="utf-8") as f:
         paper_md_content = f.read()
 
@@ -322,11 +515,6 @@ def generate_paper_summary(paper_id: str, md_file_path: str, txt_file_path: str,
     if os.path.exists(txt_file_path):
         with open(txt_file_path, "r", encoding="utf-8") as f:
             paper_txt_content = f.read()
-
-    # 简单截断，防止上下文过长：优先保留前面的内容
-    max_ctx_chars = int(os.getenv("LLM_MAX_CTX_CHARS", "20000"))
-    if len(paper_txt_content) > max_ctx_chars:
-        paper_txt_content = paper_txt_content[:max_ctx_chars]
 
     system_prompt = (
         "你是一名资深学术论文分析助手，请使用中文、以 Markdown 形式，"
@@ -354,7 +542,7 @@ def generate_paper_summary(paper_id: str, md_file_path: str, txt_file_path: str,
         messages.append(
             {
                 "role": "user",
-                "content": f"### 论文 PDF 提取文本（截断后） ###\n{paper_txt_content}",
+                "content": f"### 论文 PDF 提取文本 ###\n{paper_txt_content}",
             }
         )
 
@@ -432,18 +620,23 @@ def process_single_paper(paper: dict, source: str | None = None, keywords: list[
 
     os.makedirs(target_dir, exist_ok=True)
 
-    # 1. 下载 PDF 原文到临时文件，仅用于抽取文本，不在 docs 中保留 PDF
-    resp = requests.get(pdf_url, timeout=60)
-    resp.raise_for_status()
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=True) as tmp_pdf:
-        tmp_pdf.write(resp.content)
-        tmp_pdf.flush()
+    # 1. 优先通过 https://r.jina.ai/ 获取结构化 Markdown 文本；
+    #    如果多次尝试均失败，再回退到下载 PDF + PyMuPDF 抽取文本。
+    text_content: str | None = fetch_paper_markdown_via_jina(pdf_url)
 
-        # 2. 使用 PyMuPDF 抽取文本内容，保存为 .txt 文件
-        pdf_text = extract_pdf_text(tmp_pdf.name)
+    if text_content is None:
+        # 回退方案：下载 PDF 原文到临时文件，仅用于抽取文本，不在 docs 中保留 PDF
+        resp = requests.get(pdf_url, timeout=60)
+        resp.raise_for_status()
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=True) as tmp_pdf:
+            tmp_pdf.write(resp.content)
+            tmp_pdf.flush()
+
+            # 使用 PyMuPDF 抽取文本内容
+            text_content = extract_pdf_text(tmp_pdf.name)
 
     with open(txt_file_path, "w", encoding="utf-8") as f:
-        f.write(pdf_text)
+        f.write(text_content or "")
 
     # 3. 生成对应的 Markdown 文件（用于 Docsify 展示）
     # 标签区域：根据来源和关键词构建，颜色与订阅面板一致
@@ -553,18 +746,24 @@ def process_single_paper(paper: dict, source: str | None = None, keywords: list[
 def main():
     keywords = get_keywords()
     print(f"[INFO] 今日日期：{TODAY}")
-    print(f"[INFO] 使用关键词（OR 逻辑）：{keywords}")
+    print(f"[INFO] 使用关键词（逐个搜索）：{keywords}")
     print(
         f"[INFO] UTC 当前日期：{datetime.datetime.utcnow().date()}，"
         f"窗口天数：{CRAWLER_DAYS_WINDOW} 天，最大论文数：{CRAWLER_MAX_RESULTS}"
     )
 
-    papers = search_arxiv_today(keywords, max_results=CRAWLER_MAX_RESULTS)
+    # 每个关键词单独搜索，单关键词最多 20 篇论文
+    papers = search_arxiv_today(keywords, max_results=20)
     if not papers:
         print("[INFO] 今天没有匹配到符合条件的新论文。")
         return
 
-    print(f"[INFO] 找到 {len(papers)} 篇今日新论文，即将生成本地文件...")
+    print(f"[INFO] 找到 {len(papers)} 篇今日新论文。")
+
+    # 先按 50 篇一组调用外部 Rerank 接口，仅做打分和调试输出
+    call_rerank_for_papers(papers)
+
+    print("[INFO] 即将为这些论文生成本地文件...")
     for idx, paper in enumerate(papers, start=1):
         print(f"[INFO] 处理第 {idx} 篇：{paper['title']}")
         try:
