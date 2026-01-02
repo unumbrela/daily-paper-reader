@@ -142,7 +142,6 @@ window.PrivateDiscussionChat = (function () {
   const renderChatUI = () => {
     return `
       <div id="paper-chat-container">
-        <div class="chat-header">💬 私人研讨区 (Private Discussion)</div>
         <div id="chat-history">
             <div style="text-align:center; color:#999">暂无讨论，输入你的想法开始对话（仅保存在本机）</div>
         </div>
@@ -175,25 +174,13 @@ window.PrivateDiscussionChat = (function () {
       const item = document.createElement('div');
       item.className = 'msg-item';
 
-      const header = document.createElement('div');
-      const roleSpan = document.createElement('span');
       const isThinking = msg.role === 'thinking';
       const isAi = msg.role === 'ai' || isThinking;
-      roleSpan.className = 'msg-role ' + (isAi ? 'ai' : 'user');
-      roleSpan.textContent = isThinking
-        ? '🧠 AI 思考过程'
-        : msg.role === 'ai'
-          ? '🤖 私人助手'
-          : '👤 你';
-      const timeSpan = document.createElement('span');
-      timeSpan.className = 'msg-time';
-      timeSpan.textContent = msg.time || '';
-      header.appendChild(roleSpan);
-      header.appendChild(timeSpan);
 
       if (!isThinking) {
         const contentDiv = document.createElement('div');
-        contentDiv.className = 'msg-content';
+        contentDiv.className =
+          'msg-content ' + (isAi ? 'msg-content-ai' : 'msg-content-user');
         const markdown = msg.content || '';
         if (renderMarkdownWithTables) {
           contentDiv.innerHTML = renderMarkdownWithTables(markdown);
@@ -204,7 +191,6 @@ window.PrivateDiscussionChat = (function () {
           renderMathInEl(contentDiv);
         }
 
-        item.appendChild(header);
         item.appendChild(contentDiv);
         historyDiv.appendChild(item);
         return;
@@ -243,6 +229,16 @@ window.PrivateDiscussionChat = (function () {
         const collapsed = thinkingContent.classList.toggle('thinking-collapsed');
         toggleBtn.textContent = collapsed ? '展开' : '折叠';
       });
+
+      const header = document.createElement('div');
+      const roleSpan = document.createElement('span');
+      roleSpan.className = 'msg-role ai';
+      roleSpan.textContent = '🧠 AI 思考过程';
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'msg-time';
+      timeSpan.textContent = msg.time || '';
+      header.appendChild(roleSpan);
+      header.appendChild(timeSpan);
 
       item.appendChild(header);
       item.appendChild(thinkingContainer);

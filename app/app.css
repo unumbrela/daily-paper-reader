@@ -11,43 +11,34 @@
 
 /* 公共研讨区容器 */
 #paper-chat-container {
-  margin-top: 50px;
-  padding-top: 20px;
+  margin-top: 40px;
+  padding-top: 10px;
   border-top: 1px solid #eaecef;
-  min-height: 200px;
-  max-height: 660px;
+  background: transparent;
+  min-height: 0;
+  max-height: none;
   display: flex;
   flex-direction: column;
-}
-.chat-header {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin-bottom: 20px;
 }
 
 /* 消息列表 */
 #chat-history {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  background: #f9f9f9;
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  flex: 0 0 auto;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  margin-bottom: 16px;
+  border: none;
 }
+
+/* 去掉历史区域专门的滚动条样式，使用正文默认样式 */
 .msg-item {
   margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
 }
-.msg-role {
-  font-weight: bold;
-  font-size: 0.9rem;
-}
-.msg-role.user {
-  color: #42b983;
-}
-.msg-role.ai {
-  color: #3b8eed;
-}
+
+/* 用户与 AI 消息对话布局 */
 .msg-content {
   margin-top: 4px;
   line-height: 1.6;
@@ -57,6 +48,33 @@
 .msg-content sup {
   vertical-align: super;
   font-size: 0.75em;
+}
+
+/* 用户消息：右侧灰色圆角气泡 */
+.msg-content-user {
+  align-self: flex-end;
+  max-width: 70%;
+  padding: 4px 10px;
+  border-radius: 14px;
+  border-top-right-radius: 4px;
+  background-color: rgb(233, 238, 246);
+  color: #444;
+  word-wrap: break-word;
+}
+
+/* 大模型回答：左侧直接按正文展示，不加气泡背景 */
+.msg-content-ai {
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+/* 隐藏常规角色标签，仅在“思考过程”里使用 */
+.msg-role {
+  font-size: 0.9rem;
+}
+.msg-role.user,
+.msg-role.ai {
+  display: none;
 }
 
 /* 历史记录中的思考过程容器样式 */
@@ -88,17 +106,131 @@
   margin-left: 10px;
 }
 
-/* 输入区域 */
-.input-area {
-  display: flex;
-  gap: 10px;
+/* 私人研讨区输入区域：仿 Gemini 浮动输入框，固定在页面底部 */
+#paper-chat-container {
+  position: relative;
+  background: transparent; /* 聊天区背景透明，融入页面 */
+  padding-bottom: 120px; /* 为浮动输入框预留空间 */
 }
-#user-input {
+
+/* 纯白遮罩：从输入框顶部到页面底部 */
+#paper-chat-container::before {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 135px; /* 覆盖输入框及其下方区域 */
+  background: #ffffff;
+  z-index: 1498;
+  pointer-events: none;
+}
+
+/* 渐变遮罩：在输入框上方向上延展40px */
+#paper-chat-container::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 135px; /* 从纯白遮罩顶部开始 */
+  height: 40px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, #ffffff 100%);
+  z-index: 1498;
+}
+
+#paper-chat-container .input-area {
+  position: fixed;
+  /* 相对于文档内容区域居中：排除侧边栏宽度 */
+  left: calc(
+    var(--sidebar-width, 260px) +
+    (100vw - var(--sidebar-width, 260px)) / 2
+  );
+  bottom: 24px;
+  transform: translateX(-50%);
+  max-width: 820px;
+  width: calc(100% - 120px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  margin-top: 0;
+  background: #ffffff;
+  border-radius: 28px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 8px 32px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  z-index: 1500;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  overflow: hidden; /* 遮住内部内容的左右和下边，配合圆角 */
+}
+
+/* 输入框获得焦点时的效果 */
+#paper-chat-container .input-area:focus-within {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), 0 8px 40px rgba(0, 0, 0, 0.08);
+  border-color: rgba(66, 185, 131, 0.3);
+}
+
+/* 当侧边栏收起（body.close）时，输入框改为整个视口居中 */
+body.close #paper-chat-container .input-area {
+  left: 50%;
+}
+
+#paper-chat-container #user-input {
   flex: 1;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  resize: vertical;
+  padding: 8px 4px;
+  border: none;
+  border-radius: 0;
+  resize: none;
+  background: transparent;
+  max-height: 160px;
+  min-height: 24px;
+  line-height: 1.6;
+  font-size: 15px;
+  overflow-y: auto;
+  color: #1f1f1f;
+}
+#paper-chat-container #user-input:focus {
+  outline: none;
+}
+
+#paper-chat-container #send-btn {
+  padding: 0 20px;
+  height: 36px;
+  border-radius: 18px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+#paper-chat-container #send-btn:not(:disabled):hover {
+  background: #3ba876;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(66, 185, 131, 0.3);
+}
+
+/* 输入框滚动条样式与关键词面板一致，隐藏上下小三角 */
+#paper-chat-container #user-input {
+  scrollbar-width: thin;
+  scrollbar-color: #a5d6a7 #e8f5e9;
+}
+#paper-chat-container #user-input::-webkit-scrollbar {
+  width: 6px;
+}
+#paper-chat-container #user-input::-webkit-scrollbar-track {
+  background: #e8f5e9;
+  border-radius: 3px;
+}
+#paper-chat-container #user-input::-webkit-scrollbar-thumb {
+  background: #a5d6a7;
+  border-radius: 3px;
+}
+#paper-chat-container #user-input::-webkit-scrollbar-thumb:hover {
+  background: #81c784;
+}
+#paper-chat-container #user-input::-webkit-scrollbar-button {
+  height: 0;
+  display: none;
 }
 #send-btn {
   padding: 0 20px;
@@ -116,13 +248,54 @@
 
 /* 聊天区底部工具条与设置面板 */
 .chat-footer {
-  margin-top: 8px;
+  position: fixed;
+  left: calc(
+    var(--sidebar-width, 260px) +
+    (100vw - var(--sidebar-width, 260px)) / 2
+  );
+  bottom: 36px;
+  transform: translateX(calc(-50% + 5px));
+  max-width: 820px;
+  width: calc(100% - 120px);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   font-size: 12px;
   color: #666;
+  z-index: 1501;
+  transition: all 0.3s ease;
 }
+
+/* 侧边栏收起时footer也居中 */
+body.close .chat-footer {
+  left: 50%;
+}
+
+.chat-footer #chat-llm-model-select {
+  padding: 6px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 20px;
+  background: rgba(248, 249, 250, 0.9);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  color: #5f6368;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 140px;
+}
+
+.chat-footer #chat-llm-model-select:hover {
+  background: rgba(232, 234, 237, 0.95);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.chat-footer #chat-llm-model-select:focus {
+  outline: none;
+  border-color: rgba(66, 185, 131, 0.4);
+  background: rgba(255, 255, 255, 0.95);
+}
+
 .chat-settings-btn {
   padding: 4px 10px;
   font-size: 12px;
@@ -294,7 +467,8 @@ body.close #sidebar-resizer {
 .markdown-section {
   max-width: 1200px !important;
   width: 100% !important;
-  padding: 30px 60px 40px 60px !important;
+  /* 增加底部留白：让页面滚动到底时内容刚好停在浮动聊天框上方，包含渐变区域 */
+  padding: 30px 60px 200px 60px !important;
   margin: 0 auto !important;
   box-sizing: border-box !important;
 }
@@ -302,7 +476,7 @@ body.close #sidebar-resizer {
 article.markdown-section {
   max-width: 1200px !important;
   width: 100% !important;
-  padding: 30px 60px 40px 60px !important;
+  padding: 30px 60px 200px 60px !important;
   margin: 0 auto !important;
   box-sizing: border-box !important;
 }
