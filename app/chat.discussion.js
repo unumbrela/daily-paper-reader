@@ -3,6 +3,30 @@ window.PrivateDiscussionChat = (function () {
   const CHAT_HISTORY_KEY = 'dpr_chat_history_v1'; // 仅用于旧版本迁移
   const CHAT_DB_NAME = 'dpr_chat_db_v1';
   const CHAT_STORE_NAME = 'paper_chats';
+  const CHAT_MODEL_PREF_KEY = 'dpr_chat_model_preference_v1';
+
+  // 读取用户偏好的 Chat 模型名称（跨页面生效）
+  const loadPreferredModelName = () => {
+    try {
+      if (!window.localStorage) return '';
+      const v = window.localStorage.getItem(CHAT_MODEL_PREF_KEY);
+      return typeof v === 'string' ? v : '';
+    } catch {
+      return '';
+    }
+  };
+
+  // 保存用户偏好的 Chat 模型名称
+  const savePreferredModelName = (name) => {
+    try {
+      if (!window.localStorage) return;
+      const v = (name || '').trim();
+      if (!v) return;
+      window.localStorage.setItem(CHAT_MODEL_PREF_KEY, v);
+    } catch {
+      // ignore
+    }
+  };
 
   // 从 secret.private 解密结果中生成可用的 Chat 模型列表
   const getChatLLMConfig = () => {
@@ -452,6 +476,9 @@ window.PrivateDiscussionChat = (function () {
       return;
     }
 
+    // 记录当前使用的模型为用户偏好，供后续页面复用
+    savePreferredModelName(model);
+
     if (statusEl) {
       statusEl.textContent = `正在调用 Chat 模型 ${model}...`;
       statusEl.style.color = '#666';
@@ -527,24 +554,6 @@ window.PrivateDiscussionChat = (function () {
     };
 
     try {
-      const chatModels = getChatLLMConfig();
-      const modelSelect = document.getElementById('chat-llm-model-select');
-      if (modelSelect) {
-        modelSelect.innerHTML = '';
-        const names = Array.from(
-          new Set(chatModels.map((m) => (m.name || '').trim()).filter(Boolean)),
-        );
-        names.forEach((name) => {
-          const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = name;
-          modelSelect.appendChild(opt);
-        });
-        if (names.length) {
-          modelSelect.value = names[0];
-        }
-      }
-
       const messages = [];
       messages.push({
         role: 'system',
@@ -782,13 +791,34 @@ window.PrivateDiscussionChat = (function () {
           opt.textContent = name;
           select.appendChild(opt);
         });
-        if (names.length) {
-          select.value = names[0];
+        // 选择模型默认值：
+        // 1. 若存在用户偏好（localStorage），优先使用偏好；
+        // 2. 否则退回第一个可用模型。
+        const prefName = loadPreferredModelName();
+        let defaultName = '';
+        if (prefName && names.includes(prefName)) {
+          defaultName = prefName;
+        } else if (names.length) {
+          defaultName = names[0];
+        }
+        if (defaultName) {
+          select.value = defaultName;
         }
         if (!names.length && status) {
           status.textContent =
             '未检测到可用 Chat 模型，请在新配置指引中配置 chatLLMs。';
           status.style.color = '#c00';
+        }
+
+        // 用户手动切换模型时，更新偏好，跨页面复用
+        if (!select._boundChange) {
+          select._boundChange = true;
+          select.addEventListener('change', () => {
+            const v = (select.value || '').trim();
+            if (v) {
+              savePreferredModelName(v);
+            }
+          });
         }
       }
     };
