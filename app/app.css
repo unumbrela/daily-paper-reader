@@ -817,45 +817,76 @@ article.markdown-section {
 /* 自定义按钮样式 - 紧挨着 sidebar-toggle（左下角） */
 .custom-toggle-btn {
   position: fixed;
-  bottom: 0;
-  left: 46px;
-  width: 46px;
-  height: 46px;
-  background: #fff;
+  bottom: 2px;
+  left: 40px;
+  width: 40px;
+  height: 40px;
+  padding: 4px;
+  background: transparent;
   border: none;
-  border-right: 1px solid rgba(0, 0, 0, 0.07);
-  border-top: 1px solid rgba(0, 0, 0, 0.07);
   cursor: pointer;
   z-index: 1600;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  transition: background-color 0.3s;
+  font-size: 20px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
 }
 .custom-toggle-btn:hover {
-  background: #f8f8f8;
+  background: rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
 }
 
 /* 确保 Docsify 自带的 sidebar 折叠按钮在聊天浮层之上可见（尤其是小屏幕） */
 .sidebar-toggle {
   z-index: 1600;
+  /* 缩小默认点击区域，去掉大片白底条 */
+  width: 40px !important;
+  height: 40px;
+  padding: 4px;
+  background: transparent !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  font-size: 20px;
+  color: #888; /* 稍微浅一点的灰色 */
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+/* 隐藏 Docsify 默认的三条横线 */
+.sidebar-toggle-button span {
+  display: none;
+}
+
+/* 使用 emoji 显示三横图标 */
+.sidebar-toggle::before {
+  content: '☰';
+  line-height: 1;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(0, 0, 0, 0.04) !important;
+  transform: translateY(-1px);
 }
 
 /* 窄屏下（无论侧边栏是否展开），缩小左下角菜单按钮和齿轮按钮尺寸 */
 @media (max-width: 768px) {
   .sidebar-toggle {
-    width: 28px;
-    left: 0;
-    bottom: 6px;
-    padding: 4px 8px;
+    width: 22px !important;
+    height: 22px;
+    left: 2px;
+    bottom: 1px;
+    padding: 0;
+    font-size: 12px;
   }
 
   .custom-toggle-btn {
     width: 22px;
     height: 22px;
-    bottom: 7px;
-    left: 32px;
+    padding: 0;
+    bottom: 2px;
+    left: 24px;
     font-size: 12px;
   }
 }
