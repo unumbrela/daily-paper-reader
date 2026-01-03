@@ -124,6 +124,8 @@
   background: #ffffff;
   z-index: 1498;
   pointer-events: none;
+  /* 与正文区域一起在侧边栏开合时平滑移动，避免瞬间跳变露出文字 */
+  transition: left 0.25s ease-out;
 }
 
 /* 渐变遮罩：在输入框上方向上延展40px */
@@ -137,6 +139,7 @@
   pointer-events: none;
   background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, #ffffff 100%);
   z-index: 1498;
+  transition: left 0.25s ease-out;
 }
 
 /* 当侧边栏收起（body.close）时，底部白色遮罩也从屏幕最左侧开始覆盖，避免留出未遮罩区域 */
