@@ -47,7 +47,7 @@ jobs:
             ~/.cache/pip
             ~/.cache/huggingface
             ~/.cache/torch
-          key: ${{ runner.os }}-dpr-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-dpr-hf-v2-${{ hashFiles('requirements.txt') }}
 
       - name: Clear HF cache on first run
         run: |
