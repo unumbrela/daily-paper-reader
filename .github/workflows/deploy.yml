@@ -1,0 +1,48 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: # 忽略不影响构建的文件，节省资源
+      - 'README.md'
+      - '.github/workflows/sync.yml'
+  schedule:
+    - cron: "30 0 * * *" # 每天在 Sync 后半小时运行
+  workflow_dispatch:
+
+permissions:
+  contents: write # 必须有写权限才能推送到 gh-pages
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      # 【关键】运行你的脚本，生成文件到 dist/ 目录
+      - name: Run Script
+        run: |
+          # 假设你的脚本会自动检测是否存在 config.py，如果不存在则使用默认配置
+          if [ ! -f config.py ]; then cp config.example.py config.py; fi
+          python main.py
+
+      # 【关键】发布到 gh-pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist  # 你的脚本输出目录
+          force_orphan: true   # 每次都覆盖历史记录，保持干净
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
