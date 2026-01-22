@@ -156,6 +156,30 @@ def call_filter(
     debug_dir: str,
     debug_tag: str,
 ) -> List[Dict[str, Any]]:
+    def load_json_lenient(text: str) -> Dict[str, Any]:
+        """
+        宽松解析模型返回的 JSON。
+        兼容常见问题：
+        - JSON 后面夹带了额外文本（json.loads 报 Extra data）
+        - 前后包含多余空白或换行
+        """
+        raw = (text or "").strip()
+        if not raw:
+            return {}
+
+        decoder = json.JSONDecoder()
+        try:
+            obj, _idx = decoder.raw_decode(raw)
+            return obj if isinstance(obj, dict) else {}
+        except Exception:
+            start = raw.find("{")
+            end = raw.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                clipped = raw[start : end + 1]
+                obj = json.loads(clipped)
+                return obj if isinstance(obj, dict) else {}
+            raise
+
     schema = {
         "type": "object",
         "properties": {
@@ -239,7 +263,7 @@ def call_filter(
     )
     content = resp.get("content", "")
     try:
-        payload = json.loads(content)
+        payload = load_json_lenient(content)
     except Exception as exc:
         preview = (content or "").strip().replace("\n", " ")
         if len(preview) > 800:

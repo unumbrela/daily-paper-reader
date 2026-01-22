@@ -5,7 +5,7 @@ import argparse
 import json
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
 SCRIPT_DIR = os.path.dirname(__file__)
@@ -73,7 +73,7 @@ def save_json(data: Dict[str, Any], path: str) -> None:
     log(f"[INFO] saved: {path}")
 
 
-def parse_date_str(date_str: str) -> datetime.date:
+def parse_date_str(date_str: str) -> date:
     return datetime.strptime(date_str, "%Y%m%d").date()
 
 
@@ -111,7 +111,7 @@ def collect_seen_ids(archive_root: str, today_str: str) -> set:
     return seen
 
 
-def parse_payload_date(payload: Dict[str, Any]) -> datetime.date | None:
+def parse_payload_date(payload: Dict[str, Any]) -> date | None:
     date_str = str(payload.get("updated_date") or "").strip()
     if date_str:
         try:
@@ -129,7 +129,7 @@ def parse_payload_date(payload: Dict[str, Any]) -> datetime.date | None:
 
 def load_recent_carryover(
     carryover_path: str,
-    today_date: datetime.date,
+    today_date: date,
     max_days: int,
 ) -> Tuple[List[Dict[str, Any]], int]:
     if not os.path.exists(carryover_path):
