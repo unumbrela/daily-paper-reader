@@ -910,6 +910,9 @@ body.dpr-paper-page .markdown-section .dpr-page-content {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: geometricPrecision;
+  /* 固定在合成层：尽量避免“动画时/静止后”字体栅格化策略不同导致的观感变化 */
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
 
 body.dpr-paper-page .markdown-section .dpr-page-content.dpr-page-exit,
@@ -924,10 +927,10 @@ body.dpr-paper-page .markdown-section .dpr-page-content.dpr-page-exit {
   opacity: 0;
 }
 body.dpr-paper-page .markdown-section .dpr-page-content.dpr-page-exit.dpr-page-exit-left {
-  transform: translateX(-36px);
+  transform: translate3d(-36px, 0, 0);
 }
 body.dpr-paper-page .markdown-section .dpr-page-content.dpr-page-exit.dpr-page-exit-right {
-  transform: translateX(36px);
+  transform: translate3d(36px, 0, 0);
 }
 
 /* 入场：新页从左右微移位置淡入，active 时过渡到静止态 */
@@ -936,17 +939,17 @@ body.dpr-paper-page .markdown-section .dpr-page-content.dpr-page-enter {
   opacity: 0;
 }
 body.dpr-paper-page .markdown-section .dpr-page-content.dpr-page-enter.enter-from-left {
-  transform: translateX(-36px);
+  transform: translate3d(-36px, 0, 0);
 }
 body.dpr-paper-page .markdown-section .dpr-page-content.dpr-page-enter.enter-from-right {
-  transform: translateX(36px);
+  transform: translate3d(36px, 0, 0);
 }
 body.dpr-paper-page .markdown-section .dpr-page-content.dpr-page-enter.dpr-page-enter-active {
   transition: transform var(--dpr-transition-ms, 320ms)
       cubic-bezier(0.2, 0.9, 0.2, 1),
     opacity var(--dpr-transition-ms, 320ms) cubic-bezier(0.2, 0.9, 0.2, 1);
   opacity: 1;
-  transform: translateX(0);
+  transform: translate3d(0, 0, 0);
 }
 
 @media (prefers-reduced-motion: reduce) {
