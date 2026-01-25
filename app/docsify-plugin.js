@@ -826,6 +826,10 @@ window.$docsify = {
 	              saveReadState(latestState);
 	              // 重新应用整棵侧边栏的已读/评价样式，确保当前选中项立即刷新
 	              markSidebarReadState(null);
+	              // 同步“滑动高亮层”颜色，避免 good->bad 或 bad->good 切换时出现底色叠加
+	              requestAnimationFrame(() => {
+	                syncSidebarActiveIndicator({ animate: false });
+	              });
 	            });
 
 	            badIcon.addEventListener('click', (e) => {
@@ -840,6 +844,10 @@ window.$docsify = {
 	              }
 	              saveReadState(latestState);
 	              markSidebarReadState(null);
+	              // 同步“滑动高亮层”颜色，避免 good->bad 或 bad->good 切换时出现底色叠加
+	              requestAnimationFrame(() => {
+	                syncSidebarActiveIndicator({ animate: false });
+	              });
 	            });
 
 	            actionWrapper.appendChild(goodIcon);
@@ -1036,6 +1044,8 @@ window.$docsify = {
         const ensured = ensureSidebarActiveIndicator();
         if (!ensured || !ensured.el) return;
         const indicator = ensured.el;
+        // 避免后续复用时残留 good/bad 配色
+        indicator.classList.remove('is-good', 'is-bad');
         indicator.style.opacity = '0';
         indicator.style.width = '0';
         indicator.style.height = '0';
@@ -1066,6 +1076,13 @@ window.$docsify = {
         if (!ensured || !ensured.el) return;
         const indicator = ensured.el;
         const newlyCreated = ensured.newlyCreated;
+
+        // 先清空上一条目的配色状态，避免出现“取消勾选/叉选后仍残留底色”
+        try {
+          indicator.classList.remove('is-good', 'is-bad');
+        } catch {
+          // ignore
+        }
 
         // 只对论文条目启用（避免日期分组标题等）
         if (!li.classList || !li.classList.contains('sidebar-paper-item')) return;
@@ -1481,9 +1498,13 @@ window.$docsify = {
           } else {
             state[paperId] = 'good';
           }
-          saveReadState(state);
-          markSidebarReadState(null);
-        };
+	          saveReadState(state);
+	          markSidebarReadState(null);
+	          // 同步选中高亮层颜色（good <-> read 切换时避免残留绿色底）
+	          requestAnimationFrame(() => {
+	            syncSidebarActiveIndicator({ animate: false });
+	          });
+	        };
 
         // 键盘：左右方向键
         window.addEventListener('keydown', (e) => {

@@ -169,12 +169,12 @@ body.close #paper-chat-container::after {
   /* 相对于文档内容区域居中：排除侧边栏宽度 */
   left: calc(
     var(--sidebar-width, 260px) +
-    (100vw - var(--sidebar-width, 260px)) / 2
+    (100% - var(--sidebar-width, 260px)) / 2
   );
   /* 强制限制：左边界不能小于侧边栏右边界 */
   min-width: 300px;
   bottom: 24px;
-  max-width: min(820px, calc(100vw - var(--sidebar-width, 260px) - 40px));
+  max-width: min(820px, calc(100% - var(--sidebar-width, 260px) - 40px));
   width: calc(100% - 120px);
   display: flex;
   align-items: center;
@@ -592,11 +592,11 @@ body.sidebar-resizing .sidebar::after {
   position: fixed;
   left: calc(
     var(--sidebar-width, 260px) +
-    (100vw - var(--sidebar-width, 260px)) / 2
+    (100% - var(--sidebar-width, 260px)) / 2
   );
   bottom: 36px;
   transform: translateX(calc(-50% + 5px));
-  max-width: min(820px, calc(100vw - var(--sidebar-width, 260px) - 40px));
+  max-width: min(820px, calc(100% - var(--sidebar-width, 260px) - 40px));
   width: calc(100% - 120px);
   display: flex;
   align-items: center;
@@ -1221,11 +1221,11 @@ article.markdown-section {
 /* good/bad 的 hover：用更明显的浅绿/浅红（比默认灰稍深一点） */
 .sidebar-nav li.sidebar-paper-item.sidebar-paper-good::before {
   opacity: 1;
-  background-color: rgba(76, 175, 80, 0.1);
+  background-color: rgba(76, 175, 80, 0.09);
 }
 .sidebar-nav li.sidebar-paper-item.sidebar-paper-bad::before {
   opacity: 1;
-  background-color: rgba(244, 67, 54, 0.09);
+  background-color: rgba(244, 67, 54, 0.08);
 }
 .sidebar-nav li.sidebar-paper-item.sidebar-paper-good:hover::before {
   background-color: rgba(76, 175, 80, 0.16);
@@ -1256,10 +1256,12 @@ article.markdown-section {
 
 /* 选中态：如果该条目已打勾/打叉，则选中底色改为浅绿/浅红 */
 .sidebar-nav .dpr-sidebar-active-indicator.is-good {
-  background-color: rgba(76, 175, 80, 0.18);
+  /* 选中态：使用原“未选中”绿色 */
+  background-color: rgba(76, 175, 80, 0.13);
 }
 .sidebar-nav .dpr-sidebar-active-indicator.is-bad {
-  background-color: rgba(244, 67, 54, 0.16);
+  /* 选中态：略浅一点 */
+  background-color: rgba(244, 67, 54, 0.09);
 }
 
 .sidebar-nav li.sidebar-paper-item {
@@ -1327,11 +1329,13 @@ article.markdown-section {
 }
 
 /* 对“不错 / 一般”评价的条目，选中时仍保持各自的绿色 / 粉色 */
-.sidebar-nav li.sidebar-paper-good > a,
+.sidebar-nav li.sidebar-paper-good > a {
+  color: #73d13d !important; /* 未选中：更浅的绿色 */
+}
 .sidebar-nav li.sidebar-paper-good.active > a,
 .sidebar-nav li.sidebar-paper-good > a.active,
 .sidebar-nav li.sidebar-paper-good > a.router-link-active {
-  color: #73d13d !important;
+  color: #2e7d32 !important; /* 选中：略深一些，兼顾对比度与柔和 */
 }
 .sidebar-nav li.sidebar-paper-bad > a,
 .sidebar-nav li.sidebar-paper-bad.active > a,
