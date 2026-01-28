@@ -342,9 +342,36 @@ window.$docsify = {
 
       // 自定义表格渲染：检测 Markdown 表格块并手写生成 <table>，
       // 其他内容仍交给 marked 渲染。
+      // 同时保护 LaTeX 公式块，避免被 marked 误解析。
       const renderMarkdownWithTables = (markdown) => {
         const text = normalizeTables(markdown || '');
-        const lines = text.split('\n');
+
+        // 保护 LaTeX 公式：先用占位符替换，渲染后再恢复
+        const latexBlocks = [];
+        let protectedText = text;
+
+        // 保护块级公式 $$...$$
+        protectedText = protectedText.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+          const idx = latexBlocks.length;
+          latexBlocks.push(match);
+          return `%%LATEX_BLOCK_${idx}%%`;
+        });
+
+        // 保护行内公式 $...$（不跨行）
+        protectedText = protectedText.replace(/\$([^\$\n]+?)\$/g, (match) => {
+          const idx = latexBlocks.length;
+          latexBlocks.push(match);
+          return `%%LATEX_INLINE_${idx}%%`;
+        });
+
+        // 预处理：手动将 **...** 和 *...* 转换为 HTML 标签
+        // 解决 marked 对中文字符旁的粗体/斜体识别问题
+        // 注意：只匹配同一行内、且内容不超过 100 字符的情况，避免误匹配
+        protectedText = protectedText.replace(/\*\*([^*\n]{1,100}?)\*\*/g, '<strong>$1</strong>');
+        // 斜体：要求前后有空格或中文字符边界，避免误匹配乘号等
+        protectedText = protectedText.replace(/(?<=[^\*]|^)\*([^*\n]{1,50}?)\*(?=[^\*]|$)/g, '<em>$1</em>');
+
+        const lines = protectedText.split('\n');
         const isTableLine = (line) => /^\s*\|.*\|\s*$/.test(line);
         const isAlignLine = (line) =>
           /^\s*\|(?:\s*:?-+:?\s*\|)+\s*$/.test(line);
@@ -429,7 +456,13 @@ window.$docsify = {
           }
         }
 
-        return blocks.join('');
+        let result = blocks.join('');
+
+        // 恢复 LaTeX 公式
+        result = result.replace(/%%LATEX_BLOCK_(\d+)%%/g, (_, idx) => latexBlocks[parseInt(idx, 10)]);
+        result = result.replace(/%%LATEX_INLINE_(\d+)%%/g, (_, idx) => latexBlocks[parseInt(idx, 10)]);
+
+        return result;
       };
 
       const updateMetaTag = (name, content, options = {}) => {

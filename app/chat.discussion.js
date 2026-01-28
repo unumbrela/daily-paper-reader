@@ -712,8 +712,6 @@ window.PrivateDiscussionChat = (function () {
     `;
     historyDiv.appendChild(aiItem);
 
-    const thinkingIndicator = aiItem.querySelector('.ai-thinking-indicator');
-
     // 判断用户是否在页面底部（允许 50px 误差）
     let userAtBottom = true;
     const checkIfAtBottom = () => {
@@ -1056,9 +1054,10 @@ window.PrivateDiscussionChat = (function () {
         }
       }
 
-      // 回复完成，移除思考动画
-      if (thinkingIndicator) {
-        thinkingIndicator.remove();
+      // 回复完成，移除思考动画及其容器
+      const responseHeader = aiItem.querySelector('.ai-response-header');
+      if (responseHeader) {
+        responseHeader.remove();
       }
 
       const nowStrAnswer = new Date().toLocaleString();
@@ -1100,9 +1099,10 @@ window.PrivateDiscussionChat = (function () {
         statusEl.style.color = '#c00';
       }
     } finally {
-      // 确保思考动画被移除
-      if (thinkingIndicator && thinkingIndicator.parentNode) {
-        thinkingIndicator.remove();
+      // 确保思考动画及其容器被移除
+      const responseHeader = aiItem.querySelector('.ai-response-header');
+      if (responseHeader) {
+        responseHeader.remove();
       }
       window.removeEventListener('scroll', onUserScroll);
       input.disabled = false;

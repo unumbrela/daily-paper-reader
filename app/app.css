@@ -79,11 +79,31 @@
   margin-top: 4px;
   line-height: 1.6;
   color: #34495e;
-  white-space: pre-wrap;
 }
 .msg-content sup {
   vertical-align: super;
   font-size: 0.75em;
+}
+
+/* AI 回复中的段落和公式间距优化 */
+.msg-content-ai p {
+  margin: 0.5em 0;
+}
+.msg-content-ai p:first-child {
+  margin-top: 0;
+}
+.msg-content-ai p:last-child {
+  margin-bottom: 0;
+}
+
+/* KaTeX 公式在聊天区域的样式优化 */
+.msg-content .katex-display {
+  margin: 0.5em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.msg-content .katex-display > .katex {
+  white-space: nowrap;
 }
 
 /* 用户消息：右侧灰色圆角气泡 */
@@ -96,6 +116,7 @@
   background-color: rgb(233, 238, 246);
   color: #444;
   word-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 /* 大模型回答：左侧直接按正文展示，不加气泡背景 */
@@ -128,9 +149,22 @@
 }
 .thinking-history-toggle {
   margin-left: 8px;
-  font-size: 0.75rem;
-  padding: 2px 6px;
+  font-size: 0.7rem;
+  padding: 3px 10px;
   cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.03);
+  color: rgba(0, 0, 0, 0.5);
+  transition: background-color 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out;
+}
+.thinking-history-toggle:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.7);
+}
+.thinking-history-toggle:active {
+  background: rgba(0, 0, 0, 0.12);
 }
 .thinking-history-content.thinking-collapsed {
   max-height: 6em;
