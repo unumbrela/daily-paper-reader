@@ -1379,13 +1379,19 @@ article.markdown-section {
   margin-bottom: 0;
   padding-top: 4px;
   padding-bottom: 4px;
-  /* 为椭圆背景预留左右内边距，避免文字紧贴边缘，并给右上角“书签区”预留空间（不遮挡标题/标签） */
-  padding-left: 10px;
-  padding-right: 92px;
+  /* 为椭圆背景预留左右内边距，避免文字紧贴边缘 */
+  padding-left: 22px;
+  padding-right: 20px;
   background-color: transparent; /* 背景统一用伪元素/滑动高亮层，便于控制层级 */
 }
 
-/* hover 底色改为伪元素：让“滑动高亮层”可以盖住 hover（层级更深） */
+/* 悬停和选中时，文字区域收窄，为书签按钮腾出空间 */
+.sidebar-nav li.sidebar-paper-item:hover > a,
+.sidebar-nav li.sidebar-paper-item.active > a {
+  max-width: calc(100% - 26px);
+}
+
+/* hover 底色改为伪元素：让"滑动高亮层"可以盖住 hover（层级更深） */
 .sidebar-nav li.sidebar-paper-item::before {
   content: '';
   position: absolute;
@@ -1416,7 +1422,7 @@ article.markdown-section {
 }
 .sidebar-nav li.sidebar-paper-item.sidebar-paper-orange::before {
   opacity: 1;
-  background-color: rgba(250, 140, 22, 0.08);
+  background-color: rgba(138, 99, 210, 0.08);
 }
 .sidebar-nav li.sidebar-paper-item.sidebar-paper-good:hover::before {
   background-color: rgba(76, 175, 80, 0.16);
@@ -1428,7 +1434,7 @@ article.markdown-section {
   background-color: rgba(64, 169, 255, 0.15);
 }
 .sidebar-nav li.sidebar-paper-item.sidebar-paper-orange:hover::before {
-  background-color: rgba(250, 140, 22, 0.14);
+  background-color: rgba(138, 99, 210, 0.14);
 }
 
 /* 选中态滑动高亮层：一个元素在 sidebar 内平滑移动，覆盖整行 */
@@ -1464,7 +1470,7 @@ article.markdown-section {
   background-color: rgba(64, 169, 255, 0.12);
 }
 .sidebar-nav .dpr-sidebar-active-indicator.is-orange {
-  background-color: rgba(250, 140, 22, 0.11);
+  background-color: rgba(138, 99, 210, 0.11);
 }
 
 .sidebar-nav li.sidebar-paper-item {
@@ -1558,12 +1564,12 @@ article.markdown-section {
   color: #096dd9 !important; /* 选中：深蓝 */
 }
 .sidebar-nav li.sidebar-paper-orange > a {
-  color: #ffa940 !important; /* 未选中：淡橙 */
+  color: #9d7cd8 !important; /* 未选中：淡紫 */
 }
 .sidebar-nav li.sidebar-paper-orange.active > a,
 .sidebar-nav li.sidebar-paper-orange > a.active,
 .sidebar-nav li.sidebar-paper-orange > a.router-link-active {
-  color: #ad4e00 !important; /* 选中：深橙 */
+  color: #7c3aed !important; /* 选中：深紫 */
 }
 
 
@@ -1614,31 +1620,41 @@ article.markdown-section {
   background-color: #91d5ff; /* 淡蓝色 */
 }
 
-/* 侧边栏内“书签标记”按钮容器：悬停时显示在右上角 */
+/* 侧边栏内"书签标记"按钮容器：悬停时显示在选项右侧，2x2排列 */
 .sidebar-paper-rating-icons {
   position: absolute;
-  top: 8px;
-  right: 14px;
-  display: inline-flex;
-  gap: 6px;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: grid;
+  grid-template-columns: repeat(2, 12px);
+  gap: 2px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 120ms ease-out;
+  padding: 3px;
+  z-index: 10;
+  border-radius: 4px;
 }
 
-/* 悬停（或键盘 focus）时显示 */
-.sidebar-nav li.sidebar-paper-item:hover .sidebar-paper-rating-icons,
-.sidebar-nav li.sidebar-paper-item:focus-within .sidebar-paper-rating-icons {
+/* 悬停时显示 */
+.sidebar-nav li.sidebar-paper-item:hover .sidebar-paper-rating-icons {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 当前选中项：书签按钮常驻显示 */
+.sidebar-nav li.sidebar-paper-item.active .sidebar-paper-rating-icons {
   opacity: 1;
   pointer-events: auto;
 }
 
 .sidebar-paper-rating-icon {
   width: 12px;
-  height: 14px;
-  border-radius: 3px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background-color: rgba(0, 0, 0, 0.04);
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background-color: rgba(0, 0, 0, 0.08);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1646,23 +1662,22 @@ article.markdown-section {
   cursor: pointer;
   padding: 0;
   box-sizing: border-box;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
 }
 
-/* 分享按钮：显示在书签组最左侧 */
+/* 分享按钮 */
 .sidebar-paper-share-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 9px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
   background: rgba(0, 0, 0, 0.03);
-  color: rgba(0, 0, 0, 0.7);
+  color: rgba(0, 0, 0, 0.6);
   cursor: pointer;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1;
 }
 .sidebar-paper-share-icon:hover {
@@ -1671,6 +1686,60 @@ article.markdown-section {
 .sidebar-paper-share-icon:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* 左侧按钮容器（分享） */
+.sidebar-paper-left-actions {
+  position: absolute;
+  top: 50%;
+  left: 5px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+  padding: 1px;
+  z-index: 10;
+}
+
+/* 悬停时显示左侧按钮 */
+.sidebar-nav li.sidebar-paper-item:hover .sidebar-paper-left-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 当前选中项：左侧按钮常驻显示 */
+.sidebar-nav li.sidebar-paper-item.active .sidebar-paper-left-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 收藏按钮（星星）- 暂时隐藏 */
+.sidebar-paper-favorite-icon {
+  display: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.03);
+  color: rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+}
+.sidebar-paper-favorite-icon:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.7);
+}
+.sidebar-paper-favorite-icon.active {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: rgba(255, 193, 7, 0.6);
+  color: #f5a623;
 }
 
 /* Gist 分享弹窗 */
@@ -1729,60 +1798,60 @@ article.markdown-section {
 
 /* 绿色书签 */
 .sidebar-paper-rating-icon.good {
-  border-color: rgba(115, 209, 61, 0.55);
-  background-color: rgba(115, 209, 61, 0.12);
+  border-color: rgba(82, 196, 26, 0.35);
+  background-color: rgba(82, 196, 26, 0.15);
 }
 
 /* 红色书签 */
 .sidebar-paper-rating-icon.bad {
-  border-color: rgba(255, 120, 117, 0.55);
-  background-color: rgba(255, 120, 117, 0.12);
+  border-color: rgba(245, 34, 45, 0.35);
+  background-color: rgba(245, 34, 45, 0.15);
 }
 
 /* Hover 状态：鼠标悬停时的浅色背景 */
 .sidebar-paper-rating-icon.good:hover {
-  background-color: rgba(115, 209, 61, 0.18);
+  background-color: rgba(82, 196, 26, 0.35);
 }
 
 .sidebar-paper-rating-icon.bad:hover {
-  background-color: rgba(255, 120, 117, 0.18);
+  background-color: rgba(245, 34, 45, 0.35);
 }
 
 /* 激活状态：前景/背景颜色对调 */
 .sidebar-paper-rating-icon.good.active {
-  background-color: rgba(115, 209, 61, 0.95);
-  border-color: rgba(115, 209, 61, 0.95);
+  background-color: rgba(82, 196, 26, 0.75);
+  border-color: rgba(82, 196, 26, 0.85);
 }
 
 .sidebar-paper-rating-icon.bad.active {
-  background-color: rgba(255, 120, 117, 0.95);
-  border-color: rgba(255, 120, 117, 0.95);
+  background-color: rgba(245, 34, 45, 0.55);
+  border-color: rgba(245, 34, 45, 0.65);
 }
 
 /* 蓝色书签 */
 .sidebar-paper-rating-icon.blue {
-  border-color: rgba(105, 192, 255, 0.6);
-  background-color: rgba(105, 192, 255, 0.12);
+  border-color: rgba(24, 144, 255, 0.35);
+  background-color: rgba(24, 144, 255, 0.15);
 }
 .sidebar-paper-rating-icon.blue:hover {
-  background-color: rgba(105, 192, 255, 0.18);
+  background-color: rgba(24, 144, 255, 0.35);
 }
 .sidebar-paper-rating-icon.blue.active {
-  background-color: rgba(24, 144, 255, 0.95);
-  border-color: rgba(24, 144, 255, 0.95);
+  background-color: rgba(24, 144, 255, 0.75);
+  border-color: rgba(24, 144, 255, 0.85);
 }
 
 /* 橙色书签 */
 .sidebar-paper-rating-icon.orange {
-  border-color: rgba(255, 169, 64, 0.6);
-  background-color: rgba(255, 169, 64, 0.12);
+  border-color: rgba(138, 99, 210, 0.35);
+  background-color: rgba(138, 99, 210, 0.15);
 }
 .sidebar-paper-rating-icon.orange:hover {
-  background-color: rgba(255, 169, 64, 0.18);
+  background-color: rgba(138, 99, 210, 0.35);
 }
 .sidebar-paper-rating-icon.orange.active {
-  background-color: rgba(250, 140, 22, 0.95);
-  border-color: rgba(250, 140, 22, 0.95);
+  background-color: rgba(138, 99, 210, 0.75);
+  border-color: rgba(138, 99, 210, 0.85);
 }
 
 /* 论文详情页标题区域的评价按钮 */

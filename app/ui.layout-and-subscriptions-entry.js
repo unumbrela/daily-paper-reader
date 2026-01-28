@@ -40,6 +40,10 @@
         '--sidebar-width',
         newWidth + 'px',
       );
+      // 同步更新选中区域的阴影宽度
+      if (window.syncSidebarActiveIndicator) {
+        window.syncSidebarActiveIndicator({ animate: false });
+      }
     });
 
     window.addEventListener('mouseup', function () {

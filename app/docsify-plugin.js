@@ -1214,7 +1214,7 @@ window.$docsify = {
 	          // 标记这是一个具体论文条目，方便样式细化（避免整天标题一起高亮）
 	          li.classList.add('sidebar-paper-item');
 
-          // 为侧边栏条目追加“书签标记”按钮（绿/蓝/橙/红）
+          // 为侧边栏条目追加"书签标记"按钮（绿/蓝/橙/红）
 	          let actionWrapper = li.querySelector('.sidebar-paper-rating-icons');
 	          let goodIcon = actionWrapper
 	            ? actionWrapper.querySelector('.sidebar-paper-rating-icon.good')
@@ -1228,6 +1228,9 @@ window.$docsify = {
 	          let badIcon = actionWrapper
 	            ? actionWrapper.querySelector('.sidebar-paper-rating-icon.bad')
 	            : null;
+
+          // 左侧按钮容器（分享 + 收藏）
+          let leftActions = li.querySelector('.sidebar-paper-left-actions');
 	          if (!actionWrapper) {
 	            actionWrapper = document.createElement('span');
 	            actionWrapper.className = 'sidebar-paper-rating-icons';
@@ -1250,17 +1253,34 @@ window.$docsify = {
               orangeIcon.setAttribute('aria-label', '橙色书签');
               orangeIcon.innerHTML = '';
 
-              const shareIcon = document.createElement('button');
-              shareIcon.className = 'sidebar-paper-share-icon';
-              shareIcon.title = '分享（生成 GitHub Gist 链接）';
-              shareIcon.setAttribute('aria-label', '分享');
-              shareIcon.textContent = '⤴';
-
 	            badIcon = document.createElement('button');
 	            badIcon.className = 'sidebar-paper-rating-icon bad';
 	            badIcon.title = '标记为「红色书签」';
 	            badIcon.setAttribute('aria-label', '红色书签');
 	            badIcon.innerHTML = '';
+
+              // 创建左侧按钮容器
+              leftActions = document.createElement('span');
+              leftActions.className = 'sidebar-paper-left-actions';
+
+              const favoriteIcon = document.createElement('button');
+              favoriteIcon.className = 'sidebar-paper-favorite-icon';
+              favoriteIcon.title = '收藏';
+              favoriteIcon.setAttribute('aria-label', '收藏');
+              favoriteIcon.textContent = '☆';
+              favoriteIcon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // 切换收藏状态（功能待实现）
+                const isActive = favoriteIcon.classList.toggle('active');
+                favoriteIcon.textContent = isActive ? '★' : '☆';
+              });
+
+              const shareIcon = document.createElement('button');
+              shareIcon.className = 'sidebar-paper-share-icon';
+              shareIcon.title = '分享（生成 GitHub Gist 链接）';
+              shareIcon.setAttribute('aria-label', '分享');
+              shareIcon.textContent = '⤴';
 
               const setStateAndRefresh = (value) => {
                 const latestState = loadReadState();
@@ -1319,7 +1339,12 @@ window.$docsify = {
 	              setStateAndRefresh('bad');
 	            });
 
-              actionWrapper.appendChild(shareIcon);
+              // 左侧容器添加收藏和分享按钮
+              leftActions.appendChild(favoriteIcon);
+              leftActions.appendChild(shareIcon);
+              a.parentNode.insertBefore(leftActions, a);
+
+              // 右侧容器添加书签按钮
 	            actionWrapper.appendChild(goodIcon);
               actionWrapper.appendChild(blueIcon);
               actionWrapper.appendChild(orangeIcon);
@@ -1639,6 +1664,9 @@ window.$docsify = {
           hideSidebarActiveIndicator();
         }
       };
+
+      // 暴露到全局，供 sidebar resize 时调用
+      window.syncSidebarActiveIndicator = syncSidebarActiveIndicator;
 
       const DPR_TRANSITION = {
         // 'enter-from-left' | 'enter-from-right' | ''
