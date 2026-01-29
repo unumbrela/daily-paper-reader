@@ -5,6 +5,140 @@
   --sidebar-max-width: 600px;
 }
 
+/* 全局缩放重置为1 */
+html {
+  zoom: 1;
+}
+
+/* Markdown 正文区域字体放大 */
+.markdown-section {
+  font-size: 1.1rem !important;
+}
+
+/* 禁用 Docsify 原生的标题锚点点击功能（只禁用点击，不隐藏） */
+.markdown-section h1 a,
+.markdown-section h2 a,
+.markdown-section h3 a,
+.markdown-section h4 a,
+.markdown-section h5 a,
+.markdown-section h6 a {
+  pointer-events: none;
+  cursor: default;
+  /* 保持标题样式不变 */
+  color: inherit !important;
+  text-decoration: none !important;
+}
+
+/* 禁用标题本身的锚点跳转 */
+.markdown-section h1[id],
+.markdown-section h2[id],
+.markdown-section h3[id],
+.markdown-section h4[id],
+.markdown-section h5[id],
+.markdown-section h6[id] {
+  cursor: default;
+}
+
+/* 确保链接和标题颜色正常 - 使用红色（和 Evidence 标签一致） */
+.markdown-section a,
+.markdown-section a:link,
+.markdown-section a:visited {
+  color: #e74c3c !important;
+}
+.markdown-section a:hover {
+  color: #c0392b !important;
+}
+
+.markdown-section h1,
+.markdown-section h2,
+.markdown-section h3,
+.markdown-section h4,
+.markdown-section h5,
+.markdown-section h6 {
+  color: #e74c3c !important;
+}
+
+/* 确保正文文字颜色正常 */
+.markdown-section,
+.markdown-section p,
+.markdown-section div,
+.markdown-section span,
+.markdown-section li,
+.markdown-section td,
+.markdown-section th {
+  color: #34495e !important;
+}
+
+/* 链接文字颜色保护 */
+.markdown-section a,
+.markdown-section a *,
+.markdown-section a span {
+  color: #e74c3c !important;
+}
+
+/* Markdown 正文中所有段落的行高 */
+.markdown-section p,
+.markdown-section > .dpr-page-content > p {
+  line-height: 1.8 !important;
+}
+
+/* 侧边栏字体放大 */
+.sidebar {
+  font-size: 1.1rem !important;
+  line-height: 1.6 !important;
+}
+
+/* 聊天区域字体放大 */
+#paper-chat-container {
+  font-size: 1.1rem !important;
+  line-height: 1.6 !important;
+}
+
+/* 论文页标题区域字体放大 */
+.paper-title-row h1 {
+  font-size: 1.1rem !important;
+  line-height: 1.6 !important;
+}
+.paper-title-zh,
+.paper-title-en {
+  font-size: 1.5rem !important;
+  line-height: 1.6 !important;
+}
+
+/* 论文页元数据区域（Evidence/Authors等）字体放大 */
+.paper-meta-left,
+.paper-meta-right {
+  font-size: 1.0rem !important;
+  line-height: 1.6 !important;
+}
+.paper-meta-left p,
+.paper-meta-right p {
+  font-size: 1.0rem !important;
+  line-height: 1.6 !important;
+}
+
+/* 论文页速览区域字体放大 */
+.paper-glance-section {
+  font-size: 1.0rem !important;
+  line-height: 1.6 !important;
+}
+.paper-glance-title {
+  font-size: 1.0rem !important;
+  line-height: 1.6 !important;
+}
+.paper-glance-label {
+  font-size: 1.0rem !important;
+  line-height: 1.6 !important;
+}
+.paper-glance-content {
+  font-size: 1.0rem !important;
+  line-height: 1.6 !important;
+}
+.paper-glance-tldr {
+  font-size: 1.0rem !important;
+  line-height: 1.6 !important;
+}
+
 .katex .katex-mathml {
   display: none !important;
 }
@@ -2548,6 +2682,23 @@ article.markdown-section {
   color: #444;
 }
 
+/* 论文元信息区域的链接使用正文颜色（覆盖全局红色链接样式） */
+.markdown-section .paper-meta-row .paper-meta-left a,
+.markdown-section .paper-meta-row .paper-meta-left a:link,
+.markdown-section .paper-meta-row .paper-meta-left a:visited,
+.markdown-section .paper-meta-row .paper-meta-right a,
+.markdown-section .paper-meta-row .paper-meta-right a:link,
+.markdown-section .paper-meta-row .paper-meta-right a:visited {
+  color: #34495e !important;
+  text-decoration: underline;
+  font-weight: normal !important;
+}
+
+.markdown-section .paper-meta-row .paper-meta-left a:hover,
+.markdown-section .paper-meta-row .paper-meta-right a:hover {
+  color: #2c3e50 !important;
+}
+
 .paper-meta-left p strong,
 .paper-meta-right p strong {
   color: #e74c3c;
@@ -2586,10 +2737,11 @@ article.markdown-section {
   border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.paper-glance-label {
+.paper-glance-label,
+.markdown-section .paper-glance-label {
   font-size: 13px;
   font-weight: 600;
-  color: #e74c3c;
+  color: #e74c3c !important;
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(231, 76, 60, 0.2);

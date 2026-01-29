@@ -2040,6 +2040,29 @@ window.$docsify = {
         if (window.__dprNavBound) return;
         window.__dprNavBound = true;
 
+        // 禁用 Docsify 原生的标题锚点点击功能
+        document.addEventListener('click', (e) => {
+          try {
+            if (!e || e.defaultPrevented) return;
+            const target = e.target;
+            // 检测是否点击了标题或标题内的锚点
+            if (target && target.closest) {
+              const heading = target.closest('h1, h2, h3, h4, h5, h6');
+              if (heading && heading.closest('.markdown-section')) {
+                const link = target.closest('a');
+                if (link && link.hash && link.hash.startsWith('#') && !link.hash.startsWith('#/')) {
+                  // 阻止标题锚点的默认跳转行为
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return false;
+                }
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }, true); // 使用捕获阶段，确保在 Docsify 之前拦截
+
         const toggleGoodForCurrent = () => {
           const current = DPR_NAV_STATE.currentHref || '';
           if (!current) return;
@@ -2555,6 +2578,7 @@ window.$docsify = {
       };
 
       // 初始化时执行一次
-      autoCollapseOnInitForNarrowScreen();    },
+      autoCollapseOnInitForNarrowScreen();
+    },
   ],
 };
