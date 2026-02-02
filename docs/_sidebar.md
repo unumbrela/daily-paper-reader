@@ -1,5 +1,9 @@
 * [首页](/)
 * Daily Papers
+  * 2026-02-02 <!--dpr-date:20260202-->
+    * 精读区
+    * 速读区
+      * <a class="dpr-sidebar-item-link" href="#/202602/02/2601.23140v1-a-predictive-formula-for-the-h-mode-electron-separatrix-density-bridging-regression-and-physics-based-models-across-c-mod-aug-and-jet-tokamaks"><div class="dpr-sidebar-title">A predictive formula for the H-mode electron separatrix density: Bridging regression and physics-based models across C-Mod, AUG and JET tokamaks</div><div class="dpr-sidebar-tags"><span class="dpr-sidebar-tag dpr-sidebar-tag-score"><span class="dpr-stars" title="评分：6.0/10（3.0/5）" aria-label="3.0 out of 5"><span class="dpr-stars-bg">☆☆☆☆☆</span><span class="dpr-stars-fill" style="width:60%">★★★★★</span></span></span> <span class="dpr-sidebar-tag dpr-sidebar-tag-keyword">SR</span> <span class="dpr-sidebar-tag dpr-sidebar-tag-query">SR</span></div></a>
   * 2026-01-30 <!--dpr-date:20260130-->
     * 精读区
       * <a class="dpr-sidebar-item-link" href="#/202601/30/2601.19477v1-roids-robust-outlier-aware-informed-down-sampling"><div class="dpr-sidebar-title">ROIDS: Robust Outlier-Aware Informed Down-Sampling</div><div class="dpr-sidebar-tags"><span class="dpr-sidebar-tag dpr-sidebar-tag-score"><span class="dpr-stars" title="评分：10.0/10（5.0/5）" aria-label="5.0 out of 5"><span class="dpr-stars-bg">☆☆☆☆☆</span><span class="dpr-stars-fill" style="width:100%">★★★★★</span></span></span> <span class="dpr-sidebar-tag dpr-sidebar-tag-keyword">SR</span> <span class="dpr-sidebar-tag dpr-sidebar-tag-query">SR</span></div></a>
