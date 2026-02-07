@@ -1,6 +1,7 @@
 import arxiv
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -22,6 +23,7 @@ CATEGORIES_TO_FETCH = [
     "cs", "math", "stat", "q-bio", "q-fin", "eess", "econ",
     "physics", "cond-mat", "hep-ph", "hep-th", "gr-qc", "astro-ph",
 ]
+RANGE_TOKEN_RE = re.compile(r"^\d{8}-\d{8}$")
 
 
 def load_config() -> dict:
@@ -54,6 +56,13 @@ def resolve_days_window(default_days: int) -> int:
         return max(days, 1)
     except Exception:
         return max(default_days, 1)
+
+
+def get_run_date_token(end_date: datetime) -> str:
+    token = str(os.getenv("DPR_RUN_DATE") or "").strip()
+    if re.match(r"^\d{8}$", token) or RANGE_TOKEN_RE.match(token):
+        return token
+    return end_date.strftime("%Y%m%d")
 
 
 def load_last_crawl_at() -> datetime | None:
@@ -347,10 +356,10 @@ def fetch_all_domains_metadata_robust(
             log(f"[Supabase] {msg}")
             if papers:
                 if not output_file:
-                    today_str = end_date.strftime("%Y%m%d")
-                    archive_dir = os.path.join(ROOT_DIR, "archive", today_str)
+                    run_token = get_run_date_token(end_date)
+                    archive_dir = os.path.join(ROOT_DIR, "archive", run_token)
                     raw_dir = os.path.join(archive_dir, "raw")
-                    output_file = os.path.join(raw_dir, f"arxiv_papers_{today_str}.json")
+                    output_file = os.path.join(raw_dir, f"arxiv_papers_{run_token}.json")
 
                 os.makedirs(os.path.dirname(output_file) if os.path.dirname(output_file) else ".", exist_ok=True)
                 with open(output_file, "w", encoding="utf-8") as f:
@@ -431,15 +440,15 @@ def fetch_all_domains_metadata_robust(
     log(f"✅ All Done. Total unique papers fetched: {total_count}")
     
     if total_count > 0:
-        # 若未显式指定输出文件，则按日期命名到项目根目录下的 archive/YYYYMMDD/raw 目录：
-        # <ROOT_DIR>/archive/YYYYMMDD/raw/arxiv_papers_YYYYMMDD.json
+        # 若未显式指定输出文件，则按运行 token 命名到项目根目录下的 archive/<token>/raw 目录：
+        # <ROOT_DIR>/archive/<YYYYMMDD 或 YYYYMMDD-YYYYMMDD>/raw/arxiv_papers_<token>.json
         if not output_file:
-            today_str = end_date.strftime("%Y%m%d")
-            archive_dir = os.path.join(ROOT_DIR, "archive", today_str)
+            run_token = get_run_date_token(end_date)
+            archive_dir = os.path.join(ROOT_DIR, "archive", run_token)
             raw_dir = os.path.join(archive_dir, "raw")
             output_file = os.path.join(
                 raw_dir,
-                f"arxiv_papers_{today_str}.json",
+                f"arxiv_papers_{run_token}.json",
             )
 
         os.makedirs(os.path.dirname(output_file) if os.path.dirname(output_file) else ".", exist_ok=True)
@@ -469,7 +478,7 @@ if __name__ == "__main__":
         "--output",
         type=str,
         default=None,
-        help="输出 JSON 文件路径（默认写入 archive/YYYYMMDD/raw/arxiv_papers_YYYYMMDD.json）。",
+        help="输出 JSON 文件路径（默认写入 archive/<token>/raw/arxiv_papers_<token>.json）。",
     )
     parser.add_argument(
         "--ignore-seen",

@@ -43,19 +43,49 @@ def build_sidebar_date_label(days: int) -> str:
     return f"{start_date:%Y-%m-%d} ~ {end_date:%Y-%m-%d}"
 
 
-def resolve_sidebar_date_label(fetch_days: int | None) -> str | None:
-    # 1) 显式传 --fetch-days 时，始终按该窗口显示日期范围。
-    if fetch_days is not None:
-        return build_sidebar_date_label(fetch_days)
+def build_run_date_token(days: int) -> str:
+    safe_days = max(int(days), 1)
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=safe_days - 1)
+    return f"{start_date:%Y%m%d}-{end_date:%Y%m%d}"
 
-    # 2) 未显式传入时，按 config 的 days_window 判断：
-    #    仅在“大时间跨度”模式（默认阈值 >=30 天）自动显示区间标题。
+
+def resolve_run_date_token(fetch_days: int | None) -> str:
+    """
+    统一运行日期标识：
+    - 大窗口（>阈值）使用区间 token：YYYYMMDD-YYYYMMDD
+    - 其它情况使用单日 token：YYYYMMDD
+    """
+    if fetch_days is not None:
+        if fetch_days > LONG_RANGE_DAYS_THRESHOLD:
+            return build_run_date_token(fetch_days)
+        return datetime.now(timezone.utc).strftime("%Y%m%d")
+
     setting = load_arxiv_paper_setting()
     try:
         days_window = int(setting.get("days_window") or 0)
     except Exception:
         days_window = 0
-    if days_window >= LONG_RANGE_DAYS_THRESHOLD:
+    if days_window > LONG_RANGE_DAYS_THRESHOLD:
+        return build_run_date_token(days_window)
+    return datetime.now(timezone.utc).strftime("%Y%m%d")
+
+
+def resolve_sidebar_date_label(fetch_days: int | None) -> str | None:
+    # 1) 显式传 --fetch-days 时，仅在大窗口模式下显示日期范围。
+    if fetch_days is not None:
+        if fetch_days > LONG_RANGE_DAYS_THRESHOLD:
+            return build_sidebar_date_label(fetch_days)
+        return None
+
+    # 2) 未显式传入时，按 config 的 days_window 判断：
+    #    仅在“大时间跨度”模式（默认阈值 >7 天）自动显示区间标题。
+    setting = load_arxiv_paper_setting()
+    try:
+        days_window = int(setting.get("days_window") or 0)
+    except Exception:
+        days_window = 0
+    if days_window > LONG_RANGE_DAYS_THRESHOLD:
         return build_sidebar_date_label(days_window)
     return None
 
@@ -96,6 +126,9 @@ def main() -> None:
     python = sys.executable
 
     sidebar_date_label = resolve_sidebar_date_label(args.fetch_days)
+    run_date_token = resolve_run_date_token(args.fetch_days)
+    os.environ["DPR_RUN_DATE"] = run_date_token
+    print(f"[INFO] DPR_RUN_DATE={run_date_token}", flush=True)
 
     if args.run_enrich:
         run_step(

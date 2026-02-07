@@ -19,7 +19,8 @@ from llm import BltClient
 SCRIPT_DIR = os.path.dirname(__file__)
 ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 CONFIG_FILE = os.path.join(ROOT_DIR, "config.yaml")
-TODAY_STR = datetime.now(timezone.utc).strftime("%Y%m%d")
+TODAY_STR = str(os.getenv("DPR_RUN_DATE") or "").strip() or datetime.now(timezone.utc).strftime("%Y%m%d")
+RANGE_DATE_RE = re.compile(r"^(\d{8})-(\d{8})$")
 
 # LLM 配置（使用 llm.py 内的 BLT 客户端）
 BLT_API_KEY = os.getenv("BLT_API_KEY")
@@ -665,27 +666,39 @@ def replace_meta_line(md_text: str, label: str, value: str, add_slash: bool = Tr
 
 
 def format_date_str(date_str: str) -> str:
-    if len(date_str) == 8:
-        return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
+    s = str(date_str or "").strip()
+    m = RANGE_DATE_RE.match(s)
+    if m:
+        a, b = m.group(1), m.group(2)
+        return f"{a[:4]}-{a[4:6]}-{a[6:]} ~ {b[:4]}-{b[4:6]}-{b[6:]}"
+    if len(s) == 8 and s.isdigit():
+        return f"{s[:4]}-{s[4:6]}-{s[6:]}"
     return date_str
 
 
 def prepare_paper_paths(docs_dir: str, date_str: str, title: str, arxiv_id: str) -> Tuple[str, str, str]:
-    ym = date_str[:6]
-    day = date_str[6:]
     slug = slugify(title)
     basename = f"{arxiv_id}-{slug}" if arxiv_id else slug
-    target_dir = os.path.join(docs_dir, ym, day)
+    if RANGE_DATE_RE.match(date_str):
+        target_dir = os.path.join(docs_dir, date_str)
+        paper_id = f"{date_str}/{basename}"
+    else:
+        ym = date_str[:6]
+        day = date_str[6:]
+        target_dir = os.path.join(docs_dir, ym, day)
+        paper_id = f"{ym}/{day}/{basename}"
     md_path = os.path.join(target_dir, f"{basename}.md")
     txt_path = os.path.join(target_dir, f"{basename}.txt")
-    paper_id = f"{ym}/{day}/{basename}"
     return md_path, txt_path, paper_id
 
 
 def prepare_day_report_paths(docs_dir: str, date_str: str) -> Tuple[str, str]:
-    ym = date_str[:6]
-    day = date_str[6:]
-    day_dir = os.path.join(docs_dir, ym, day)
+    if RANGE_DATE_RE.match(date_str):
+        day_dir = os.path.join(docs_dir, date_str)
+    else:
+        ym = date_str[:6]
+        day = date_str[6:]
+        day_dir = os.path.join(docs_dir, ym, day)
     day_readme = os.path.join(day_dir, "README.md")
     return day_dir, day_readme
 
@@ -764,9 +777,6 @@ def build_latest_report_section(
     effective_label = (date_label or "").strip() or format_date_str(date_str)
     run_status = "成功" if recommend_exists else "未产出 recommend 文件（视为无结果）"
     total = len(deep_entries) + len(quick_entries)
-    ym = date_str[:6]
-    day = date_str[6:]
-
     lines: List[str] = []
     lines.append(f"- 最新运行日期：{effective_label}")
     lines.append(f"- 运行时间：{generated_at}")
@@ -774,7 +784,12 @@ def build_latest_report_section(
     lines.append(f"- 本次总论文数：{total}")
     lines.append(f"- 精读区：{len(deep_entries)}")
     lines.append(f"- 速读区：{len(quick_entries)}")
-    report_href = build_docsify_id_href(f"{ym}/{day}/README")
+    if RANGE_DATE_RE.match(date_str):
+        report_href = build_docsify_id_href(f"{date_str}/README")
+    else:
+        ym = date_str[:6]
+        day = date_str[6:]
+        report_href = build_docsify_id_href(f"{ym}/{day}/README")
     lines.append(f"- 详情：[{report_href}]({report_href})")
     lines.append("")
     lines.append("### 精读区论文标签")
@@ -1457,6 +1472,18 @@ def list_day_report_links(docs_dir: str) -> List[Tuple[str, str]]:
     out: List[Tuple[str, str]] = []
     if not os.path.isdir(docs_dir):
         return out
+    # 1) 区间目录：YYYYMMDD-YYYYMMDD
+    range_dirs = sorted(
+        [d for d in os.listdir(docs_dir) if RANGE_DATE_RE.fullmatch(d)],
+        reverse=True,
+    )
+    for rd in range_dirs:
+        readme = os.path.join(docs_dir, rd, "README.md")
+        if not os.path.exists(readme):
+            continue
+        out.append((format_date_str(rd), build_docsify_id_href(f"{rd}/README")))
+
+    # 2) 单日目录：docs/YYYYMM/DD
     ym_dirs = sorted([d for d in os.listdir(docs_dir) if re.fullmatch(r"\d{6}", d)], reverse=True)
     for ym in ym_dirs:
         ym_path = os.path.join(docs_dir, ym)
@@ -1736,9 +1763,12 @@ def write_day_meta_index_json(
     """
     在对应的 docs 日期目录下生成索引 JSON 文件，供前端一键下载。
     """
-    ym = date_str[:6]
-    day = date_str[6:]
-    target_dir = os.path.join(docs_dir, ym, day)
+    if RANGE_DATE_RE.match(date_str):
+        target_dir = os.path.join(docs_dir, date_str)
+    else:
+        ym = date_str[:6]
+        day = date_str[6:]
+        target_dir = os.path.join(docs_dir, ym, day)
     os.makedirs(target_dir, exist_ok=True)
     out_path = os.path.join(target_dir, "papers.meta.json")
 
