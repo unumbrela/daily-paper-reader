@@ -938,7 +938,13 @@ window.SubscriptionsSmartQuery = (function () {
     if (action === 'delete-profile') {
       const profile = (currentProfiles || []).find((p) => normalizeText(p.id) === normalizeText(profileId));
       const tag = normalizeText(profile && profile.tag) || '该词条';
-      const ok = window.confirm(`确认删除词条「${tag}」吗？此操作可在未保存前通过刷新放弃。`);
+      const desc = normalizeText(profile && profile.description);
+      const kwCount = Array.isArray(profile && profile.keyword_rules) ? profile.keyword_rules.length : 0;
+      const qCount = Array.isArray(profile && profile.semantic_queries) ? profile.semantic_queries.length : 0;
+      const summary = desc || `关键词 ${kwCount} 条，Query ${qCount} 条`;
+      const ok = window.confirm(
+        `确认删除词条「${tag}」吗？\n简介：${summary}\n此操作可在未保存前通过刷新放弃。`,
+      );
       if (!ok) return;
       window.SubscriptionsManager.updateDraftConfig((cfg) => {
         const next = cfg || {};
