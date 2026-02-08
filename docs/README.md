@@ -9,22 +9,19 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-02-06
-- 运行时间：2026-02-07 10:34:49 UTC
+- 最新运行日期：2026-01-10 ~ 2026-02-08
+- 运行时间：2026-02-08 12:45:13 UTC
 - 运行状态：成功
-- 本次总论文数：2
+- 本次总论文数：0
 - 精读区：0
-- 速读区：2
-- 详情：[/202602/06/README](/202602/06/README)
+- 速读区：0
+- 详情：[/20260110-20260208/README](/20260110-20260208/README)
 
 ### 精读区论文标签
 - 本次无精读推荐。
 
 ### 速读区论文标签
-1. [Mining Generalizable Activation Functions](/202602/06/2602.05688v1-mining-generalizable-activation-functions)  
-   标签：keyword:SR、query:SR
-2. [Clifford Kolmogorov-Arnold Networks](/202602/06/2602.05977v1-clifford-kolmogorov-arnold-networks)  
-   标签：keyword:SR、query:SR
+- 本次无速读推荐。
 
 
 <div class="dpr-home-promo-card">
