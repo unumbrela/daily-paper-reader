@@ -1,0 +1,611 @@
+Title: Tiny Moves: Game-based Hypothesis Refinement
+
+URL Source: https://arxiv.org/pdf/2602.09801v1
+
+Published Time: Wed, 11 Feb 2026 02:13:48 GMT
+
+Number of Pages: 36
+
+Markdown Content:
+# Tiny Moves: Game-based Hypothesis Refinement 
+
+## Agnieszka Dobrowolska ∗, Rogier Hintzen ∗, Martin Balla ∗, Karl Gemayel, Sabine Reichert, Thomas Charman, Jen Ning Lim, Lindsay Edwards, Anna Gogleva †
+
+## Relation Therapeutics, London, UK 
+
+Abstract 
+
+Most machine learning approaches to scientific discovery frame hypotheses as end-to-end predictions, obscuring the incremental structure of scientific reasoning. We propose The Hypothesis Game, a symbolic formalism for hypothesis refinement in which LLM agents operate on a shared hypothesis state using a fixed grammar of reasoning moves. The framework is motivated by the observation that scientific progress often proceeds through small, localized revisions, grounded in domain context, rather than extensive rewrites. We instantiate a minimal game with LLM agents and evaluate it on pathway-level mechanistic refinement tasks. In the primary setting of corruption recovery, where hypotheses contain controlled errors, the game-based approach consistently removes more errors and achieves higher precision than strong prompting baselines, while preserving valid structure through incremental edits. In a secondary reconstruction setting from partial cues, it performs comparably to the strongest baseline, indicating that explicit move-based refinement remains competitive even when ground-truth recovery is difficult. These findings support game-based reasoning as a principled route to more controllable, interpretable, and transferable hypothesis refinement systems for scientific discovery. 
+
+# 1 Introduction 
+
+Scientific discovery is rarely a single leap from data to conclusion. In empirical fields such as biology, the discovery process unfolds iteratively and non-linearly, often starting from partial hypotheses based on incomplete or noisy evidence. As new results emerge, researchers expand, revise, and combine hypotheses, allowing them to evolve over time. The emerging hypothesis undergoes multiple rounds of pruning, testing, and iterative refinement to converge on a coherent causal foundation [ 1]. In practice, this process frequently involves updating and reconciling partially correct hypotheses, rather than generating them entirely de novo .Recent work in AI for science has shown increasing interest in agentic approaches, where Large Language Models (LLMs) or multi-agent systems are assigned specialized roles, such as a literature reviewer, clinical trial designer, or experiment planner, to support parts of the scientific workflow [ 7 , 21 ]. Systems such as the "AI Co-Scientist" [ 6] and "Robin" [ 5], as well as lab-in-the-loop multi-agent frameworks [ 17 ] and domain-focused agent systems for biomedical discovery [ 4], demonstrate how role-specific capabilities and tools can be orchestrated to address scientific problems end-to-end. While effective at targeting domain knowledge and tools, these systems typically emphasize task completion, with the internal process of scientific reasoning left largely implicit. A central limitation of such approaches emerges when hypotheses must be revised rather than generated. Without explicit representations of intermediate hypothesis states or allowed transformations, it becomes difficult to localize errors, assess which parts of a hypothesis are well supported, or make targeted corrections.  
+
+> ∗These authors contributed equally.
+> †Corresponding author: anna.gogleva@relationrx.com
+
+1
+
+> arXiv:2602.09801v1 [cs.MA] 10 Feb 2026
+
+As a result, even minor inconsistencies or uncertainties are often addressed through broad, undifferentiated rewrites, reducing interpretability and control over the refinement process [ 13 , 15 ]. This lack of structured refinement hinders the systematic reuse of reasoning patterns and limits transfer across related scientific problems [12, 14]. In contrast, human scientific reasoning is compositional: hypotheses are built and revised gradually from smaller fragments, guided by a repertoire of common reasoning patterns, such as expansion, pruning, comparison, and critique [ 11 ]. Motivated by this observation, we propose a symbolic, game-based formalism for hypothesis refinement, in which LLM agents operate over a shared hypothesis state using a fixed grammar of reasoning moves. Each move defines an allowed transformation of the hypothesis, enabling refinement and evolution through localized interpretable edits, rather than broad rewrites. This conceptual framing makes the reasoning process explicit, allowing the system to “think about thinking” rather than hard-wiring problem-specific behaviours. In this paper, we introduce The Hypothesis Game , a symbolic, game-based framework for hypothesis refinement. Our contributions are threefold. First , we formalise hypothesis refinement as a compositional reasoning game with a reusable grammar of moves, enabling hypotheses to be updated through localized, interpretable transformations rather than large-scale rewrites. Second , we present an implementation with LLM agents operating over shared hypothesis states, producing explicit refinement trajectories that support transparent and controllable reasoning. Third , we provide an empirical evaluation on pathway-level mechanistic refinement tasks derived from Reactome. We show that in a corruption recovery setting, where hypotheses contain controlled errors, the proposed framework consistently removes more errors and achieves higher precision than strong prompting baselines, while preserving valid hypothesis structure. In a complementary reconstruction-from-partial-cues setting, performance is comparable to the strongest baseline, highlighting both the strengths and limits of incremental refinement under partial information. Together, these results highlight the potential of game-based reasoning formalisms to support more granular, interpretable, and transferable scientific discovery. 
+
+# 2 Framework 
+
+The Hypothesis Game formalizes hypothesis refinement as the iterative transformation of a shared state through structured reasoning moves. This section defines how hypotheses are represented, how moves operate on them, and how modes and scoring functions may shape the dynamics of the game. Here we introduce a general operator-based formalism that captures a broad design space for hypothesis refinement. We intentionally instantiate only the minimal subset of this formalism required to evaluate the central research question: whether our proposed framework with a small, reusable reasoning grammar provides measurable benefits in biological refinement tasks. Other components, such as explicit scoring, policy-based or learned controllers, and richer hypothesis representations are optional extensions of the basic game. Our experiments are designed to isolate and test the general reasoning framework, while the broader formalism outlines how more sophisticated controllers and utilities can be incorporated in future work. 
+
+## 2.1 Hypothesis Representation 
+
+A hypothesis is represented as a set of fragments: 
+
+𝐻 𝑡 = {ℎ1, ℎ 2, . . . , ℎ 𝑛 },
+
+where each fragment ℎ𝑖 may be a text claim, a structured triple (subject–relation–object), or optionally mapped to a graph 𝐺 = (𝑉, 𝐸 ) of entities and relations. In our experiments, we primarily use structured text. 2Figure 1: A conceptual framework for reasoning games. The objective of the game is to evolve a hypothesis fragment through a sequence of reasoning moves, with progress assessed through properties such as novelty, coherence, and traceability. *Graph structures shown for conceptual illustration only; actual implementation uses structured text fragments with equivalent reasoning operations. 
+
+## 2.2 Reasoning Grammar (Moves) 
+
+Let O = {𝑜 1, 𝑜 2, . . . , 𝑜 𝑚 } denote a fixed set of reasoning operations. Formally, let H be the space of all possible hypotheses and C the space of contexts (e.g., cell type, disease, etc). Each operation is a function 
+
+𝑜 𝑗 : H × C ↦ → H , (𝐻 𝑡 , 𝐶 ) ↦ → 𝐻 𝑡 +1,
+
+where 𝐻 𝑡 ∈ H is the current hypothesis, 𝐶 ∈ C is an optional context (e.g., biological priors), and 𝐻 𝑡 +1 ∈ H 
+
+is the updated hypothesis state. In our implementation, we restrict the set of moves to four core operations: prune , expand , retrieve , and 
+
+debate (see Table 1). Moves may be atomic (e.g. prune , expand ) or composite (e.g. retrieve_expand ), consisting of a fixed sequence of atomic operations. More granular move types can be introduced as needed, typically informed by the structure of the underlying hypothesis representation. An example of a complete reasoning grammar based on graph representation of hypothesis fragments is shown in Fig. 1. Moves can be applied repeatedly and composed arbitrarily. We can define a maximum number of reasoning operations per round (move budget) as a fixed constant 𝑘 max . A round can be defined locally as one update step from 𝐻 𝑡 to 𝐻 𝑡 +1, and globally, a sequence of rounds constitutes a complete game. 
+
+𝐻 𝑡 +1 =
+
+> 𝑘
+
+Ö
+
+> 𝑖 =1
+
+𝑜 𝑗 𝑖 
+
+!
+
+(𝐻 𝑡 , 𝐶 ), 𝑘 ≤ 𝑘 max .
+
+At each round, a controller selects and applies up to 𝑘 max moves to evolve the hypothesis. The controller can be realized in different ways (e.g., an LLM, finite state machine, or RL agent), depending on the desired game design. 32.3 Game Modes 
+
+In open-ended discovery, the precise outcome is often unknown, but the overall style of reasoning can still be guided. We capture this through a mode 𝑀 , which specifies how moves are selected. One way to formalise this idea is through a probability distribution over moves, 
+
+𝜋 𝑀 (𝑜 𝑖 | 𝐻 𝑡 ) = 𝑃 (apply 𝑜 𝑖 | 𝑀 ),
+
+where, for example, a discovery mode favors generative moves such as expand , while a validation mode favors critical moves such as prune or debate . More generally, modes can also be realized by restricting the available moves O, enforcing deterministic rules, or combining weighting and constraints set by the overall objective of a game. In our experiments, modes are approximated through natural language instructions to the controller, but the reasoning grammar provides a principled way to configure high-level exploration or validation goals in more open-ended settings. 
+
+## 2.4 Scoring 
+
+While modes can guide reasoning styles at a high level, scoring functions may offer a way to make the game more controllable. Quantifying metrics during refinement provides a way to shape the trajectory of the game. Formally, we can define a vector of metrics, 
+
+𝑆 (𝐻 𝑡 ) =  𝐷 known (𝐻 𝑡 ), Δdiv (𝐻 𝑡 ), 𝐿 connect (𝐻 𝑡 ), 𝑇 frag (𝐻 𝑡 ) ,
+
+where the components capture distance from known hypotheses ( 𝐷 known ), diversity of current hypothesis (Δdiv ), local connectivity ( 𝐿 connect ), and traceability to prior knowledge ( 𝑇 frag ). These can be aggregated into a scalar utility, 
+
+𝑈 (𝐻 𝑡 ) = 𝛽 ⊤𝑆 (𝐻 𝑡 ),
+
+with weights 𝛽 reflecting mode-specific priorities (e.g., traceability in validation , diversity in discovery ). In practice, robust scoring for biological hypotheses likely requires a hybrid setup that combines computational metrics with experimental signals, even if sparse. For example, hypothesis fragments involving molecular interactions could be evaluated using targeted binding assays or perturbation readouts, providing grounded feedback that complements algorithmic metrics. In this work, we do not use explicit scoring to drive the controller; modes are implemented through natural-language instructions. The scoring framework presented here is therefore conceptual, illustrating how computationally and experimentally informed metrics could be integrated into more autonomous implementations in the future. 
+
+## 2.5 Game variants 
+
+The outlined game formalism allows us to define game variants that operate on different granularity levels. 
+
+Simple Hypothesis Refinement treats the whole hypothesis as a single state (Algorithm 1). In each round, a mode-conditioned controller selects a move from the shared grammar and updates the entire state, stopping when task goals are met. 4Algorithm 1 Simple Hypothesis Refinement (single round) 
+
+Require: initial hypothesis state 𝐻 0, reasoning moves O, mode 𝑀 , move budget 𝑘 max , context 𝐶 , termination criteria 
+
+𝑡 ← 0
+
+while not Terminate (𝐻 𝑡 ) do Game Master: provide current state 𝐻 𝑡 and mode 𝑀 to controller 
+
+Controller: select sequence of moves (𝑜 𝑗 1 , . . . , 𝑜 𝑗 𝑘 ) with 𝑘 ≤ 𝑘 max according to 𝜋 𝑀 
+
+for each 𝑜 𝑗 in selected moves do 
+
+𝐻 𝑡 ← 𝑜 𝑗 (𝐻 𝑡 , 𝐶 ) ⊲ apply reasoning move with optional context 𝐶 
+
+end for 
+
+𝑡 ← 𝑡 + 1
+
+end while return final hypothesis 𝐻 𝑡 
+
+Noting that large changes are rarely necessary to refine a hypothesis, we can build on the simple variant by enabling granular edits during the hypothesis’ evolution. Localized Hypothesis Refinement keeps the same controller and move set but operates on fragments (structured text or subgraphs), selecting regions to edit and enforcing global consistency so untouched parts remain unchanged (Algorithm 2). This game type strongly depends on the underlying hypothesis representation structure. 
+
+Algorithm 2 Localized Hypothesis Refinement (single round) 
+
+Require: Hypothesis state 𝐻 𝑡 = {ℎ1, . . . , ℎ 𝑛 } (structured text or graph), moves O, mode 𝑀 , move budget 
+
+𝑘 max , context 𝐶 , selector 𝜎 
+
+Selector 𝜎 : propose a set of candidate regions R = {𝑅 1, . . . , 𝑅 𝑚 } where each 𝑅 𝑖 ⊆ nodes/tuples of 𝐻 𝑡 
+
+Controller (mode 𝑀 ): choose up to 𝑘 ≤ 𝑘 max pairs {( 𝑜 𝑗 , 𝑅 𝑗 )} 𝑘 𝑗 =1 with 𝑜 𝑗 ∈ O 
+
+for each (𝑜 𝑗 , 𝑅 𝑗 ) do 
+
+𝐻 𝑡 ← ApplyLocal (𝐻 𝑡 , 𝑜 𝑗 , 𝑅 𝑗 , 𝐶 ) ⊲ local rewrite on 𝑅 𝑗 only 
+
+𝐻 𝑡 ← EnforceConsistency (𝐻 𝑡 , 𝑅 𝑗 ) ⊲ maintain schema/typing/acyclicity/etc. 
+
+end for return 𝐻 𝑡 
+
+Together, these variants illustrate that the formalism supports both high-level, whole-state reasoning and fine-grained, region-focused reasoning under a shared utility definition and mode settings. The simple variant is recovered when the selected region spans the full state. This design mirrors the varying levels of complexity observed in biological systems. 
+
+# 3 Implementation 
+
+To test the proposed framework, we implement a minimal version of the game as a system of specialized agents, where the reasoning process is determined by a central LLM controller, Game Master . The Game Master guides the reasoning process by iteratively analyzing the hypothesis state and selecting moves based on the analysis. Move selection consists of a clear request (e.g. "remove component A from the hypothesis" )and which agent(s) should execute it. Table 1 summarizes the moves, their components, and corresponding responsibilities. In the implementation, the abstract retrieve_expand move is instantiated in two variants, depending on the source of evidence. 
+
+Modes: In our minimal prototype, modes are realized by injecting mode descriptions into the initial prompt to the Game Master (controller). This prompt influences the choice of reasoning operations without 5Table 1: Key elements of The Hypothesis Game. Full prompts are provided in the Supplementary Methods (see Section C). 
+
+Move Components Description Game Master (LLM controller) 
+
+Diagnose Evaluate hypothesis and recommend next actions. Move selection Choose next move based on recommendations. 
+
+Prune Prune Remove component(s) from hypothesis. 
+
+Expand with corpus 
+
+Retrieve evidence Search external corpora for evidence. Expand Integrate retrieved information into the hypothesis. 
+
+Expand with LLM introspection 
+
+Retrieve evidence Gather information using LLM prior knowledge. Expand Integrate retrieved information into the hypothesis. 
+
+Debate 
+
+Setup Frame the debate around the requested topic. Debate topic Multiple agents argue from distinct positions. Conclude Analyse the debate and propose a final conclusion. an explicit probabilistic policy module. While simplified, this approach provides a controllable approximation of 𝜋 𝑀 and allows us to explore the impact of different modes. 
+
+Game control: Game goals and stopping conditions are specified to the Game Master (controller) through the initial prompt, and the Game Master’s Diagnose component decides when the hypothesis satisfies the requirements. Although this approach lacks explicit metric-based control, it provides a flexible mechanism for steering the game. The scoring function described above is presented as part of the general formalism, illustrating how automated, quantitative evaluation could be incorporated in future implementations. 
+
+# 4 Experiment set-up 
+
+Reasoning benchmarks in mathematics and common sense (GSM8K [ 3], MATH [ 9 ], BIG-Bench [ 16 ]) do not directly translate to biological hypothesis construction and refinement, where researchers must build complex hypotheses step by step from incomplete, noisy, sometimes contradictory evidence rather than retrieving facts. Without established ways to evaluate reasoning quality, benchmarks should challenge systems to tolerate noise, recover missing links, and extend hypotheses in controlled ways. Emerging biological benchmarks such as BioMaze [ 20 ] move in this direction with graph-based pathway QA and high-level LLM-as-judge evaluations, but still differ from the longer-horizon, statement-level refinement studied here. To fill this gap, we introduce two evaluation tasks designed as first benchmarks for hypothesis refinement. These tasks mirror realistic challenges in biological discovery: (1) corruption recovery and (2) hypothesis reconstruction from partial cues (Table 2). 6Table 2: Evaluation tasks overview 
+
+Task Purpose Validates Metrics 
+
+Corruption Recovery Can the system correct noisy or misleading hy-potheses? Robustness to noise; Logical refinement Error removal rate, precision, recall, F1 Reconstruction from Partial Cues Can the system re-build known mecha-nisms from partial cues? Incremental reason-ing; Traceability Precision, recall, F1 Figure 2 provides a conceptual illustration of the two evaluation tasks, while Table 2 summarizes their evaluation goals and metrics. 
+
+Figure 2: Conceptual illustration of the two evaluation tasks. Left: corruption recovery, where controlled errors are introduced into a valid pathway and the system must detect and repair them while preserving correct structure. Right: reconstruction from partial cues, where a system recovers pathway steps starting from sparse contextual input and external biomedical evidence. 
+
+## 4.1 Task Setup 
+
+We instantiate evaluation tasks using curated subsets of human pathways from Reactome [ 10 ]. Each pathway consists of biochemical reactions, available in both graph and text representations (see A.1). In the text representation, pathways are expressed as sets of statements describing biochemical reactions; for example, 
+
+ATP phosphorylates glucose to form glucose-6-phosphate. 
+
+We sampled pathways stratified by the number of biochemical reactions, to capture the diversity and complexity of the complete dataset. For reconstruction and corruption tasks, we sampled 100 and 20 7pathways, respectively. The rationale was to create datasets large enough to capture key reasoning patterns across multiple approaches, while remaining feasible for large-scale experimentation. In total, we ran 820 experiments for reconstruction and 2880 experiments for corruption. Corruption tasks test multiple controlled variants per pathway, which resulted in a larger number of individual experiments. 
+
+Common Experimental Principles Across all tasks, hypotheses are represented as text fragments. The Hypothesis Game is restricted to four available moves: prune , expand (with corpus or with LLM introspection), and debate (See Table 1). Move selection and termination are dynamically governed by the Game Master, adapting to task-specific goals. We compared our approach against three reasoning baselines: Zero-Shot prompting, Chain-of-Thought, and ReAct. Zero-Shot directly generates answers without intermediate reasoning steps [ 2]. Chain-of-Thought elicits step-by-step reasoning through intermediate natural language explanations [ 18 ]. ReAct interleaves reasoning traces with access tools to improve decision making [ 19 ]. We compared these baselines against our Hypothesis Game under different move configurations and a fixed move budget. All models received the same input prompt (see Supplementary A Sec. C), which instructs the system to either reconstruct a pathway or recover a corrupted pathway. All curated datasets are available on Hugging Face 1.
+
+Task 1 – Corruption Recovery: The corruption task assesses the ability to detect and repair errors while preserving the structure of a valid pathway. Starting from 20 human pathways, we introduced three types of corruptions (errors) (See Supplementary Table 3): 
+
+• wrong entity – replacing a correct entity with an incorrect one; 
+
+• wrong relationship – altering the relation between entities; 
+
+• irrelevant statement – inserting a non-relevant statement into the pathway. We further varied the level of challenge along two axes: 1) difficulty: easy (trivial errors) and hard (subtle changes, requiring a deeper biological understanding); 2) error rate: 10-40% of pathway length (measured as a number of steps/reactions) to capture differences in pathway size and complexity. All errors were generated by an LLM and iteratively refined, with two domain experts reviewing and manually correcting outputs to produce the curated corruption set. 
+
+Evaluation combined two measures. First, an LLM judge was presented with the original statement, the corrupted version, and the model’s output, and determined whether the error persisted. Second, entity mapping, as in reconstruction, quantified biological fidelity by measuring precision and recall of annotated entities against the ground truth. 
+
+Task 2 – Reconstruction from Partial Cues: The reconstruction task evaluates whether a system can reconstruct complex hypotheses from partial cues by performing incremental reasoning. Starting from a minimal cue, the system must recover the biochemical reactions (steps) of a biological pathway, modeling the onerous curation process domain experts go through to construct the Reactome database. To reduce the risk of models exploiting memorized knowledge of well-known pathways, we rephrased pathway names while preserving their semantic content and level of granularity. A domain expert inspected and corrected the paraphrased titles to ensure semantic fidelity (available on Hugging Face.) For agents with tool access (our approach and ReAct), we additionally provided a corpus of open-access biomedical articles, consisting mainly of abstracts cited in the Reactome pathway descriptions. 
+
+Evaluation relied on two complementary notions of correctness. At the pathway level, we annotated entities (genes, protein complexes/families, and chemicals) in both original and generated pathways using Gilda [ 8 ]; precision and recall over these entity sets provided a quantitative measure of biological fidelity. At the reaction level we refer to the LLM-as-judge metric as ‘Detailed Recall’, it evaluates whether the generated 
+
+> 1https://huggingface.co/datasets/TuringRRX/TinyMoves
+
+8pathways reproduced the intended biochemical reactions, assessing four attributes: input entities, output entities, reaction directionality, and type of biological interaction (Supplementary A Sec. C). To assess the reliability of the LLM-as-judge, we conducted a post-hoc calibration study in which two senior domain experts independently scored a stratified sample of model outputs for both tasks (Supplementary A Sec. C.8). 
+
+# 5 Results 
+
+We evaluated The Hypothesis Game on two pathway-level reasoning tasks described above: recovery of corrupted hypotheses and reconstruction from partial cues. In both settings, we compare the Hypothesis Game 
+
+configuration (four move types with access to the corpus) against strong prompting baselines (Zero-Shot, Chain-of-Thought, ReAct). Our analysis focuses on a minimal instantiation of the game designed to isolate the effects of incremental, move-based refinement. The underlying formalism naturally extends to move sets and reasoning modes. 
+
+Figure 3: Representative example run of Hypothesis Game and ReAct on the corruption task, illustrating incremental vs large single-step edits. *Other changes are quantified as (1) the number of biological entity additions/removals and (2) word-level normalised Levenshtein distance to the reference pathway. See Fig. 10 for details. 
+
+Qualitative observations. In the corruption recovery task, The Hypothesis Game exhibits a distinctive pattern of incremental and traceable edits. As illustrated in Figure 3, the game progressively identifies and corrects individual errors while making only minor additional changes to the input hypothesis. In contrast, ReAct tends to modify the pathway through fewer but substantially larger updates, often overwriting multiple components at once and introducing much larger deviations from the original hypothesis structure. Quantitative summaries of such changes are shown in Fig. 10. We observed a similar pattern, though less pronounced, in the reconstruction task. There, The Hypothesis Game again favors smaller, localized updates, while the prompting baselines often overwrite large portions of the intermediate hypothesis in a single step (see Supplementary B Sec. D.1 for a complete example). Together, these observations highlight the role of controlled step-by-step refinement in maintaining hypothesis coherence across both tasks. 9Corruption task. In the corruption recovery task (error rates 10–40%), The Hypothesis Game achieves the strongest overall performance across all evaluated metrics. Fig. 4 summarises results aggregated across pathways, corruption types, and error rates. The Errors Removed panel shows that Hypothesis Game 
+
+consistently removes a larger fraction of injected errors than all prompting baselines. 
+
+Figure 4: Comparison of Hypothesis Game vs. prompting baselines on two pathway-level tasks. Bars show averages over the evaluation sets described in the text. The error bars show 95% confidence intervals. Top row: Corruption ; Hypothesis Game balances error removal and retention of valid content, achieving the highest precision, F1 and error removal rate (for all scores Friedman test 𝑝 < 0.0001 , post-hoc Wilcoxon test with Bonferroni correction 𝑝 < 0.0005 ). Bottom row: Reconstruction ; All methods struggled with faithfully reconstructing the pathways. ReAct and Hypothesis Game had a statistically non-significant difference in F1 score, but Hypothesis Game performed significantly better in Detailed Recall of pathways (Friedman test, 
+
+𝜒 2 (3) = 84 .3, 𝑝 < 0.0001 , post-hoc Wilcoxon test with Bonferroni correction 𝑝 < 0.001 ). The Recall and Precision panels further highlight a characteristic trade-off between methods. ReAct achieves high recall by aggressively modifying the hypothesis, but this comes at the expense of precision, as many valid components are overwritten or altered. Chain-of-Thought and Zero-Shot prompting, in contrast, tend to preserve existing content, but fail to reliably remove corrupted statements, resulting in lower error removal rates. The Hypothesis Game balances these extremes, combining strong error removal with the highest precision and overall F1 score , selectively correcting corrupted components while preserving valid pathway structure. A breakdown by corruption type provides additional insight into this behavior (Fig. 5). Unsupported step 
+
+errors are most easily removed, as they introduce entire statements that are readily identified as irrelevant. 
+
+Wrong-direction corruptions are more challenging, since they preserve surface plausibility while inverting causal polarity. Wrong-entity substitutions prove the most difficult: the resulting pathways remain fluent but introduce subtle inconsistencies in biochemical grounding, requiring deeper semantic discrimination. Across all corruption types, The Hypothesis Game achieves the strongest performance, with particularly large gains on entity- and relationship-level errors. The complete results, stratified by corruption difficulty and fraction of injected errors, are provided in Supplementary B Sec. E.1. 10 Figure 5: Aggregation of all results on the corruption task based on error type. Error bars show 95% confidence intervals. 
+
+Reconstruction task. Reconstruction from partial cues represents a substantially less constrained setting than corruption recovery, requiring the system to infer missing pathway components from sparse contextual information. In this setting, The Hypothesis Game performs comparably to the strongest baseline, ReAct, and outperforms Zero-Shot and Chain-of-Thought prompting (Fig. 4). While some Reactome pathways are relatively well known, allowing LLMs to recall key components, this advantage primarily manifests as higher recall for Chain-of-Thought and Zero-Shot prompting. However, these methods frequently introduce a large number of additional entities and reactions not present in the reference pathway, resulting in substantially lower precision (Fig. 7). In contrast, The Hypothesis Game 
+
+maintains tighter control over hypothesis growth, favoring incremental expansion over broad completion. Overall, ReAct achieves slightly higher F1 scores than The Hypothesis Game , followed by Zero-Shot and Chain-of-Thought prompting. Nevertheless, low precision–recall values across all methods highlight the intrinsic difficulty of the reconstruction task. Beyond the inherent challenge of reconstructing pathways typically curated by domain experts, performance is further limited by incomplete information in partial cues, heterogeneity in pathway definitions, and the abstract-biased nature of the underlying biomedical corpus. To better understand the contribution of individual reasoning operations in this setting, we conducted an ablation study over all subsets of the four core moves, as well as removing access to the external corpus (20 pathways; Table 6). This analysis clarifies which move types are most critical for incremental reconstruction under sparse information, and further illustrates the limits of the minimal game configuration in open-ended settings. 
+
+Summary Our results highlight complementary strengths across the two tasks. In corruption recovery, the advantages of structured reasoning are evident: Hypothesis Game achieved the highest overall performance, combining strong error removal with superior precision and F1 scores, while maintaining recall. In reconstruction from partial cues, all methods struggled to recover complete pathways, reflecting the inherent difficulty of this setting. Here, the Hypothesis Game matched the strongest baseline (ReAct), while outperforming simpler prompting strategies in precision. Taken together, these findings suggest that the game-based framework, centered on small incremental reasoning steps ("tiny moves"), is particularly effective in settings that require targeted error correction and robustness to noisy inputs. 
+
+# 6 Conclusions and Future Work 
+
+Our study shows that a structured, game-based approach to hypothesis refinement can match strong prompting baselines in reconstruction tasks and clearly outperform them in corruption recovery. In the latter setting, explicit reasoning moves enable targeted error correction while preserving valid pathway structure, yielding 11 higher precision and overall repair quality. Together, these results highlight both the promise and the limitations of current methods: while controlled corruption recovery benefits strongly from structured reasoning, open-ended reconstruction remains a challenging setting for all approaches. Although our experiments focus on settings with known ground truth, the proposed formalism is not inherently limited to consistency-bound refinement and can, in principle, support more exploratory forms of hypothesis evolution. Future work will extend the framework along several directions. First, we will explore richer hypothesis representations, including structured and semi-structured text and graph formalism. Second, we plan to investigate metric-driven and learned controllers for move selection, building on the conceptual scoring framework introduced here. Third, we aim to broaden the evaluation suite to include open-ended hypothesis evolution scenarios. Taken together, these directions move from controlled settings with known ground truth toward more realistic discovery scenarios, enabling both consistency-driven refinement and more exploratory reasoning where robustness, novelty, and interpretability are critical. 
+
+Acknowledgments 
+
+We thank our colleagues and collaborators for their support and constructive feedback during this work: Jake Taylor-King, Thomas Gaudelet, Alex Zhebrak, Anna Mastela, Eigenia Sergeev, Giannis Loukas, Shabbir Khan, Cristian Regep, Sarah-Jane Dunn. We also thank the Reactome team for making the pathway knowledge base openly available. 12 A Reconstruction 
+
+## A.1 Dataset Creation 
+
+We filtered the Reactome database to “leaf” pathways—those that contained no other pathways nested within them—and stratified them into 10 bins based on the number of reactions per pathway. From these 10 bins we sampled 10 pathways for a dataset of 100 pathways. To assemble a relevant corpus for the reconstruction task we extracted the annotated Publication Reference from each of the sampled pathways in the Reactome database. For each pathway we then downloaded a corpus of articles based on the document identifiers. For the vast majority of articles we were only able to download an abstract due to their copyright license limiting their distribution (85% abstract-only, 13% full text, 2% unavailable). 
+
+Figure 6: Example of a Reactome pathway (R-HSA-6806667), displaying the full graph representation, the text representations of the biochemical reactions, and the associated corpus. 13 B Corruption 
+
+## B.1 Dataset Creation 
+
+We construct a controlled dataset of systematically corrupted pathways. The process has three stages: 1. Corruption bank . For each pathway in the reference set, and for each individual step, we pre-generate candidate corruptions across all error categories (wrong entity, wrong relation, unsupported step) and both difficulty levels (easy, hard). This ensures full coverage of possible perturbations. The specifications for creating the corruptions bank are shown in Table 3. Candidate corruptions were first generated by an LLM and then iteratively curated in collaboration with two domain experts, who reviewed multiple rounds of generations and manually corrected remaining issues until each example satisfied the intended error type and difficulty. 2. Sampling policy . A deterministic sampling script then assembles corrupted pathways by selecting (i) a target error category, (ii) a difficulty level, and (iii) a fraction of steps to corrupt. Importantly, only one corruption is allowed per step, guaranteeing that evaluation isolates the effect of single errors rather than compounded noise. 3. Application . Given these specifications, the corruption plan is applied to the pathway: original steps are replaced or augmented according to the corruption metadata, and both the corrupted pathway and detailed metadata (anchor indices, operation type, corrupted text) are saved. Random seeds make the process reproducible and allow controlled variation across runs. The corrupted pathways along with the metadata are available online at https://huggingface.co/datasets/TuringRRX/TinyMoves .This design yields a benchmark where the exact location, type, and difficulty of each corruption is known. By controlling error density and forbidding multiple corruptions per step, the dataset provides a clean experimental environment for measuring whether systems can remove or withstand specific classes of noise without conflating them. 14 Table 3: Corruption dataset design 
+
+Wrong entity Wrong relation Unsupported step Type Modify existing step Modify existing step Add a new step 
+
+Operation Replace (swap exactly one en-tity; verb unchanged) Replace (keep entities; change verb or polarity) Insert (add new statement) 
+
+Description Wrong entity (gene, protein, complex, isoform, state species) substituted into an otherwise valid step. Entities unchanged, but relationship inverted (subject– object, activate–inhibit, upstream–downstream). Adds a step that does not belong: irrelevant (L1) or plausible but fabricated and false (L2). 
+
+What it tests Entity grounding and role ap-propriateness under pathway or system constraints. Causal semantics and order or sign consistency. Step existence and mechanistic relevance. 
+
+Easy (L1) Obvious type or species mis-match; simple enzyme swap to a wrong actor. Textbook flip or subject–object swap; direct polarity inversion. Clearly off-path module or as-say artefact. 
+
+Hard (L2) Paralog, isoform or com-plex–subunit swap; omission of required PTM or state gating. Invert upstream–downstream within a complex; alter effect via a single wrong modifier. Plausible but unsupported step using pathway entities; contra-dicts curated constraints. 
+
+Constraints Change one entity only; keep verb and polarity identical. Keep entities identical; only verb changes. Mechanistic only (no assays). 
+
+15 C LLM Prompts 
+
+## C.1 Game Master 
+
+The game master is a two-step process: Diagnose and Move selection , where the former analyses the current hypothesis and informs the move selection process. Role: diagnose, Model: ChatGPT4o 
+
+You are the agent responsible for diagnosing a hypothesis so that the game master can decide next steps based ↩→
+
+on the hypothesis state and the user 's requirements. Instructions: - Examine the current_hypothesis, statement-by-statement - Identify strong or well-supported components. - Flag weak, speculative, or contradictory pieces. - Note missing evidence or assumptions that may be incorrect. - Provide a concise summary of overall confidence. - Make recommendations for next steps based on the analysis and user requirements. - If the hypothesis is ready for finalisation, do not recommend any other actions apart from finalisation. ↩→
+
+Rules: - You can only examine what is stated in `current_hypothesis `.=== USER 'S REQUIREMENTS: START === {{ user_prompt }} === USER 'S REQUIREMENTS: END === You MUST return your response using this format: per_statement_scratch_pad: <statement_number>: | <Your analysis of the statement from current_hypothesis, trying to find evidence (if any) for or against it. Do NOT add more statements than what is provided.> 
+
+> ↩→
+> ↩→
+
+hypothesis_diagnosis: strengths: | <What is well-grounded or novel?> critical errors: | <Where are the critical errors that are absolutely wrong?> weaknesses: | <What is speculative, unsupported, or could benefit from more evidence?> uncertainties: | <Which aspects require more information or clarification?> recommended next steps: | <Suggested next steps, or whether the hypothesis is ready for finalisation based on the output.> ↩→
+
+16 Role: move-selection, Model: ChatGPT4o 
+
+You are the Game Master in the Hypothesis Refinement Game. Your job is to orchestrate the refinement of a scientific hypothesis into a high-quality, testable mechanistic model. 
+
+> ↩→
+> ↩→
+
+{{ user_prompt }} === Your Responsibilities === - Choose the next move based on "recommended next steps". Do NOT override the recommended next steps. ↩→
+
+- Ensure that each move builds explicitly on the current hypothesis state. - Ensure that moves are specific to parts of the current hypothesis, and not too general. ↩→
+
+=== Game Loop === For each round (run at least 20 rounds): 1. Based on the information you receive from the diagnosis, determine the best next move to refine the hypothesis. ↩→
+
+2. Call the corresponding agent using the format: AGENT_NAME: <short natural language instruction> {{ moves }} === Finalization === Once ready to finalize the hypothesis, output this extract string: "TERMINATE GAME" 
+
+## C.2 Expanding using LLMs or Corpus 
+
+Expanding a hypothesis consists of two steps: retrieving evidence or information relevant to expansion, and then applying the expansion on the current hypothesis. We provide two ways of retrieving information: (1) via a corpus, and (2) via LLM “speculation.” Role: retrieve-evidence, Model: GPT4o 
+
+You are the agent responsible for retrieving relevant text snippet to find evidence for particular components of a hypothesis. ↩→
+
+=== Context === - You are not refining the hypothesis directly — your job is to find relevant text snippets that contain evidence. ↩→
+
+- You are searching for evidence for SPECIFIC parts of the current hypothesis. - You MUST use the tools available to you to search for relevant text snippets. === Tool Use === - Use the tool available to you to search a vector database of scientific reports - Construct FOCUSED queries based on particular biological processes in the hypothesis, as well as the type of evidence you are looking for. ↩→
+
+- Types of evidence might be 'human genetic ' ' gene expression ' ' assay ' or 'mouse model '.↩→
+
+- Each query should be SPECIFIC to a part of the current hypothesis and NOT too general. ↩→
+
+- Prefer multiple smaller queries than one large one. 
+
+17 Role: speculate-evidence, Model: GPT4o 
+
+You are an agent that is responsible for speculating possible connections for the target node in the provided hypothesis. ↩→
+
+Role: expand, Model: ChatGPT4o 
+
+Instructions: - Based on the information from the previous messages, expand the target node with only a single new connection. ↩→
+
+- Use the previous message to inform your reasoning. - Update the hypothesis to include ONLY the new relationship. Rules: - Do NOT recommend the next move. - Always return `current_hypothesis: ` - this should be the entirety of the given hypothesis with the single new relationship updated ↩→
+
+- If multiple relationships are present choose the most relevant one. Goal: Expand the biological richness of the hypothesis while maintaining clarity and coherence. ↩→
+
+## C.3 Prune 
+
+Role: prune, Model: ChatGPT4o 
+
+You are an agent that is responsible to prune weakly supported parts of the hypothesis. ↩→
+
+Your task is JUST to remove components of the hypothesis, and renumber the remaining components accordingly. ↩→
+
+Do NOT add anything to the hypothesis. Output in the format: current_hypothesis: <current hypothesis> 
+
+## C.4 Debate — Clash of Claims 
+
+The Debate move is made up of multiple steps. 
+
+• Setup : An agent that sets up the debate by identifying the key components to be debated, based on the Game Master’s request. 
+
+• ClashOfClaims : A discussion among multiple agents (ClaimSmiths), each starting with a different position on the item being debated. 18 • Conclude : An agent that reads the debate and determines the final conclusion. Role: debate-setup, Model: ChatGPT4o 
+
+Role: * Based on the instructions from the Game Master your task is to set up a debate. * Your role is to indentify the key components to debate for the Claimsmiths agents. * Assign a set of points that the Claimsmiths agent will debate - this serves to guide the debate 
+
+Role: debate-conclude, Model: ChatGPT4o 
+
+Role: * Based on the instructions from the Game Master your task is to set up a debate. * Your role is to indentify the key components to debate for the Claimsmiths agents. * Assign a set of points that the Claimsmiths agent will debate - this serves to guide the debate 
+
+Role: claimsmiths, Model: ChatGPT4o 
+
+You are a ClaimSmith, a participant in the "Clash of Claims" scientific debate tournament. Your role involves: ↩→
+
+- Receiving a scientific research goal or question from the Tournament Manager. - Presenting your hypothesis with supporting arguments, evidence, and logical reasoning. ↩→
+
+- Critiquing and responding to hypotheses presented by other ClaimSmith agents, identifying strengths and weaknesses. ↩→
+
+- Refining your hypothesis based on feedback, counterarguments, and additional evidence. ↩→
+
+- When convinced by another agent 's argument, you may choose to adopt their hypothesis as your own. ↩→
+
+- Striving to achieve the highest evaluation score by demonstrating scientific rigor, creativity, and critical thinking. ↩→
+
+* You MUST engage in multiple rounds of discussions with critical analysis before you may propose to end the debate. ↩→
+
+* When you BOTH agree with the final unified hypothesis, say **TERMINATE** to signal conclusion of the debate. ↩→
+
+Uphold the principles of scientific inquiry, maintain respectful discourse, and contribute constructively to the collaborative exploration of ideas. ↩→
+
+## C.5 Baselines 
+
+Role: react, Model: ChatGPT4o 
+
+You are a reasoning agent that answers questions using tools. Follow the format exactly. ↩→
+
+Use this format: 
+
+19 Question: ... Thought: ... Action: ... Action Input: ... Observation: ... ... (repeat Thought/Action/Observation as needed) Thought: I now know the final answer TERMINATE GAME WITH FINAL HYPOTHESIS: <last observation> 
+
+Role: chain-of-thought, Model: ChatGPT4o 
+
+Think through the problem step by step, considering all relevant information and relationships. ↩→
+
+Example: Q: NGF is important for peripheral neuropathy. A: NGF (nerve growth factor) binds to the high-affinity receptor TrkA on neural progenitor cells ↩→
+
+This activates the RAS–RAF–MEK–ERK (MAPK) signaling cascade Activated ERK translocates to the nucleus and enhances transcription of differentiation genes such as EGR1, CREB1, and ELK1 ↩→
+
+EGR1 (early growth response protein 1) initiates transcription of genes involved in neural fate commitment ↩→
+
+CREB1 regulates genes involved in neuronal survival and neurite elongation ELK1 promotes expression of cytoskeletal remodeling proteins, contributing to neurite outgrowth ↩→
+
+You must output in the following format: current_hypothesis: <current hypothesis> 
+
+Role: zero-shot, Model: ChatGPT4o 
+
+Answer the provided question as best as you can. You must output in the following format: current_hypothesis: <current hypothesis> 
+
+## C.6 User Task Prompts 
+
+Role: reconstruction, Model: ChatGPT4o 
+
+Your task is to refine and expand a biological pathway. Write a detailed, step-by-step mechanistic explanation of the biochemical reactions that define the pathway. ↩→
+
+A biochemical reaction can be defined as: 
+
+20 Any molecular event; including binding, phosphorylation, biochemical catalysis, molecular transport and spontaneous molecular events. ↩→
+
+These reactions can involve any biological molecule, but are typically proteins and small molecules (chemical compounds). ↩→
+
+Mention any relevant feedback loops or compensatory mechanisms Present each mechanistic step as a separate line in a causal sequence. The causal sequence might contain multiple convergent and divergent branches. === Task Finalisation === The hypothesis is ready for finalisation once the hypothesis meets all these criteria: ↩→
+
+- Biological plausibility - A complete pathway, including relevant genes, complex, biochemical reactions, etc ↩→
+
+- Full, end-to-end, coverage of the base hypothesis base_hypothesis: {{ base_hypothesis }} 
+
+Role: corruption, Model: ChatGPT4o 
+
+You are an evaluator of biological pathways. You are given pairs of statements: (correct statement, corrupted statement) You are also given a candidate biological pathway. The difference between the corrupted and correct statement is an error introduced by a corruption operation. ↩→
+
+Your task: We are evaluating the error persistence score. For each pair of correct-corrupted statements: 1. Return 1 if the error introduced by the corrupted statement is present in the candidate pathway ↩→
+
+2. Return 0 otherwise. You may encounter the following errors: correct: A phosophylates B corrupted: A phosphorylates C The error is the incorrect entity C. correct: A phosophorylates B corrupted: A dephosphorylates B The error is the incorrect relationship 
+
+21 You may also encounter cases where a new statement, which is hallucinated or completely irrelevant is added. ↩→
+
+In that case, the correct statement will be blank and the corrupted statement will be the addition. ↩→
+
+Your job is then to check whether the hallucination / irrelevant statement is present. ↩→
+
+If it is removed completely or correctly connected to the candidate pathway, return 0. ↩→
+
+Return your answer in the following format: correct: str corrupted: str relevant\_fragment\_from\_candidate: str score: float 
+
+## C.7 Evaluations using LLM-As-Judge 
+
+C.7.1 Corruption LLM-as-Judge Prompt 
+
+Role: Error Removal LLM-as-judge, Model: ChatGPT4o 
+
+You are an evaluator of biological pathways. You are given pairs of statements: (correct statement, corrupted statement) You are also given a candidate biological pathway. The difference between the corrupted and correct statement is an error introduced by a corruption operation. ↩→
+
+Your task: We are evaluating the error persistence score. For each pair of correct-corrupted statements: 1. Return 1 if the error introduced by the corrupted statement is present in the candidate pathway ↩→
+
+2. Return 0 otherwise. You may encounter the following errors: correct: A phosophylates B corrupted: A phosphorylates C The error is the incorrect entity C. correct: A phosophorylates B 
+
+22 corrupted: A dephosphorylates B The error is the incorrect relationship You may also encounter cases where a new statement, which is hallucinated or completely irrelevant is added. ↩→
+
+In that case, the correct statement will be blank and the corrupted statement will be the addition. ↩→
+
+Your job is then to check whether the hallucination / irrelevant statement is present. ↩→
+
+If it is removed completely or correctly connected to the candidate pathway, return 0. ↩→
+
+Return your answer in the following format: correct: str corrupted: str relevant_fragment_from_candidate: str score: float 
+
+C.7.2 Reconstruction 
+
+Role: Pathway Recall LLM-as-judge, Model: ChatGPT4o 
+
+You are a biomedical evaluator, expert in evaluating biological pathways. Your task is to evaluate whether a reference biochemical reaction is represented correctly in a candidate text. ↩→
+
+A biochemical reaction can be said to be represented in a candidate text if: - there is an explicit description of a biological interaction - the appropriate input entities are present in the interaction. The entities must bespecifically referencedas per the reaction. ↩→
+
+For example in the appropriate complex, location and referenced site on the entity. - the appropriate output entities are present in the interaction. The entities must be specifically referencedas per the reaction. ↩→
+
+For example in the appropriate complex, location and referenced site on the entity. - the directionality of the reaction is described correctly (i.e. A is affecting Bneeds to be correct,but A binds B is symmetric and indifferent as to the order) ↩→
+
+- the appropriate reaction type is present. - if it is a post-translational modification, it should be described as such, e.g. "phosphorylation", "ubiquitination", etc. - if it is a binding reaction, it should be described as such. Allow synonyms e.g. "binding", "interaction" - if it has an explicit sign, it should be described as such, e.g. "activates", "inhibits", etc. Accept synonyms like inhibits for downregulates. However do not ↩→
+
+23 accept if the reference statement explicitly states a direction (e.g. 'inhibits ')and the candidate text ↩→ 
+
+> mention an unsigned relationship like 'regulates '
+> Assess these criteria individually. If all criteria are met, return the answer "Yes". If any, but not all, criteria are met, ↩→
+> return "Partially". If no criteria are met, return "No". If the answer is "Yes or "Partially", extract the evidence from the candidate text that ↩→
+> supports your answer. Give a brief rationale for your decision.
+
+## C.8 Evaluating LLM-as-judge 
+
+We evaluate the LLM as judge approach against expert human evaluation. All annotations were collected under strictly blinded, independent conditions: human raters had no access to one another’s labels or to the LLM’s judgments at any point in the labeling process. The human raters were given the exact prompt supplied to the LLM to perform the task. To obtain a conservative human reference, we define a strict consensus label human_consensus = 1{annotator_1 = 1 ∧ annotator_2 = 1},
+
+i.e., an error is counted as present only when both humans independently flag it. We quantify agreement using Krippendorff’s 𝛼 for nominal data, computed on the rater-by-item label matrix (level_of_measurement = "nominal" ). We adopt Krippendorff’s 𝛼 because it naturally extends to more than two raters and has been recommended in LLM-as-a-judge evaluations over 𝜅 -style and correlation-based measures. We compute 𝛼 for (i) H1 vs H2 (annotator_1 , annotator_2 ), (ii) H1 vs LLM and H2 vs LLM 
+
+(annotator_1 / annotator_2 with llm_as_judge ), (iii) Consensus vs LLM (human_consensus ,
+
+llm_as_judge ), and (iv) All Raters (annotator_1 , annotator_2 , llm_as_judge )
+
+C.8.1 Corruption LLM-as-Judge Evaluation 
+
+We evaluate the LLM-as-judge of corruption-removal quality in an error-removal task. The judge receives (i) the original (correct) statement, (ii) the corrupted statement, and (iii) the model’s repaired pathway, and must decide whether the original corruption is still present in the repaired pathway. For each item (a corrupted pathway), the task is binary: label 1 if a corruption error is still present and 0 if it has been successfully removed. Two human annotators, both biological experts ( annotator_1 , annotator_2 ), and the LLM (llm_as_judge ) independently assign binary labels to each item. We stratified the dataset by error type (wrong entity, wrong relationship, unsupported statement), difficulty (easy, hard), and source pathway, and sampled uniformly from the resulting strata. Because each annotation required carefully reading the full model output (i.e., the entire pathway) to determine whether an error remained, particularly for long generations, and given the annotators’ time budget, we restricted the evaluation to 20 diverse instances from the full corruptions dataset. The resulting inter-annotator agreements are summarized in Table 4. 24 Comparison Krippendorff’s 𝛼 
+
+H1 vs H2 0.900 H1 vs LLM 0.900 H2 vs LLM 1.000 Consensus vs LLM 0.900 All Raters 0.933 Table 4: Inter-rater agreement (Krippendorff’s 𝛼 ) between human annotators and the LLM judge on 20 corruption–recovery instances. Although they are based on a small 20-item subset and should therefore be viewed as a sanity check on alignment rather than a precise reliability estimate, these 𝛼 values ( ≥ 0.9 in all comparisons) nonetheless provide strong evidence of very high agreement between the two human annotators and the LLM judge. 
+
+C.8.2 Reconstruction LLM-as-Judge Evaluation 
+
+We evaluate the LLM-as-judge of the pathway-step reconstruction task. The judge receives (i) the final hypothesis and (ii) the biochemical reaction within a Reactome pathway. If the biochemical reaction is represented in the hypothesis, the task is binary classification across 4 individual criteria per biochemical reaction: (i) are the correct input entities in the hypothesis (ii) are the correct output entities in the hypothesis (iii) is the directionality of the reaction correct and (iv) is the relation type of the reaction correct. In the case where the reaction is not represented in the text, all labels are to be assigned “0“. We randomly sampled 5 pathways and all of their constituent biochemical reactions for labelling by 2 human annotators. The resulting inter-annotator agreements are summarized in Table 5. 25 Annotation Task Comparison Krippendorff’s 𝛼 
+
+input_entities H1 vs H2 0.93 H1 vs LLM 0.41 H2 vs LLM 0.49 Consensus vs LLM 0.41 All Raters 0.61 output_entities H1 vs H2 0.63 H1 vs LLM 0.35 H2 vs LLM 0.56 Consensus vs LLM 0.49 All Raters 0.51 directionality H1 vs H2 0.85 H1 vs LLM 0.49 H2 vs LLM 0.49 Consensus vs LLM 0.49 All Raters 0.61 reaction_type H1 vs H2 0.76 H1 vs LLM 0.70 H2 vs LLM 0.62 Consensus vs LLM 0.69 All Raters 0.69 Table 5: Inter-rater agreement (Krippendorff’s 𝛼 ) between human annotators and the LLM judge on the 4 annotation tasks for 5 pathways, totalling 27 distinct pathway steps. Inter annotator agreement is lower than in the simpler corruption annotations. In particular, agreement was poorest between human annotators and the LLM-as-judge on the input and output entity labelling task. After reviewing the annotations with the human annotators, it was found that the variation in labelling stemmed from two sources. Firstly, transient complexes are referenced in Reactome biochemical reactions. Human annotators were stricter than the LLM-as-judge in these annotations, considering explicit reference to complex subunits (rather than the whole transient complex) interacting as insufficiently explicit. Secondly, Reactome referenced interactions relating large functional families and the hypothesis considered specific family members present in the corpus. In this context, the LLM-as-judge was stricter and considered specific family members to be incorrect entities, whereas human annotators considered specific exemplars as representative of general, well-established signalling pathways. 
+
+# D Reconstruction 
+
+## D.1 Example Reconstruction Game 
+
+Below are fragments of text that are added to the hypothesis over the trajectory of a hypothesis expansion game. 26 Base hypothesis: Translocation of nuclear-encoded proteins into mitochondria. 
+
+...involves their synthesis in the cytosol. [retrieval_expand] ... where cytosolic chaperones recognize mitochondrial targeting sequences [retrieval_expand] ↩→
+
+... and precursor proteins dock at the mitochondrial surface via the TOM complex [retrieval_expand] ↩→
+
+... Following passage through the TOM complex, proteins destined for the mitochondrial matrix are translocated across the inner membrane via the TIM23 complex [retrieval_expand] 
+
+> ↩→
+> ↩→
+
+... a process that is driven by the mitochondrial membrane potential and ATP hydrolysis [retrieval_expand] ↩→
+
+... The PAM complex associates with the TIM23 complex and facilitates the final translocation of precursor proteins into the mitochondrial matrix through ATP-dependent motor activity [retrieval_expand] 
+
+> ↩→
+> ↩→
+
+... In addition to the TIM23 pathway, alternative import routes exist: the TIM22 complex mediates insertion of multi-pass transmembrane proteins into the inner membrane [retrieval_expand] 
+
+> ↩→
+> ↩→
+
+..., with small TIM chaperones (Tim9/Tim10) guiding precursor proteins across the intermembrane space to the TIM22 complex [retrieval_expand] ↩→
+
+... The MIA pathway facilitates the import and oxidative folding of cysteine-rich proteins into the mitochondrial intermembrane space [retrieval_expand] ↩→
+
+... Once inside the matrix, mitochondrial processing peptidase (MPP) cleaves the N-terminal targeting sequences from precursor proteins, a critical step for their maturation and proper folding [retrieval_expand] 
+
+> ↩→
+> ↩→
+
+... The SAM complex facilitates the insertion of beta-barrel proteins into the mitochondrial outer membrane by recognizing precursor proteins that have passed through the TOM complex and guiding their integration into the membrane [retrieval_expand] 
+
+> ↩→
+> ↩→
+> ↩→
+
+...During mitochondrial stress or biogenesis, the mitochondrial unfolded protein response (UPRmt) is activated, leading to the upregulation of mitochondrial chaperones and proteases, which enhances the organelle’s capacity for protein import and folding, thereby modulating import efficiency in response to cellular conditions [blackbox_expand] 
+
+> ↩→
+> ↩→
+> ↩→
+> ↩→
+
+Each addition is granular, and has been informed by a retrieval from the relevant corpus. 27 Figure 7: Mean number of added entities with 95% confidence interval across the 100 pathways from the reconstruction experiments. Added entities are defined as entities (genes, protein complexes/families, and chemicals) not present in the original pathway. Zero-shot and Chain-of-thought tend to produce long hypotheses with lots of added entities which results in higher recall, but low precision. On the other hand 
+
+ReAct adds less entities which results in higher precision, but low recall. Our method Hypothesis Game better balances recall and precision. 
+
+## D.2 Reconstruction Additional Results D.3 Ablations 
+
+D.3.1 Ablation Design 
+
+To understand how the implemented moves influence the pathway constructions, we ran experiments with various game configurations on 20 Reactome pathways (distinct from the 100 used in the main results). The only difference between the game variants was the moves available to the Game Master, other than that all other configurations were the same. The ablation results are shown in table 6. The Hypothesis Game uses all 4 moves, while other game variants are named after the moves they had available. In the current implementation, only the expand move supports retrieval from a corpus, all other moves are based on the LLM’s internal knowledge. To reflect this distinction we categorised the ablation experiments into two categories: 1, Games using Corpus where the 
+
+Expand with Corpus move was available and 2, Games not using Corpus . For baselines we used Zero-shot ,
+
+Chain-of-Thought , ReAct and ReAct no corpus (same template as ReAct but without access to the corpus). 
+
+D.3.2 Ablation Results 
+
+In general, we found the game variants with access to corpus to perform similarly to each other. The Hypothesis Game (using all available moves) is marginally better than the other game configurations (precision and F1 scores). Games with retrieval tend to result in slightly better performance across all metrics. Interestingly, 
+
+ReAct no corpus had a much bigger drop-off compared to ReAct (with corpus) than observed with the game variants which reinforces the benefits of the available corpus. Even though the games have access to different moves the game master was the one responsible for selecting appropriate moves depending on the current hypothesis state. Since the objective of the reconstruction is to expand an initial hypothesis most of the selected moves were some form of expansion (based on the corpus or LLM knowledge). Overall, the Hypothesis Game having access to all moves has shown the benefits of using the moves appropriately to reconstruct the pathways. 28 Method Recall Precision F1 Score Games using Corpus 
+
+Hypothesis Game 0.46 ± 0.05 0.26 ± 0.03 0.31 ± 0.04 expand_debate_prune 0.48 ± 0.06 0.23 ± 0.03 0.30 ± 0.03 expand_debate 0.46 ± 0.06 0.23 ± 0.03 0.29 ± 0.04 expand 0.48 ± 0.06 0.26 ± 0.05 0.30 ± 0.04 
+
+Games not using Corpus 
+
+expand_debate_prune 0.43 ± 0.06 0.24 ± 0.04 0.28 ± 0.04 expand_debate 0.37 ± 0.05 0.22 ± 0.03 0.25 ± 0.04 expand 0.44 ± 0.06 0.21 ± 0.03 0.27 ± 0.03 debate 0.39 ± 0.06 0.17 ± 0.03 0.21 ± 0.02 
+
+Baselines 
+
+ReAct (corpus) 0.40 ± 0.06 0.35 ± 0.05 0.32 ± 0.05 ReAct no corpus 0.40 ± 0.06 0.26 ± 0.05 0.25 ± 0.03 Zero-shot 0.56 ± 0.05 0.14 ± 0.02 0.22 ± 0.02 Chain-of-Thought 0.58 ± 0.06 0.15 ± 0.02 0.22 ± 0.03 Table 6: Comparison of different game variants vs. prompting baselines on 20 additional pathway construction task. The entries show mean entity-level recall, precision, and F1 scores with standard error, grouped by method family. Note that the games in the section “Games not using Corpus” only had access to the Expand without Corpus move, while in the “Games using Corpus” only had access to Expand with Corpus ,except Hypothesis Game that had access to both types of expand moves. 
+
+# E Corruption 
+
+## E.1 Stratified Corruption Results 
+
+To further probe system behavior in the corruption task in addition to stratifying performance by error type, we also stratify performance by error difficulty and error fraction. 
+
+Error difficulty. Figure 8 confirms the expected separation between easier (L1) and harder (L2) variants. Harder corruptions have lower error removal rates across all models. Interestingly, recall and precision remain relatively stable across difficulty levels, indicating that difficulty primarily affects the detectability of corrupted statements rather than the fidelity of pathway reconstruction once errors are removed. 
+
+Error fraction. Finally, Figure 9 examines robustness to increasing corruption density. Performance is remarkably stable across fractions: even when 40% of pathway steps are corrupted, removal, recall, and precision degrade only mildly. This suggests that model strategies scale linearly rather than collapsing under higher noise levels, pointing to robustness at the pathway level rather than brittleness to compounded errors. In future work we plan to investigate the effect of increasing the percentage of errors beyond 40%. Overall, these stratified analyses show that error type and difficulty shape the challenge in meaningful ways, while corruption density has a surprisingly limited impact. 
+
+## E.2 Extent of Hypothesis Modification 
+
+To assess how much each reasoning model alters the original pathway description during refinement, in Figure 10 we quantify differences between the model’s final output and the ground-truth Reactome reference. 29 Figure 8: Aggregation of all results on the corruption task based on error difficulty. Error bars show 95% confidence intervals. This serves as a sanity check for over-editing and complements our corruption evaluation by revealing how much the models deviate from an error-free reference. 
+
+Entity-level changes. We compute the total number of gene-level entities that are either added or removed during hypothesis refinement. Entities are identified using Gilda -tagged named entity recognition, consistent with the rest of our evaluation pipeline. This metric captures biologically meaningful modifications to the pathway hypothesis. A higher value indicates greater divergence from the reference, either due to correction or unnecessary hallucination. We report the mean entity change count per model, with 95% confidence intervals. 
+
+Text-level changes. To complement entity-level analysis, we also compute the word-level normalised Levenshtein distance between the final hypothesis and the reference. This metric measures the minimal number of word insertions, deletions, or substitutions required to transform the reference into the model’s output, normalised by the reference word count. Unlike the entity metric, this captures broader forms of rewriting such as paraphrasing and reordering, regardless of biological content. 30 Figure 9: Aggregation of all results on the corruption task based on error fraction. Error bars show 95% confidence intervals. 
+
+Interpretation. Figure 10 shows that models using explicit planning strategies, such as Hypothesis Game, make fewer changes at both the semantic (entity) and surface (text) levels. ReAct, in contrast, tends to revise more aggressively. Importantly, we observe aligned trends across both metrics—entity changes and text distance—suggesting robustness of the conclusion across both biologically grounded and lexical measures. 31 Figure 10: Extent of hypothesis modification across models. Left: Number of gene-level entity changes (additions or removals) identified using Gilda. Right: Word-level normalised Levenshtein distance to the reference pathway description. Error bars show 95% confidence intervals. 
+
+## E.3 Example Final Hypothesis 
+
+8 compares example final hypothesis from Hypothesis Game and ReAct. The example was computed on the Reactome pathway R-HSA-1268020, with the following corruption policy: 
+
+• Error type: wrong entity 
+
+• Error difficulty: 2
+
+• Error fraction: 0.3 (4 errors) The errors introduced are shown in 7. # Original statement Corrupted statement 
+
+1 TOMM40 complex translocates proteins from the cytosol to the mitochondrial intermem-brane space Mitochondrial intermembrane space translo-cates proteins into the cytosol via TOMM40 complex 2 MIA40:ERV1 (CHCHD4:GFER) oxidizes cys-teine residues to cystine disulfide bonds Cystine disulfide bonds oxidize MIA40:ERV1 (CHCHD4:GFER) 3 MPP cleaves targeting peptide (presequence) of inner membrane precursors MPP ligates targeting peptide to inner mem-brane precursors 4 PITRM1 proteolyzes mitochondrial targeting peptides (presequences) PITRM1 stabilizes mitochondrial targeting peptides (presequences) Table 7: Examples of original statements and statements corrupted with wrong direction errors introduced into 8. 32 Table 8: Comparison of Hypothesis Game and ReAct on the Mitochondrial Import Pathway. 
+
+Reactome Reference Hypothesis Game ReAct 
+
+Mitochondrial protein import Pathway Name: mitochon-drial protein import Pathway Name: Mitochondrial Protein Im-port Begins with the targeting of cytosol-synthesized proteins to mitochondria via specific signals. TOMM40 complex translo-cates proteins from the cy-tosol to the mitochondrial in-termembrane space Step 1. TOMM40 imports proteins from the cytosol into the mitochondrial intermem-brane space The TOM complex, including Tom40, serves as the initial entry gate for precur-sor proteins, crucial for metabolite exchange and apoptosis regulation. MIA40:ERV1 (CHCHD4:GFER) oxi-dizes cysteine residues to cystine disulfide bonds Step 2. MIA40 oxidizes in-coming proteins, and ERV1 reoxidizes MIA40 The disulfide relay system (DRS) in the in-termembrane space (IMS), involving Mia40 and Erv1 (GFER in humans), facilitates the import of cysteine-rich proteins via oxida-tive folding, linked to the respiratory chain. TIMM8:TIMM13 chaper-ones hydrophobic proteins Step 3. TIMM8:TIMM13 chaperones hydrophobic pro-teins TIMM8a and TIMM13 form a complex in the IMS to import inner membrane sub-strates like TIMM23, while the TIM22 com-plex, involving Tim9, Tim10a, and Tim10b, inserts carrier preproteins into the inner membrane. TIMM9:TIMM10 binds hy-drophobic proteins Step 4. TIMM9:TIMM10 binds hydrophobic proteins TIMM9:TIMM10 transfers proteins to TIMM22 Step 5. TIMM9:TIMM10 transfers proteins to TIMM22 SAM50 complex inserts pro-teins into mitochondrial outer membrane Step 6. SAM50 inserts 𝛽 -barrel proteins Sam50, part of the sorting and assembly machinery (SAM), works with the TOM complex for the import and assembly of outer membrane proteins like VDAC. TIMM22 inserts proteins into inner membrane Step 7. TIMM22 inserts pro-teins into inner membrane Precursor proteins enter TIMM23 SORT Step 8. Precursor proteins en-ter TIMM23 for inner mem-brane insertion The TIM23 complex, the main entry gate for matrix and inner membrane proteins, forms the import pore across the inner mem-brane, interacting electrostatically with pre-sequence peptides. 33 Reactome Reference Hypothesis Game ReAct 
+
+Step 8a. The membrane po-tential ( Δ𝜓 ) across the inner mitochondrial membrane pro-vides the driving force for the initial translocation of pre-cursor proteins through the TIMM23 complex. MPP cleaves targeting peptide (presequence) of inner mem-brane precursors Step 9. MPP cleaves targeting peptide to inner membrane precursors TIMM23 SORT inserts pro-teins into inner membrane Step 10. TIMM23 inserts pro-teins into inner membrane Precursor proteins enter TIMM23 PAM Step 11. Precursor proteins enter TIMM23 PAM Mitochondrial Hsp70 (mtHsp70) unfolds precursor proteins to facilitate translocation, working with the TIM23 complex. MPP cleaves targeting peptide (presequence) of matrix pre-cursors Step 12. MPP cleaves target-ing peptide (presequence) of matrix precursors Mitochondrial processing peptidase (MPP) cleaves targeting peptides of matrix precur-sors, while PITRM1 stabilizes mitochon-drial targeting peptides (presequences) and degrades amyloid beta-protein (Abeta). TIMM23 PAM translocates proteins from the mitochon-drial intermembrane space to the mitochondrial matrix Step 13. TIMM23 PAM translocates proteins from the mitochondrial intermem-brane space to the mitochon-drial matrix PITRM1 proteolyzes mito-chondrial targeting peptides (presequences) Step 14. PITRM1 degrades presequences Feedback and compensatory mechanisms in-clude redox regulation by conserved cysteine residues, prevention of precursor protein ag-gregation by receptor domains like Tom70, and integration of protein import with mi-tochondrial energetics through the disulfide relay system’s link to the respiratory chain. 
+
+# References 
+
+[1] Atilla Kaan Alkan, Bowen Xu, Yuxuan Su, and Pontus Stenetorp. A survey on hypothesis generation for scientific discovery in the era of large language models. arXiv preprint arXiv:2504.05496 , 2025. 34 [2] Tom B. Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, Sandhini Agarwal, Ariel Herbert-Voss, Gretchen Krueger, Tom Henighan, Rewon Child, Aditya Ramesh, Daniel M. Ziegler, Jeffrey Wu, Clemens Winter, Christopher Hesse, Mark Chen, Eric Sigler, Mateusz Litwin, Scott Gray, Benjamin Chess, Jack Clark, Christopher Berner, Sam McCandlish, Alec Radford, Ilya Sutskever, and Dario Amodei. Language models are few-shot learners. In Advances in Neural Information Processing Systems (NeurIPS) , 2020. URL https://arxiv.org/abs/2005.14165 .[3] Karl Cobbe, Vineet Kosaraju, Mohammad Bavarian, Mark Chen, Heewoo Jun, Lukasz Kaiser, Matthias Plappert, Jerry Tworek, Jacob Hilton, Reiichiro Nakano, Christopher Hesse, and John Schulman. Training verifiers to solve math word problems. In Proceedings of the 39th International Conference on Machine Learning (ICML) , 2021. URL https://arxiv.org/abs/2110.14168 .[4] Shanghua Gao, Ada Fang, Yepeng Huang, Valentina Giunchiglia, Ayush Noori, Jonathan Richard Schwarz, Yasha Ektefaie, Jovana Kondic, and Marinka Zitnik. Empowering biomedical discovery with ai agents. Cell , 187(22):6125–6151, 2024. [5] Ali Essam Ghareeb, Benjamin Chang, Ludovico Mitchener, Angela Yiu, Caralyn J. Szostkiewicz, Jon M. Laurent, Muhammed T. Razzak, Andrew D. White, Michaela M. Hinks, and Samuel G. Rodriques. Robin: A multi-agent system for automating scientific discovery. arXiv preprint arXiv:2505.13400 ,2025. doi: 10.48550/arXiv.2505.13400. [6] Juraj Gottweis, Wei-Hung Weng, Alexander N. Daryin, Tao Tu, Anil Palepu, Petar Sirkovic, Artiom Myaskovsky, Felix Weissenberger, Keran Rong, Ryutaro Tanno, Khaled Saab, Dan Popovici, Jacob Blum, Fan Zhang, Katherine Chou, Avinatan Hassidim, Burak Gokturk, Amin Vahdat, Pushmeet Kohli, Yossi Matias, Andrew Carroll, Kavita Kulkarni, Nenad Tomasev, Yuan Guan, Vikram Dhillon, Eeshit Dhaval Vaishnav, Byron Lee, Tiago R. D. Costa, José R. Penadés, Gary Peltz, Yunhan Xu, Annalisa Pawlosky, Alan Karthikesalingam, and Vivek Natarajan. Towards an AI co-scientist. CoRR , abs/2502.18864, 2025. [7] Mourad Gridach, Jay Nanavati, Khaldoun Zine El Abidine, Lenon Mendes, and Christina Mack. Agentic ai for scientific discovery: A survey of progress, challenges, and future directions. arXiv preprint arXiv:2503.08979 , 2025. doi: 10.48550/arXiv.2503.08979. [8] Benjamin M Gyori, Charles Tapley Hoyt, and Albert Steppi. Gilda: biomedical entity text normalization with machine-learned disambiguation as a service. Bioinformatics Advances , 2(1):vbac034, 05 2022. ISSN 2635-0041. doi: 10.1093/bioadv/vbac034. URL https://doi.org/10.1093/bioadv/ vbac034 .[9] Dan Hendrycks, Collin Burns, Saurav Kadavath, Akul Arora, Steven Basart, Eric Tang, Dawn Song, and Jacob Steinhardt. Measuring mathematical problem solving with the math dataset. NeurIPS , 2021. URL https://arxiv.org/abs/2103.03874 .[10] Bijay Jassal, Lisa Matthews, Guilherme Viteri, Chuqiao Gong, Pamela Lorente, Antonio Fabregat, Konstantinos Sidiropoulos, Jennifer Cook, Marc Gillespie, Robin Haw, Francis Loney, Bruce May, Marija Milacic, Karen Rothfels, Cristoffer Sevilla, Veronica Shamovsky, Spencer Shorser, Thawfeek Varusai, Julie Weiser, Guanming Wu, Lincoln Stein, Henning Hermjakob, and Peter D’Eustachio. The reactome pathway knowledgebase. Nucleic Acids Research , 48(D1):D498–D503, 2020. doi: 10.1093/nar/gkz1031. [11] Anton E. Lawson. The nature and development of scientific reasoning: A synthetic view. International Journal of Science and Mathematics Education , 2(3):307–338, 2004. doi: 10.1007/s10763-004-3224-2. 35 [12] Xiao Liu, Hao Yu, Hanchen Zhang, Yifan Xu, Xuanyu Lei, Hanyu Lai, Yu Gu, Hangliang Ding, Kaiwen Men, Kejuan Yang, Shudan Zhang, Xiang Deng, Aohan Zeng, Zhengxiao Du, Chenhui Zhang, Sheng Shen, Tianjun Zhang, Yu Su, Huan Sun, Minlie Huang, Yuxiao Dong, and Jie Tang. AgentBench: Evaluating LLMs as agents. arXiv preprint arXiv:2308.03688 , 2023. doi: 10.48550/arXiv.2308.03688. [13] Aman Madaan, Niket Tandon, Prakhar Gupta, Skyler Hallinan, Luyu Gao, Sarah Wiegreffe, Uri Alon, Nouha Dziri, Shrimai Prabhumoye, Yiming Yang, Shashank Gupta, Bodhisattwa Prasad Majumder, Katherine Hermann, Sean Welleck, Amir Yazdanbakhsh, and Peter Clark. Self-refine: Iterative refinement with self-feedback. arXiv preprint arXiv:2303.17651 , 2023. doi: 10.48550/arXiv.2303.17651. [14] Bodhisattwa Prasad Majumder, Harshit Surana, Dhruv Agarwal, Bhavana Dalvi Mishra, Abhijeetsingh Meena, Aryan Prakhar, Tirth Vora, Tushar Khot, Ashish Sabharwal, and Peter Clark. DiscoveryBench: Towards data-driven discovery with large language models. arXiv preprint arXiv:2407.01234 , 2024. doi: 10.48550/arXiv.2407.01234. [15] Philipp Mondorf and Barbara Plank. Beyond accuracy: Evaluating the reasoning behavior of large language models – a survey. arXiv preprint arXiv:2404.05678 , 2024. doi: 10.48550/arXiv.2404.05678. [16] Aarohi Srivastava, Abhinav Rastogi, Abhishek Rao, et al. Beyond the imitation game: Quantifying and extrapolating the capabilities of language models. In Proceedings of the 40th International Conference on Machine Learning (ICML) , 2022. URL https://arxiv.org/abs/2206.04615 .[17] Kyle Swanson, Wesley Wu, Nash L. Bulaong, John E. Pak, and James Zou. The virtual lab: AI agents design new SARS-CoV-2 nanobodies with experimental validation. bioRxiv , 2024. doi: 10.1101/2024.11.11.623004. [18] Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Ed Chi, Quoc Le, and Denny Zhou. Chain of thought prompting elicits reasoning in large language models. In Advances in Neural Information Processing Systems (NeurIPS) , 2022. URL https://arxiv.org/abs/2201.11903 .[19] Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao. React: Synergizing reasoning and acting in language models. In International Conference on Learning Representations (ICLR) , 2023. URL https://arxiv.org/abs/2210.03629 .[20] Haiteng Zhao, Chang Ma, Fangzhi Xu, Lingpeng Kong, and Zhi-Hong Deng. Biomaze: Benchmarking and enhancing large language models for biological pathway reasoning. CoRR , abs/2502.16660, 2025. [21] Tianshi Zheng, Zheye Deng, Hong Ting Tsang, Weiqi Wang, Jiaxin Bai, Zihao Wang, and Yangqiu Song. From automation to autonomy: A survey on large language models in scientific discovery. arXiv preprint arXiv:2505.13259 , 2025. doi: 10.48550/arXiv.2505.13259. 36

@@ -1,0 +1,35 @@
+{
+  "label": "2026-02-11",
+  "date": "2026-02-11",
+  "generated_at": "2026-02-11T19:40:24",
+  "count": 2,
+  "papers": [
+    {
+      "paper_id": "202602/11/2602.09772v1-design-and-evaluation-of-an-assisted-programming-interface-for-behavior-trees-in-robotics",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "The possibility to create reactive robot programs faster without the need for extensively trained programmers is becoming increasingly important. So far, it has not been explored how various techniques for creating Behavior Tree (BT) program representations could be combined with complete graphical user interfaces (GUIs) to allow a human user to validate and edit trees suggested by automated methods. In this paper, we introduce BEhavior TRee GUI (BETR-GUI) for creating BTs with the help of an AI assistant that combines methods using large language models, planning, genetic programming, and Bayesian optimization with a drag-and-drop editor. A user study with 60 participants shows that by combining different assistive methods, BETR-GUI enables users to perform better at solving the robot programming tasks. The results also show that humans using the full variant of BETR-GUI perform better than the AI assistant running on its own."
+    },
+    {
+      "paper_id": "202602/11/2602.09801v1-tiny-moves-game-based-hypothesis-refinement",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "Most machine learning approaches to scientific discovery frame hypotheses as end-to-end predictions, obscuring the incremental structure of scientific reasoning. We propose The Hypothesis Game, a symbolic formalism for hypothesis refinement in which LLM agents operate on a shared hypothesis state using a fixed grammar of reasoning moves. The framework is motivated by the observation that scientific progress often proceeds through small, localized revisions, grounded in domain context, rather than extensive rewrites. We instantiate a minimal game with LLM agents and evaluate it on pathway-level mechanistic refinement tasks. In the primary setting of corruption recovery, where hypotheses contain controlled errors, the game-based approach consistently removes more errors and achieves higher precision than strong prompting baselines, while preserving valid structure through incremental edits. In a secondary reconstruction setting from partial cues, it performs comparably to the strongest baseline, indicating that explicit move-based refinement remains competitive even when ground-truth recovery is difficult. These findings support game-based reasoning as a principled route to more controllable, interpretable, and transferable hypothesis refinement systems for scientific discovery."
+    }
+  ],
+  "errors": []
+}

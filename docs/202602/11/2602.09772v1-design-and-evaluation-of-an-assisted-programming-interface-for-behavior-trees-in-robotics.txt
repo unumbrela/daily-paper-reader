@@ -1,0 +1,533 @@
+Title: Design and Evaluation of an Assisted Programming Interface for Behavior Trees in Robotics
+
+URL Source: https://arxiv.org/pdf/2602.09772v1
+
+Published Time: Wed, 11 Feb 2026 01:59:24 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+> 1
+
+# Design and Evaluation of an Assisted Programming Interface for Behavior Trees in Robotics 
+
+Jonathan Styrud ∗† , Matteo Iovino ‡§ , Rebecca Stower ¶, Mart Kartašev †,Mikael Norrlöf ∗, Mårten Björkman, † and Christian Smith †
+
+Abstract —The possibility to create reactive robot programs faster without the need for extensively trained programmers is becoming increasingly important. So far, it has not been explored how various techniques for creating Behavior Tree (BT) program representations could be combined with complete graphical user interfaces (GUIs) to allow a human user to validate and edit trees suggested by automated methods. In this paper, we introduce BEhavior TRee GUI ( BETR-GUI ) for creating BTs with the help of an AI assistant that combines methods using large language models, planning, genetic programming, and Bayesian optimization with a drag-and-drop editor. A user study with 60 participants shows that by combining different assistive methods, 
+
+BETR-GUI enables users to perform better at solving the robot programming tasks. The results also show that humans using the full variant of BETR-GUI perform better than the AI assistant running on its own. 
+
+Note to Practitioners —Rapid development of reactive robot programs without requiring extensively trained programmers is becoming increasingly important in the robotics industry, especially as more robots are working in uncontrolled envi-ronments. The results from our user study indicate that ahuman working together with an AI assistant, when using a graphical user interface for robot programming with behavior trees, could significantly improve task performance over a human programmer or AI working on their own. We further suggest that the AI assistant should be based on a combination of multiple different algorithms that complement each other, such as planning, machine learning, and large language models. 
+
+Index Terms —Behavior trees, graphical user interface, user study, human-robot interaction 
+
+I. I NTRODUCTION 
+
+Robots have historically operated in controlled environ-ments where they are capable of solving complex tasks with high reliability and precision, often repeating the same task for years. Today, however, robots are increasingly working in unpredictable environments [1], with mobile robots or workspaces shared with humans. Furthermore, as smaller businesses adopt robot automation, the trends are towards ever smaller batches of products or tasks and thereby more frequent updates of the robot programs. As a consequence, the possibility to create robot programs faster without the need for extensively trained programmers and for those programs to be reactive to their environment is becoming increasingly 
+
+> This project is supported by the Wallenberg AI, Autonomous Systems, and Software Program (WASP) funded by the Knut and Alice Wallenberg Foundation. The authors gratefully acknowledge this support.
+> ∗ABB Robotics, Västerås, Sweden
+> †Department of Robotics, Perception and Learning, Royal Institute of Technology (KTH), Stockholm, Sweden
+> ‡Mobile Robotics Lab, ETH Zürich, Zürich, Switzerland
+> §ABB Corporate Research, Västerås, Sweden
+> ¶Design and User Experience, Ericsson, Stockholm, Sweden
+
+important. Another decisive factor is that the program should be transparent and readable to enable analysis, editing, and validation. A policy representation that fulfills the aforemen-tioned requirements and is steadily growing in popularity is behavior trees (BTs) [2], [3]. Related to this, research on facilitating the creation of BTs using various techniques is very active [2], [4]–[12] and multiple Graphical User Interfaces (GUIs) have been developed to facilitate manual design [13]– [18]. However, to our knowledge, it is so far unexplored how the various BT generation techniques could be combined under complete GUIs to let a human user validate and edit BTs suggested by these automated methods. In this paper, we introduce BEhavior TRee GUI ( BETR-GUI ), a GUI for creating BTs with the help of an AI assistant that combines several previous methods. Some recent results have indicated that software developers could, surprisingly, perform worse with AI assistants than without [19]. Nevertheless, our user study performed with BETR-GUI indicates that users perform significantly better using BETR-GUI with the AI assistant enabled. The main contributions of this paper are:  
+
+> •
+
+A novel user interface, BETR-GUI , for creating BTs with an AI assistant that combines methods using large language models, planning, genetic programming, and Bayesian optimization with a drag-and-drop editor for humans and validation in a simulated environment.  
+
+> •
+
+An extensive user study with 60 participants showing that for the tasks in the experiments, BETR-GUI combining the assistive methods enables users to perform better at solving the tasks than some ablated versions of the assistant or without the assistant at all. The results also show that humans using the full variant of BETR-GUI 
+
+perform better than the AI assistant running on its own. II. B ACKGROUND AND RELATED WORK 
+
+A. Behavior Trees 
+
+Behavior Trees (BTs) is an architecture for reactive policies that originated in the computer gaming industry but has been increasingly used for robotics [2], [3]. An example BT for a robotics manipulation task can be seen in Figure 1. The recent success of BTs can be attributed to their main advantages: readability, modularity, and ingrained support for task hierarchy, action sequencing, and reactivity. Readability enables manual and automated editing, analysis, and valida-tion [20]. These are strong advantages compared to black box architectures like neural networks. BTs are known to improve on other architectures as well, such as finite state machines,               
+
+> arXiv:2602.09772v1 [cs.RO] 10 Feb 2026 2Sequence Fallback Fallback Fallback "green cube" in "bowl"? Sequence Fallback place "green cube" in "bowl"! grasped "green cube"? Sequence move to "green cube" (-0.4, -0.1) 0.0! grasp "green cube"! "red cube" at pos "yellow cube" (0.0, 0.0, 0.06) 0.0? Sequence Fallback move to "yellow cube" (-0.4, 0.0) 0.0! place "red cube" at "yellow cube" (0.0, 0.0, 0.06) 0.0! grasped "red cube"? Sequence move to "red cube" (-0.2, -0.4) -1.57! grasp "red cube"! "blue cube" at pos "red cube" (0.0, 0.0, 0.06) 0.0? Sequence Fallback place "blue cube" at "red cube" (0.0, 0.0, 0.06) 0.0! grasped "blue cube"? grasp "blue cube"!
+
+Figure 1: Example of a non-optimal behavior tree for solving the Cubes and bowl task. The different node types are described in Section IV. in terms of modularity and reactivity [20]–[22]. In fact, BTs have been shown to be optimally modular [23]. Functionally, a BT is a directed tree where a tick signal propagates from the root node down to the leaves at some given frequency. Nodes are executed only when they receive the tick and return one of the three states Success , Failure , and 
+
+Running . The branching non-leaf nodes are called control flow nodes or just control nodes . The most common control nodes are Sequence , which ticks children sequentially from left to right, returning Success once all succeed or Failure if any child fails, and Fallback , (or Selector ) which also ticks from left to right but returns Success when any child succeeds or Failure 
+
+only when all children fail. Leaves are called execution nodes 
+
+or behaviors and are typically separated into Actions (“!”) and 
+
+Conditions (“?”). Conditions denote quick status checks or sensory readings, always returning Success or Failure directly. Actions denote robot skills that can take more than one tick to complete and return Running while execution is ongoing. For more details, we refer to [3]. While BTs have multiple advantages, they still take time and effort to design, and more efficient methods to create BTs have been given substantial research interest in recent years [2], using learning methods [5], [8], [24], [25], analytical planners [4], [6], [7], [26], [27], improved user interfaces [28]– [30], large language models [31], [32] or combinations of the various methods [9]–[12], [33]–[36]. 
+
+B. Planning 
+
+Automated planning algorithms [37] have been extensively used to facilitate the creation of BTs. In this paper we use an adaptation of the Planning Domain Definition Lan-guage (PDDL)-style planner from [6], creating back-chained BTs. We build on the latest adaptation of the same planner from [12]. The foremost reason for this choice of planner is its simplicity, but there are other more advanced planners for BTs to consider as well, for example, Linear Temporal Logic (LTL) [4], [26] and Hierarchical-Task-Network (HTN) planning [7], [27]. We refer to Sections 4.1.2 and 2.4 in [2] for a more exhaustive list. With sufficient time and knowledge, formal planners can, in theory, solve all common robotics task planning problems. In reality, the engineering effort to formalize that knowledge is substantial, and there will always be applications where some information is missing. This has been addressed with some success through the use of large language models [10]–[12], [36], [38], [39]. 
+
+C. Genetic Programming 
+
+Genetic Programming (GP) is an optimization algorithm that evolves populations of programs in the form of trees [40], [41]. In short, the populations generate offspring through 
+
+crossover and mutation , after which a selection algorithm decides which individuals to keep based on some fitness func-tion that evaluates and scores each individual. Some common examples of fitness functions are elitism (select n highest ranking), tournament selection (individuals compared pair-wise and the lowest scoring is eliminated), and rank selection 
+
+(random selection where an individual’s probability of survival is proportional to its rank within the population). There are many variations of GP, for example, where a grammar is defined and programs are generated from simple lists of integers (grammatical evolution), or where the genotype is represented as fixed-length strings (genetic algorithms). GP has also been successfully used to evolve BTs specif-ically. Crucially, several studies have shown that GP can find solutions that outperform manual designs [5], [42]– [45]. As BTs originated in the gaming industry, video game benchmarks [5], [42], [45]–[47] are still more common than robotics [8], [9], [43], [44]. For the GP algorithm to be efficient, it is typically necessary to employ various constraints to minimize the search space. Using more constraints could speed up the learning but may instead not generalize to some tasks. Some constraints used in BETR-GUI were inspired by [47], [48] with some modifications described in the up-coming Section III-D. For example, allowing any control node type as the root. 3
+
+D. Bayesian Optimization 
+
+Bayesian optimization (BO) is a method to efficiently solve variable optimization problems while limiting the number of expensive evaluations. It has shown great performance in various applications, such as robotics [34], [35], [49], [50], hyperparameter tuning [51]–[53], and material design [54]– [56]. BO iteratively selects new values to evaluate, while handling the trade-off between exploration and exploitation. It uses an internal surrogate model of the unknown true objective function that it learns as it gathers more data. The two most common models are Gaussian processes [57] for their ability to quantify uncertainty on top of providing accurate predictions, and random forests [58], [59] for their versatility, for example, better representation of non-smooth objective functions, and scalability to more samples. We refer to [60] for a more detailed introduction to BO. 
+
+E. LLMs 
+
+The widespread adoption of Large Language Models (LLMs) [61], [62] in recent years can hardly have evaded anyone, and the field of robotics is not excluded [63], [64]. Various methods have been proposed that interpret the users’ natural language instructions to create robot programs [61]– [63] or specifically to create XML files defining reactive BT policies [31], [32], [65]. Creating a policy instead of a se-quential plan that would need to be continuously re-evaluated minimizes the number of calls to the LLM, especially during execution, saving time and cost. It also makes the policy transparent and verifiable before execution, which can be a hard requirement for many applications. LLMs are, however, known to struggle with complex tasks requiring long-horizon planning [66]. To overcome this lim-itation, some methods are based on the LLMs producing PDDL-format [67] problem descriptions from natural language instructions [68], which enables the use of PDDL planners to solve the tasks. Combining LLMs and planners to create BTs has also received some attention lately. LLM-BT [10], uses an extensive hard-coded parser to translate the LLM’s responses into an initial BT that is then expanded with a planner. The similar method LLM-OBTEA [11] uses stricter prompting to obtain goal conditions directly with less parsing and introduces an additional step called reflective feedback, which iteratively prompts the LLM to solve syntactical errors. It’s extended in HOBTEA [36] where an LLM suggests prioritized areas of the search space to speed up the planning algorithm. Finally, BETR-XP-LLM [12] showed that an improved prompt and LLM model eliminate the need for reflective feedback, giving better results in fewer LLM calls. BETR-XP-LLM also introduced a method to use the LLM to resolve errors outside the planner’s capabilities during planning and execution. The later work of [69] also includes a failure handler as well as a module to ask the user for clarifications. [38] and [39] expanded on [12] by replacing the LLM with a vision language model with access to a scene graph and execution history, and adding the capability to also add missing skill templates rather than only adding missing preconditions to existing skills. 
+
+F. Combinations 
+
+Multiple previous works attempt to combine various meth-ods into composite systems where the methods complement each other so that the resulting systems perform better than their parts. With a simplified grouping of methods, it can roughly be said that manual design through user interfaces tends to give the user full control but requires substantial amounts of time and skill. Automated planning tends to give very predictable and structured solutions and is often very fast, but can scale poorly on very complex problems and depends heavily on having structured knowledge in advance. Finally, learning methods can be slower by many orders of magnitude for simpler tasks but excel on complex problems and need no previous knowledge. Their main drawback is that they tend to give solutions that are difficult to verify, validate, edit, and debug. Some notable examples of work on composite systems for creating BTs include planning with GP [9], as well as with other learning methods [33], [34], learning from demonstration and GP [24], LLMs and planning [10]–[12], [36], and LLMs and GP [70]. In this paper, we introduce a comprehensive composite system that integrates multiple previous works, including planning, genetic programming, Bayesian optimiza-tion, LLMs, and a GUI for manual editing, and perform an ablative user study to determine the contributions of the different components. III. I NTERFACE DESIGN 
+
+In this section, we describe the design and implementation of the graphical user interface used for the experiments. Overall, the idea was to construct a minimal interface that combines various methods for creating behavior trees. An overview is shown in Figure 2. The LLM model used in all experiments was GPT-4, but there are no special adaptations specifically to this LLM variant. The code for the interface was written in Python, using PyQt5 for graphics, and is publicly available on GitHub 1. The interface was created in six different variants as described in Section V-A. 
+
+A. Instructions Tab 
+
+The first tab of the interface shown to the user is the Instructions Tab. An example is shown in Figure 3. This tab shows a graphical description of the present task as well as a link to the instruction video. 
+
+B. Goal Editor Tab 
+
+The second tab is the Goal Editor Tab, where the user defines the goal state in a format that the robot can understand. An example is shown in Figure 4. The experiment timer starts counting down when the user first enters this tab, ensuring that all users get the same amount of time for each task. To the left, the user has a list of available condition nodes that can be used to define the goal conditions as well as the available control nodes, which in this case is only the Sequence node. The reason for omitting Fallback at this stage is purely to keep 
+
+> 1https://github.com/jstyrud/BETR-GUI 4
+
+3. Formalized 
+
+goals 
+
+4. Reactive 
+
+task planning 
+
+2. LLM 
+
+8. Behavior 
+
+Tree  (editor) 
+
+5. LLM 6. New 
+
+precondition (s) 
+
+Failure 
+
+1.  Natural 
+
+language 
+
+Manual 
+
+editing 
+
+7. Behavior  Tree 
+
+(AI suggestion) 
+
+Loading Sending 
+
+Manual editing 
+
+9. Genetic 
+
+programming 
+
+10. Bayesian 
+
+Optimization 
+
+User 
+
+Figure 2: Graphic representation showing an overview of the algorithms of BETR-GUI and their connections. Green boxes denote algorithms, and blue boxes denote data. 
+
+Figure 3: Screenshot of the Instructions tab of the GUI with the Tableware scenario description. 5
+
+Figure 4: Screenshot of the Goal Editor tab of the GUI with the Cubes and bowl task with the goal conditions currently solving part of the task, as the goal condition of the blue cube is not yet correctly defined. the user experience simple enough for novice users. After the user has dragged them into the editor widget, the user can define the parameters by double-clicking the node to open a separate window for parameter editing. After saving, the user can see a rendered image of the goal state to the right to confirm the goal conditions visually. At the top of the Goal Editor Tab, there is a text field where the user can describe the goal in natural language and have it converted automatically into a tree with condition nodes. This text field is available in all variants except MANUAL_ONLY and NO_LLM. This functionality uses the same method as in [12] with a slightly updated prompt and some added error handling. After having the text converted, the user is free to edit the suggested tree or to update the prompt to iteratively improve. 
+
+C. Behavior Tree Editor Tab 
+
+The third and final tab of the interface is the Behavior Tree Editor Tab, shown in Figure 5, where the user defines the BT policy to solve the given task. The editor widget and node list are mostly the same as in the Goal Editor Tab. One important difference is that the node list in this tab contains action nodes as well as the Fallback node. The user also has buttons at the bottom of the tab to a) save the current tree, b) load a previously saved tree, c) delete all nodes, d) load the best tree found during the experiment, and e) run a simulation of the tree to evaluate it. 
+
+D. AI Assistant 
+
+In all variants except MANUAL_ONLY the user has access to an AI assistant that suggests improvements to the BT. The AI assistant combines elements from [9], [35] and [12] and some new additions into one cohesive system. The AI assistant always works from a seed BT from the user as described below. Initially, this is a copy of the tree defined in the Goal Editor Tab, but the user can later update this by clicking the “Send” button and thereby using the tree currently in the editor widget as a seed to initiate the AI. After a new seed BT is sent to the AI, in all variants except 
+
+NO_PLANNER , a PDDL-style planner is invoked to expand the tree. If the planner returns failure, the interface uses the method from [12] where an LLM is invoked to attempt to identify missing preconditions and insert them into the tree. This part is ablated in the NO_LLM variant. After adding the precondition(s), the planner is run again. These planner and LLM steps are iterated until either the planner succeeds or the LLM is unable to resolve the error. The resulting tree after expanding with the planner and LLM is used to seed the GP or BO optimization algorithms (depending on user choice and variant). The optimization then continuously runs in the background while the user can continue working in the editor. As mentioned in Section II-C above, some constraints used in BETR-GUI were inspired by [47] with some differences, for example, allowing any control node type as the root. Another important constraint that we implemented is that two identical leaf nodes cannot be placed next to each other and that a control node may not have an identical control node as a parent, as these nodes 6
+
+Figure 5: Screenshot of the Behavior Tree Editor tab of the GUI with the user’s current tree to the left and the AI assistant’s suggestion to the right. A hint to the user is shown in the textbox with a yellow background. would be redundant. We also use the “Conditional Precedence in Node Hierarchies” constraint as described in [48], enforcing condition nodes to be placed before action when they are siblings. Upon finding an improved tree, the user interface is updated with an image of the best tree found by the AI, as well as its score, size, and whether the tree successfully achieves the goal state or not. The user can then choose to load the suggested tree into the editor or run a simulation of the AI-suggested BT to evaluate its performance. The user is also provided with the opportunity to lock one or more of the nodes in the tree sent as a seed to the AI. A locked node cannot be changed or removed by the AI. Other nodes can still be added. Locking nodes shrinks the search space and can significantly increase the speed of finding improved solutions. 
+
+E. Simulation Window 
+
+When the user decides to run a simulation of a BT, a separate window opens up with the BT on the left and a 3D rendering of the simulation environment on the right, as shown in Figure 6. The nodes of the BT in the Simulation Window each have a border where the color indicates the status of the node. Green means Success , red means Failure , yellow means 
+
+Running while grey means the node was not ticked. At the bottom of the simulation window are three buttons. “Reset simulation” returns all objects to their initial state and pauses the simulation. “Play simulation” resumes the simulation if it was paused. “Step and Pause simulation” executes one tick of the tree and then pauses the simulation. IV. T ASK DESIGN 
+
+To evaluate the integration of an AI assistant in the GUI, four different task scenarios were designed in Unity. All scenarios include a 6-axis robot with a prismatic gripper mounted on a mobile platform with 3 degrees of freedom. The tasks were designed to be intuitive and easy to understand for novice users rather than being realistic examples of industrial robot tasks. The task design also needed to ensure that tasks were simple enough to be solvable within the allocated 15 minutes but not so simple that all users could trivially solve them. A typical tree size for a good solution for these tasks is around 15 nodes. We also needed to ensure that the tasks had solution BTs where structures and parameters of the tree had an impact, and where the planner and LLM did not solve the tasks immediately. All tasks are completely deterministic, as early tests indicated that it would be too difficult for users in the short time to construct trees handling random events. Finally, we made sure that each task was roughly equally difficult with the same number of subtasks, three, for each task.  
+
+> •
+
+The Demo scenario is only used for a 5-minute learning session to get familiarized with the GUI before the user attempts to solve the other tasks. The scenario has three balls of different sizes and a goal area marked with a rectangle on the floor. The task goal is to move the red ball into the goal area.  
+
+> •
+
+The Cubes and bowl scenario has a bowl and four cubes of different colors. The task is to put the green cube in the bowl and to build a tower with the yellow cube at the bottom, followed by the red cube, and finally the blue 7
+
+Figure 6: Screenshot of the Simulation Window of the GUI with the user’s current tree to the left and the simulation on the right. cube on top. The scenario starts with the green cube on top of the blue cube, and the green cube must therefore be moved before the blue cube can be picked up.  
+
+> •
+
+The Tableware scenario has a table and a plate, knife, fork, and glass. The task is to set the table for a meal with the fork and knife on each side of the plate and the glass on the opposite side of the chair.  
+
+> •
+
+The Trashpicking scenario has three items of trash (paper, a banana, and a can) as well as three trash bins of different colors. The task is to sort the trash into the correct colored trash bin. 
+
+A. Nodes 
+
+Two control nodes are available to the users, Fallback nodes and Sequence nodes. None of the control nodes are set to have memory and thus tick the leftmost child every tick. The motivation is that with memory, tasks without random events can be solved using only a sequence of actions, but the intention of this experiment is to test the users’ ability to build complete and reactive BTs. The behavior nodes are designed to be at an abstraction level that is easy to understand in a short time but still leaves some room for the users to customize some parameters. No decorator nodes were included, as they were not necessary to solve the tasks, and it was essential to keep the overall interface simple. Most behaviors have at least one parameter that can be chosen. The parameter target_object , when present, can be chosen from a list of movable objects in the scene. The 
+
+relative_object is chosen from a list of all objects, static and movable. For the in? condition and place in! action, 
+
+relative_object must be one of the container objects in the scene, such as a bowl, bin, or area. The offset parameter is a tuple of three values (x,y,z) for objects or two values (x,y) for the robot base. The offset unit is meters. The angle refers to rotation in radians around the z-axis. 
+
+1) Condition nodes: Five parameterized condition nodes are available to the user. For the tableware scenario, the in? 
+
+condition is excluded as it is not relevant for the task.  
+
+> •
+
+The at pos? condition checks if a target_object is at a position relative to a relative_object with an offset and 
+
+angle . The allowed distance to this specified position is up to 2 cm and up to 0.2 radians.  
+
+> •
+
+The grasped? condition checks if a target_object is currently grasped by the robot.  
+
+> •
+
+The in? condition checks if a target_object currently inside a relative_object  
+
+> •
+
+The robot at? condition checks if the robot base is currently at the target_object with an offset and angle .The allowed distance to this specified position is up to 10 cm and up to 0.1 radians.  
+
+> •
+
+The robot near? condition checks if the robot base is within 0.9 m of the target_object .
+
+2) Action nodes: Five parameterized action nodes are avail-able to the user. For the tableware scenario, the place in! action is excluded. In general, action nodes directly return Success if the actions post-conditions are fulfilled even before execution. As an example, grasp! returns Success if the target_object is already grasped, but Failure if the wrong object is grasped. 8 
+
+> •
+
+The grasp! action moves the robot arm and grasps the 
+
+target_object . 
+
+> •
+
+The place! action moves the robot arm and places the 
+
+target_object at a position relative to a relative_object 
+
+with an offset and angle . 
+
+> •
+
+The place in! action moves the robot arm and places the 
+
+target_object inside a relative_object  
+
+> •
+
+The idle! action does nothing and always returns Running . 
+
+> •
+
+The move to! action moves the robot base to the tar-get_object with an offset and angle B. Score 
+
+After simulating an episode, each BT is given a score. The score is presented to the user as guidance for how good the BT is. It is also used as a target by the optimization algorithms of the AI assistant. As the convention is different in various research fields, the score could also be labeled, for example, “reward”, “cost”, or “fitness”, but in these experiments we exclusively refer to it as “score” to the users, as it is relatively neutral and simple to understand for novice users. The score is calculated after each BT tick and added up after the episode is completed. This indirectly rewards BTs that solve the tasks faster. In reality, all the terms of the score sum are negative penalties, and the objective therefore becomes to achieve a score as close to zero as possible. The main part of the score is goal condition fulfillment. For each condition, a penalty is added proportional with a weight 
+
+α to the distance of the target object from the goal position as well if the error is above some δ. Similarly, a penalty is added proportional with another weight θ to the difference between the target object’s orientation and the goal orientation, if the difference is above ϵ. This goal part of the score is then given by Equation (1). 
+
+Sgoal = − X
+
+> O
+
+(α · max (0 , || p − gp|| − δ)+ 
+
+θ · max (0 , angle _dist (r, g r ) − ϵ)) 
+
+(1) where O is the set of objects with specified goal poses, with current positions p, current orientations r, goal positions gp,and goal orientations gr . || o − g|| is then the distance error in meters, and angle _dist (r, g r ) is the angle error in radians. Another significant part is related to the complexity of the tree. This penalizes large trees or trees where the execution logic is difficult to follow. Specifically, a penalty λ is added for each node in the tree. Another penalty is added with the weight 
+
+β multiplied with the maximum depth of the tree. A penalty 
+
+ϕ is added for BTs that return Failure during the episode and another penalty τ for BTs that do not fail but exceed the maximum tick limit without returning Success . Further, a penalty ψ is added for each action that fails during execution. To ensure a logical flow of ticks during execution, a penalty 
+
+ξ is added whenever an action is running that is further to the left in the tree than the most recently executed action. Finally, to ensure that objects are released after completion, a penalty 
+
+η is added for holding objects. This tree complexity score is then given by Equation (2). 
+
+Stree = λL − βD − τ T − ϕF − ξR − ψF actions − ηH (2) where L is the number of nodes and D is the maximum depth. 
+
+T is 1 if the tree ended by timeout and 0 otherwise, and F is 1 if the tree ended in Failure state and 0 otherwise. Factions 
+
+is the number of actions that returned failure this tick. R is 1 if the running action this tick is further to the left than the last previously run action and 0 otherwise. Finally, H is 1 if the robot is holding an object and 0 otherwise. The third part is a penalty for energy consumption. This is crudely approximated by the distance traveled by the robot, with the base movement being 10 times more costly than the movement of the robot arm. The energy part of the score is then given by Equation (2). 
+
+Senergy = ω(A + 10 B) (3) where ω is a weight, A is the distance traveled by the arm, and B is the distance traveled by the base since the last tick. The total score is finally given by Equation 4. 
+
+Stotal = Sgoal + Stree + Senergy (4) Similar score functions have been used in previous work; the new terms added for this work were the penalty for actions running further left than the last tick and the energy penalty. If an episode is ended prematurely, for example, because the BT returns Failure , the score from the final tick is multiplied with 200 minus the number of ticks executed. This is equivalent to each BT running exactly 200 ticks but saves the execution time of actually having to run all ticks. The same weights for each of the terms are used for all the different task scenarios. The values of the weights were not extensively tuned but simply set manually to ensure that the score function fulfilled some basic properties, like small failing trees getting worse scores than a large tree that successfully solves the task. The weight values and the complete imple-mentation are available on the project repository on GitHub 2.
+
+C. Simulation 
+
+The simulation environment was built with the Unity En-gine, utilizing the integrated PhysX engine. The main focus was providing fast execution and a consistently deterministic experience to the user with clearly recognizable but not necessarily realistic visual elements. The dynamical and visual fidelity of the simulation was therefore considered secondary to speed and determinism for this study. A custom Google Protobuf-based API was built, to provide direct integration with the rest of the UI environment. Inspired by the Unity MLAgents [71] and Gymnasium APIs [72], it allows the simulation to be reset, stepped, and observed externally while providing control inputs for the agents. It also allows control over various simulation parameters, such as time scaling (relative to real time), timestep size, number of simulation steps per control input, and more. The different experiment variants used in the study are organized as Unity scenes, with manually controlled physics simulation through the custom API. To improve simulation speed for the optimization-based variants, multiple agents 
+
+> 2https://github.com/jstyrud/BETR-GUI 9
+
+can be loaded and executed in parallel, allowing for more overall throughput for the GP algorithm. For determinism, the physics scene is reloaded at the beginning of every execution to provide fully reinitialized physics bodies and remove all possible residual forces. The Articulation Body system provided by Unity was employed to model the robot and objects, as it proved more stable and less sensitive to floating-point indeterminism. To further enhance determinism, we did not consider friction between the internal components of the robot, and simulated rigid grasping of objects through the deployment of temporary joints, rather than using friction to interact between the target object and the robotic gripper. V. E XPERIMENTS 
+
+To study whether the system is effective and to what extent the various methods contribute, we conducted a user study testing the full system as well as method ablations and a manual-only variant that resembles the GUIs for BT creation that are available on the market today. 
+
+A. GUI Variants 
+
+A total of 6 different variants were implemented and tested in the experiments.  
+
+> •
+
+The FULL variant has all functionality included.  
+
+> •
+
+The MANUAL_ONLY variant ablates all AI function-ality, leaving the user to manually construct the BTs themselves. This is largely similar to existing GUIs like Groot [13] in capability.  
+
+> •
+
+The NO_BO variant ablates BO from the AI’s capabil-ities. If the user unchecks the “Allow changing the tree structure” checkbox in this variant, the GP algorithm con-tinues running but is only allowed to mutate parameters.  
+
+> •
+
+The NO_GP variant ablates GP from the AI’s capabilities. In this variant, checking the “Allow changing the tree structure” allows the planner to run before the BO, while unchecking leaves only BO.  
+
+> •
+
+The NO_LLM variant ablates LLM from the interface. This includes both the LLM assistant in the Goal Editor as well as the LLM used for error resolution in the Behavior Tree Editor.  
+
+> •
+
+The NO_PLANNER variant ablates the planner function-ality. 
+
+B. Experimental Design 
+
+We used a mixed groups design, where each participant in-teracted with a subset of three out of the six GUI variants. All participants always experienced both the MANUAL_ONLY and 
+
+FULL variants. In addition, they were randomly assigned to one of the four ablation variants ( NO_BO , NO_GP , NO_LLM ,
+
+NO_PLANNER ). The subset of GUI variants that participants interacted with was therefore manipulated as a between-groups variable with 4 groups.  
+
+> •
+
+FULL , MANUAL_ONLY , NO_PLANNER  
+
+> •
+
+FULL , MANUAL_ONLY , NO_GP  
+
+> •
+
+FULL , MANUAL_ONLY , NO_BO  
+
+> •
+
+FULL , MANUAL_ONLY , NO_LLM 
+
+The task was manipulated as a within-groups variable with 3 groups ( Cubes and bowl , Tableware , Trashpicking ). The trial order was also manipulated as a within-groups variable with 3 levels (first, second, and third). We randomized all the experiments in advance, ensuring that all ablations occurred the same number of times, and that the order in which tasks and variants occurred was also counterbalanced. The code for creating the randomization is available in the GitHub repository, and the resulting plan is uploaded to the OSF repository. 
+
+C. Pilot Study 
+
+The different tasks and GUI variants were piloted iteratively with 5 different participants, none of whom were part of the final study. Small updates were made after each pilot test to ensure that the tasks were neither too easy nor too difficult and could be reasonably completed within 15 minutes. 
+
+D. Hypotheses 
+
+We pre-registered our hypotheses and planned analyses (both confirmatory and exploratory) on the Open Science Framework (OSF) 3.1) Compared to all other variants (NO_BO , NO_GP ,
+
+NO_LLM , NO_PLANNER , MANUAL_ONLY ), FULL 
+
+will have: a) Higher system usability b) Better task performance 2) Compared to MANUAL_ONLY , all other ablation condi-tions ( NO_BO , NO_GP , NO_LLM , NO_PLANNER ) will have: a) Higher system usability b) Better task performance 3) The FULL variant used by a human will have better task performance compared to a baseline ( NO_HUMAN with no human editing, full AI only) condition. 
+
+E. Participants 
+
+The number of participants needed was determined a priori 
+
+using a simulated power analysis with α = .05 , suggesting 60 participants are sufficient to reach 80% power, assuming small-medium effects 4.We recruited 60 participants via flyers, mailing lists, social media, and word of mouth. After the experiments, we excluded one participant due to a one-time bug in the GUI, and recruited a new participant to redo the excluded experiment. In the end, the dataset includes data from 60 valid participants between the ages of 20 and 62 ( Mage = 29 .7, SD = 8 .9). Of the valid participants, 10 identified as female and 50 as male. The distribution of participants across tasks and GUI variants can be seen in Table I. The participants were primarily university students of en-gineering or computer science or professional software devel-opers. To account for this, we asked participants about their 
+
+> 3https://osf.io/ax5gb/overview
+> 4See supplementary materials for code to recreate the power analysis. 10
+
+Table I: Distribution of participants across tasks and GUI variants.                     
+
+> cubebowl tableware trashpicking FULL 16 22 22 MANUAL_ONLY 22 20 18 NO_BO 744NO_GP 753NO_LLM 438NO_PLANNER 465
+
+Table II: Participant’s familiarity with behavior trees, robots in general, programming in general, and programming robots.     
+
+> Mean (SD) Behavior Trees 2.13 (0.95) Robots in General 3.36 (1.06) Programming in General 3.87 (0.81) Programming Robots 3.10 (1.08)
+
+familiarity with behavior trees, robots in general, programming in general, and programming robots using the following three questions:  
+
+> •
+
+How familiar are you with ? (1 = not at all, 5 = very)  
+
+> •
+
+How often do you use or interact with (1 = never, 5 = often)  
+
+> •
+
+How would you rate your level of expertise with ?(1 = novice, 5 = expert) The scores within each domain (behavior trees, robots in general, programming in general, and programming robots) were then averaged to form a general familiarity score; see Table II. 
+
+F. Procedure 
+
+This study followed the ethical guidelines for Sweden, took approximately one hour for each participant, and was housed either at KTH in Stockholm or in ABB Robotics offices in Västerås. At the beginning of the experiment, participants were given an information sheet and asked to indicate their consent to participate. Participants were offered a gift card worth 100 SEK (approx. $11 USD) as thanks for participating. For the experiments, the users were given a Lenovo ThinkPad laptop with an external mouse and an Intel(R) Core(TM) Ultra 9 185H 2.30 GHz CPU. To make sure there was no difference in the computing power for the learning methods, all participants used the same laptop. In general, the main computation bottleneck lies in the environment simulation, which is CPU-based. As seen in Figure 7, the user’s screen was duplicated onto a larger TV screen so that the experiment supervisor could follow along and ensure that the participant was following instructions and not, for example, looking for solutions on the internet. After the consent form was signed, the participants were asked to answer some demographic questions as well as the questionnaire about their familiarity with robot programming, robots (in general), programming (in general), and behavior trees. Once the questionnaire was signed, the participants watched a 5-minute instruction video introducing behavior trees and the 
+
+Figure 7: Example setup with the participant using the laptop on the left with the screen duplicated onto the TV screen in the center. The experiment supervisor would be seated by the laptop on the right. Multiple rooms were used, but all had a similar layout. GUI. The full video is available on the project repository. The participants were then given a one-page cheat sheet with a summary of the most important points of the video and some useful commands. They were allowed to keep the cheat sheet for the rest of the experiment. The participants were then able to spend 5 minutes using the MANUAL_ONLY GUI variant with the Demo scenario to familiarize themselves with the workflow of the GUI. Once the familiarization session was completed, the partic-ipants were given exactly 15 minutes for each of the three different scenarios, after which the GUI was automatically closed. The experiment timer starts counting down when the user first enters the goal editor tab, ensuring that all users get the exact same amount of time for each task. There were 6 available GUI variants as listed in Section V-A. During the experiments, the GUI recorded actions taken and scores obtained by the participants, with timestamps. After interacting with each GUI variant, participants were asked to complete the System Usability Scale [73] on a 5-point scale from “ 1 - Strongly Disagree ” to “ 5 — Strongly Agree ”. SUS scores were calculated according to [73] which produces a score from 0-100. Finally, after completing all three tasks, the participants were asked to rank the three GUI variants they saw from most preferred to least preferred and were given a free-form text box to give any additional thoughts or feedback. 11 
+
+Table III: Mean task score for each GUI variant.        
+
+> GUI variant Mean score (SD) FULL 91.14 (9.07) NO_BO 90.38 (13.89) NO_GP 82.01 (19.35) NO_PLANNER 43.40 (21.99) NO_LLM 39.91 (27.86) MANUAL_ONLY 30.24 (35.08)
+
+G. No human ablation experiments 
+
+To test whether the human user added anything of value after the goal definition phase, we conducted ablation exper-iments where the AI assistant was allowed to run without any human doing any editing of the BTs. We refer to this as NO_HUMAN . For each of the 60 FULL experiment runs, we identified the final goal set by the user, and the time spent to set the goal. The AI was then given 15 minutes (the full experiment time) minus the time spent to set the goal. For each experiment, we ran the AI five times with different seeds for a total of 300 runs. VI. R ESULTS 
+
+We performed mixed modeling using the lme4 package in R [74]. Mixed modeling allows us to account for indi-vidual differences between participants (e.g., familiarity with behavior trees) as well as the unequal distribution of GUI variants (i.e., that the FULL and MANUAL variants were seen more than the ablation variants). We mean-centered continuous variables. Models are reported using the guidelines set out in [75], with pseudo R2 used to estimate model fit. We compared models using corrected Akaike’s Information Criterion (AICc), where ∆AICc ≤ 2, we selected the simplest model [76]. For post-hoc comparisons, we used adjustments for multiple comparisons when appropriate [77]. For simplic-ity, only results for the best-fitting models are reported here. Full analyses are available in the OSF repository. 
+
+A. Normalization 
+
+For readability, all task scores presented in the paper have been normalized. A score of 0 here represents the score of a minimal BT policy with two nodes that fails immediately and does nothing. The value 0 is, however, not the minimum possible score. In fact, there is no minimum score, as trees can be arbitrarily large and receive an arbitrarily large penalty for tree size. At the other end, 100 represents the maximum score achieved by any participant during the experiments. This is not an optimal score, as better scores were found in tests during development for each of the three tasks. The actual optimal achievable score is not trivial to compute. Scores displayed in the GUI during the experiments were not normalized and ranged typically from −30000 to −4000 .
+
+B. Task Performance 
+
+We first compared the highest score achieved with each GUI variant; see Table III. We constructed a Linear Mixed Model (LMM) with an identity link and random intercept using a maximum likelihood function. As fixed effects, we specified Table IV: Fixed and random effects for task score.                             
+
+> Variable bse tFp95% CI (Intercept) 79.16 5.58 14.18 <.001 [68.2, 90.1] GUI Variant 295.17 <.001 Task 2.28 .320 Trial Order 6.88 1.99 3.45 <.001 [3.0, 10.8] BT Familiarity 3.99 1.94 2.05 <.05 [0.2, 7.8] Note: F-values are reported where it is not possible to obtain a single
+> b-value estimate (i.e., for effects with >2 levels). −20 020 40 60 80 100
+> 123
+> Trial Number
+> Mean Highest Score  GUI Variant
+> FULL
+> MANUAL_ONLY
+> NO_BO
+> NO_GP
+> NO_LLM
+> NO_PLANNER
+
+Figure 8: Mean task score across GUI variant and trial number. GUI variant, task, order, and familiarity with behavior trees to determine if and how each of these could predict task scores. For comparison, we also specified additional models testing for two- and three-way interactions between GUI variant, task, and order. This allowed us to determine if any differences between GUI variants remained consistent across trial order and tasks. The model containing only fixed effects (no interactions) provided the best fit for the data, R2 = 0 .62 , see Figure 8. There were significant fixed effects of GUI variant, trial order, and behavior tree familiarity, see Table IV. There was no effect of task type, indicating that the three different tasks were not significantly different from each other in terms of difficulty. The fixed effects for trial number and familiarity with behavior trees were both positive, suggesting that participants’ performance improved over trials and that participants with previous experience with behavior trees performed better. For the effect of the GUI variant, we conducted post-hoc pairwise comparisons between each GUI variant; see Table V. The re-sults indicated that trials with the FULL GUI variant, NO_BO ,and NO_GP variants all had significantly higher scores than the NO_LLM , NO_PLANNER , and MANUAL_ONLY vari-ants. There was no significant difference between the FULL ,
+
+NO_BO , and NO_GP variants nor between the NO_LLM ,
+
+NO_PLANNER , and MANUAL_ONLY variants. 
+
+1) Comparison with NO_HUMAN condition: Additionally, for the FULL variant only, we tested whether the combination of human and AI outperformed a baseline of NO_HUMAN ,where mean scores were 91.1 (9.07) and 88.06 (7.88), respec-tively. We specified an LMM with a random intercept using a maximum likelihood function and included fixed effects of score type ( FULL vs. NO_HUMAN ) and task order. The model was significant, R2 = 0 .04 , indicating that the FULL condition had higher scores than NO_HUMAN , see Table VI. 12 
+
+Table V: Pairwise comparisons for task score with GUI variants. 
+
+contrast b se t p
+
+FULL - MANUAL 61.05 4.13 14.79 <.001 FULL - NO_BO 1.71 6.76 0.25 .999 FULL - NO_GP 8.52 6.77 1.26 .807 FULL - NO_LLM 52.22 6.76 7.73 <.001 FULL - NO_PLANNER 47.73 6.72 7.10 <.001 NO_BO - NO_GP 6.81 8.68 0.78 .970 NO_BO - NO_LLM 50.51 8.74 5.78 <.001 NO_BO - NO_PLANNER 46.02 8.71 5.28 <.001 NO_GP - NO_LLM 43.70 8.77 4.98 <.001 NO_GP - NO_PLANNER 39.21 8.71 4.50 <.001 NO_LLM - NO_PLANNER -4.49 8.72 -0.52 .996 MANUAL - NO_BO -59.34 6.73 -8.82 <.001 MANUAL - NO_GP -52.54 6.73 -7.80 <.001 MANUAL - NO_LLM -8.83 6.78 -1.30 .783 MANUAL - NO_PLANNER -13.32 6.73 -1.98 .358 Results are averaged over the levels of task To account for multiple comparisons, p-values were adjusted using tukey 
+
+Table VI: LMM for the Effect of Score Type on Task Score 
+
+Variable b se t p 95% CI 
+
+(Intercept) 86.12 2.65 32.51 0.00 [80.93, 91.31] 
+
+FULL vs. NO_HUMAN 3.08 0.89 3.46 0.00 [1.33, 4.83] Trial Number 0.97 1.21 0.80 0.43 [-1.40, 3.34] 
+
+C. System Usability Scale 
+
+We used the SUS scores to analyze participants’ subjective experience of the different GUI variants; see Table VII. As with task performance, we specified an LMM with a random intercept using a maximum likelihood function. We included fixed effects of GUI variant, task, order, and familiarity with behavior trees. We again specified additional two- and three-way models testing for interactions to account for any differences in the effect of GUI variant across tasks and trials. The model containing only fixed effects (no interactions) provided the best fit for the data, R2 = 0 .21 , see Figure 9. There were significant fixed effects of GUI variant and famil-iarity with behavior trees, see Table VIII. There was no effect of task type or trial number, suggesting that perceived usability remained consistent across tasks and trials. There was a positive effect of familiarity with behavior trees on the SUS score, suggesting that as experience increased, all versions of the GUI were rated as more usable. Post hoc Table VII: Mean SUS score for each GUI variant 
+
+GUI variant Mean (SD) FULL 69.17 (16.77) NO_BO 75.17 (19.19) NO_GP 69.33 (9.14) NO_LLM 51.83 (16.70) NO_PLANNER 51.50 (23.64) MANUAL_ONLY 59.33 (21.75) 
+
+Table VIII: Fixed and random effects for the SUS score. 
+
+Variable b se t F p 95% CIs 
+
+(Intercept) 67.11 3.79 17.73 <.001 [59.69, 74.53] GUI Variant 47.96 <.001 Task 1.43 .488 Trial Order 0.46 1.24 0.37 .713 [-1.98, 2.89 ] BT Familiarity 5.49 1.98 2.77 <.01 [1.60, 9.37] Note: F-values are reported where it is not possible to obtain a single 
+
+b-value estimate (i.e., for effects with >2 levels). 020 40 60 80 100   
+
+> 123
+> Trial Number
+> Mean SUS Score  GUI Variant
+> FULL
+> MANUAL_ONLY
+> NO_BO
+> NO_GP
+> NO_LLM
+> NO_PLANNER
+
+Figure 9: Mean SUS score across GUI variant and trial number. Table IX: Simple effects for SUS score with GUI variant. 
+
+contrast b se t p
+
+FULL - MANUAL 9.64 2.49 3.86 .003 FULL - NO_BO -7.31 4.33 -1.69 .540 FULL - NO_GP -0.62 4.33 -0.14 .999 FULL - NO_LLM 16.40 4.33 3.79 .003 FULL - NO_PLANNER 19.91 4.30 4.63 0.000 MANUAL - NO_BO -16.95 4.30 -3.94 .002 MANUAL - NO_GP -10.26 4.31 -2.38 .171 MANUAL - NO_LLM 6.76 4.35 1.56 .629 MANUAL - NO_PLANNER 10.27 4.31 2.38 .169 NO_BO - NO_GP 6.69 5.73 1.17 .851 NO_BO - NO_LLM 23.72 5.78 4.10 .001 NO_BO - NO_PLANNER 27.22 5.75 4.73 0.000 NO_GP - NO_LLM 17.02 5.81 2.93 .045 NO_GP - NO_PLANNER 20.53 5.75 3.57 .006 NO_LLM - NO_PLANNER 3.51 5.77 0.61 .990 Results are averaged over the levels of task To account for multiple comparisons, p-values were adjusted using tukey 
+
+pairwise comparisons for the effect of GUI variant indicated the same pattern of results as task performance, see Table IX, with the FULL , NO_BO , and NO_GP variants all outper-forming the NO_LLM , NO_PLANNER , and MANUAL_ONLY 
+
+variants. There was again no significant difference between the FULL , NO_BO , and NO_GP variants nor between the 
+
+NO_LLM , NO_PLANNER , and MANUAL_ONLY variants. 
+
+D. Rankings 
+
+To analyze participants rankings of each GUI, we first calculated the percentage of times each GUI variant was 7% 28% 65% 7% 33% 60% 7% 40% 53% 73% 13% 13% 55% 42% 3% 67% 33%      
+
+> 0% 25% 50% 75% 100%
+> FULL NO_BO NO_GP NO_LLM MANUAL_ONLY NO_PLANNER
+> GUI Variant
+> Percentage of rankings
+> Rank
+> 3
+> 2
+> 1
+
+Figure 10: Proportion of rankings within each GUI variant. 13 
+
+selected for each rank; see Figure 10. We then constructed a cumulative link mixed model with a random intercept. The model was fit using maximum like-lihood with a logit link function. Fixed effects included GUI variant and task. A likelihood ratio test showed a significant fixed effect of GUI variant, χ2(5) = 404 .2, p < . 001 .Post-hoc pairwise comparisons confirm the same pattern of results, with the FULL , NO_BO , and NO_GP variants all ranked significantly higher than the NO_LLM , NO_PLANNER ,and MANUAL_ONLY variants. No other comparisons were significant. VII. D ISCUSSION AND CONCLUSIONS 
+
+We present BETR-GUI , an interface for creating behavior trees that combines graphical programming with an AI assis-tant using LLMs, automated planning, Bayesian optimization, and genetic programming. We studied its effectiveness with an extensive user study with 60 participants, testing six different variants of BETR-GUI with specific functionality ablated. Our first and second hypotheses, that the FULL variant would outperform all other variants, and that the MANUAL 
+
+variant would underperform compared to all other variants, were both partially supported. Primarily, the results indicate that users with access to FULL AI assistant functionality achieve significantly higher scores in the experiments than the MANUAL_ONLY variant without the AI assistant. This stipulates the importance of including interaction with AI assistants in graphical user interfaces. The two ablations removing learning parts of the AI assistant, NO_BO and 
+
+NO_GP , resulted in lower average scores in the experiments than FULL , but the difference was not significant. There are several possible reasons for this. One possible reason is that the users didn’t understand how to make full use of the AI to guide the learning algorithms. For example, in experiments where the participants had access to an AI assistant, only in 74/120 experiments was the locking node functionality ever used, and only in 72/120 were nodes locked for more than 30 seconds, despite pop-up hints in the GUI suggesting that they should be used. Another possible reason is that in the benchmarking tasks, the planner typically solved the majority of the task, and the learning algorithms were left to mostly fine-tune the solutions, which didn’t have as large an effect on the score. To test this, a new user study would have to be done with either different tasks that put more emphasis on the learning part, or with more participants to be able to separate variants that are closer in performance. Also, learning algorithms do not perform best in very short experiments like these, as they tend to need more time. In real settings, a user could leave the optimization running overnight, for example. Results also showed that the participants performance im-proved significantly over the course of the experiment as they gained experience. Many users also explicitly told us that they found it difficult in the beginning. Besides learning the GUI, many users also had to learn how behavior trees worked, and participants with previous experience performed significantly better in the experiments. In the form, users wrote comments like “Hard to grasp how BT works” and “Took me a while to get the fallback nodes and how to use them.” . There was no significant difference in performance on the three benchmark tasks, indicating that they were roughly equal in difficulty, which was also the intention during design. The ablations NO_LLM and NO_PLANNER did not get significantly higher scores than the MANUAL_ONLY variant. With these two ablations, the initial suggestions from the AI assistant will not solve even a single subtask, giving very low scores. While the AI assistant in these variants is still potentially useful if the user is able to guide it by sending suggested BTs. In the experiment, many users either were unable to solve the basic structure by themselves in time, or simply determined that the AI was of no use and elected not to make use of it. This is also suggested by comments that the users wrote, like, “When AI gives a bad advice, you don’t trust it again. Rather fix it yourself than fix the broken AI solution.” ,
+
+“The AI in GUI 2 confused me more than it helped.” , and “I did NOT trust the last AI, it seemed like it was out to get me. :’(” . While the differences are not statistically significant, it’s interesting to note that NO_LLM and NO_PLANNER 
+
+scored lower on the SUS while getting higher mean scores on task performance, suggesting that there were issues with trusting the AI. Indeed, even in some experiments with FULL 
+
+functionality, some users chose not to load the AI suggestions even though it solved the task while stating that they thought they could do better themselves, and thereafter failed to find any solution manually. This suggests that building trust with the user could be important for overall system performance. Our final hypothesis, that the FULL variant would out-perform the NO_HUMAN ablation experiments, was fully supported. The results showed that the AI running by itself without any help from the human user performed significantly worse when limited to the same time. This shows that even with this rather extensive AI assistant, the human still plays an important role in the behavior tree design effort. VIII. F UTURE WORK 
+
+The main limitation of this work is that the benchmark tasks, out of necessity, are highly simplified compared to actual robot applications. An important future work would be to perform a study with realistic, complex tasks. In order for such tasks to be possible, it would also be necessary to give the users considerably more time for each experiment as well as more extensive training before the experiments, both regarding behavior trees and the GUI itself and its capabilities. There are also numerous improvements that could be done to the GUI. Some of the more interesting ideas for this include: 1) Planning directly in the editor, expanding nodes directly when placed. 2) With a larger skills pool needed for more complex tasks, let the user select which skills should be enabled for the AI. This selection could also be done with another AI. 3) Auto-complete functionality where an LLM suggests additions to the tree without testing in simulation. 4) Use a completely LLM-generated tree, for example, using a method from previous work [31], [32], [65] and insert it into the GP population. 14 
+
+5) A prompt functionality to send natural language sugges-tions to the AI assistant also in the editing stage, such as “No, move the red cube first.” Important to note is that the usefulness of the various meth-ods in a system such as BETR-GUI will not only be dependent on the methods themselves, but also on the capability of the other methods in the system. For example, if a planner is capable of optimally solving the task at hand in an acceptable time, there is no need for a learning algorithm. Therefore, as each method of BETR-GUI is developed further, future work must continuously reevaluate the performance, the roles, and the relative importance of the various components. Finally, it could be important to study what can be done to increase trust in the AI assistant in terms of, for example, the assistant’s functionality, GUI design, and user training. REFERENCES [1] C. Müller, W. Kraus, B. Graf, and K. E. Bregler, “World robotics 2023 – service robots,” IFR Statistical Department, Tech. Rep., 2023. [2] M. Iovino, E. Scukins, J. Styrud, P. Ögren, and C. Smith, “A survey of Behavior Trees in robotics and AI,” Robotics and Autonomous Systems ,vol. 154, p. 104096, Aug. 2022. [3] M. Colledanchise and P. Ögren, Behavior Trees in Robotics and AI : An Introduction . CRC Press, July 2018. [4] M. Colledanchise, R. M. Murray, and P. Ögren, “Synthesis of correct-by-construction behavior trees,” in 2017 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS) , Sept. 2017, pp. 6039–6046. [5] M. Colledanchise, R. Parasuraman, and P. Ögren, “Learning of Behavior Trees for Autonomous Agents,” IEEE Transactions on Games , vol. 11, no. 2, pp. 183–189, June 2019. [6] M. Colledanchise, D. Almeida, and P. Ögren, “Towards Blended Reac-tive Planning and Acting using Behavior Trees,” in 2019 International Conference on Robotics and Automation (ICRA) , May 2019, pp. 8839– 8845. [7] F. Rovida, B. Grossmann, and V. Krüger, “Extended behavior trees for quick definition of flexible robotic tasks,” in 2017 IEEE/RSJ Interna-tional Conference on Intelligent Robots and Systems (IROS) , Sept. 2017, pp. 6793–6800. [8] M. Iovino, J. Styrud, P. Falco, and C. Smith, “Learning Behavior Trees with Genetic Programming in Unpredictable Environments,” in 2021 IEEE International Conference on Robotics and Automation (ICRA) ,May 2021, pp. 4591–4597. [9] J. Styrud, M. Iovino, M. Norrlöf, M. Björkman, and C. Smith, “Com-bining Planning and Learning of Behavior Trees for Robotic Assembly,” in 2022 International Conference on Robotics and Automation (ICRA) ,May 2022, pp. 11 511–11 517. [10] H. Zhou, Y. Lin, L. Yan, J. Zhu, and H. Min, “Llm-bt: Performing robotic adaptive tasks based on large language models and behavior trees,” in 2024 IEEE International Conference on Robotics and Automation (ICRA) . IEEE, 2024, pp. 16 655–16 661. [11] X. Chen, et al. , “Integrating intent understanding and optimal behavior planning for behavior tree generation from human instructions,” in Pro-ceedings of the Thirty-Third International Joint Conference on Artificial Intelligence , 2024, pp. 6832–6840. [12] J. Styrud, M. Iovino, M. Norrlöf, M. Björkman, and C. Smith, “Au-tomatic behavior tree expansion with llms for robotic manipulation,” in 2025 IEEE International Conference on Robotics and Automation (ICRA) . IEEE, 2025, pp. 1225–1232. [13] (2025) Groot2, the most advanced ide to create and debug behavior trees. [Online]. Available: https://www.behaviortree.dev/groot/ [14] D. Becroft, J. Bassett, A. Mejía, C. Rich, and C. Sidner, “Aipaint: A sketch-based behavior tree authoring tool,” in Proceedings of the AAAI Conference on Artificial Intelligence and Interactive Digital Entertain-ment , vol. 7, no. 1, 2011, pp. 2–7. [15] A. Shoulson, F. M. Garcia, M. Jones, R. Mead, and N. I. Badler, “Parameterizing Behavior Trees,” in Motion in Games , ser. Lecture Notes in Computer Science, J. M. Allbeck and P. Faloutsos, Eds. Springer Berlin Heidelberg, 2011, pp. 144–155. [16] K. R. Guerin, C. Lea, C. Paxton, and G. D. Hager, “A framework for end-user instruction of a robot assistant for manufacturing,” in 2015 IEEE international conference on robotics and automation (ICRA) . IEEE, 2015, pp. 6167–6174. [17] C. Paxton, A. Hundt, F. Jonathan, K. Guerin, and G. D. Hager, “CoSTAR: Instructing collaborative robots with behavior trees and vision,” in 2017 IEEE International Conference on Robotics and Au-tomation (ICRA) , May 2017, pp. 564–571. [18] C. Paxton, F. Jonathan, A. Hundt, B. Mutlu, and G. D. Hager, “Eval-uating Methods for End-User Creation of Robot Task Plans,” in 2018 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS) , Oct. 2018, pp. 6086–6092. [19] J. Becker, N. Rush, E. Barnes, and D. Rein, “Measuring the impact of early-2025 ai on experienced open-source developer productivity,” arXiv preprint arXiv:2507.09089 , 2025. [20] M. Colledanchise and P. Ögren, “How Behavior Trees Modularize Hy-brid Control Systems and Generalize Sequential Behavior Compositions, the Subsumption Architecture, and Decision Trees,” IEEE Transactions on Robotics , vol. 33, no. 2, pp. 372–389, Apr. 2017. [21] M. Iovino, J. Förster, P. Falco, J. J. Chung, R. Siegwart, and C. Smith, “Comparison between behavior trees and finite state machines,” IEEE Transactions on Automation Science and Engineering , 2025. [22] O. Biggar, M. Zamani, and I. Shames, “On Modularity in Reactive Control Architectures, with an Application to Formal Verification,” ACM Transactions on Cyber-Physical Systems , vol. 6, no. 2, pp. 19:1–19:36, Apr. 2022. [23] ——, “On modularity in reactive control architectures, with an appli-cation to formal verification,” ACM Transactions on Cyber-Physical Systems (TCPS) , vol. 6, no. 2, pp. 1–36, 2022. [24] M. Iovino, J. Styrud, P. Falco, and C. Smith, “A framework for learning behavior trees in collaborative robotic applications,” 2023 IEEE Inter-national Conference on Automation Science and Engineering (CASE) ,2023. [25] M. Mayr, C. Hvarfner, K. Chatzilygeroudis, L. Nardi, and V. Krueger, “Learning skill-based industrial robot tasks with user priors,” in 2022 IEEE 18th International Conference on Automation Science and Engi-neering (CASE) . IEEE, 2022, pp. 1485–1492. [26] J. Tumova, A. Marzinotto, D. V. Dimarogonas, and D. Kragic, “Maximally satisfying LTL action planning,” in 2014 IEEE/RSJ International Conference on Intelligent Robots and Systems . Chicago, IL, USA: IEEE, Sept. 2014, pp. 1503–1510. [Online]. Available: http://ieeexplore.ieee.org/document/6942755/ [27] M. Hölzl and T. Gabor, “Reasoning and Learning for Awareness and Adaptation,” in Software Engineering for Collective Autonomic Systems: The ASCENS Approach , ser. Lecture Notes in Computer Science, M. Wirsing, M. Hölzl, N. Koch, and P. Mayer, Eds. Cham: Springer International Publishing, 2015, pp. 249–290. [28] O. Gustavsson, M. Iovino, J. Styrud, and C. Smith, “Combining Context Awareness and Planning to Learn Behavior Trees from Demonstration,” in 2022 31st IEEE International Conference on Robot and Human Interactive Communication (RO-MAN) , Aug. 2022, pp. 1153–1160. [29] S. Gugliermo, E. Schaffernicht, C. Koniaris, and F. Pecora, “Learning behavior trees from planning experts using decision tree and logic factorization,” IEEE Robotics and Automation Letters , vol. 8, no. 6, pp. 3534–3541, 2023. [30] M. Iovino, F. I. Do˘ gan, I. Leite, and C. Smith, “Interactive disambigua-tion for behavior tree execution,” in 2022 IEEE-RAS 21st International Conference on Humanoid Robots (Humanoids) . IEEE, 2022, pp. 82–89. [31] R. A. Izzo, G. Bardaro, and M. Matteucci, “Btgenbot: Behavior tree generation for robotic tasks with lightweight llms,” in 2024 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS) .IEEE, 2024, pp. 9684–9690. [32] C. E. Mower, et al. , “Ros-llm: A ros framework for embodied ai with task feedback and structured reasoning,” arXiv preprint arXiv:2406.19741 , 2024. [33] M. Mayr, F. Ahmad, K. Chatzilygeroudis, L. Nardi, and V. Krueger, “Combining planning, reasoning and reinforcement learning to solve industrial robot tasks,” IROS 2022 Workshop on Trends and Advances in Machine Learning and Automated Reasoning for Intelligent Robots and Systems , 2022. [34] ——, “Skill-based multi-objective reinforcement learning of industrial robot tasks with planning and knowledge integration,” in 2022 IEEE International Conference on Robotics and Biomimetics (ROBIO) . IEEE, 2022, pp. 1995–2002. [35] J. Styrud, M. Mayr, E. Hellsten, V. Krueger, and C. Smith, “Bebop-combining reactive planning and bayesian optimization to solve robotic 15 
+
+manipulation tasks,” in 2024 IEEE International Conference on Robotics and Automation (ICRA) . IEEE, 2024, pp. 16 459–16 466. [36] X. Chen, et al. , “Efficient behavior tree planning with commonsense pruning and heuristic,” arXiv preprint arXiv:2406.00965 , 2024. [37] M. Ghallab, D. Nau, and P. Traverso, Automated Planning and Acting .Cambridge University Press, Aug. 2016. [38] F. Ahmad, J. Styrud, and V. Krueger, “Addressing failures in robotics using vision-based language models (vlms) and behavior trees (bt),” in 
+
+European Robotics Forum 2025 , vol. 36. Springer Nature, 2025, p. 281. [39] F. Ahmad, H. Ismail, J. Styrud, M. Stenmark, and V. Krueger, “A unified framework for real-time failure handling in robotics using vision-language models, reactive planner and behavior trees,” in 2025 IEEE 21st International Conference on Automation Science and Engineering (CASE) . IEEE, 2025. [40] J. R. Koza, Genetic Programming: On the Programming of Computers by Means of Natural Selection . MIT Press, 1992. [41] A. N. Sloss and S. Gustafson, “2019 Evolutionary Algorithms Review,” in Genetic Programming Theory and Practice XVII , ser. Genetic and Evolutionary Computation, W. Banzhaf, E. Goodman, L. Sheneman, L. Trujillo, and B. Worzel, Eds. Cham: Springer International Pub-lishing, 2020, pp. 307–344. [42] C.-U. Lim, R. Baumgarten, and S. Colton, “Evolving Behaviour Trees for the Commercial Game DEFCON,” in Applications of Evolutionary Computation , D. Hutchison, et al. , Eds. Berlin, Heidelberg: Springer Berlin Heidelberg, 2010, vol. 6024, pp. 100–110. [43] K. Y. W. Scheper, S. Tijmons, C. C. de Visser, and G. C. H. E. de Croon, “Behavior Trees for Evolutionary Robotics,” Artificial Life , vol. 22, no. 1, pp. 23–48, Nov. 2015. [44] S. Jones, M. Studley, S. Hauert, and A. Winfield, “Evolving Behaviour Trees for Swarm Robotics,” in Distributed Autonomous Robotic Sys-tems: The 13th International Symposium , ser. Springer Proceedings in Advanced Robotics, R. Groß, et al. , Eds. Cham: Springer International Publishing, 2018, pp. 487–501. [45] D. Perez, M. Nicolau, M. O’Neill, and A. Brabazon, “Evolving Be-haviour Trees for the Mario AI Competition Using Grammatical Evolu-tion,” in Applications of Evolutionary Computation , ser. Lecture Notes in Computer Science. Springer Berlin Heidelberg, 2011, pp. 123–132. [46] M. Nicolau, D. Perez-Liebana, M. O’Neill, and A. Brabazon, “Evo-lutionary Behavior Tree Approaches for Navigating Platform Games,” 
+
+IEEE Transactions on Computational Intelligence and AI in Games ,vol. 9, no. 3, pp. 227–238, Sept. 2017. [47] P. McClarron, R. Ollington, and I. Lewis, “Effect of Constraints on Evolving Behavior Trees for Game AI,” in 9th Annual International Conference on Computer Games Multimedia & Allied Technologies (CGAT 2016) . Global Science & Technology Forum (GSTF), Mar. 2016. [48] W. Yang, Y. Zhao, Q. Wang, Y. Li, and Y. Tian, “Learning behavior trees for automated guided vehicles via genetic and reinforcement methods,” in Proceedings-SEKE 2025: 37th International Conference on Software Engineering and Knowledge Engineering . Knowledge Systems Institute Graduate School, 2025, pp. 336–341. [49] R. Calandra, A. Seyfarth, J. Peters, and M. P. Deisenroth, “Bayesian optimization for learning gaits under uncertainty: An experimental comparison on a dynamic bipedal walker,” Annals of Mathematics and Artificial Intelligence , vol. 76, pp. 5–23, 2016. [50] A. Rai, R. Antonova, S. Song, W. Martin, H. Geyer, and C. Atkeson, “Bayesian optimization using domain knowledge on the atrias biped,” in 2018 IEEE International Conference on Robotics and Automation (ICRA) . IEEE, 2018, pp. 1771–1778. [51] A. Klein, S. Falkner, S. Bartels, P. Hennig, and F. Hutter, “Fast bayesian optimization of machine learning hyperparameters on large datasets,” in 
+
+Artificial intelligence and statistics . PMLR, 2017, pp. 528–536. [52] K. Kandasamy, W. Neiswanger, J. Schneider, B. Poczos, and E. P. Xing, “Neural architecture search with bayesian optimisation and optimal transport,” Advances in neural information processing systems , vol. 31, 2018. [53] B. Ru, X. Wan, X. Dong, and M. Osborne, “Interpretable neural archi-tecture search via bayesian optimisation with weisfeiler-lehman kernels,” in International Conference on Learning Representations , 2021. [54] P. I. Frazier and J. Wang, “Bayesian optimization for materials design,” in Information science for materials discovery and design . Springer, 2015, pp. 45–75. [55] D. Packwood et al. , Bayesian optimization for materials science .Springer, 2017. [56] Z. E. Hughes, et al. , “Tuning materials-binding peptide sequences toward gold-and silver-binding selectivity with bayesian optimization,” ACS nano , vol. 15, no. 11, pp. 18 260–18 269, 2021. [57] C. K. Williams and C. E. Rasmussen, Gaussian processes for machine learning . MIT press Cambridge, MA, 2006, vol. 2, no. 3. [58] M. Lindauer, et al. , “Smac3: A versatile bayesian optimization package for hyperparameter optimization,” 2022. [59] B. Shahriari, K. Swersky, Z. Wang, R. P. Adams, and N. De Freitas, “Taking the human out of the loop: A review of bayesian optimization,” 
+
+Proceedings of the IEEE , vol. 104, no. 1, pp. 148–175, 2015. [60] P. I. Frazier, “A tutorial on bayesian optimization,” arXiv preprint arXiv:1807.02811 , 2018. [61] A. Radford, et al. , “Language models are unsupervised multitask learn-ers,” OpenAI blog , vol. 1, no. 8, p. 9, 2019. [62] T. Brown, et al. , “Language models are few-shot learners,” Advances in neural information processing systems , vol. 33, pp. 1877–1901, 2020. [63] L. Wang, et al. , “A survey on large language model based autonomous agents,” Frontiers of Computer Science , vol. 18, no. 6, p. 186345, 2024. [64] A. Brohan, et al. , “Do as i can, not as i say: Grounding language in robotic affordances,” in Conference on robot learning . PMLR, 2023, pp. 287–318. [65] A. Lykov, et al. , “Llm-mars: Large language model for behavior tree generation and nlp-enhanced dialogue in multi-agent robot systems,” 
+
+arXiv preprint arXiv:2312.09348 , 2023. [66] P. Shojaee, I. Mirzadeh, K. Alizadeh, M. Horton, S. Bengio, and M. Farajtabar, “The illusion of thinking: Understanding the strengths and limitations of reasoning models via the lens of problem complexity,” in NeurIPS , 2025. [67] C. Aeronautiques, et al. , “Pddl| the planning domain definition lan-guage,” Technical Report, Tech. Rep. , 1998. [68] B. Liu, et al. , “Llm+ p: Empowering large language models with optimal planning proficiency,” arXiv preprint arXiv:2304.11477 , 2023. [69] S. Merino-Fidalgo, C. Sánchez-Girón, E. Zalama, J. Gómez-García-Bermejo, and J. Duque-Domingo, “Behavior tree generation and adap-tation for a social robot control with llms,” Robotics and Autonomous Systems , p. 105165, 2025. [70] A. Kobilov and J. Lan, “Automatic robot task planning by integrat-ing large language model with genetic programming,” arXiv preprint arXiv:2502.07772 , 2025. [71] A. Juliani, et al. , “Unity: A general platform for intelligent agents,” arXiv preprint arXiv:1809.02627 , 2020. [Online]. Available: https://arxiv.org/pdf/1809.02627.pdf [72] M. Towers, et al. , “Gymnasium: A standard interface for reinforcement learning environments,” 2025. [Online]. Available: https://arxiv.org/abs/ 2407.17032 [73] J. R. Lewis, “The system usability scale: past, present, and future,” 
+
+International Journal of Human–Computer Interaction , vol. 34, no. 7, pp. 577–590, 2018. [74] D. Bates, M. Mächler, B. Bolker, and S. Walker, “Fitting linear mixed-effects models using lme4,” Journal of Statistical Software , vol. 67, no. 1, pp. 1–48, 2015. [75] R. Bono, R. Alarcón, and M. J. Blanca, “Report quality of generalized linear mixed models in psychology: A systematic review,” Frontiers in psychology , vol. 12, p. 666182, 2021. [76] K. P. Burnham and D. R. Anderson, “Multimodel inference: understand-ing aic and bic in model selection,” Sociological methods & research ,vol. 33, no. 2, pp. 261–304, 2004. [77] M. J. Barnett, S. Doroudgar, V. Khosraviani, and E. J. Ip, “Multiple comparisons: To compare or not to compare, that is the question,” 
+
+Research in Social and Administrative Pharmacy , vol. 18, no. 2, pp. 2331–2334, 2022.
