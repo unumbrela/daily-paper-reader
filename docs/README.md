@@ -9,27 +9,19 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-02-12
-- 运行时间：2026-02-12 19:40:55 UTC
+- 最新运行日期：2026-02-13
+- 运行时间：2026-02-13 20:02:28 UTC
 - 运行状态：成功
-- 本次总论文数：5
-- 精读区：2
-- 速读区：3
-- 详情：[/202602/12/README](/202602/12/README)
+- 本次总论文数：0
+- 精读区：0
+- 速读区：0
+- 详情：[/202602/13/README](/202602/13/README)
 
 ### 精读区论文标签
-1. [LLM-Based Scientific Equation Discovery via Physics-Informed Token-Regularized Policy Optimization](/202602/12/2602.10576v1-llm-based-scientific-equation-discovery-via-physics-informed-token-regularized-policy-optimization)  
-   标签：keyword:SR、query:SR
-2. [Neuro-Symbolic Synergy for Interactive World Modeling](/202602/12/2602.10480v1-neuro-symbolic-synergy-for-interactive-world-modeling)  
-   标签：keyword:SR、query:SR
+- 本次无精读推荐。
 
 ### 速读区论文标签
-1. [Machine Learning Methods for Stellar Collisions. I. Predicting Outcomes of SPH Simulations](/202602/12/2602.10191v1-machine-learning-methods-for-stellar-collisions-i-predicting-outcomes-of-sph-simulations)  
-   标签：keyword:SR、query:SR
-2. [ImprovEvolve: Ask AlphaEvolve to Improve the Input Solution and Then Improvise](/202602/12/2602.10233v1-improvevolve-ask-alphaevolve-to-improve-the-input-solution-and-then-improvise)  
-   标签：keyword:SR、query:SR
-3. [Neuro-symbolic Action Masking for Deep Reinforcement Learning](/202602/12/2602.10598v1-neuro-symbolic-action-masking-for-deep-reinforcement-learning)  
-   标签：keyword:SR、query:SR
+- 本次无速读推荐。
 
 
 <div class="dpr-home-promo-card">
