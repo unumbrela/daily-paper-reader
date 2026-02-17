@@ -1,0 +1,216 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-02-17T19:35:27.213685+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 1,
+    "deep_cap": 6,
+    "deep_selected": 1,
+    "quick_candidates": 5,
+    "quick_skim_target": 11,
+    "quick_selected": 5
+  },
+  "deep_dive": [
+    {
+      "id": "2602.14737v1",
+      "title": "Parameter-Minimal Neural DE Solvers via Horner Polynomials",
+      "abstract": "We propose a parameter-minimal neural architecture for solving differential equations by restricting the hypothesis class to Horner-factorized polynomials, yielding an implicit, differentiable trial solution with only a small set of learnable coefficients. Initial conditions are enforced exactly by construction by fixing the low-order polynomial degrees of freedom, so training focuses solely on matching the differential-equation residual at collocation points. To reduce approximation error without abandoning the low-parameter regime, we introduce a piecewise (\"spline-like\") extension that trains multiple small Horner models on subintervals while enforcing continuity (and first-derivative continuity) at segment boundaries. On illustrative ODE benchmarks and a heat-equation example, Horner networks with tens (or fewer) parameters accurately match the solution and its derivatives and outperform small MLP and sinusoidal-representation baselines under the same training settings, demonstrating a practical accuracy-parameter trade-off for resource-efficient scientific modeling.",
+      "authors": [
+        "T. Matulić",
+        "D. Seršić"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "eess.SP"
+      ],
+      "published": "2026-02-16 13:29:38+00:00",
+      "link": "https://arxiv.org/pdf/2602.14737v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Equation discovery via Horner polynomials for solving differential equations with minimal parameters",
+      "llm_evidence_cn": "通过Horner多项式进行方程发现，以极小参数求解微分方程",
+      "llm_evidence": "通过Horner多项式进行方程发现，以极小参数求解微分方程",
+      "llm_tldr_en": "A parameter-minimal neural solver using Horner-factorized polynomials to solve ODEs and heat equations.",
+      "llm_tldr_cn": "一种使用Horner分解多项式的极小参数神经求解器，用于求解常微分方程和热方程。",
+      "llm_tldr": "一种使用Horner分解多项式的极小参数神经求解器，用于求解常微分方程和热方程。",
+      "llm_tags": [
+        "keyword:SR",
+        "query:SR"
+      ]
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2602.13864v1",
+      "title": "Evolving Multi-Channel Confidence-Aware Activation Functions for Missing Data with Channel Propagation",
+      "abstract": "Learning in the presence of missing data can result in biased predictions and poor generalizability, among other difficulties, which data imputation methods only partially address. In neural networks, activation functions significantly affect performance yet typical options (e.g., ReLU, Swish) operate only on feature values and do not account for missingness indicators or confidence scores. We propose Three-Channel Evolved Activations (3C-EA), which we evolve using Genetic Programming to produce multivariate activation functions f(x, m, c) in the form of trees that take (i) the feature value x, (ii) a missingness indicator m, and (iii) an imputation confidence score c. To make these activations useful beyond the input layer, we introduce ChannelProp, an algorithm that deterministically propagates missingness and confidence values via linear layers based on weight magnitudes, retaining reliability signals throughout the network. We evaluate 3C-EA and ChannelProp on datasets with natural and injected (MCAR/MAR/MNAR) missingness at multiple rates under identical preprocessing and splits. Results indicate that integrating missingness and confidence inputs into the activation search improves classification performance under missingness.",
+      "authors": [
+        "Naeem Shahabi Sani",
+        "Ferial Najiantabriz",
+        "Shayan Shafaei",
+        "Dean F. Hougen"
+      ],
+      "primary_category": "cs.NE",
+      "categories": [
+        "cs.NE",
+        "cs.LG"
+      ],
+      "published": "2026-02-14 19:52:10+00:00",
+      "link": "https://arxiv.org/pdf/2602.13864v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Genetic Programming for evolving multivariate activation functions",
+      "llm_evidence_cn": "利用遗传规划演化多元激活函数",
+      "llm_evidence": "利用遗传规划演化多元激活函数",
+      "llm_tldr_en": "Uses Genetic Programming to evolve activation functions that handle missing data and confidence scores.",
+      "llm_tldr_cn": "利用遗传规划演化出能够处理缺失数据和置信度评分的多元激活函数。",
+      "llm_tldr": "利用遗传规划演化出能够处理缺失数据和置信度评分的多元激活函数。",
+      "llm_tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.14011v1",
+      "title": "KoopGen: Koopman Generator Networks for Representing and Predicting Dynamical Systems with Continuous Spectra",
+      "abstract": "Representing and predicting high-dimensional and spatiotemporally chaotic dynamical systems remains a fundamental challenge in dynamical systems and machine learning. Although data-driven models can achieve accurate short-term forecasts, they often lack stability, interpretability, and scalability in regimes dominated by broadband or continuous spectra. Koopman-based approaches provide a principled linear perspective on nonlinear dynamics, but existing methods rely on restrictive finite-dimensional assumptions or explicit spectral parameterizations that degrade in high-dimensional settings. Against these issues, we introduce KoopGen, a generator-based neural Koopman framework that models dynamics through a structured, state-dependent representation of Koopman generators. By exploiting the intrinsic Cartesian decomposition into skew-adjoint and self-adjoint components, KoopGen separates conservative transport from irreversible dissipation while enforcing exact operator-theoretic constraints during learning. Across systems ranging from nonlinear oscillators to high-dimensional chaotic and spatiotemporal dynamics, KoopGen improves prediction accuracy and stability, while clarifying which components of continuous-spectrum dynamics admit interpretable and learnable representations.",
+      "authors": [
+        "Liangyu Su",
+        "Jun Shu",
+        "Rui Liu",
+        "Deyu Meng",
+        "Zongben Xu"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-15 06:32:23+00:00",
+      "link": "https://arxiv.org/pdf/2602.14011v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Data-driven modeling of dynamical systems and interpretability",
+      "llm_evidence_cn": "动力系统的数据驱动建模与可解释性",
+      "llm_evidence": "动力系统的数据驱动建模与可解释性",
+      "llm_tldr_en": "KoopGen provides a neural Koopman framework for predicting high-dimensional dynamical systems with interpretability.",
+      "llm_tldr_cn": "KoopGen提供了一个神经Koopman框架，用于具有可解释性地预测高维动力系统。",
+      "llm_tldr": "KoopGen提供了一个神经Koopman框架，用于具有可解释性地预测高维动力系统。",
+      "llm_tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.14928v1",
+      "title": "From Classical to Quantum: Extending Prometheus for Unsupervised Discovery of Phase Transitions in Three Dimensions and Quantum Systems",
+      "abstract": "We extend the Prometheus framework for unsupervised phase transition discovery from 2D classical systems to 3D classical and quantum many-body systems, addressing scalability in higher dimensions and generalization to quantum fluctuations. For the 3D Ising model ($L \\leq 32$), the framework detects the critical temperature within 0.01\\% of literature values ($T_c/J = 4.511 \\pm 0.005$) and extracts critical exponents with $\\geq 70\\%$ accuracy ($β= 0.328 \\pm 0.015$, $γ= 1.24 \\pm 0.06$, $ν= 0.632 \\pm 0.025$), correctly identifying the 3D Ising universality class via $χ^2$ comparison ($p = 0.72$) without analytical guidance. For quantum systems, we developed quantum-aware VAE (Q-VAE) architectures using complex-valued wavefunctions and fidelity-based loss. Applied to the transverse field Ising model, we achieve 2\\% accuracy in quantum critical point detection ($h_c/J = 1.00 \\pm 0.02$) and successfully discover ground state magnetization as the order parameter ($r = 0.97$). Notably, for the disordered transverse field Ising model, we detect exotic infinite-randomness criticality characterized by activated dynamical scaling $\\ln ξ\\sim |h - h_c|^{-ψ}$, extracting a tunneling exponent $ψ= 0.48 \\pm 0.08$ consistent with theoretical predictions ($ψ= 0.5$). This demonstrates that unsupervised learning can identify qualitatively different types of critical behavior, not just locate critical points. Our systematic validation across classical thermal transitions ($T = 0$ to $T > 0$) and quantum phase transitions ($T = 0$, varying $h$) establishes that VAE-based discovery generalizes across fundamentally different physical domains, providing robust tools for exploring phase diagrams where analytical solutions are unavailable.",
+      "authors": [
+        "Brandon Yee",
+        "Wilson Collins",
+        "Maximilian Rutkowski"
+      ],
+      "primary_category": "cond-mat.dis-nn",
+      "categories": [
+        "cond-mat.dis-nn",
+        "cond-mat.stat-mech",
+        "cs.LG"
+      ],
+      "published": "2026-02-16 17:06:20+00:00",
+      "link": "https://arxiv.org/pdf/2602.14928v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Unsupervised discovery of physical laws and phase transitions in 3D and quantum systems",
+      "llm_evidence_cn": "在三维和量子系统中无监督发现物理定律和相变",
+      "llm_evidence": "在三维和量子系统中无监督发现物理定律和相变",
+      "llm_tldr_en": "Extends Prometheus framework for unsupervised phase transition discovery in 3D and quantum many-body systems.",
+      "llm_tldr_cn": "扩展Prometheus框架，用于三维和量子多体系统中的无监督相变发现。",
+      "llm_tldr": "扩展Prometheus框架，用于三维和量子多体系统中的无监督相变发现。",
+      "llm_tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.14663v1",
+      "title": "Pseudo-differential-enhanced physics-informed neural networks",
+      "abstract": "We present pseudo-differential enhanced physics-informed neural networks (PINNs), an extension of gradient enhancement but in Fourier space. Gradient enhancement of PINNs dictates that the PDE residual is taken to a higher differential order than prescribed by the PDE, added to the objective as an augmented term in order to improve training and overall learning fidelity. We propose the same procedure after application via Fourier transforms, since differentiating in Fourier space is multiplication with the Fourier wavenumber under suitable decay. Our methods are fast and efficient. Our methods oftentimes achieve superior PINN versus numerical error in fewer training iterations, potentially pair well with few samples in collocation, and can on occasion break plateaus in low collocation settings. Moreover, our methods are suitable for fractional derivatives. We establish that our methods improve spectral eigenvalue decay of the neural tangent kernel (NTK), and so our methods contribute towards the learning of high frequencies in early training, mitigating the effects of frequency bias up to the polynomial order and possibly greater with smooth activations. Our methods accommodate advanced techniques in PINNs, such as Fourier feature embeddings. A pitfall of discrete Fourier transforms via the Fast Fourier Transform (FFT) is mesh subjugation, and so we demonstrate compatibility of our methods for greater mesh flexibility and invariance on alternative Euclidean and non-Euclidean domains via Monte Carlo methods and otherwise.",
+      "authors": [
+        "Andrew Gracyk"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "math.NA"
+      ],
+      "published": "2026-02-16 11:40:58+00:00",
+      "link": "https://arxiv.org/pdf/2602.14663v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Physics-informed neural networks for scientific discovery",
+      "llm_evidence_cn": "用于科学发现的物理信息神经网络",
+      "llm_evidence": "用于科学发现的物理信息神经网络",
+      "llm_tldr_en": "Enhances PINNs using pseudo-differential operators in Fourier space to improve PDE learning fidelity.",
+      "llm_tldr_cn": "在傅里叶空间利用伪微分算子增强 PINN，提高偏微分方程的学习精度。",
+      "llm_tldr": "在傅里叶空间利用伪微分算子增强 PINN，提高偏微分方程的学习精度。",
+      "llm_tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.14853v1",
+      "title": "BEACONS: Bounded-Error, Algebraically-Composable Neural Solvers for Partial Differential Equations",
+      "abstract": "The traditional limitations of neural networks in reliably generalizing beyond the convex hulls of their training data present a significant problem for computational physics, in which one often wishes to solve PDEs in regimes far beyond anything which can be experimentally or analytically validated. In this paper, we show how it is possible to circumvent these limitations by constructing formally-verified neural network solvers for PDEs, with rigorous convergence, stability, and conservation properties, whose correctness can therefore be guaranteed even in extrapolatory regimes. By using the method of characteristics to predict the analytical properties of PDE solutions a priori (even in regions arbitrarily far from the training domain), we show how it is possible to construct rigorous extrapolatory bounds on the worst-case L^inf errors of shallow neural network approximations. Then, by decomposing PDE solutions into compositions of simpler functions, we show how it is possible to compose these shallow neural networks together to form deep architectures, based on ideas from compositional deep learning, in which the large L^inf errors in the approximations have been suppressed. The resulting framework, called BEACONS (Bounded-Error, Algebraically-COmposable Neural Solvers), comprises both an automatic code-generator for the neural solvers themselves, as well as a bespoke automated theorem-proving system for producing machine-checkable certificates of correctness. We apply the framework to a variety of linear and non-linear PDEs, including the linear advection and inviscid Burgers' equations, as well as the full compressible Euler equations, in both 1D and 2D, and illustrate how BEACONS architectures are able to extrapolate solutions far beyond the training data in a reliable and bounded way. Various advantages of the approach over the classical PINN approach are discussed.",
+      "authors": [
+        "Jonathan Gorard",
+        "Ammar Hakim",
+        "James Juno"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "math.NA",
+        "physics.comp-ph"
+      ],
+      "published": "2026-02-16 15:49:19+00:00",
+      "link": "https://arxiv.org/pdf/2602.14853v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Neural solvers for PDEs with formal verification and physical law extraction",
+      "llm_evidence_cn": "具有形式化验证和物理定律提取能力的偏微分方程神经求解器",
+      "llm_evidence": "具有形式化验证和物理定律提取能力的偏微分方程神经求解器",
+      "llm_tldr_en": "Constructs formally-verified neural solvers for PDEs with rigorous convergence and stability for physical systems.",
+      "llm_tldr_cn": "为物理系统构建具有严格收敛性和稳定性的形式化验证偏微分方程神经求解器。",
+      "llm_tldr": "为物理系统构建具有严格收敛性和稳定性的形式化验证偏微分方程神经求解器。",
+      "llm_tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "quick_tier": "6"
+    }
+  ]
+}

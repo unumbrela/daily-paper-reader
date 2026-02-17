@@ -1,0 +1,727 @@
+Title: Evolving Multi-Channel Confidence-Aware Activation Functions for Missing Data with Channel Propagation
+
+URL Source: https://arxiv.org/pdf/2602.13864v1
+
+Published Time: Tue, 17 Feb 2026 01:44:16 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+# Evolving Multi-Channel Confidence-Aware Activation Functions for Missing Data with Channel Propagation 
+
+# Naeem Shahabi Sani 
+
+shahabi@ou.edu University of Oklahoma Norman, Oklahoma, USA 
+
+# Ferial Najiantabriz 
+
+ferial@ou.edu University of Oklahoma Norman, Oklahoma, USA 
+
+# Shayan Shafaei 
+
+shayan.shafaei@ou.edu University of Oklahoma Norman, Oklahoma, USA 
+
+# Dean F. Hougen 
+
+hougen@ou.edu University of Oklahoma Norman, Oklahoma, USA 
+
+## Abstract 
+
+Learning in the presence of missing data can result in biased pre-dictions and poor generalizability, among other difficulties, which data imputation methods only partially address. In neural networks, activation functions significantly affect performance yet typical op-tions (e.g., ReLU, Swish) operate only on feature values and do not account for missingness indicators or confidence scores. We pro-pose Three-Channel Evolved Activations (3C-EA), which we evolve using GP to produce multivariate activation functions 𝑓 (𝑥, 𝑚, 𝑐 )
+
+in the form of trees that take (i) the feature value 𝑥 , (ii) a miss-ingness indicator 𝑚 , and (iii) an imputation confidence score 𝑐 . To make these activations useful beyond the input layer, we introduce 
+
+ChannelProp , an algorithm that deterministically propagates miss-ingness and confidence values via linear layers based on weight magnitudes, retaining reliability signals throughout the network. We evaluate 3C-EA and ChannelProp on datasets with natural and injected (MCAR/MAR/MNAR) missingness at multiple rates under identical preprocessing and splits. Results indicate that integrat-ing missingness and confidence inputs into the activation search improves classification performance under missingness. 
+
+## Keywords 
+
+Genetic Programming, Missing Data, Activation Functions, Confi-dence Propagation, Neural Networks 
+
+## 1 Introduction 
+
+In real-world machine learning applications, data is rarely com-plete [ 15 ]. Missing values are common in fields such as medical informatics, finance, and sensor networks, requiring preprocessing techniques such as imputation or masking [ 4, 15 , 23 ]. Although these strategies allow models to work with incomplete information, they frequently obscure an essential contrast between observed data and imputed projections [ 26 ]. Traditional neural networks intensify this problem by depending on fixed scalar activation func-tions (e.g., ReLU, Swish, ELU) that function only on the feature value 𝑥 and fail to clearly distinguish between high-confidence observations and low-confidence imputations. A common strategy for addressing missing data is to use miss-ingness masks or indicators as secondary input features. This en-ables the network to use missingness information; nevertheless, the nonlinear transformations remain unaltered, and any reliability information must be inferred implicitly via linear weights [ 5 ]. Con-sequently, designing nonlinear behaviors that explicitly respond to data quality remains a significant challenge. Neuroevolution provides a structured solution by allowing the automatic identification of neural components that are challeng-ing to design by hand [ 21 ]. Previous research has demonstrated that evolutionary search may identify enhanced scalar activation functions 𝑓 (𝑥 ) and effectively navigate complex function spaces via genetic programming (GP) [ 5, 12 ]. Nonetheless, current activa-tion function searches are primarily limited to scalar inputs and are unable to directly utilize data-quality information. This work presents Three-Channel Evolved Activations (3C-EA), which expand activation evolution to multivariate computation trees represented as 𝑓 (𝑥, 𝑚, 𝑐 ), where 𝑥 symbolizes the feature value, 𝑚 acts as a bi-nary missingness indicator, and 𝑐 shows an imputation confidence score. In our approach, confidence is set to 1 for observed values and decreased for imputed values according to feature-specific missingness rates derived from the training data. To improve multi-channel activations in deep networks, we present ChannelProp , a deterministic propagation rule that commu-nicates missingness and confidence via linear layers by employing normalized absolute weight values. This guarantees that reliabil-ity information gets transformed together with feature values in-stead of being eliminated post-input layer. Accordingly, evolved activations can locally modify their responses, such as by dimin-ishing activations in low-confidence scenarios or altering regimes in the absence of inputs. We evaluate the proposed method on datasets with natural missing values and on initially full datasets with intentionally created missingness under missing completely at random, missing at random, and missing not at random (MCAR, MAR, and MNAR, respectively) methods [ 15 ]. Performance is eval-uated against standard fixed activation baselines (ReLU, Swish, LeakyReLU, ELU) with identical preprocessing procedures and iden-tical train, validation, and test splits. 
+
+Contributions. (i) We present a GP-based system for evolving mul-tivariate activation functions that clearly depend on feature values, missingness indicators, and confidence scores; (ii) We introduce ChannelProp, a deterministic approach to propagating reliability information across linear layers; (iii) We illustrate via extensive experiments that integrating data-quality information into the ac-tivation search space results in measurable performance enhance-ments, especially in scenarios of structured and value-dependent missingness. 
+
+## 2 Related Work 2.1 Missing Data Handling 
+
+Missing data has been widely studied in machine learning [ 8 , 11 ,17 , 24 , 25 , 27 ]. Traditional methods use single or multiple imputa-tion based on assumptions such as MCAR, MAR, and MNAR [ 15 ,22 ]. Mean imputation and model-based methods like expectation-maximization and k-nearest neighbors are common strategies. They are fast to run but may hide uncertainty [ 4 , 23 ]. Recent research integrates missingness markers as supplementary inputs, enabling 
+
+> arXiv:2602.13864v1 [cs.NE] 14 Feb 2026 Naeem Shahabi Sani, Ferial Najiantabriz, Shayan Shafaei, and Dean F. Hougen
+
+models to condition on observedness data [ 6, 14 ]. Evolutionary methods have been investigated for missing-data issues, primar-ily via imputation-based optimization [ 3, 16 ]. Nevertheless, most of current methods consider activation functions as fixed factors, constraining the capacity of nonlinear transformations to directly adjust to data dependability [1, 5, 7]. 
+
+## 2.2 Evolved Neural Activation Functions 
+
+Activation functions are a crucial part of neural network perfor-mance [ 7, 9, 20 ]. Although researchers have long depended on fixed nonlinearities, the trend has been towards automated discovery to move past the shortcomings of manually designed functions [13]. Ramachandran et al. [ 20 ] applied reinforcement learning to au-tomatically identify enhanced scalar activation functions, whereas later researchers have employed evolutionary computation to ex-pand the search space. Bingham et al. [ 5] used (GP) to evolve scalar activation functions in a tree-based search space, showing improve-ments over ReLU, while Parisi et al. [ 18 ] used genetic algorithms to optimize nonlinear operators in a predefined activation search space. Our method expands on the evolutionary line of research by including the discovery of evolving activation functions from scalar nonlinearities to multivariate, reliability-aware activations that work together on feature values, missingness indicators, and confi-dence signals. 
+
+## 3 Method 3.1 Problem setup and three-channel inputs 
+
+Let D = {( x(𝑖 ) , 𝑦 (𝑖 ) )} 𝑛 𝑖 =1 represent a tabular classification dataset comprised of 𝑑 features, where x(𝑖 ) ∈ R𝑑 may include missing values and 𝑦 (𝑖 ) represents the class label. Standard multilayer per-ceptrons (MLPs) often employ a fixed scalar nonlinearity 𝑔 (𝑧 ) (e.g., ReLU, Swish, ELU) for each pre-activation 𝑧 , treating both observed values and imputed estimations similarly. We present explicit reliability information to the nonlinearity by creating three channels for each feature: (i) an imputed value chan-nel ˜𝑥 , (ii) a missingness indicator 𝑚 ∈ [ 0, 1], and (iii) a confidence score 𝑐 ∈ [ 0, 1]. In the input layer, 𝑚 ∈ { 0, 1} indicates the absence of a feature; in subsequent layers, 𝑚 transforms into a soft missing-ness probability through deterministic propagation (Section 3.3). Our purpose is to create an unique multivariate activation function 
+
+𝑓 ( ˜𝑥, 𝑚, 𝑐 ), (1) through GP, and to apply this activation in each hidden layer of a three-channel MLP (3C-MLP). This enables the nonlinearity to adjust responses according to the degree of missing data and relia-bility. 
+
+## 3.2 Channel Construction: Imputation, Missingness, and Confidence 
+
+Each dataset handles missing values via an intentional three-channel representation constructed before network training. Let X ∈ R𝑛 ×𝑑 
+
+represent the the feature matrix after missingness injection (when applicable). We derive the following channels. 
+
+Imputed value channel. Missing entries are imputed using feature-specific methods calculated only from the training set. Let 𝜇 𝑗 represent the mean of feature 𝑗 calculated from the observed training data. All missing values in the train-ing, validation, and test subsets are substituted with 𝜇 𝑗 . This approach prevents data leakage while ensuring a uniform numeric input ˜𝑥 for the next processing step. 
+
+Missingness channel. A binary missingness mask 𝑚 is gen-erated concurrently with imputation, where 𝑚 𝑖 𝑗 = 1 indi-cates that feature 𝑗 of sample 𝑖 is missing, while 𝑚 𝑖 𝑗 = 0
+
+indicates its presence. Although 𝑚 is binary at the input layer, it turns into a soft missingness probability in subse-quent layers via deterministic propagation (Section 3.3). 
+
+Confidence Channel. To checking the reliability of imputed values, we provide a confidence score 𝑐 ∈ [ 0, 1] to each feature. For observed entries, confidence is determined as 
+
+𝑐 𝑖 𝑗 = 1. For missing entries, confidence reduces correspond-ing with the feature-specific missing rate derived from the training data. Let 
+
+𝑟 𝑗 = 1
+
+𝑛 train 
+
+> 𝑛 train
+
+∑︁ 
+
+> 𝑖 =1
+
+𝑚 𝑖 𝑗 
+
+represent the proportion of missing values in feature 𝑗 
+
+inside the training dataset. For missing entries, confidence is defined as 
+
+𝑐 𝑖 𝑗 = max (𝜏, 1 − 𝑟 𝑗 ),
+
+where 𝜏 is a minimal lower threshold (set at 𝜏 = 0.1 in all tests) to avoid numerical collapse. This creates a dataset-driven, feature-specific confidence heuristic that indicates the relative reliability of imputed values without adding extra learned factors. 
+
+## 3.3 ChannelProp: Deterministic Propagation of Reliability Metadata 
+
+To enable reliability-aware activations beyond the input layer, miss-ingness and confidence information must be propagated through lin-ear transformations. Standard mask-as-feature approaches provide no such mechanism, causing reliability metadata to vanish after the first layer. We address this limitation with ChannelProp , a determin-istic propagation rule that transports missingness and confidence alongside feature values across linear layers. Let cin ∈ [ 0, 1]𝑑 in 
+
+and min ∈ [ 0, 1]𝑑 in denote the confidence and missingness vec-tors associated with the input features of a linear layer, and let 
+
+cout ∈ [ 0, 1]𝑑 out and mout ∈ [ 0, 1]𝑑 out denote the corresponding quantities for the output neurons. We define the observedness vec-tor as oin = 1 − min . All channel vectors are treated as row vectors. Consider a linear transformation with weight matrix 𝑊 ∈ R𝑑 out ×𝑑 in .ChannelProp constructs a non-negative routing matrix 
+
+𝐴 = |𝑊 | + 𝜀, 
+
+where | · | denotes elementwise absolute value and 𝜀 is a small constant for numerical stability. Row-normalization yields 
+
+˜𝐴 𝑖 𝑗 = 𝐴 𝑖 𝑗 
+
+Í𝑘 𝐴 𝑖𝑘 
+
+.Evolving Multi-Channel Confidence-Aware Activation Functions for Missing Data with Channel Propagation 
+
+Confidence and observedness are propagated as weighted mix-tures: 
+
+cout = cin ˜𝐴 ⊤, oout = oin ˜𝐴 ⊤,
+
+and the output missingness channel is defined as 
+
+mout = 1 − oout .
+
+All propagated signals are clipped to [0, 1].ChannelProp introduces deterministic parameters and depends solely on the linear weights. While missingness is binary at the input layer, the propagated channel becomes a soft reliability sig-nal reflecting partial dependence on missing inputs. This allows evolved activations to modulate their behavior continuously based on propagated reliability information. 
+
+## 3.4 Fitness evaluation 
+
+The fitness of a candidate activation tree 𝑇 is assessed by embedding it into a three-channel MLP (3C-MLP) and evaluating its predic-tive performance under a constrained training period. This short horizon evaluation enables efficient exploration of the activation search space while preserving a meaningful correlation between fitness and generalization performance. 
+
+3.4.1 Evaluation protocol. For each candidate activation, we con-struct a 3C-MLP in which all hidden layers use the same evolved activation 𝑇 . The network is trained on the training split using the Adam optimizer with a fixed learning rate and weight decay, and early stopping is applied with a small patience to limit overfit-ting and computational cost. Validation accuracy has been tracked during training, and the best validation accuracy 𝐴 val (𝑇 ) detected during this process is stored. 
+
+3.4.2 Fitness function. The overall fitness of a tree 𝑇 is defined as 
+
+𝐹 (𝑇 ) = 𝐴 val (𝑇 ) + 𝜆 𝑑 𝐷 (𝑇 ) − 𝜆 𝑠 𝑁 (𝑇 ) − 𝜆 ℎ
+
+ 𝐻 (𝑇 ) − 1, (2) where 𝐷 (𝑇 ) ∈ { 0, 1, 2, 3} counts the number of distinct input chan-nels ( ˜𝑥 , 𝑚 , 𝑐 ) referenced by the tree, 𝑁 (𝑇 ) is the number of nodes, and 𝐻 (𝑇 ) is the tree depth. Trees of depth 𝐻 = 1 are assigned zero fitness to eliminate trivial identity-like activations. The coefficient 𝜆 𝑑 provides a mild incentive for utilizing reliabil-ity metadata, while 𝜆 𝑠 and 𝜆 ℎ penalize excessive size and depth to control code bloat. In all experiments, these coefficients are fixed to (𝜆 𝑑 , 𝜆 𝑠 , 𝜆 ℎ ) = (0.01 , 0.0001 , 0.0002 ).This fitness function achieves a balance between the accuracy of predictions, the simplicity of the structure, and the use of the channels. The diversity term makes sure that the evolved functions use the information about missingness and confidence, preventing degenerate solutions that reduce to simple single-input activations. The complexity components make sure that the evolved expressions are simple to understand and work well outside of the limited prediction window employed during evolution. 
+
+## 3.5 GP Representation and Search 
+
+Each candidate activation function is represented as a symbolic ex-pression tree defining a multivariate nonlinearity 𝑓 ( ˜𝑥, 𝑚, 𝑐 ), where 
+
+˜𝑥 denotes the imputed feature value, 𝑚 the missingness indicator, and 𝑐 the propagated confidence score. This representation allows evolved activations to condition explicitly on reliability metadata. 
+
+3.5.1 Terminal and function sets. The terminal set consists of the three input channels { ˜𝑥, 𝑚, 𝑐 } and a fixed set of real-valued con-stants C = {0, ±0.1, ±0.5, ±1, ±2}. The function set includes unary operators (e.g., tanh , logistic sigmoid aka 𝜎 , ReLU, softplus, exp ,
+
+log | · | , square, absolute value) and binary operators (addition, sub-traction, multiplication, protected division with a small 𝜀 added when |𝑥 2 | is close to zero, min , and max ). All operators are ap-plied elementwise with numerical safeguards to ensure stability. Complete operator lists are provided in Tables 1 and 2. 
+
+Table 1: Unary operators available to the GP search. 
+
+Unary Operations 
+
+𝑥 −𝑥 |𝑥 | 𝑥 2
+
+𝑥 3 √𝑥 exp (𝑥 ) log ( | 𝑥 | ) 
+
+sin (𝑥 ) cos (𝑥 ) tanh (𝑥 ) 𝜎 (𝑥 )
+
+ReLU (𝑥 ) LeakyReLU (𝑥 ) ELU (𝑥 ) softplus (𝑥 )f(x, m, c) = ( x + m) (c)    
+
+> ×
+> +
+> xmc
+> Root node Binary/Unary operators Input channels
+
+Figure 1: Tree representation of an evolved three-channel activation function. 
+
+Table 2: Binary operators available to the GP search. 
+
+Binary Operations 
+
+𝑥 1 + 𝑥 2 𝑥 1 − 𝑥 2 𝑥 1 · 𝑥 2
+
+𝑥 1/𝑥 2 max (𝑥 1, 𝑥 2 ) min (𝑥 1, 𝑥 2 )
+
+3.5.2 Evolutionary search. Activation trees are evolved using a gen-erational GP algorithm with fitness-proportional selection, subtree crossover, and mutation. To control excessive growth and main-tain interpretability, trees are constrained to a maximum depth throughout initialization and variation, and elitism preserves the top-performing individuals across generations. The algorithm is found in Algorithm 1. Evolutionary hyperparameters are fixed across all experiments and summarized in Table 3. 
+
+## 4 Experiments, Results, and Discussion 
+
+We present, in turn, our experimental setup, results on datasets with inherently missing data, results on datasets that are inherently complete but from which we synthetically remove data to rigorously study various kinds of missing data, results on an ablation study to demonstrate the contribution of each component of our proposed system, and an analysis of the evolved activation functions. Naeem Shahabi Sani, Ferial Najiantabriz, Shayan Shafaei, and Dean F. Hougen 
+
+Algorithm 1 Evolution of three-channel activation functions (3C-EA) 
+
+Require: Dataset D with missing values, GP parameters 
+
+Ensure: Best evolved activation 𝑇 ∗ 
+
+> 1:
+
+Construct three-channel inputs ( ˜𝑥, 𝑚, 𝑐 ) using mean imputa-tion, missingness masks, and feature-wise confidence  
+
+> 2:
+
+Initialize population P0 of activation trees with bounded depth  
+
+> 3:
+
+for 𝑔 = 1 to 𝐺 do  
+
+> 4:
+
+for all 𝑇 ∈ P 𝑔 −1 do  
+
+> 5:
+
+Embed 𝑇 into a three-channel MLP  
+
+> 6:
+
+Train network under short horizon with early stopping  
+
+> 7:
+
+Evaluate fitness 𝐹 (𝑇 ) using validation accuracy and complexity penalties  
+
+> 8:
+
+end for  
+
+> 9:
+
+Select parents via softmax fitness-proportional sampling  
+
+> 10:
+
+Generate offspring via subtree crossover and mutation  
+
+> 11:
+
+Preserve top 𝑘 individuals by elitism  
+
+> 12:
+
+Form next population P𝑔  
+
+> 13:
+
+end for  
+
+> 14:
+
+return 𝑇 ∗ = arg max 𝑇 ∈Ð𝐺 𝑔 =0 P𝑔 𝐹 (𝑇 )
+
+Table 3: GP hyperparameters. 
+
+Parameter Value 
+
+Population size 100 Generations 30 Maximum tree depth 3Crossover probability 0.7 Mutation probability 0.15 Elite size 2
+
+## 4.1 Experimental Setup 
+
+4.1.1 Datasets. We evaluate our method using two different types of datasets from the UCI Machine Learning Repository [ 2]. Dataset details and information about missing data are presented in Ta-ble 4. This experimental design provides the evaluation of model performance under both naturally existing and intentionally gen-erated missing data scenarios. The first category includes datasets that already have missing values, mirroring real-world data collect-ing methods where incompleteness happens naturally rather than through simulation. The datasets include Hepatitis, HouseVotes84, Credit Approval, Mammographic Masses, Cylinder Bands, Heart Disease, and Adult. The datasets reflect significant variation in size, feature dimensionality, feature type, and the level of missing data, with the proportion of incomplete instances varying from moderate to severe. This diversity offers a practical framework to evaluate durability in the presence of naturally partial data. The second group includes datasets that are naturally complete and free of missing parameters, including Mushroom, WDBC, Pima, Sonar, and Glass. In these datasets, missingness is intentionally gen-erated in a controlled manner to help with systematic study under standardized conditions. The following section goes into more detail on the missingness mechanisms and the injection methods. 
+
+4.1.2 Preprocessing. For all datasets, missing values are imputed using mean imputation generated entirely from the training data. A 
+
+Table 4: Datasets used in the experiments.                                                                       
+
+> Name Inst. Features Feature Type Classes Incomplete (%) Hepatitis 155 19 Mixed 248.39 HouseVotes84 435 16 Cat 246.67 Credit Approval 690 14 Mixed 24.20 MammographicMass 961 5Mixed 213.53 Cylinder Bands 512 39 Mixed 238.0 Heart Disease 303 13 Mixed 26.6 Adult 48842 14 Mixed 27.4 HorseColic 368 27 Mixed 363.0 Mushroom 8124 22 Cat 20WDBC 569 30 Num 20Pima 768 8Num 20Sonar 208 60 Num 20Glass 214 9Num 60
+
+binary signal indicating missingness is generated to show whether each feature was initially observed or missing together with the values of the imputed feature. An imputation-confidence score is computed for each feature entry, starting at 1 for observed features and decreasing for imputed entries according to the missingness frequency derived from the training data. This enables the pro-posed technique to differentiate between the observed and imputed features. 
+
+4.1.3 Evaluation Metrics and Experimental Protocol. We use Accu-racy, Precision, Recall (Sensitivity), Specificity, F1-score, and Area Under the ROC Curve (AUC) as the metrics to evaluate the per-formance of the classification task [ 10 , 19 ]. In order to make our results robust and reproducible, all experiments are performed with 30 different runs and random seeds. For each metric, we calculate the mean and standard deviation. 
+
+4.1.4 Baselines and Implementation. We evaluate 3C-EA against standard fixed activation functions including ReLU, Swish, Leaky ReLU, and ELU. Baseline models use neural network architectures, optimization strategy, preprocessing pipeline, and data partitions identical to the proposed method, differing only in the selection of the activation function. This guarantees that performance diver-gence is entirely related to the activation design, without influence from other factors. The proposed Three-Channel Evolved Activa-tions (3C-EA) have been evaluated using a three-channel multilayer perceptron (3C-MLP) architecture, in which each nonlinear layer employs a unique evolved activation function 𝑓 (𝑥, 𝑚, 𝑐 ). Activa-tion functions are specially constructed for each dataset by GP, as detailed in Table 3. 
+
+## 4.2 Results on Real World Incomplete Datasets 
+
+We start our empirical examination on datasets that naturally con-tain missing values, matching real-world techniques for collecting data where incompleteness occurs naturally rather than through controlled simulation. For these datasets, no artificial missingness is introduced. The models function directly on the original incomplete data distributions. All datasets are divided into training, validation, and test sets utilizing fixed splits that are uniformly applied across all methods to guarantee fair comparison. Table 5 summarizes the statistical results for all real world incomplete datasets. Performance is assessed by six standard metrics: accuracy, precision, sensitivity (recall), specificity, F1-score, and area under the ROC curve (AUC). Evolving Multi-Channel Confidence-Aware Activation Functions for Missing Data with Channel Propagation 
+
+Table 5: Performance Comparison on Real World Incomplete datasets.          
+
+> Dataset Method TestAcc Prec Rec Spec F1 AUC Hepatitis 3C-EA 0.8039
+
+±0.0407 0.8478 ±0.0748 0.9283 ±0.0846 0.3771 ±0.3449 0.8796 ±0.0263 0.7195 ±0.2005 ReLU 0.7703 ±0.0550 0.8048 ±0.0373 0.9333 ±0.0850 0.2114 ±0.3449 0.8614 ±0.0419 0.6183 ±0.1908 Swish 0.7535 ±0.1234 0.8690 ±0.1899 0.7767 ±0.2051 0.6743 ±0.3449 0.8096 ±0.1741 0.8374 ±0.0936  
+
+> LeakyReLU 0.7935
+
+±0.0428 0.8250 ±0.0540 0.9400 ±0.0528 0.2914 ±0.2664 0.8761 ±0.0238 0.6931 ±0.2170 ELU 0.7913 ±0.0610 0.9128 ±0.0567 0.8267 ±0.0620 0.7143 ±0.2138 0.8652 ±0.0423 0.8214 ±0.0947 HouseVotes 3C-EA 0.9407 ±0.0191 0.9027 ±0.0469 0.9503 ±0.0476 0.9348 ±0.0352 0.9241 ±0.0240 0.9858 ±0.0088  
+
+> ReLU 0.9126
+
+±0.0220 0.8654 ±0.0506 0.9188 ±0.0684 0.9089 ±0.0352 0.8882 ±0.0287 0.9768 ±0.0120 Swish 0.9053 ±0.0226 0.8485 ±0.0492 0.9212 ±0.0653 0.8956 ±0.0352 0.8805 ±0.0277 0.9732 ±0.0129 LeakyReLU 0.9034 ±0.0163 0.8510 ±0.0289 0.9067 ±0.0599 0.9015 ±0.0260 0.8762 ±0.0240 0.9744 ±0.0117 ELU 0.9255 ±0.0276 0.8631 ±0.0550 0.9612 ±0.0398 0.9037 ±0.0448 0.9080 ±0.0323 0.9792 ±0.0138 Credit Approval 3C-EA 0.8455 ±0.0191 0.8096 ±0.0321 0.8536 ± 0.0254 0.8420 ±0.0363 0.8366 ±0.0180 0.9092 ±0.0158  
+
+> ReLU
+
+0.8367 ± 0.0226 0.8086 ± 0.0492 0.8339 ± 0.0437 0.8390 ± 0.0363 0.8189 ± 0.0210 0.9027 ± 0.0143  
+
+> Swish
+
+0.8304 ± 0.0249 0.8067 ± 0.0544 0.8208 ± 0.0446 0.8381 ± 0.0363 0.8110 ± 0.0212 0.8960 ± 0.0136  
+
+> LeakyReLU
+
+0.8319 ± 0.0251 0.7997 ± 0.0417 0.8317 ± 0.0293 0.8320 ± 0.0500 0.8143 ± 0.0230 0.9021 ± 0.0144  
+
+> ELU
+
+0.8425 ± 0.0217 0.7985 ± 0.0312 0.8628 ± 0.0241 0.8264 ± 0.0329 0.8290 ± 0.0218 0.9043 ± 0.0168   
+
+> Memmographic 3C-EA
+
+0.8118 ± 0.0159 0.7798 ± 0.0233 0.8510 ± 0.0285 0.7753 ± 0.0323 0.8133 ± 0.0157 0.8854 ± 0.0084  
+
+> ReLU
+
+0.7971 ± 0.0135 0.7652 ± 0.0286 0.8400 ± 0.0469 0.7572 ± 0.0323 0.7993 ± 0.0150 0.8789 ± 0.0119  
+
+> Swish
+
+0.7940 ± 0.0131 0.7637 ± 0.0210 0.8315 ± 0.0399 0.7591 ± 0.0323 0.7952 ± 0.0149 0.8706 ± 0.0126  
+
+> LeakyReLU
+
+0.8036 ± 0.0152 0.7740 ± 0.0345 0.8430 ± 0.0478 0.7670 ± 0.0553 0.8051 ± 0.0149 0.8802 ± 0.0100  
+
+> ELU
+
+0.7945 ± 0.0113 0.7562 ± 0.0220 0.8490 ± 0.0335 0.7437 ± 0.0355 0.7991 ± 0.0116 0.8606 ± 0.0115   
+
+> Cylinderbands 3C-EA
+
+0.6541 ± 0.0240 0.6812 ± 0.0186 0.7148 ± 0.0458 0.5487 ± 0.0418 0.6969 ± 0.0255 0.6940 ± 0.0242  
+
+> ReLU
+
+0.6348 ± 0.0477 0.6294 ± 0.0424 0.9129 ±0.0830 0.2600 ± 0.0418 0.7414 ±0.0294 0.6433 ± 0.0967  
+
+> Swish
+
+0.6478 ± 0.0345 0.6571 ± 0.0376 0.8316 ± 0.1035 0.4000 ± 0.0418 0.7290 ± 0.0291 0.6622 ± 0.0718  
+
+> LeakyReLU
+
+0.6415 ± 0.0435 0.6433 ± 0.0378 0.8632 ± 0.1008 0.3426 ± 0.1638 0.7329 ± 0.0373 0.6593 ± 0.0677  
+
+> ELU
+
+0.6637 ± 0.0308 0.6921 ± 0.0245 0.7465 ± 0.0404 0.5522 ± 0.0426 0.7179 ± 0.0283 0.7130 ± 0.0271   
+
+> Heart Disease 3C-EA
+
+0.9198 ± 0.0482 0.9218 ± 0.0587 0.9242 ± 0.0374 0.9152 ± 0.0681 0.9225 ± 0.0451 0.9636 ± 0.0294  
+
+> ReLU
+
+0.8246 ± 0.0164 0.8246 ± 0.0390 0.8415 ± 0.0622 0.8068 ± 0.0681 0.8302 ± 0.0207 0.9112 ± 0.0103  
+
+> Swish
+
+0.8041 ± 0.0615 0.7930 ± 0.0633 0.8560 ± 0.0514 0.7496 ± 0.0681 0.8196 ± 0.0331 0.8853 ± 0.1206  
+
+> LeakyReLU
+
+0.8281 ± 0.0203 0.8216 ± 0.0308 0.8518 ± 0.0486 0.8032 ± 0.0465 0.8350 ± 0.0217 0.9167 ± 0.0116  
+
+> ELU
+
+0.8353 ± 0.0184 0.8192 ± 0.0244 0.8720 ± 0.0294 0.7968 ± 0.0346 0.8443 ± 0.0176 0.9245 ± 0.0219   
+
+> Adult 3C-EA
+
+0.8241 ± 0.0055 0.6662 ± 0.0094 0.5408 ± 0.0314 0.9141 ± 0.0047 0.5966 ± 0.0221 0.8682 ± 0.0070  
+
+> ReLU
+
+0.7596 ± 0.0023 0.2445 ± 0.2682 0.0101 ± 0.0213 0.9975 ± 0.0047 0.0185 ± 0.0383 0.5664 ± 0.0598  
+
+> Swish
+
+0.7922 ± 0.0073 0.6326 ± 0.1289 0.3080 ± 0.0835 0.9458 ± 0.0047 0.4077 ± 0.0966 0.7990 ± 0.0383  
+
+> LeakyReLU
+
+0.7654 ± 0.0132 0.3671 ± 0.3678 0.0543 ± 0.1159 0.9911 ± 0.0198 0.0764 ± 0.1483 0.6150 ± 0.0994  
+
+> ELU
+
+0.7990 ± 0.0096 0.6589 ± 0.0180 0.3434 ± 0.0697 0.9436 ± 0.0111 0.4476 ± 0.0587 0.8183 ± 0.0287 
+
+The experiments show a clear advantage for 3C-EA, which achieves the highest test accuracy on six out of seven datasets (Ta-ble 5). On Heart Disease, 3C-EA has the best test accuracy (0.9198) and F1-score (0.9225), which is a 9 percentage point improvement over ReLU. On Adult, 3C-EA achieves the best accuracy (0.8241) and significantly boosts the recall (0.5408) compared to ReLU (0.0101), showing a better capability of handling the minority class in im-balanced problems. On HouseVotes84 and Credit Approval, 3C-EA clearly outperforms baselines across all metrics, with HouseVotes84 achieving accuracy 0.9407 and AUC 0.9858. On Cylinder Bands, where the baseline methods are challenged by 38% missing data, 3C-EA shows a large improvement in specificity (0.5487 vs. 0.2600 of ReLU), showing a better performance in the presence of poor-quality data. The Adult dataset serves as a severe stress test because it contains many samples (48,842), is naturally incomplete, and is extremely imbalanced. In this scenario, 3C-EA has the best overall accuracy (0.8241) and an even higher recall rate (0.5408), proving that it is not just predicting the majority class. This supports the pri-mary claim that modifying activations on value, missingness, and confidence enables the network to more effectively manage real-world incomplete tabular data by differentiating between observed and imputed inputs. 
+
+## 4.3 Results on Complete Datasets 
+
+We evaluate our method (3C-EA) against missingness by adding 20% missingness to originally complete datasets using the MNAR, MCAR, and MAR methods. In order to prevent degenerate sparsity, this fixed rate allows for direct comparison among techniques. All approaches use the same preprocessing, divisions, architectures, and training protocols. 
+
+4.3.1 MNAR Missingness. MNAR is the most difficult case, in which the missingness is related to the values themselves. The results are shown in Table 6. In the six-class imbalanced, Glass dataset, 3C-EA shows an accuracy of 52.5%, surpassing the baseline range of 40.7% to 49.8% (an improvement of 2.7% to 11.8%). The F1-score rises to 0.338 from a range of 0.210–0.331, while the AUC improves to 0.773 from a range of 0.648–0.730. The reason for this is ChannelProp: in MNAR, extreme values are more vulnerable to being missing, and the evolved functions of 3C-EA explicitly condition on distributed confidence scores to modify responses accordingly. On the Pima dataset, in addition to that, our method shows the highest values on accuracy; it also has the highest recall of 0.412 , surpassing ReLU (0.260), Swish (0.376), and LeakyReLU (0.319), while ELU is roughly comparable at 0.411. Regarding the F1-score, 3C-EA (0.486) sur-passed ReLU, Swish, and LeakyReLU, however ELU had somewhat superior performance (0.494). The increase in recall demonstrates that reliability aware activations prevent majority class collapse in uncertain conditions. Also, 3C-EA displays the best accuracy (93.1%) and F1-score (0.905), which shows that it works well on the WDBC which is a clinical breast cancer dataset. In Sonar with 60 features, 3C-EA has the highest accuracy (76.1%), F1-score (0.779), and AUC (0.840) among the methods , showing that ChannelProp effectively scales in high-dimensional datasets. Additionally, in the Mushroom dataset with 8,124 samples, it has the highest accuracy of 98.5% with the lowest variance of ±0.097 when compared to baselines of 
+
+±0.019–0.028, indicating stable large-scale optimization. Naeem Shahabi Sani, Ferial Najiantabriz, Shayan Shafaei, and Dean F. Hougen 
+
+Table 6: MNAR Imputed datasets results. 
+
+Dataset Method TestAcc Prec Rec Spec F1 AUC Sonar 3C-EA 0.7619 ±0.0447 0. 0.7591 ±0.0536 0.8106 ±0.0722 0.7160 ±0.0674 0.7791 ±0.0423 0.8395 ±0.0304 
+
+ReLU 0.7467 ±0.0499 0.7382 ±0.0448 0.8073 ±0.1215 0.6800 ±0.0674 0.7655 ±0.0616 0.8190 ±0.0481 Swish 0.7400 ±0.0495 0.7546 ±0.0504 0.7618 ±0.1422 0.7160 ±0.0674 0.7479 ±0.0724 0.8214 ±0.0360 LeakyReLU 0.7393 ±0.0352 0.7567 ±0.0453 0.8055 ±0.0905 0.7080 ±0.0868 0.7761 ±0.0410 0.8368 ±0.0395 ELU 0.7362 ±0.0409 0.7586 ±0.0670 0.7418 ±0.0526 0.7300 ±0.0990 0.7469 ±0.0335 0.7994 ±0.0422 Glass 3C-EA 0.5247 ±0.0784 0.3381 ±0.0972 0.3773 ±0.0812 0.8874 ±0.0181 0.3390 ±0.0868 0.7729 ±0.0745 
+
+ReLU 0.4065 ±0.1059 0.2093 ±0.0938 0.2839 ±0.0681 0.8874 ±0.0181 0.2124 ±0.0759 0.6475 ±0.0832 Swish 0.4400 ±0.0627 0.2535 ±0.0829 0.3152 ±0.0383 0.8874 ±0.0181 0.2540 ±0.0531 0.7300 ±0.0603 LeakyReLU 0.4521 ±0.0535 0.2323 ±0.1057 0.2935 ±0.0621 0.8874 ±0.0181 0.2361 ±0.0796 0.6486 ±0.0872 ELU 0.4977 ±0.0724 0.3313 ±0.0933 0.3537 ±0.0645 0.8874 ±0.0181 0.3112 ±0.0680 0.7025 ±0.0752 WDBC 3C-EA 0.9312 ±0.0273 0.9281 ±0.0428 0.8914 ±0.0621 0.9591 ±0.0721 0.9045 ±0.0405 0.9733 ±0.0241 ReLU 0.9221 ±0.0205 0.9262 ±0.0441 0.8610 ±0.0550 0.9578 ±0.0265 0.8903 ±0.0290 0.9835 ±0.0069 
+
+Swish 0.9196 ±0.0156 0.8997 ±0.0503 0.8857 ±0.0442 0.9394 ±0.0265 0.8906 ±0.0194 0.9833 ±0.0052 LeakyReLU 0.9232 ±0.0157 0.9184 ±0.0414 0.8724 ±0.0542 0.9528 ±0.0269 0.8928 ±0.0239 0.9814 ±0.0129 ELU 0.9263 ±0.0233 0.9142 ±0.0557 0.8876 ±0.0372 0.9489 ±0.0364 0.8992 ±0.0295 0.9819 ±0.0129 PIMA 3C-EA 0.7042 ±0.0209 0.6043 ±0.0497 0.4121 ±0.0763 0.8574 ±0.0350 0.4856 ±0.0642 0. 0.73061 ±0.0376 
+
+ReLU 0.6956 ±0.0276 0.6310 ±0.1654 0.2604 ±0.1395 0.9240 ±0.0350 0.3485 ±0.1477 0.7073 ±0.0643 Swish 0.7005 ±0.0213 0.6260 ±0.0718 0.3758 ±0.1482 0.8709 ±0.0350 0.4457 ±0.1148 0.7343 ±0.0234 LeakyReLU 0.7016 ±0.0281 0.6480 ±0.0757 0.3192 ±0.1103 0.9022 ±0.0639 0.4135 ±0.0965 0.7305 ±0.0314 ELU 0.7022 ±0.0152 0.6294 ±0.0469 0.4113 ±0.0562 0.8701 ±0.0346 0.4940 ±0.0393 0.7274 ±0.0189 Mushroom 3C-EA 0.9850 ± 0.0097 0.9831 ± 0.0092 0.9858 ± 0.0118 0.9850 ± 0.0098 0.9844 ± 0.0101 0.9973 ± 0.0038 
+
+ReLU 0.9426 ± 0.0284 0.9637 ± 0.0084 0.9153 ± 0.0580 0.9417 ± 0.0294 0.9380 ± 0.0326 0.9807 ± 0.0174 
+
+Swish 0.9086 ± 0.0192 0.9383 ± 0.0136 0.8674 ± 0.0386 0.9071 ± 0.0198 0.9010 ± 0.0224 0.9557 ± 0.0239 
+
+LeakyReLU 0.9399 ± 0.0276 0.9571 ± 0.0131 0.9162 ± 0.0517 0.9391 ± 0.0284 0.9356 ± 0.0311 0.9797 ± 0.0187 
+
+ELU 0.9666 ± 0.0201 0.9696 ± 0.0143 0.9606 ± 0.0292 0.9664 ± 0.0205 0.9650 ± 0.0217 0.9933 ± 0.0089 
+
+4.3.2 MCAR Missingness. Results related to MCAR missingness are presented in Table 7. On the Glass dataset, regarding uninfor-mative missingness, 3C-EA achieves the highest accuracy of 53.2%, surpassing the baselines which range from 45.5% to 50.2%. The F1-score improves from 0.242–0.336 to 0.367. This shows that confi-dence data is useful even when the missingness patterns don’t con-tain any information, GP-evolved activations are able to determine appropriate weights to imputed versus actual values depending on feature-specific reliability. Our method achieves the highest recall (0.469), F1-score (0.523), and AUC (0.744) on PIMA in comparison to the baseline models. The recall has increased significantly com-pared to the baselines, confirming that the three-channel activation provides a comprehensive strategy to handle uncertainty, rather than only exploiting patterns of missing data. Figure 2 illustrates the effectiveness of our approach on PIMA with missing rates rang-ing from 10% to 50%. The performance gap between 3C-EA and the baselines grows with the missing rate, showing that the reliability information is more beneficial in conditions of poor data quality. 10% 20% 30% 40% 50% 
+
+> Missing Data Rate (%)
+> 65.0%
+> 66.0%
+> 67.0%
+> 68.0%
+> 69.0%
+> 70.0%
+> 71.0%
+> 72.0%
+> Test Accuracy
+> Evolved
+> ReLU
+> Swish
+> LeakyReLU
+> ELU
+
+Figure 2: Performance comparison across missing data rates (10%-50%) on the PIMA dataset. 
+
+4.3.3 MAR Missingness. Table 8 presents results under MAR miss-ingness, when the missingness is conditional upon observable fea-tures. In this context, 3C-EA shows its most significant advantages on more difficult datasets. On Glass, 3C-EA demonstrates optimal performance, achieving 58.0% accuracy, in contrast to the baseline range of 45.6–57.9%. While ELU exhibits a little better F1-score (0.374 versus 0.372), 3C-EA demonstrates the highest AUC (0.778) in contrast to the range of 0.665–0.754, indicating enhanced proba-bility calibration across all six classes. The superior performance of MAR is credited to ChannelProp’s effective representation of the conditional missingness pattern in the network, permitting evolved activations to learn from the features responsible for the missing values. On PIMA, our method achieves the highest accuracy (70.2%), recall (0.493), F1-score (0.530), and AUC (0.743) compared to all other approaches. The relative recall increases are most sig-nificant for ReLU (18.3 points) and LeakyReLU (18.6 points). On WDBC, we achieves the highest accuracy (93.5%), precision (0.918), specificity (0.955), F1-score (0.912), and AUC (0.990), confirming consistent improvements in this medical diagnostic test. 
+
+## 4.4 Ablation Study 
+
+To evaluate the contribution of each component in our method, we run ablation experiments on four selected datasets (Glass, Sonar, WDBC, PIMA) under challenging circumstances, including MNAR missingness with a missing rate of 40% and a population size of 50. The reason for choosing such challenging settings is that MNAR is the most difficult type of missing data [ 26 ], where the missingness is a function of the unobserved data itself, and the missing rate of 40% is chosen to make the reliability information even more important for prediction. The results in Table 9 reveal that remov-ing of any element causes to a consistent decrease of performance, thus demonstrating the importance of missingness indicators, con-fidence propagation, and the joint modeling of both in evolved activation functions. Evolving Multi-Channel Confidence-Aware Activation Functions for Missing Data with Channel Propagation 
+
+Table 7: MCAR Imputed datasets results. 
+
+Dataset Method TestAcc Prec Rec Spec F1 AUC Sonar 3C-EA 0.7413 ± 0.0626 0.7436 ± 0.0573 0.7803 ± 0.1214 0.6983 ± 0.1099 0.7561 ± 0.0717 0.8084 ± 0.0626 
+
+ReLU 0.7437 ± 0.0635 0.7197 ± 0.0590 0.8561 ± 0.1144 0.6200 ± 0.1099 0.7756 ± 0.0633 0.8208 ± 0.0799 
+
+Swish 0.7405 ± 0.0666 0.7187 ± 0.0531 0.8379 ± 0.1310 0.6333 ± 0.1099 0.7680 ± 0.0701 0.8205 ± 0.0505 
+
+LeakyReLU 0.7468 ± 0.0613 0.7316 ± 0.0645 0.8409 ± 0.1455 0.6433 ± 0.1377 0.7714 ± 0.0739 0.8300 ± 0.0397 
+
+ELU 0.7556 ± 0.0529 0.7625 ± 0.0593 0.7833 ± 0.0884 0.7250 ± 0.0920 0.7691 ± 0.0550 0.8155 ± 0.0544 
+
+Glass 3C-EA 0.5318 ± 0.1038 0.3922 ± 0.1411 0.4023 ± 0.0939 0.8896 ± 0.0238 0.3668 ± 0.1165 0.7677 ± 0.1037 
+
+ReLU 0.4550 ± 0.0906 0.2525 ± 0.1043 0.2994 ± 0.0689 0.8896 ± 0.0238 0.2423 ± 0.0811 0.7068 ± 0.0782 
+
+Swish 0.4558 ± 0.0873 0.2554 ± 0.0964 0.3198 ± 0.0711 0.8896 ± 0.0238 0.2534 ± 0.0813 0.7575 ± 0.0953 
+
+LeakyReLU 0.4721 ± 0.0682 0.2998 ± 0.0969 0.3246 ± 0.0620 0.8896 ± 0.0238 0.2758 ± 0.0682 0.7462 ± 0.0855 
+
+ELU 0.5023 ± 0.1043 0.3550 ± 0.1318 0.3801 ± 0.1054 0.8896 ± 0.0238 0.3361 ± 0.1143 0.7475 ± 0.0896 
+
+WDBC 3C-EA 0.9415 ± 0.0154 0.9383 ± 0.0367 0.9032 ± 0.0464 0.9639 ± 0.0228 0.9189 ± 0.0233 0.9832 ± 0.0102 
+
+ReLU 0.9246 ± 0.0163 0.9399 ± 0.0461 0.8532 ± 0.0435 0.9662 ± 0.0228 0.8928 ± 0.0232 0.9821 ± 0.0079 
+
+Swish 0.9164 ± 0.0249 0.9029 ± 0.0684 0.8770 ± 0.0587 0.9394 ± 0.0228 0.8859 ± 0.0300 0.9822 ± 0.0056 
+
+LeakyReLU 0.9246 ± 0.0208 0.9478 ± 0.0546 0.8468 ± 0.0545 0.9699 ± 0.0342 0.8919 ± 0.0303 0.9806 ± 0.0123 
+
+ELU 0.9316 ± 0.0195 0.9361 ± 0.0454 0.8770 ± 0.0384 0.9634 ± 0.0286 0.9043 ± 0.0263 0.9831 ± 0.0109 
+
+PIMA 3C-EA 0.7093 ± 0.0204 0.6102 ± 0.0457 0.4687 ± 0.0449 0.8325 ± 0.0426 0.5237 ± 0.0262 0.7437 ± 0.0194 
+
+ReLU 0.6958 ± 0.0249 0.6249 ± 0.1570 0.2823 ± 0.1254 0.9129 ± 0.0426 0.3714 ± 0.1382 0.6919 ± 0.0543 
+
+Swish 0.7005 ± 0.0230 0.6285 ± 0.0924 0.3819 ± 0.1235 0.8677 ± 0.0426 0.4552 ± 0.0929 0.7261 ± 0.0205 
+
+LeakyReLU 0.7075 ± 0.0268 0.6547 ± 0.0679 0.3442 ± 0.0781 0.8982 ± 0.0554 0.4425 ± 0.0700 0.7216 ± 0.0355 
+
+ELU 0.7034 ± 0.0323 0.6033 ± 0.0673 0.4370 ± 0.0862 0.8432 ± 0.0611 0.4998 ± 0.0633 0.7292 ± 0.0334 
+
+Mushroom 3C-EA 0.9850 ± 0.0097 0.9831 ± 0.0092 0.9858 ± 0.0118 0.9850 ± 0.0098 0.9844 ± 0.0101 0.9973 ± 0.0038 
+
+ReLU 0.9426 ± 0.0284 0.9637 ± 0.0084 0.9153 ± 0.0580 0.9417 ± 0.0294 0.9380 ± 0.0326 0.9807 ± 0.0174 
+
+Swish 0.9086 ± 0.0192 0.9383 ± 0.0136 0.8674 ± 0.0386 0.9071 ± 0.0198 0.9010 ± 0.0224 0.9557 ± 0.0239 
+
+LeakyReLU 0.9399 ± 0.0276 0.9571 ± 0.0131 0.9162 ± 0.0517 0.9391 ± 0.0284 0.9356 ± 0.0311 0.9797 ± 0.0187 
+
+ELU 0.9666 ± 0.0201 0.9696 ± 0.0143 0.9606 ± 0.0292 0.9664 ± 0.0205 0.9650 ± 0.0217 0.9933 ± 0.0089 
+
+Table 8: MAR Imputed datasets results. 
+
+Dataset Method TestAcc Prec Rec Spec F1 AUC Sonar 3C-EA 0.7691 ± 0.0683 0.7611 ± 0.0747 0.8030 ± 0.0956 0.7067 ± 0.1574 0.7760 ± 0.0565 0.8368 ± 0.0592 
+
+ReLU 0.7802 ± 0.0661 0.7759 ± 0.0668 0.8273 ± 0.1304 0.7283 ± 0.1574 0.7936 ±0.0751 0.8467 ± 0.0445 
+
+Swish 0.7778 ± 0.0489 0.7724 ± 0.0491 0.8303 ± 0.1378 0.7200 ± 0.1574 0.7913 ± 0.0655 0.8524 ± 0.0298 
+
+LeakyReLU 0.7595 ± 0.0613 0.7556 ± 0.0754 0.8242 ± 0.1166 0.6883 ± 0.1453 0.7803 ± 0.0587 0.8415 ± 0.0520 
+
+ELU 0.7706 ± 0.0578 0.7820 ± 0.0632 0.7864 ± 0.0848 0.7533 ± 0.0912 0.7812 ± 0.0585 0.8286 ± 0.0548 
+
+Glass 3C-EA 0.5803 ± 0.1060 0.3880 ± 0.1415 0.3952 ± 0.0931 0.8976 ± 0.0264 0.3721 ± 0.1118 0.7778 ± 0.1080 
+
+ReLU 0.4558 ± 0.1184 0.2655 ± 0.1061 0.2988 ± 0.0638 0.8976 ± 0.0264 0.2495 ± 0.0836 0.6645 ± 0.0835 
+
+Swish 0.4736 ± 0.0912 0.2923 ± 0.0751 0.3277 ± 0.0602 0.8976 ± 0.0264 0.2751 ± 0.0651 0.7366 ± 0.0751 
+
+LeakyReLU 0.4837 ± 0.1018 0.2726 ± 0.0933 0.3173 ± 0.0574 0.8976 ± 0.0264 0.2676 ± 0.0733 0.7062 ± 0.0517 
+
+ELU 0.5787 ± 0.0753 0.3796 ± 0.1090 0.4081 ± 0.0559 0.8976 ± 0.0264 0.3735 ± 0.0772 0.7542 ± 0.0574 
+
+WDBC 3C-EA 0.9354 ± 0.0212 0.9176 ± 0.0381 0.9127 ± 0.0423 0.9546 ± 0.0254 0.9123 ± 0.0288 0.9896 ± 0.0169 
+
+ReLU 0.9272 ± 0.0211 0.9153 ± 0.0426 0.8881 ± 0.0587 0.9500 ± 0.0254 0.8994 ± 0.0302 0.9845 ± 0.0087 
+
+Swish 0.9278 ± 0.0226 0.8929 ± 0.0514 0.9198 ± 0.0531 0.9324 ± 0.0254 0.9039 ± 0.0285 0.9848 ± 0.0053 
+
+LeakyReLU 0.9287 ± 0.0185 0.9045 ± 0.0437 0.9056 ± 0.0474 0.9421 ± 0.0317 0.9034 ± 0.0246 0.9846 ± 0.0057 
+
+ELU 0.9322 ± 0.0277 0.8882 ± 0.0586 0.9405 ± 0.0397 0.9273 ± 0.0478 0.9117 ± 0.0322 0.9796 ± 0.0170 
+
+PIMA 3C-EA 0.7021 ± 0.0203 0.5833 ± 0.0419 0.4928 ± 0.0669 0.8119 ± 0.0458 0.5304 ± 0.0395 0.7428 ± 0.0209 
+
+ReLU 0.6969 ± 0.0243 0.6283 ± 0.0718 0.3094 ± 0.1252 0.9002 ± 0.0458 0.3964 ± 0.1240 0.7200 ± 0.0607 
+
+Swish 0.6909 ± 0.0200 0.5769 ± 0.0578 0.4619 ± 0.1279 0.8111 ± 0.0458 0.4970 ± 0.0749 0.7367 ± 0.0199 
+
+LeakyReLU 0.6930 ± 0.0238 0.6179 ± 0.0797 0.3072 ± 0.1118 0.8954 ± 0.0519 0.3955 ± 0.1066 0.7371 ± 0.0326 
+
+ELU 0.6888 ± 0.0221 0.5581 ± 0.0400 0.4808 ± 0.0742 0.7980 ± 0.0437 0.5129 ± 0.0462 0.7294 ± 0.0348 
+
+Mushroom 3C-EA 0.9738 ± 0.0041 0.9682 ± 0.0055 0.9777 ± 0.0049 0.9739 ± 0.0041 0.9729 ± 0.0042 0.9955 ± 0.0013 
+
+ReLU 0.9428 ± 0.0190 0.9451 ± 0.0065 0.9358 ± 0.0418 0.9426 ± 0.0198 0.9399 ± 0.0221 0.9842 ± 0.0153 
+
+Swish 0.9009 ± 0.0161 0.9191 ± 0.0116 0.8712 ± 0.0324 0.8999 ± 0.0166 0.8942 ± 0.0187 0.9563 ± 0.0185 
+
+LeakyReLU 0.9244 ± 0.0211 0.9292 ± 0.0123 0.9125 ± 0.0389 0.9240 ± 0.0217 0.9204 ± 0.0236 0.9748 ± 0.0159 
+
+ELU 0.9609 ± 0.0078 0.9564 ± 0.0088 0.9628 ± 0.0094 0.9610 ± 0.0078 0.9596 ± 0.0081 0.9932 ± 0.0027 
+
+## 4.5 Evolved Activation Function Analysis 
+
+To understand the behavior of the evolved activation functions, we analyze solutions found by the GP search and their behavior. Figure 3 presents an evolved activation function demonstrating three-channel awareness. The figure shows the confidence effect: the activation shape transforms from complex nonlinear response at high confidence ( 𝑐 = 1.0) to conservative near-linear behavior at low confidence ( 𝑐 = 0.3), while holding 𝑚 = 0. The evolved function 
+
+𝑓 (𝑥, 𝑚, 𝑐 ) = 𝑥 (𝑐 +2)
+
+h 𝑐  
+
+> ReLU (max (𝑐, −0.5) − 𝑚 )
+
+− 𝑐 ReLU (1.5𝑐𝑥 )( 0.5 + 𝑐 )
+
+i
+
+integrates both missing indicators and confidence scores, enabling adaptive behavior based on data reliability. Figure 4 shows a strong activation function that shows its awareness of the missing data. The function 𝑓 (𝑥, 𝑚, 𝑐 ) = min (𝑥 ·𝑚, 𝑥 ) + 𝑥 shows its conditional be-havior based on the missing flag. For positive inputs, when the data is observed ( 𝑚 = 0), the output is 𝑥 , but when the data is imputed (𝑚 = 1), the output is 2𝑥 . This shows that the evolutionary process has identified a strong adaptation technique, where the function has gained the capability to enhance the imputed data without any specific design. This suggests that the evolutionary process has created a strong adaptation mechanism, where the function has learned to double the imputed data, possibly to counter the uncer-tainty of the imputed data. Table 10 shows the winner activation formulae that were developed over 30 independent GP runs on the Hepatitis dataset. The variety of solutions found shows how flexible the three-channel search space is. The fact that missingness and confidence channels are used consistently between runs shows that the suggested method works. Naeem Shahabi Sani, Ferial Najiantabriz, Shayan Shafaei, and Dean F. Hougen 
+
+Table 9: Ablation Study Results. 
+
+Dataset Variant TestAcc F1 AUC Glass Full 𝑓 (𝑥, 𝑚, 𝑐 ) 0.435 ± 0.116 0.229 ± 0.072 0.641 ± 0.233 
+
+No Conf. 𝑓 (𝑥, 𝑚 ) 0.407 ± 0.059 0.223 ± 0.075 0.626 ± 0.085 
+
+No Flag 𝑓 (𝑥, 𝑐 ) 0.386 ± 0.085 0.220 ± 0.063 0.631 ±0.050 
+
+No ChannelProp 0.381 ± 0.054 0.200 ± 0.066 0.611 ± 0.069 
+
+Sonar Full 𝑓 (𝑥, 𝑚, 𝑐 ) 0.724 ± 0.043 0.733 ± 0.061 0.786 ± 0.036 
+
+No Conf. 𝑓 (𝑥, 𝑚 ) 0.712 ± 0.048 0.721 ± 0.071 0.780 ± 0.054 
+
+No Flag 𝑓 (𝑥, 𝑐 ) 0.650 ± 0.088 0.632 ± 0.222 0.721 ± 0.080 
+
+No ChannelProp 0.686 ± 0.089 0.700 ± 0.073 0.796 ± 0.036 
+
+WDBC Full (𝑥, 𝑚, 𝑐 ) 0.9223 ±0.0261 0.8866 ±0.0527 0.9693 ±0.0160 No Conf. (𝑥, 𝑚 ) 0.9149 ±0.0215 0.8828 ±0.0346 0.9612 ±0.0155 No Flag (𝑥, 𝑐 ) 0.9161 ±0.0346 0.8963 ±0.0417 0.9768 ±0.0146 
+
+No ChannelProp 0.9123 ±0.0299 0.8814 ±0.0440 0.9718 ±0.0135 PIMA Full (𝑥, 𝑚, 𝑐 ) 0.6922 ±0.0301 0.4637 ±0.1090 0.7174 ±0.0311 
+
+No Conf. (𝑥, 𝑚 ) 0.6782 ±0.0352 0.3980 ±0.0980 0.7005 ±0.0536 No Flag (𝑥, 𝑐 ) 0.6741 ±0.0211 0.4338 ±0.0913 0.7060 ±0.0455 No ChannelProp 0.6701 ±0.0258 0.4099 ±0.1422 0.7074 ±0.0340 3 2 1 0 1 2 3    
+
+> x(input value)
+> 10.0
+> 7.5
+> 5.0
+> 2.5
+> 0.0
+> 2.5
+> 5.0
+> 7.5
+> 10.0
+> f(x, m, c)
+> c= 1.0
+> c= 0.5
+> c= 0.3
+
+Figure 3: Evolved activation function on heart disease dataset demon-strating three-channel confidence effect. 3 2 1 0 1 2 3     
+
+> x(input value)
+> 10.0
+> 7.5
+> 5.0
+> 2.5
+> 0.0
+> 2.5
+> 5.0
+> 7.5
+> 10.0
+> f(x, m, c)
+> Difference region
+> m= 0 (observed)
+> m= 1 (missing)
+
+Figure 4: Evolved missing-aware activation functions (Glass dataset). 
+
+## 5 Conclusions and Future Work 
+
+This paper proposed Three-Channel Evolved Activations (3C-EA), a GP method for evolving multivariate activation functions 𝑓 (𝑥, 𝑚, 𝑐 )
+
+that directly includes feature values, missingness indicators, and 
+
+Table 10: Winner Activation Functions Evolved Across 30 Independent GP Runs on the Hepatitis Dataset. 
+
+Run Acc. F1 Evolved Formula 𝑓 (𝑥, 𝑚, 𝑐 )
+
+1 0.7742 0.8727 𝑥 2 · 𝑐 
+
+2 0.8387 0.9057 min 
+
+
+
+softplus (𝑥 ) + 𝑥 −2𝑐  
+
+> softplus (𝑚 /0.1)
+
+, 𝑥 
+
+
+
+3 0.8387 0.9020 tanh (max (min (exp (max (𝑚, 𝑥 ) ) , −0.1) , |𝑥 | ) ) + 𝑥 
+
+4 0.7419 0.8462 max  −1, max (𝑥, sin 𝑥 ) · min  𝑥, 𝑥  
+
+> sin 𝑥
+
+ 
+
+5 0.8065 0.8571 𝑥 · max (𝑐, softplus (− 0.1) ) 
+
+6 0.8065 0.8750 𝑥  
+
+> 0.5
+
+− max (𝑚, 𝑐 )
+
+7 0.7742 0.8444 (𝑐 − 𝑚 − 𝑥 ) + 
+
+cos (𝑥 + 𝑚 + 𝑐 + 0.5 + min (𝑐, 2 − 𝑐 ) ) − 𝑥 
+
+8 0.9032 0.9388 ELU (exp (𝑚 + 𝑥 ) ) 
+
+9 0.9032 0.9362 0.5 sin (𝑥 )
+
+10 0.8065 0.8750 𝑥 + min  𝑥, 𝑚 − 𝑥 2 
+
+11 0.8387 0.8936 sin (min (𝑥, 0) ) + 
+
+max (𝑐, exp (𝑥 ) − exp (𝑐 + ELU (tanh (exp 𝑥 ) ) ) + 𝑥 )+ 
+
+2𝑥 
+
+12 0.6774 0.8000 ELU  ReLU  1 − 𝑥 𝑐 + 𝑚 − ReLU (𝑥 ) − 𝑚 + 𝑥 3  2
+
+13 0.8065 0.8750 𝑥 · ( min (𝑥, 𝑥 + 𝑐 + LeakyReLU (𝑥 ) ) − 1)
+
+14 0.8065 0.8750 − min  𝑥, min (𝑐 2, 𝑚 )
+
+15 0.8065 0.8750 (𝑐 − max (cos (2𝑐 ), 𝑥 ) ) · 𝑥 
+
+16 0.7419 0.8400 sin (𝑥 )
+
+17 0.7742 0.8727 min (𝑥, 𝑐 )
+
+18 0.8065 0.8800 𝑐 ·(𝑚 − min (− max (𝑥 + 𝑚 · 𝑥 + ReLU (𝑥 + 𝑐 ) ) , 0.5) ) 
+
+19 0.6774 0.7500 𝑥 𝑐 
+
+20 0.7742 0.8627 max (𝑥 2, 𝑚 )
+
+21 0.7097 0.8302 max (exp 𝑚, max (𝑐, 𝑐 2 ) ) + 0.5+cos 𝑥 𝑥 
+
+22 0.7742 0.8627 · ( 𝑥 ) · ( 𝑐 − 𝑚 )
+
+23 0.7419 0.8462 𝑥 · ( 𝑥 − ( 𝑥 − 𝑐 )𝑚 ) − 𝑥 
+
+24 0.8387 0.8837 𝑥 + 𝑚 
+
+25 0.8710 0.9167 
+
+√|𝑐 |+ 𝑚 −√𝑐 +0.1  
+
+> |𝑐 |
+
+− √𝑐 − 2𝑥 
+
+26 0.8387 0.8980 min (𝑚, 𝑥 ) − 𝑚 · 𝑚 − ( 𝑥 + max (𝑥 −𝑥, √𝑥𝜎 (𝑐 ) ) ) − 𝑥 
+
+27 0.8065 0.8750 max (𝑥 2+𝑥,𝑥 )   
+
+> tanh (0.1/min (max (− ELU (exp (cos (cos 2 ) ) 𝑥 ),𝑥 ),𝑚 ) )
+
+28 0.7419 0.8462 𝑥 + 𝑥 2
+
+29 0.7097 0.8302 max (min (𝑚, 𝑐 ), 𝑥 )
+
+30 0.8387 0.9057 𝑥 − max (𝑥 − 𝑚, − min (𝑥, 2) ) 
+
+confidence scores. To effectively transmit missingness and confi-dence information through deep models, we proposed ChannelProp, a deterministic method for propagating missingness and confidence information through linear layers. Experiments on natural and in-troduced missing data (MCAR, MAR, MNAR) showed that 3C-EA is competitive or even better than standard fixed activation functions (ReLU, Swish, LeakyReLU, ELU). Experiments showed that improve-ments were consistent across different types of missingness, with significant improvements seen in datasets with higher missing rates and multi-class classification tasks. The study of evolved functions proved that GP can detect effective adaptive strategies, such as enhancing imputed values or modifying activation functions based on confidence levels. Future work includes extending 3C-EA to recurrent and attention-based designs, transferring evolved activa-tions across different domains, and combining heuristic confidence scores with learned estimates. 
+
+## References 
+
+[1] Andrea Apicella, Francesco Donnarumma, Francesco Isgrò, and Roberto Prevete. 2021. A Survey on Modern Trainable Activation Functions. Neural Networks 138 (2021), 14–32. [2] Arthur Asuncion and David Newman. 2007. UCI machine learning repository. [3] Ibrahim Berkan Aydilek and Ahmet Arslan. 2013. A Hybrid Method for Impu-tation of Missing Values using Optimized Fuzzy C-Means with Support Vector Regression and a Genetic Algorithm. Information Sciences 233 (2013), 25–35. Evolving Multi-Channel Confidence-Aware Activation Functions for Missing Data with Channel Propagation 
+
+[4] Gustavo EAPA Batista and Maria Carolina Monard. 2003. An Analysis of Four Missing Data Treatment Methods for Supervised Learning. Applied Artificial Intelligence 17, 5-6 (2003), 519–533. [5] Garrett Bingham, William Macke, and Risto Miikkulainen. 2020. Evolutionary Optimization of Deep Learning Activation Functions. In Proceedings of the 2020 Genetic and Evolutionary Computation Conference (Cancún, Mexico) (GECCO ’20) . Association for Computing Machinery, New York, NY, USA, 289–296. doi:10. 1145/3377930.3389841 [6] Zhengping Che, Sanjay Purushotham, Kyunghyun Cho, David Sontag, and Yan Liu. 2018. Recurrent Reural Networks for Multivariate Time Series with Missing Values. Scientific Reports 8, 1 (2018), 6085. [7] Shiv Ram Dubey, Satish Kumar Singh, and Bidyut Baran Chaudhuri. 2022. Acti-vation Functions in Deep Learning: A Comprehensive Survey and Benchmark. 
+
+Neurocomputing 503 (2022), 92–108. [8] Tlamelo Emmanuel, Thabiso Maupong, Dimane Mpoeleng, Thabo Semong, Bany-atsang Mphago, and Oteng Tabona. 2021. A Survey on Missing Data in Machine Learning. Journal of Big data 8, 1 (2021), 140. [9] Xavier Glorot and Yoshua Bengio. 2010. Understanding the Difficulty of Training Deep Feedforward Neural Networks. In Proceedings of the Thirteenth International Conference on Artificial Intelligence and Statistics (Proceedings of Machine Learning Research, Vol. 9) . JMLR Workshop and Conference Proceedings, PMLR, Chia Laguna Resort, Sardinia, Italy, 249–256. [10] David J. Hand and Robert J. Till. 2001. A Simple Generalisation of the Area Under the ROC Curve for Multiple Class Classification Problems. Machine Learning 45, 2 (2001), 171–186. [11] José M Jerez, Ignacio Molina, Pedro J García-Laencina, Emilio Alba, Nuria Ribelles, Miguel Martín, and Leonardo Franco. 2010. Missing Data Imputation using Statistical and Machine Learning Methods in a Real Breast Cancer Problem. 
+
+Artificial Intelligence in Medicine 50, 2 (2010), 105–115. [12] John R Koza. 1994. Genetic Programming as a Means for Programming Comput-ers by Natural Selection. Statistics and Computing 4, 2 (1994), 87–112. [13] Vladimír Kunc and Jiří Kléma. 2024. Three Decades of Activations: A Compre-hensive Survey of 400 Activation Functions for Neural Networks. arXiv preprint arXiv:2402.09092 (2024), 109. [14] Zachary C Lipton, David Kale, and Randall Wetzel. 2016. Directly Modeling Missing Data in Sequences with RNNs: Improved Classification of Clinical Time Series. In Machine Learning for Healthcare Conference . PMLR, JMLR.org, Los Angeles, California, USA, 253–270. [15] Roderick J. A. Little and Donald B. Rubin. 2019. Statistical Analysis with Missing Data (2 ed.). John Wiley & Sons, Hoboken, NJ, USA. [16] Fábio MF Lobato, Vincent W Tadaiesky, Igor M Araújo, and Ádamo L de Santana. 2015. An Evolutionary Missing Data Imputation Method for Pattern Classifica-tion. In Proceedings of the Companion Publication of the 2015 Annual Conference on Genetic and Evolutionary Computation . Association for Computing Machinery, New York, NY, USA, 1013–1019. [17] Alfredo Nazabal, Pablo M Olmos, Zoubin Ghahramani, and Isabel Valera. 2020. Handling Incomplete Heterogeneous Data Using Vaes. Pattern Recognition 107 (2020), 107501. [18] Luca Parisi, Ciprian Daniel Neagu, Narrendar RaviChandran, Renfei Ma, and Felician Campean. 2024. Optimal Evolutionary Framework-Based Activation Function for Image Classification. Knowledge-Based Systems 299 (2024), 112025. [19] David M. W. Powers. 2011. Evaluation: From Precision, Recall and F-Measure to ROC, Informedness, Markedness and Correlation. Journal of Machine Learning Technologies 2, 1 (2011), 37–63. [20] Prajit Ramachandran, Barret Zoph, and Quoc V Le. 2017. Searching for Activation Functions. arXiv preprint arXiv:1710.05941 (2017), 1–13. [21] Sebastian Risi, Yujin Tang, David Ha, and Risto Miikkulainen. 2025. Neuroevo-lution: Harnessing Creativity in AI Agent Design . MIT Press, Cambridge, MA. https://neuroevolutionbook.com [22] Donald B Rubin. 1976. Inference and Missing Data. Biometrika 63, 3 (1976), 581–592. [23] Joseph L Schafer and John W Graham. 2002. Missing Data: Our View of the State of the Art. Psychological Methods 7, 2 (2002), 147. [24] Yige Sun, Jing Li, Yifan Xu, Tingting Zhang, and Xiaofeng Wang. 2023. Deep Learning Versus Coventional Methods for Missing Data Imputation: A Review and Comparative Study. Expert Systems with Applications 227 (2023), 120201. [25] Stef Van Buuren and Karin Groothuis-Oudshoorn. 2011. MICE: Multivariate Imputation by Chained Equations in R. Journal of Statistical Software 45 (2011), 1–67. [26] Stef Van Buuren and Stef Van Buuren. 2012. Flexible Imputation of Missing Data .Vol. 10. CRC Press, Boca Raton, FL. [27] Jinsung Yoon, James Jordon, and Mihaela Schaar. 2018. Gain: Missing Data Imputation using Generative Adversarial Nets. In International Conference on Machine Learning . PMLR, PMLR, Stockholm, Sweden, 5689–5698.

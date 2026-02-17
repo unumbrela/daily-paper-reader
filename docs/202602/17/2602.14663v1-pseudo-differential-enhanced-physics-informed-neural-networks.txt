@@ -1,0 +1,3372 @@
+Title: Pseudo-differential-enhanced physics-informed neural networks
+
+URL Source: https://arxiv.org/pdf/2602.14663v1
+
+Published Time: Tue, 17 Feb 2026 03:18:45 GMT
+
+Number of Pages: 45
+
+Markdown Content:
+# Pseudo-differential-enhanced physics-informed neural networks 
+
+## Andrew Gracyk ∗
+
+Abstract 
+
+We present pseudo-differential enhanced physics-informed neural networks (PINNs), an extension of gradient enhancement but in Fourier space. Gradient enhancement of PINNs dictates that the PDE residual is taken to a higher differential order than prescribed by the PDE, added to the objective as an augmented term in order to improve training and overall learning fidelity. We propose the same procedure after application via Fourier transforms, since differentiating in Fourier space is multiplication with the Fourier wavenumber under suitable decay. Our methods are fast and efficient. Our methods oftentimes achieve superior PINN versus numerical error in fewer training iterations, potentially pair well with few samples in collocation, and can on occasion break plateaus in low collocation settings. Moreover, our methods are suitable for fractional derivatives. We establish that our methods improve spectral eigenvalue decay of the neural tangent kernel (NTK), and so our methods contribute towards the learning of high frequencies in early training, mitigating the effects of frequency bias up to the polynomial order and possibly greater with smooth activations. Our methods accommodate advanced techniques in PINNs, such as Fourier feature embeddings. A pitfall of discrete Fourier transforms via the Fast Fourier Transform (FFT) is mesh subjugation, and so we demonstrate compatibility of our methods for greater mesh flexibility and invariance on alternative Euclidean and non-Euclidean domains via Monte Carlo methods and otherwise. 
+
+Key words. Physics-informed neural network, PINN, spectral PINN, spectral bias, frequency bias, gradient-enhanced, PDE learning, pseudo-differential, ΨDO, Fourier transform, Fast Fourier transform, Plancherel theorem, harmonic analysis machine learning 
+
+AMS MSC Classifications (2020): 65N35, 65T50, 65R10, 76D07, 68T07, 47G30 
+
+# Contents 
+
+1 Introduction 22 Notations and conventions 43 Pseudo-differential operator background 54 Our contribution 6
+
+4.1 Objectives . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 84.2 Quantile loss . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 94.3 Randomized grid training . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 94.4 Eigenvalue decay . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10 4.5 Fractional calculus . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10 
+
+5 Experiments 11 
+
+5.1 Error analysis . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 11 5.2 Fourier modes . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 11 5.3 Grid versus Monte-Carlo training . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12 5.4 Complements with advanced techniques of PINNs . . . . . . . . . . . . . . . . . . . . . . 12 5.5 Experiment details according to PDE . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14 
+
+6 Acknowledgements 14 
+
+> ∗
+
+Purdue University, Department of Mathematics, agracyk@purdue.edu 
+
+1
+
+> arXiv:2602.14663v1 [cs.LG] 16 Feb 2026
+
+A On more generalized linear PDE differential operators 18 B Fourier integral equivalence with the Plancherel Theorem 18 C Convergence rates of high frequencies with Fourier gradient-enhancement 21 D Spectral preconditioning 23 
+
+D.1 Spectral preconditioning example . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 26 
+
+E Burger’s equation details 27 F Allen-Cahn equation details 27 G Korteweg-De Vries (KdV) equation details 28 H Navier-Stokes details 28 I Additional experimental details 29 J Additional figures 31 
+
+# 1 Introduction 
+
+We contribute to the Fourier modality for the physics-informed neural network (PINN) Raissi et al. (2017) via the well-established gradient-enhancement augmentation but in Fourier space. Fourier op-tions to PINNs are seasoned in literature as well Yu et al. (2026) Arni and Blanco (2025) Cooley et al. (2025) Wang et al. (2023) Huang and ansd Jinran Wu (2025) due to the favorably disposed proper-ties of differentiation done in a Fourier setting, since it is fundamental that differentiation before the Fourier transform results in differentiation of the Fourier basis function. The wavenumber, admitted as a multiplier, becomes the derivative for suitable decaying function done via integration by parts, meaning 
+
+F[f ′]( ξ) = 2 πiξ 
+
+Z ∞−∞ 
+
+f (x)e−2πiξx dx = 2 πiξ bf (ξ) (1) or equivalently in higher dimensions (2) 
+
+F[∂j f ]( ξ) = 2 πiξ j bf (ξ). (3) The above identity will serve as the foundation for our work here, but not through the PDE residual standalone but rather differentiation of the PDE residual. In the above, we have used the decay condition lim 
+
+> R→∞
+
+I
+
+> |x|=R
+
+f (x)e−2πi ⟨ξ,x ⟩νj dσ = 0 . (4) Our approaches will be done with relatively simple linear differential operators (not pertaining to the PDE operator solution but rather the gradient enhanced operators) that have polynomial representa-tions P (ξ) in Fourier space called the symbol . Thus, linear applications of linear differential operators to PDE residuals are products of PDE residuals with wavenumber representations and mere polynomials, and taking products with polynomials is fast and efficient. In particular, there exists an equivalence 
+
+P (D)u = f ⇐⇒ P (ξ)bu(ξ) = bf (ξ), (5) and so P (D) as a nontrivial differentiation operator is transmuted through use of the Fourier transform to its polynomial characterization P (ξ). Gradient enhancement Yu et al. (2022) Iyer et al. (2025) is admittedly a strong technique to reinforce the fidelity of PINNs, especially in low-collocation settings, and overall is relatively welcomed in most training settings for PINNs aside from the downfall of cost. Automatic differentiation in large scale scenarios is computationally nontrivial. We have observed this ourselves via our Navier-Stokes experi-ments, which undoubtedly require much larger scale differentiation of neural networks than univariate domain-type PDEs, especially of low order. Thus, especially in the multivariate domain scenario, the very same cost is incurred, and the benefits of gradient enhancement are mitigated via this tradeoff. 
+
+2This is where our methods provide new light: differentiation, expensive in physical space, has minute cost in Fourier space, since this differentiation becomes multiplication. We maintain the physics loss in physical space, which typically has low cost and is certainly lower than its gradient-enhanced counter-part. The typical autograd procedure in order to establish gradient enhancement is superannuated via the Fourier transform. Our overarching method is gradient enhancement in Fourier space, but we will attempt to develop a perspective towards these techniques via a looking glass of spectral bias. 
+
+Frequency bias of neural networks. It is a well known phenomenon that neural network capture low frequencies in data before high frequencies Molina et al. (2024), known as the (spectral) frequency bias Basri et al. (2020) Xu et al. (2024) Rahaman et al. (2019). This manifests in one sense via early training by capturing essential features (low frequency) of data over finer details (high frequency). Our methods reconcile this phenomenon with the learning process by penalizing high frequencies with greater urgency, since these correspond to the Fourier wavenumber ξ. In particular, after taking a pseudo-differential of the PDE, additional terms involving polynomial orders of ξ appear, and thus these higher frequencies have greater penalty in the loss of the form 
+
+L =
+
+Z
+
+> T
+
+Z
+
+> Ξ
+
+X
+
+> i
+
+(ai|ξ|i)
+
+| {z }
+
+> pseudo-differential appearance
+
+( bR(ξ, t )) 
+
+| {z }
+
+> physics-informed risk in Fourier space
+
+dξdt, (6) due to the higher scaling with large |ξ|. We remark, in the above in 6, the pseudo-differential corresponds to multiplication with ξ since differentiation is multiplication in Fourier space (which we will elaborate upon in detail with rigor later via the pseudo-differential). 
+
+Gradient enhancement. Using multi-index notation for nontrivial orders, let us consider a PDE residual of the form ˙u(x, t ) + Γ 
+
+h
+
+u(x, t ), ˙u(x, t ), {∂βx ∂γt u(x, t )}β,γ 
+
+i
+
+, (7) where Γ : {∂βx ∂γt u(x, t )}β,γ ∈ Q 
+
+> i
+
+C1(X × [0 , T ]; R) ∩ W 1,p (X × [0 , T ]; R) → C1(X × [0 , T ]; R) ∩ W 1,p (X × 
+
+[0 , T ]; R) is an operator between function spaces, which is traditionally solved with the (made discrete) loss 
+
+Lphysics = Eu∼δν ˙u(x, t ) + Γ 
+
+h
+
+u(x, t ), ˙u(x, t ), {∂βx ∂γt u(x, t )}β,γ 
+
+i 
+
+> L2(X × [0 ,T ])
+
+. (8) We will typically allow Clairaut’s theorem (endow regularity in the above). Gradient enhancement differentiates the above, and so 
+
+Eu∼δν ∂αh
+
+˙u(x, t ) + Γ 
+
+h
+
+u(x, t ), ˙u(x, t ), {∂βx ∂γt u(x, t )}β,γ 
+
+ii  
+
+> L2(X × [0 ,T ])
+
+(9) = Eu∼δν ∇α0 
+
+> t
+
+∇α1 
+
+> x1
+
+. . . ∇αn
+
+> xn
+
+h
+
+˙u(x, t ) + Γ 
+
+h
+
+u(x, t ), ˙u(x, t ), {∂βx ∂γt u(x, t )}β,γ 
+
+ii  
+
+> L2(X × [0 ,T ])
+
+(10) is added to the loss. We have distinguished ∇ from ∂ as partial derivatives (gradient operators w.r.t. 
+
+xi) and multi-index differentiation. 
+
+Spectral PINNs. Spectral PINNs (SINNs) Yu et al. (2026) are a method to train a PINN in the classical sense but the physics loss is instead solved in Fourier space. The neural network directly outputs bu in Fourier space, thus Monte Carlo losses still apply, maintaining overall mesh invariance since there is no use of the FFT in the training stage. Our methods are similar but differ: our PINNs output u as in traditional Euclidean space, but we transform differentiated u into Fourier space and subsequently minimize this as a subsidiary residual. Thus, our methods maintain mesh invariance via the physics loss, and the enhanced Fourier loss can be done with or without meshes. To summarize, SINNs primarily examine losses of the form physics loss := Eu∼δν b˙u(ξ, t ) + dΓ[ u]( ξ, t ) L2(Ω ×[0 ,T ]) 
+
+. (11) 
+
+Our methods on non-Euclidean geometries and without meshes. PINNs most typically take domains of boxes [ a1, b 1] . . . [an, b n] × [0 , T ] ⊆ Rn × R+, but not always Zhou and Zhu (2025). Our methods are adaptable to more nonstandard domains via Monte-Carlo methods and non-uniform FFTs. We will investigate the performance of Monte-Carlo methods as well. We refer to Appendix 5.3 for more details. 
+
+3Supplemental theoretical contributions. In Appendix B, we show L2 loss equivalences with the Plancherel Theorem. We furthermore show that the gradients on the loss in the physical and Fourier spaces cases do not match, thus the parameter gradient flows upon the descent follow different trajec-tories. In Appendix D, we provide a theoretical framework by moving the pseudo-differential operator inside the PDE instead of gradient-enhancing the outside. This is a preconditioning method for spectral filtration. With this method, we can scale the eigenvalues of the NTK not only up to the polynomial order, but by up to the scaling functions of the Fourier symbols. Moreover, by applying a pseudo-differential preconditioner, we can reduce the number of convolutions from a quadratic order, when inside, to a linear order, while achieving the same effects. We remark these sections are mostly theo-retical and indeed support the work but not primarily, thus we leave discussion of these topics here at this for the main body of this work. 
+
+Figure 1: We plot (left) our Fourier enhanced PINN solution pointwise error on discretizations on three instances of retraining versus (right) a vanilla PINN on a log scale on two indices corresponding to t = 0 .25 , 0.75 on the Allen-Cahn equation. Lower is better. 
+
+# 2 Notations and conventions 
+
+We will denote in the case of the PINN Eu∼δν [E†[u]] (12) and in the case of the (physics-informed) neural operator Eu∼P (A)[E†[u]] (13) a loss term in the loss function, typically taking μ = δν to be a Dirac probability mass at a particular function, i.e. R 
+
+> A
+
+Ψ( f )dδ ν = Ψ( ν), and P(A) denotes the collection of probability measures on Banach space A, such as L1(Ω) or W k,p (Ω). E† is some (exact) cost function. We use this notation since it is most generalized and applicable for various machine learning archetypes. We mention neural operators Quackenbush and Atzberger (2024) Fanaskov and Oseledets (2024) Li et al. (2021) Lu et al. (2021) because they complement PDE learning in physics-informed approaches Li et al. (2023b) Goswami et al. (2022) Karumuri et al. (2025), but we will not study this paradigm in our work here, but our work is easily extended for these approaches as well. We will denote X a compact domain in Euclidean space for the PINN and Ω a compact domain in Fourier space for the enhanced loss. We will always 
+
+4use the conventional approximation 
+
+∥f ∥L2(X × [0 ,T ]) ≈ constant ·
+
+s X · · · X X   
+
+> [( x,t )] i∼Unif( X)⊗Unif([0 ,T ])
+
+f (x1,i , . . . , x n,i , t i)2. (14) The above is taken with respect to the uniform Lebesgue measure (non-weighted). Moreover, for simplicity of argument, in our primary contribution section of 4, we will assume our PDEs take the form Γ
+
+h
+
+u(x, t ), ˙u(x, t ), {∂βx ∂γt u(x, t )}β,γ 
+
+i
+
+= X
+
+> |α|
+
+∂αu(x, t ) = X
+
+> |α|
+
+∇α1 
+
+> x1
+
+. . . ∇αn 
+
+> xn
+
+u(x, t ), (15) although this assumption is more for convenience of argument and our methods are entirely applicable to more generalized PDEs. We refer to Appendices A, E, F, G, H for details on more sophisticated and nonlinear PDEs. Lastly, we will assume there exists a diffeomorphism Ψ† : X → Ω, (16) between our compact physical and Fourier domains (generally boxes). All integrals in this work will be taken with respect to Lebesgue measure. We will assume regularity such as order of differentiation and integration can be exchanged, etc. Our regularity conditions will primarily be justified by (Sobolev) smoothness and compactness (our summations will be finite, and Lebesgue dominated convergence conditions will be met under sufficient smoothness and via the mean value theorem; if necessary, assume the domain is convex). For our experiments, our hyperparameters will vary heavily. We list hyperparameters in each figure respectively, as opposed to listing global hyperparameters for each experiment. We will slightly abuse notation by sometimes working with 1-d notations, but our methods extend to multi-dimensions as well. We will use the 2 πi in the exponent Fourier transform convention, which means the factor of 1 /(2 π)n is omitted outside our integrals. Sometimes the convention in harmonic analysis/PDEs Dx = (1 /2πi )∂x
+
+is used: we will not use this convention. We will use the convolution theorem variously. We will most predominately use 
+
+F[uv ] = F[u] ∗ F [v], (17) which derives from the more common formulation uv = F−1[F[u] ∗ F [v]] Weisstein. Occasionally in our experiments, we will refer to vanilla PINNs. This refers to a PINN with the exact same setup as without the Fourier enhanced loss; this does not mean a vanilla PINN with zero advanced techniques, such as Fourier feature embeddings. 
+
+# 3 Pseudo-differential operator background 
+
+Let us consider a (linear) differential operator 
+
+P (D) = X
+
+> α
+
+aα(x, t )Dα. (18) This operator can be rewritten as a polynomial 
+
+P (ξ) = X
+
+> α
+
+aα(x, t )ξα (19) with respect to Fourier space in the sense that Chai et al. (2025) 
+
+P (D)u(x) = 
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+e2πi ⟨x−y,ξ ⟩P (ξ)u(y)dydξ. (20) Here, P (ξ) is called a symbol and P (D) is called the pseudo-differential . Thus, the differential operators acts as multiplication in Fourier space. A pseudo-differential operator P (x, D ) on Rn is an operator acting on u such that 
+
+P (x, D )u(x) = 
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (x, ξ )bu(ξ)dξ. (21) 
+
+5It is equivalent to the above but acts in nontrivial, nonclassical cases, for example fractional derivatives and other operators impossible to write in the prototypical Leibniz notation. Using the definition of the Fourier transform, we also have 
+
+P (x, D )u(x) = 
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+e2πi ⟨x−y,ξ ⟩P (x, ξ )u(y)dydξ, (22) where we have rewritten the above using linearity of the integral (notice this is different than Fu-bini’s/Tonelli’s) and since P ∈ Smρ,δ . In particular, it can be noted P (ξ) belongs in the class 
+
+p(x, σ ) ∈ Smρ,δ := 
+
+(
+
+p ∈ C∞(X × ˙Rn), DρxDδσ p(x, σ ) ≤ Cρ,δ (1 + |σ|)m−| δ|
+
+)
+
+(23) under m, and ˙Rn = Rn \ { 0}, which ensures suitable decay and overall regularity. As a last remark, for empirical reasons, we will almost always consider 
+
+P (x, D )u(x) ≈
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+e2πi ⟨x−y,ξ ⟩P (x, ξ )u(y) · χK (y) · dy · χΩ(ξ) · dξ, (24) where χ is the indicator, and K, Ω are suitable compact domains to ensure the above is approximated over a sufficiently large finite domain, since it is not reasonable for us to search all of Rn to evaluate the integrals. The pseudo-differential operator is mathematically archetypal because it is well-defined under fractional derivatives. We will consider 
+
+P (ξ) = X
+
+> |α|≤ m,α / ∈N
+
+aαξα, (25) for example in a risk minimization framework ˜Rθ (x, t ) ∈
+
+(
+
+R(x, t )
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+(−∆) s/ 2R(x, t ) χX × [0 ,T ](x, t )dxdt < δ, s ∈ N, δ ∈ R+
+
+)
+
+. (26) We will study this pseudo-differential in an empirical setting and its effects on PDE learning via Fourier gradient enhancement. Moreover, note the following Fourier transform of equation 21 
+
+\(P (x, D )u(x))( η) = 
+
+Z
+
+> Rn
+
+e−2πi ⟨x,η ⟩
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (x, ξ )bu(ξ)dξdx (27) =
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ −η⟩P (x, ξ )bu(ξ)dξdx. (28) Denoting 
+
+bP (ζ, ξ ) = 
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ζ ⟩P (x, ξ )dx, (29) observe 
+
+\(P (x, D )u)( η) = 
+
+Z
+
+> Rn
+
+bP (η − ξ, ξ )bu(ξ)dξ = ( bP ∗ bu)( η), (30) thus if a depends on x, the above is expressed as a convolution. 
+
+# 4 Our contribution 
+
+Consider the pseudo-differential gradient-enhanced PDE residual 
+
+P (x, t, D )
+
+"
+
+∂tu + Γ 
+
+h
+
+u(x, t ), {∂βx ∂γt u(x, t )}β,γ 
+
+i#
+
+= 0 . (31) 
+
+6Figure 2: We demonstrate on our Navier-Stokes experiment with severe Fourier enhanced loss tuned coefficient that high frequencies are learned faster. We train a Navier-Stokes PINN with and without Fourier enhancement with coefficient 0 .5 × λphysics on a vanilla MLP with Fourier feature embedding and the SOAP optimizer for 500 epochs. High error power at high frequency corresponds to inability to learn high frequency. Thus, our methods mitigate spectral bias. 
+
+We have taken the pseudo-differential outside the PDE residual. In general, Clairaut’s theorem is not applicable to the above and we do not have commutativity (see Appendix D). Moreover, let us restrict 
+
+P constant in space and time. 
+
+Theorem 1. Let u ∈ C1(X × [0 , T ]; R) ∩ W p, 1(X × [0 , T ]; R) be a solution to a PDE of the form ˙u + Γ[ u, . . . ] = 0, where Γ is a linear operator with identity coefficients. Let P (x, t, D ) = P 
+
+> α
+
+aα(x, t )Dα
+
+be a linear differential operator. In the case that aα are constants, i.e. P (x, t, D ) = P (D), 
+
+P (x, t, D )∂tu =
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+e2πi ⟨x−y,ξ ⟩P (ξ)u(y)dydξ 
+
+!
+
+˙u (32) = X
+
+> |α|≤ m
+
+aαDαx ˙u (33) = F−1
+
+P (ξ) · F ( ˙ u)
+
+
+
+, (34) 
+
+P (x, t, D )Dβx u = X
+
+> |α|≤ m
+
+aα
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+e2πi ⟨x−y,ξ ⟩(2 πi )β ξα+β u(y)dydξ 
+
+!
+
+(35) = X
+
+> |α|≤ m
+
+aαDα+βx u (36) = F−1
+
+P (ξ) · (2 πiξ )β · F (u)
+
+
+
+. (37) 
+
+Proof of Theorem 1. The proof is routine. Observe, using P (x, t, ξ ) = P 
+
+> |α|≤ m
+
+aαξα
+
+P (D)u =
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (x, t, ξ )
+
+ Z
+
+> Rn
+
+e−2πi ⟨y,ξ ⟩u(y)dy 
+
+
+
+dξ (38) =
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (ξ)bu(ξ)dξ, (39) which implies 
+
+P (D) ˙ u = X
+
+> |α|≤ m
+
+aα
+
+ Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩ξαF( ˙ u)( ξ)dξ 
+
+
+
+(40) =
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩
+
+P (ξ) · F ( ˙ u)( ξ)
+
+
+
+dξ (41) = F−1
+
+P (ξ) · F ( ˙ u)
+
+
+
+. (42) 
+
+7Now, in the spatial derivative case, 
+
+P (D)u =
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (ξ)
+
+ Z
+
+> Rn
+
+e−2πi ⟨y,ξ ⟩u(y)dy 
+
+
+
+dξ (43) =
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (ξ)bu(ξ)dξ, (44) and moreover, since a is constant, 
+
+P (D)Dβx u = X
+
+> |α|≤ m
+
+aα
+
+ Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩ξα · (2 πiξ )β bu(ξ)dξ 
+
+
+
+(45) =
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩
+
+P (ξ) · (2 πiξ )β · F (u)( ξ)
+
+
+
+dξ (46) = F−1
+
+P (ξ) · (2 πiξ )β · F (u)
+
+
+
+. (47) 
+
+## 4.1 Objectives 
+
+Taking the Fourier transform of both terms in the previous section, our enhanced physics loss becomes 
+
+LFourier enhanced = Eu∼δν
+
+ P (ξ)F( ˙ u) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(u) 
+
+> 2
+> L2(Ω ×[0 ,T ])
+
+ (48) We crucially remark the above ignores scaling functions of the operator of the PDE, but the above can easily be extended for those cases as well. For clarity, note that 
+
+Eu∼δν
+
+"
+
+P (ξ)
+
+| {z } 
+
+> weight contribution from pseudo-differential
+
+F( ˙ u) + X
+
+> β
+
+P (ξ) (2 πiξ )β
+
+| {z }
+
+> contribution from the derivatives of the PDE
+
+F(u) 
+
+> 2
+> L2(Ω ×[0 ,T ])
+
+#
+
+. (49) The above is exactly the PDE transformed into Fourier space added as a residual, but it is weighed by 
+
+P (ξ), which is nonconstant, thus 
+
+P (ξ) := spectral weight (50) 
+
+P (ξ) typically = (2 πiξ ) + (2 πiξ )2 + . . . (51) or in higher dimensions , (52) 
+
+P (ξ) = X 
+
+> |α|≥ 1,max α|α|=m< ∞
+
+(2 πi )|α|ξα1 
+
+> 1
+
+. . . ξ αn 
+
+> n
+
+, (53) where the above can terminate to any order corresponding to a derivative order. Thus, we also have the loss argument as 
+
+Eu∼δν
+
+h
+
+(2 πiξ ) + (2 πiξ )2 + . . . 
+
+i
+
+·
+
+h
+
+F( ˙ u) + X
+
+> β
+
+(2 πiξ )β F(u)
+
+i 2 
+
+> L2(Ω ×[0 ,T ])
+
+(54) or equivalently (55) 
+
+Eu∼δν
+
+h
+
+spectral weights from gradient enhancement in Fourier space 
+
+i
+
+·
+
+h
+
+PDE residual in Fourier space 
+
+i
+
+.
+
+(56) We reiterate: P (ξ) also corresponds to derivatives, since the above is gradient enhancement in Fourier space. Note that constant coefficients are generally easier to have because nonconstant coefficients require convolution, i.e. 
+
+Eu∼δν
+
+X
+
+> α
+
+"
+
+(baα(ξ, t ) ∗
+
+h
+
+(2 πiξ )k 
+
+F( ˙ u) + X
+
+> β
+
+(2 πiξ )β F(u)
+
+i # 2 
+
+> L2(Ω ×[0 ,T ])
+
+. (57) This matches the derivation we saw at the end of section 3. 
+
+8In fact, P (ξ) is a function, not a constant, so it cannot be ”divided out”, which would therefore leave the PDE transformed into Fourier space alone in the loss. Omitting P (ξ) fundamentally changes the loss landscape, which would overall bypass the pseudo-differential aspect of the loss, since solving the transformed PDE in a physics loss without P (ξ) is a task independent of a pseudo-differential operator. If we denote u : X × [0 , T ] × Θ → L1(X × [0 , T ]; R) be the neural network physics solution, the total loss in the case of the PINN is inf  
+
+> θ∈Θ
+
+Eu∼δν λphysics ∂tuθ + Γ[ u(x, t ), ˙u(x, t ), {∂βx ∂γt u(x, t )}β,γ ] 2 
+
+> L2(X × [0 ,T ])
+
+(58) +λboundary ∂tuθ (·, 0) + Γ[ u(x, 0) , ˙uθ (x, 0) , . . . ] 2 
+
+> L2(X)
+
+(59) +λboundary ∂tuθ (x, t ) x∈∂Ω
+
++ Γ[ uθ (x, t ), ˙uθ (x, t ), . . . ] x∈∂Ω 
+
+> 2
+> L2([0 ,T ])
+
+(60) +λFourier P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ ) 2 
+
+> L2(Ω ×[0 ,T ])
+
+. (61) It may be the case P (ξ) blows up (this is supposed to be happen by definition of the derivative extended to Fourier space), in which the enhanced loss will dominate. We rectify this by normalizing by a maximum, i.e. 
+
+Lenhanced = Eu∼δν 
+
+P (ξ)
+
+|| P (ξ)|| L∞(Ω ×[0 ,T ]) 
+
+F( ˙ u) + X
+
+> β
+
+P (ξ)
+
+|| P (ξ)|| L∞(Ω ×[0 ,T ]) 
+
+(2 πiξ )β F(u) 2 
+
+> L2(Ω ×[0 ,T ])
+
+. (62) Dividing by a norm |P (ξ)| dependent on ξ can distort the weighing effect. One could add a smoothed-in update rule of the form λ ← αλ new + (1 − α)λnew if this is found suitable. Since P (ξ) is complex-valued, we use the norm 
+
+|| P (ξ)|| L∞(Ω ×[0 ,T ]) = inf 
+
+> τ
+
+(pRe( P (ξ)) 2 + Im( P (ξ)) 2 ≤ τ ξ ∈ Ω, t ∈ [0 , T ]
+
+)
+
+. (63) In Appendix B, we discuss loss equivalences with the Plancherel Theorem. Moreover, we show using the complex conjugate product version of the Plancherel Theorem, along with the chain rule on quadratic loss, the gradients of the Lp losses are not equivalent and lead to different training processes. 
+
+## 4.2 Quantile loss 
+
+We find the Fourier loss sensitive to small perturbations and outliers that come with the frequency-based distortions that are brought in by the FFT. Therefore, we find a performance increase in the loss 
+
+Lenhanced = Eu∼δν quantile 
+
+(
+
+P (ξ)
+
+|| P (ξ)|| L∞(Ω ×[0 ,T ]) 
+
+F( ˙ u) + X
+
+> β
+
+(2 πiξ )β F(u)
+
+!) 
+
+(64) = inf 
+
+> z
+
+(
+
+z ∈ R+ : Pr ξ∼μ
+
+P (ξ)
+
+|| P (ξ)|| L∞(Ω ×[0 ,T ]) 
+
+F( ˙ u) + X
+
+> β
+
+(2 πiξ )β F(u)
+
+!
+
+≤ z
+
+!
+
+≥ τ
+
+)
+
+, (65) yielding a more stable, well-behaved objective. We crucially remark the quantile parameter τ should remain large to mitigate cutting off the more severe scenarios of spectral bias (0 .9 − 0.95 works well or even 0 .99). Recall the quantile function is not differentiable, but it has existing subgradients. 
+
+## 4.3 Randomized grid training 
+
+We found empirical success in randomly sampling the mesh sizes each epoch when FFTs were used (see Appendix 2 for scenarios when FFTs are not used and non-square domains are of interest). Recall FFTs are (typically) mappings from meshes to meshes, although more flexible domains for FFTs exist Armstrong et al. (2024). Thus, we consider FFTs of the form 
+
+bf (ξ) = 
+
+ nY
+
+> j=1
+
+Nj
+
+
+
+Em∼U (G)
+
+"
+
+f (m1, . . . , m n)e−2πi Pnj=1 ξj mj /N j
+
+#
+
+(66) for suitable uniform distribution U(G). 
+
+94.4 Eigenvalue decay 
+
+In this section, we discuss how our methods improve eigenvalue decay of the neural tangent kernel (NTK). Let us discuss preliminary background work that we will use. Bietti and Bach (2021) shows that for ReLU networks, the eigenvalues of the neural tangent kernel follow 
+
+λξ ∼ constant · ξ−d−2ν+1 (67) where C1, C 2, d, ν are constants, where ξ is the wavenumber (frequency). ReLU-type activation is generally adverse for PINNs due to possibly nonexistent orders of continuous differentiability and this result is not primarily applicable for us. Murray et al. (2023) is a crucial work for us and discusses NTK eigenvalue decay under smooth activa-tions. Specifically, 
+
+λξ ∼ O (ξ−d+1 a−ξ ), λξ ∼ Ω( ξ−d/ 2+1 2−ξ a−ξ ). (68) This work emphasizes spherical domains under normalization, but suitable for PINNs under diffeomor-phisms mapping compact, bounded domains as in PINNs to the spherical manifold. Li et al. (2023a) is a work that discusses NTK eigenvalue decay on more generalized domains via Theorem 8. We refer to Holzm¨ uller and Sch¨ olpple (2025) for other relevant literature on NTKs with smooth activations. 
+
+Theorem 2 (formal proof, some informal). Let u ∈ C1(X × [0 , T ]; R) ∩ W p, 1(X × [0 , T ]; R) be a solution to a PDE of the form ˙u + Γ[ u, . . . ] = 0. Let ω(ξ) be a polynomial weight dependent on wavenumber in Fourier space. Suppose the domain is periodic. Assume sufficient regularity conditions are met. Suppose tanh( ·) is used. Then, with the Fourier enhanced loss LFourier enhanced and under gradient descent on parameter θ, the infinite-width limit NTK eigenvalue decay becomes ˜λ(ξ) ∼ | ξ|sF (ξ)for some F (ξ), where s > 0. 
+
+Remark. It is known that the neural tangent kernel (NTK) eigenvalue decay with certain smooth activation is exponential such that λ(ξ) ∼ | ξ|−q Q−| ξ| for some q, Q dependent on wavenumber and the order of the PDE. This product of functions is less established in literature in the PINN setting (see proof in Appendix C for more details of the NTK for PINNs). NTK eigenvalue decay is discussed in Gan et al. (2025) and theoretically proves that eigenvalue decay is largely unaffected by differential operators. For simplicity, we denote spectral decay with F (ξ). 
+
+Sketch of proof. Forward discrete gradient descent corresponds to a continuum-limit ODE. After dif-ferentiating Fourier risk and the Fourier loss, we can insert the gradient flow, yielding the NTK. The pseudo-weight term collateralizes with the polynomial term degree. 
+
+Remark. We will also develop, primarily in section D, that we can scale the eigenvalue decay with new functions so the eigenvalue decay is of the form ˜λ(ξ) ∼ X
+
+> α
+
+ϕα(ξ)|ξ|αF (ξ), (69) therefore there is function contribution from possible non-polynomials in the gradients. 
+
+## 4.5 Fractional calculus 
+
+Spectral methods in PINNs are suitable for fractional calculus-type PDEs. For example, on losses of the form inf  
+
+> θ∈Θ
+
+Eu∼δν b˙u + \
+
+Γ
+
+h
+
+u, ˙u, {(−∆) su}s
+
+i 2 
+
+> L2(Ω ×[0 ,T ])
+
++ P (ξ)
+
+hb˙u + \
+
+Γ
+
+h
+
+u, ˙u, {(−∆) su}s
+
+ii 2 
+
+> L2(Ω ×[0 ,T ])
+
+, (70) plus other terms. Note that the physics loss is spectral here. 
+
+10 Figure 3: We present PDE solution results of our method with (a) the enhanced Fourier loss on the Allen-Cahn equation and (b) a vanilla PINN. The only advanced technique (aside from our Fourier loss) here is the Fourier feature embedding with σ = 1 .0 in the architecture. We train for ∼ 150 , 000 descent iterations with the Adam optimizer and use a batch size of 35 for the physics and boundary loss. Our Fourier symbol here is 
+
+P (ξ) = 2 πiξ . We emphasize the symbol P (ξ) does not have 
+
+P (ξ) = 1 + . . . , since this corresponds to exact physics loss in Fourier space. 
+
+# 5 Experiments 
+
+## 5.1 Error analysis 
+
+We will primarily assess our experiments with the discrete L2 error analysis using 
+
+|| u(x, t ) − uθ (x, t )|| L2(X × [0 ,T ]) 
+
+|| u(x, t )|| L2(X × [0 ,T ]) 
+
+≈
+
+qP  
+
+> (x,t )∈X ×{ j∆t:j∈N,(max j)∆ t=T}
+
+(u(x, t ) − uθ (x, t )) 2
+
+qP  
+
+> (x,t )∈X ×{ j∆t:j∈N,(max j)∆ t=T}
+
+(u(x, t )) 2
+
+, (71) where u is a numerical solution (computed with FFTs typically) X = {a + ⟨j, (∆ x, . . . , ∆x)⟩ : a ∈
+
+Rn, j ∈ Nn ∪ { 0}} is a suitable mesh in space. Thus, we highlight we use a metric of the actual error, not the loss, which is a different metric. It is notable that we do indeed keep the square roots in our experiments. 
+
+## 5.2 Fourier modes 
+
+A downside of our methods is that since differentiation corresponds to multiplication by polynomials in Fourier space, these polynomials tend to blow up along the boundary of compact Ω, thus the weighing due to the differentiation will favor the boundary. We resolve this issue by truncating the Fourier modes. This is a standard technique, for example used in Li et al. (2021). Thus we focus on low-dimensionality techniques, and we emphasize low |ξ|. Mathematically, this is 
+
+χM(ξ) = 
+
+(
+
+1 |ξ| ≤ Ξ∗
+
+0 |ξ| > Ξ∗ , L =
+
+Z ∞−∞ 
+
+Z ∞−∞ 
+
+. . . 
+
+Z ∞−∞ 
+
+W (ξ) · bR(ξ) · χM(ξ) 2 Y
+
+> j
+
+dξ j (72) is our residual for value R ∋ Ξ∗ < ∞. Discretely, this loss is 
+
+L =
+
+> K1
+
+X
+
+> ξ1=0
+> K2
+
+X
+
+> ξ2=0
+
+· · · 
+
+> Kd
+
+X
+
+> ξn=0
+
+Wξ1,...,ξ n · bRξ1,...,ξ n · χM,ξ 1,...,ξ n
+
+> 2
+
+(73) 
+
+11 ∈
+
+( X
+
+> ξ∈I ˜Ξ
+
+|Wξ1,...,ξ n · bRξ1,...,ξ n
+
+> 2
+
+I˜Ξ = ξ ∈ Zn|| ξi| ≤ ˜Ξi
+
+)
+
+(74) for suitable maximum modes Ki and truncated modes ˜Ki. We crucially remark we do not want to truncate too severely to mitigate effects of spectral bias learning. 
+
+## 5.3 Grid versus Monte-Carlo training 
+
+Our primary means of our enhanced Fourier loss is through the use of FFTs that cohere to a mesh of the form 
+
+P (D)u(x) ≈
+
+> N1−1
+
+X
+
+> ξ1=0
+
+. . . 
+
+> Nj
+
+X 
+
+> ξj=0
+
+bu(ξ1, . . . , ξ j )P (ξ1, . . . , ξ j )e2πi P    
+
+> kxkξk/s k
+
+, (75) and to evaluate the enhanced loss over the entire mesh at once. It can be noted this is traditionally how the Fourier neural operator was constructed as in Li et al. (2021) via page 5. This is our preferred our method but it does have drawbacks For example, the traditional PINN possesses the mesh invariant quality due to the random, uniform collocation sampling, and cohering to the grid loses this quality. Moreover, a strength of the gradient-enhanced PINN is that the enhanced residual is evaluated at the same locations. This allows well-behaved backpropagation, whereas we empirically found evaluating at Fourier locations along a mesh and random physics locations to not harmonize but rather conflict in training, and overall this enhanced approach did not yield much improvement. Another approach is to use [P (ξ)u(ξ)]( t) = 
+
+Z
+
+> Rn
+
+e−2πi ⟨ξ,x ⟩P (x)u(x, t )ρ(x)dx (76) 
+
+∝ Ex∼ρ
+
+h
+
+e−2πi ⟨ξ,x ⟩P (x)u(x, t )
+
+i
+
+∝ X 
+
+> xj∼P (Ω) ,j ∈[J]
+
+e−2πi ⟨ξ,x j ⟩P (xj )u(xj , t ), (77) where P(Ω) is a suitable measure on finite domain Ω. In general, this option is less computationally trivial since it requires an integral approximation. This method also has pitfalls. For example, this method requires an integral approximation, which is the best developed in the case when collocation batch size Nf is large; however, this is problematic because the gradient-enhanced PINN Yu et al. (2022) has historically been proven to function best in the low-data regime. 
+
+## 5.4 Complements with advanced techniques of PINNs 
+
+In this subsection, we describe archetypal PINN augmentations to strengthen capability that are well-estblished in literature. The PINN enhancement we consider most predominantly is the Fourier feature embedding Tancik et al. (2020) Wang et al. (2023), where neural network ψ : R2m × Θ → L1(Ω × [0 , T ]; R), ψ θ inputs are mapped ( x, t ) →
+
+
+
+sin(2 πB (x, t )T ), cos(2 πB (x, t )T )
+
+
+
+→ ψθ
+
+
+
+sin(2 πB (x, t )T ), cos(2 πB (x, t )T )
+
+
+
+, where 
+
+B ∈ Rm×(n+1) , Bij ∼ N (0 , σ 2) before being mapped through the layers according to ψθ . Empirically, we found this technique most crucial for PINN success. We will also consider: (1) the modified MLP architecture of Wang et al. (2023), which proceeds itera-tively as 
+
+hi+1 = (1 − σ(W ihi + bi)) ⊙ ˆh + σ(W ihi + bi) ⊙ ˜h, ˆh = σ( ˆW X + ˆb), ˜h = σ( ˜W X + ˜b) (78) for hidden node h; (2) the SOAP optimizer (Shampoo with Adam) Vyas et al. (2025), which is second order, and second order optimizers have demonstrated competitive performance in PINN settings Kiyani et al. (2025); (3) the grad norm coefficient tuning procedure of Wang et al. (2023). We generally will use sin( ·) activation. Recall relu( ·) activations are often adverse for PINNs since they are not smooth. 
+
+12 Table 1: We list various statistics identifying the learning power of frequency bias corresponding to the data as in Algorithm 3 pertaining to radial power spectral density. All of our results are done with severe early stopping and high LFourier enhanced coefficient to overemphasize the spectral bias learning effects. The frequency % refers to a percentile (high is better since high frequencies learned is desirable). The ratio quantifies the amount of frequency that exists in that quantile range (high ratio in high frequency is desirable).                                                         
+
+> Scenario Method [ ↓]Total log error power [↓]Average log error power [↓]Frequency 50 [ ↑]Frequency 90 [ ↑]Ratio 0.0-0.1 [ ↓]Ratio 0.1-0.25 [ ↑]Ratio 0.25-0.5 [ ↑]Allen-Cahn FE 1.812e+1 1.201e0 0.000e0 7.092e −39.999e −18.789e −51.094e −5Allen-Cahn vanilla 1.903e+1 1.384e0 0.000e0 3.546e −39.999e −16.346e −58.788e −6Burger’s FE 1.557e+1 5.843e −17.092e −31.064e −29.999e −11.051e −41.696e −5Burger’s vanilla 1.596e+1 6.753e −10.000e0 1.064e −29.999e −18.644e −51.404e −5KdV FE 1.489e+1 8.737e −12.837e −23.901e −29.989e −19.842e −41.423e −4KdV vanilla 1.530e+1 7.861e −11.064e −23.546e −29.991e −17.631e −41.116e −4Navier-Stokes FE 1.962e+1 2.986e0 5.525e −31.657e −29.991e −17.881e −41.217e −4Navier-Stokes vanilla 2.006e+1 3.039e0 5.525e −31.381e −29.994e −15.080e −47.880e −5
+
+Figure 4: We plot reserved memory usage on a Fourier gradient enhanced versus a traditional gradient enhanced PINN on Burger’s equation with a triangular domain at a single iteration (it is about constant per epoch). 13 5.5 Experiment details according to PDE 
+
+In this subsection, we discuss the experimental details we find most relevant. 
+
+Burger’s equation. In these experiments, we consider Burger’s equation on both a square and triangular domain. The triangular domain case is interesting because it nullifies our typical grid based FFT application and instead uses a Monte Carlo technique (see Subsection 5.3). Based on Figure 19, we can see our methods provide a superior error quality more uniformly, but can fail on the classic rift of the Burger’s equation potentially more than using a physics loss only. Moreover, we demonstrate the frequency bias effects of our methods in Figure 17. 
+
+Allen-Cahn equation. In these experiments, we intensify the capabilities of our methods by dimin-ishing the collocation point number to values. We demonstrate rigorously in Figures 1, 7, 9, 10, 11 that our methods can achieve loss plateau dropoff due to the Fourier enhanced loss, which has minimal con-tribution to the loss gradients (thus the breakthroughs are not results of greater physics-type gradient contributions). 
+
+Korteweg-De Vries (KdV) equation. Here, we attempt to demonstrate the frequency bias learning effects of our method more rigorously, since solutions to the KdV equation exhibit high oscillation and can more suitably characterize spectral bias effects of neural network lerarning processes. In Figure 23, we demonstrate our methods over four training samples after severe scenarios of early stopping. We remark it is unclear if this exactly demonstrates frequency bias learning effects, so we remark it is potential. We refer to Figure 17 for more clear evidence of spectral bias in these experiments. 
+
+Navier-Stokes. The Navier-Stokes experiment is interesting because it represents a more severe case of spectral bias along with the KdV equation. We found visually our results did not affect learning so significantly; however, the effects of our methods are observable in a frequency analysis (see Figure 2, Table 1). We found loss converged rather quickly in this experiment. We refer to Figure 24 for the example used in experiments. 
+
+# 6 Acknowledgements 
+
+I gratefully acknowledge financial support from Purdue University Department of Mathematics. I would like to thank Xiaohui Chen at University of Southern California for helpful PINN-related discussions. I would also like to thank Monica Torres and Antˆ onio S´ a Barreto at Purdue University, whose classes were invaluable to this work. 
+
+# References 
+
+Michael Sorochan Armstrong, Jos´ e Carlos P´ erez-Gir´ on, Jos´ e Camacho, and Regino Zamora. A direct solution to the interpolative inverse non-uniform fast fourier transform problem for spectral analyses of non-equidistant time-series data, 2024. URL https://arxiv.org/abs/2310.15310 .Rohan Arni and Carlos Blanco. Physics-informed neural networks with fourier features and attention-driven decoding, 2025. URL https://arxiv.org/abs/2510.05385 .Ronen Basri, Meirav Galun, Amnon Geifman, David Jacobs, Yoni Kasten, and Shira Kritchman. Fre-quency bias in neural networks for input of non-uniform density, 2020. URL https://arxiv.org/ abs/2003.04560 .Alberto Bietti and Francis Bach. Deep equals shallow for relu networks in kernel regimes, 2021. URL 
+
+https://arxiv.org/abs/2009.14397 .Alberto Bietti and Julien Mairal. On the inductive bias of neural tangent kernels, 2019. URL https: //arxiv.org/abs/1905.12173 .Lihui Chai, Hengzhun Chen, and Xu Yang. Frozen gaussian approximation for the fractional schr¨ odinger equation, 2025. URL https://arxiv.org/abs/2403.18287 .Madison Cooley, Varun Shankar, Robert M. Kirby, and Shandian Zhe. Fourier pinns: From strong boundary conditions to adaptive fourier bases, 2025. URL https://arxiv.org/abs/2410.03496 .
+
+14 Nikita Doikov, Sebastian U. Stich, and Martin Jaggi. Spectral preconditioning for gradient methods on graded non-convex functions, 2024. URL https://arxiv.org/abs/2402.04843 .V. Fanaskov and I. Oseledets. Spectral neural operators, 2024. URL https://arxiv.org/abs/2205. 10573 .Weiye Gan, Yicheng Li, Qian Lin, and Zuoqiang Shi. Neural tangent kernel of neural networks with loss informed by differential operators, 2025. URL https://arxiv.org/abs/2503.11029 .Amnon Geifman, Daniel Barzilai, Ronen Basri, and Meirav Galun. Controlling the inductive bias of wide neural networks by modifying the kernel’s spectrum, 2024. URL https://arxiv.org/abs/ 2307.14531 .Somdatta Goswami, Aniruddha Bora, Yue Yu, and George Em Karniadakis. Physics-informed deep neural operator networks, 2022. URL https://arxiv.org/abs/2207.05748 .David Holzm¨ uller and Max Sch¨ olpple. Beyond relu: How activations affect neural kernels and random wide networks, 2025. URL https://arxiv.org/abs/2506.22429 .Yujia Huang and Xi’an Li ansd Jinran Wu. Fourier heuristic pinns to solve the biharmonic equations based on its coupled scheme, 2025. URL https://arxiv.org/abs/2509.15004 .Narayan S Iyer, Bivas Bhaumik, Ram S Iyer, and Satyasaran Changdar. Gradient enhanced self-training physics-informed neural network (gst-pinn) for solving nonlinear partial differential equations, 2025. URL https://arxiv.org/abs/2510.10483 .Arthur Jacot, Franck Gabriel, and Cl´ ement Hongler. Neural tangent kernel: Convergence and general-ization in neural networks, 2020. URL https://arxiv.org/abs/1806.07572 .Sharmila Karumuri, Lori Graham-Brady, and Somdatta Goswami. Physics-informed latent neural operator for real-time predictions of time-dependent parametric pdes, 2025. URL https://arxiv. org/abs/2501.08428 .Elham Kiyani, Khemraj Shukla, Jorge F. Urb´ an, J´ erˆ ome Darbon, and George Em Karniadakis. Op-timizing the optimizer for physics-informed neural networks and kolmogorov-arnold networks, 2025. URL https://arxiv.org/abs/2501.16371 .Minwoo Lee and Jongho Park. An optimized dynamic mode decomposition model robust to multi-plicative noise. SIAM Journal on Applied Dynamical Systems , 22(1):235–268, February 2023. ISSN 1536-0040. doi: 10.1137/21m1443832. URL http://dx.doi.org/10.1137/21M1443832 .Hualiang Li and T¨ ulay Adalı. Complex-valued adaptive signal processing using nonlinear functions. 
+
+EURASIP Journal on Advances in Signal Processing , 2008(1):765615, Feb 2008. ISSN 1687-6180. doi: 10.1155/2008/765615. URL https://doi.org/10.1155/2008/765615 .Yicheng Li, Zixiong Yu, Guhan Chen, and Qian Lin. On the eigenvalue decay rates of a class of neural-network related kernel functions defined on general domains. J. Mach. Learn. Res. , 25:82:1–82:47, 2023a. URL https://api.semanticscholar.org/CorpusID:258479836 .Yicheng Li, Zixiong Yu, Guhan Chen, and Qian Lin. On the eigenvalue decay rates of a class of neural-network related kernel functions defined on general domains, 2024. URL https://arxiv.org/abs/ 2305.02657 .Zongyi Li, Nikola Kovachki, Kamyar Azizzadenesheli, Burigede Liu, Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar. Fourier neural operator for parametric partial differential equations, 2021. URL https://arxiv.org/abs/2010.08895 .Zongyi Li, Hongkai Zheng, Nikola Kovachki, David Jin, Haoxuan Chen, Burigede Liu, Kamyar Azizzade-nesheli, and Anima Anandkumar. Physics-informed neural operator for learning partial differential equations, 2023b. URL https://arxiv.org/abs/2111.03794 .Thomas Y. L. Lin, Jiachen Yao, Lufang Chiang, Julius Berner, and Anima Anandkumar. Decoupled diffusion sampling for inverse problems on function spaces, 2026. URL https://arxiv.org/abs/ 2601.23280 .
+
+15 Lu Lu, Pengzhan Jin, Guofei Pang, Zhongqiang Zhang, and George Em Karniadakis. Learning nonlinear operators via deeponet based on the universal approximation theorem of operators. Nature Machine Intelligence , 3(3):218–229, March 2021. ISSN 2522-5839. doi: 10.1038/s42256-021-00302-5. URL 
+
+http://dx.doi.org/10.1038/s42256-021-00302-5 .Tao Luo, Zheng Ma, Zhi-Qin John Xu, and Yaoyu Zhang. Theory of the frequency principle for general deep neural networks, 2019. URL https://arxiv.org/abs/1906.09235 .Tao Luo, Zheng Ma, Zhi-Qin John Xu, and Yaoyu Zhang. On the exact computation of linear frequency principle dynamics and its generalization, 2020. URL https://arxiv.org/abs/2010.08153 .Martin. Fourier transform of the characteristic function. Mathematics Stack Ex-change, March 2012. URL https://math.stackexchange.com/questions/115927/ fourier-transform-of-the-characteristic-function . URL: https://math.stackexchange. com/q/115927 (version: 2018-08-09). Juan Molina, Mircea Petrache, Francisco Sahli Costabal, and Mat´ ıas Courdurier. Understanding the dynamics of the frequency bias in neural networks, 2024. URL https://arxiv.org/abs/2405.14957 .Michael Murray, Hui Jin, Benjamin Bowman, and Guido Montufar. Characterizing the spectrum of the ntk via a power series expansion, 2023. URL https://arxiv.org/abs/2211.07844 .Vaishnavh Nagarajan and J. Zico Kolter. Uniform convergence may be unable to explain generalization in deep learning, 2021. URL https://arxiv.org/abs/1902.04742 .Tomaso Poggio, Andrzej Banburski, and Qianli Liao. Theoretical issues in deep networks: Approxima-tion, optimization and generalization, 2019. URL https://arxiv.org/abs/1908.09375 .Blaine Quackenbush and Paul J. Atzberger. Geometric neural operators (gnps) for data-driven deep learning of non-euclidean operators, 2024. URL https://arxiv.org/abs/2404.10843 .Daniel Raban. Math 247a lecture 2 notes: Fourier inversion and plancherel’s theorem. Pillow Math (GitHub), January 2020. URL https://pillowmath.github.io/Math%20247A/Lec2.pdf .Nasim Rahaman, Aristide Baratin, Devansh Arpit, Felix Draxler, Min Lin, Fred A. Hamprecht, Yoshua Bengio, and Aaron Courville. On the spectral bias of neural networks, 2019. URL https://arxiv. org/abs/1806.08734 .Maziar Raissi, Paris Perdikaris, and George Em Karniadakis. Physics informed deep learning (part i): Data-driven solutions of nonlinear partial differential equations, 2017. URL https://arxiv.org/ abs/1711.10561 .Kexuan Shi, Hai Chen, Leheng Zhang, and Shuhang Gu. Inductive gradient adjustment for spectral bias in implicit neural representations, 2025. URL https://arxiv.org/abs/2410.13271 .Matthew Tancik, Pratul P. Srinivasan, Ben Mildenhall, Sara Fridovich-Keil, Nithin Raghavan, Utkarsh Singhal, Ravi Ramamoorthi, Jonathan T. Barron, and Ren Ng. Fourier features let networks learn high frequency functions in low dimensional domains, 2020. URL https://arxiv.org/abs/2006. 10739 .Nikhil Vyas, Depen Morwani, Rosie Zhao, Mujin Kwun, Itai Shapira, David Brandfonbrener, Lucas Janson, and Sham Kakade. Soap: Improving and stabilizing shampoo using adam, 2025. URL 
+
+https://arxiv.org/abs/2409.11321 .Sifan Wang, Xinling Yu, and Paris Perdikaris. When and why pinns fail to train: A neural tangent kernel perspective, 2020. URL https://arxiv.org/abs/2007.14527 .Sifan Wang, Shyam Sankaran, Hanwen Wang, and Paris Perdikaris. An expert’s guide to training physics-informed neural networks, 2023. URL https://arxiv.org/abs/2308.08468 .Eric W. Weisstein. Convolution theorem. From MathWorld–A Wolfram Resource. URL https: //mathworld.wolfram.com/ConvolutionTheorem.html .Zhi-Qin John Xu, Yaoyu Zhang, and Tao Luo. Overview frequency principle/spectral bias in deep learning, 2024. URL https://arxiv.org/abs/2201.07395 .
+
+16 Zhiqin John Xu. Understanding training and generalization in deep learning by fourier analysis, 2018. URL https://arxiv.org/abs/1808.04295 .Jeremy Yu, Lu Lu, Xuhui Meng, and George Em Karniadakis. Gradient-enhanced physics-informed neural networks for forward and inverse pde problems. Computer Methods in Applied Mechanics and Engineering , 393:114823, April 2022. ISSN 0045-7825. doi: 10.1016/j.cma.2022.114823. URL 
+
+http://dx.doi.org/10.1016/j.cma.2022.114823 .Tianchi Yu, Yiming Qi, Ivan Oseledets, and Shiyi Chen. Spectral informed neural networks. Journal of Computational and Applied Mathematics , 477:117178, May 2026. ISSN 0377-0427. doi: 10.1016/ j.cam.2025.117178. URL http://dx.doi.org/10.1016/j.cam.2025.117178 .Yaoyu Zhang, Zhi-Qin John Xu, Tao Luo, and Zheng Ma. Explicitizing an implicit bias of the frequency principle in two-layer neural networks, 2019. URL https://arxiv.org/abs/1905.10264 .Cuizhi Zhou and Kaien Zhu. Physics-informed neural networks for irregular domain mapping and partial differential equations solving, 2025. URL https://arxiv.org/abs/2506.08622 .Zijian Zhou and Zhenya Yan. Is the neural tangent kernel of pinns deep learning general partial differential equations always convergent?, 2024. URL https://arxiv.org/abs/2412.06158 .
+
+17 A On more generalized linear PDE differential operators 
+
+We previously established the loss 
+
+Eu∼δμ
+
+"
+
+P (ξ)F( ˙ u) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(u) 
+
+> 2
+> L2(Ω ×[0 ,T ])
+
+#
+
+. (79) The contribution from (2 πiξ )β assumes a na¨ ıve PDE differential operator. Let us elaborate more for more sophisticated linear PDE differential operators. We remark nonlinear PDEs require more of a case-by-case analysis, which we discuss in Appendices E, F, G, H. Let us consider a linear PDE of the form ˙u(x, t ) + X
+
+> α
+
+∂α0
+
+
+
+a0(x, t )∂α1
+
+
+
+a1(x, t ) . . . ∂ αd
+
+
+
+ad(x, t )u(x, t )
+
+
+
+. . . 
+
+ 
+
+= 0 . (80) Now, the generalized frequency-domain representation is 
+
+∂t bu(ξ, t ) + X
+
+> α
+
+(2 πiξ )α0
+
+ba0 ∗
+
+
+
+(2 πiξ )α1
+
+ba1 ∗ · · · ∗ 
+
+
+
+(2 πiξ )αd (bad ∗ bu)
+
+
+
+. . . 
+
+ 
+
+= 0 (81) by the convolution theorem. Therefore, for more generalized linear PDEs, the loss is 
+
+Eu∼δμ
+
+"
+
+P (ξ) ·
+
+"
+
+F( ˙ u) + X
+
+> α
+
+(2 πiξ )α0
+
+ba0 ∗
+
+
+
+(2 πiξ )α1
+
+ba1 ∗ · · · ∗ 
+
+
+
+(2 πiξ )αd (bad ∗ bu)
+
+
+
+. . . 
+
+ # 2 
+
+> L2(Ω ×[0 ,T ])
+
+#
+
+.
+
+(82) 
+
+# B Fourier integral equivalence with the Plancherel Theo-rem 
+
+Observe our Fourier loss of equation 48 has further equivalence to a traditional physics loss via the Plancherel theorem Raban (2020). Recall the Plancherel Theorem states 
+
+Z
+
+> Rn
+
+|f (x)|2dx =
+
+Z
+
+> Rn
+
+| df (ξ)|2dξ. (83) Observe 
+
+Eu∼δν
+
+h
+
+P (ξ)F( ˙ u) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(u) 2 
+
+> L2(Ω ×[0 ,T ])
+
+i
+
+(84)    
+
+> P(ξ)F(u)= F(P(D)u)
+
+∼= Eu∼δν
+
+h
+
+F
+
+h
+
+P (D) ˙ u + X
+
+> β
+
+P (D)Dβx u
+
+i 2 
+
+> L2(X × [0 ,T ])
+
+i
+
+(85) 
+
+> Plancherel Theorem
+
+∼= Eu∼δν
+
+h
+
+P (D) ˙ u + X
+
+> β
+
+P (D)Dβx u 2 
+
+> L2(X × [0 ,T ])
+
+i
+
+. (86) Note that the Plancherel Theorem is typically over unbounded Euclidean space, and our PINNs are developed over compact truncations, so we note the proportionality and non-exactness. We will develop upon this momentarily using characteristic functions. Observe the norms are the same but they do not train the same objective. In order to apply Lebesgue dominated convergence on the difference quotient, we notice there exists a G such that 
+
+∇θ P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ )
+
+> 2
+
+(87) = lim 
+
+> h→0
+
+P (ξ)F( ˙ uθ+hθ ′ ) + P 
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ+hθ ′ ) 2
+
+− P (ξ)F( ˙ uθ ) + P 
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ ) 2
+
+h
+
+(88) 
+
+18 ≤ G (ξ, t ),
+
+Z Z  
+
+> [0 ,T ]×Ω
+
+G(ξ, t )dtdξ < ∞. (89) We remark G is real-valued since the gradient on the norm is taken (but the interior of the norm is complex). In particular, we will endow smoothness, and our domains are compact (and finite measure), so G exists under the supremum over the spaces (the parameter space Θ is also open; we can generally allow Θ to be enclosed in a compact set but note this assumption has various levels of reasonableness, discussed in levels in works such as Nagarajan and Kolter (2021) Poggio et al. (2019), and we will go ahead and assume sufficient conditions for regularity; also as a remark, the exchange is allowed by the Leibniz integral rule, which is proven with dominated convergence). Note that a similar argument follows by the mean value theorem. Also, a similar argument holds for regularity under the Fourier transform integral, as we will assume uθ ∈ C∞ 
+
+> 0
+
+(X × [0 , T ]; R) due to the activation, and supp( ∂αu) ⊆
+
+supp( u). Recall the following identity Lee and Park (2023) Li and Adalı (2008) 
+
+∇θ |f (θ)|2 = 2Re 
+
+
+
+f (θ)∇θ f
+
+
+
+. (90) We will use the following notation: 
+
+Z
+
+∇θ Ψ = 
+
+ Z
+
+∇θ1 Ψ, . . . , 
+
+Z
+
+∇θD Ψ) T , (91) so the integration is element-wise upon the gradients. Under regularity for the following: 
+
+∇θ
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Ω
+
+|P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ )|2dξdt (92) =
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Ω
+
+∇θ |P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ )|2dξdt (93) =
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Ω
+
+2Re (P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ )) (94) 
+
+×
+
+(
+
+P (ξ)∇θ
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩ ˙uθ (x)dx + X
+
+> β
+
+P (ξ)(2 πiξ )β ∇θ
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩uθ (x)dx 
+
+)! 
+
+dξdt (95) =
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Ω
+
+2Re (P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ )) (96) 
+
+×
+
+(
+
+P (ξ)
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩∇θ ˙uθ (x)dx + X
+
+> β
+
+P (ξ)(2 πiξ )β
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩∇θ uθ (x)dx 
+
+)! 
+
+dξdt. (97) The last line simply follows by compact support and smoothness. We remark it of interest to apply the Riemann-Lebesgue lemma in the last line, but that does not guarantee integrability. In physical space, 
+
+∇θ
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> X
+
+(P (D) ˙ u + X
+
+> β
+
+P (D)Dβx u)2dtdx (98) =
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> X
+
+2( P (D) ˙ u + X
+
+> β
+
+P (D)Dβx u)
+
+n
+
+P (D)∇θ ˙uθ + X
+
+> β
+
+P (D)Dβx ∇θ uθ
+
+o
+
+dxdt. (99) Note that Plancherel’s Theorem also states 
+
+Z ∞−∞ 
+
+. . . 
+
+Z ∞−∞ 
+
+f (x)g(x)dx =
+
+Z ∞−∞ 
+
+. . . 
+
+Z ∞−∞ 
+
+bf (ξ)bg(ξ)dξ. (100) Thus, we have 
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Rn
+
+2( P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ )) (101) 
+
+×
+
+(
+
+P (ξ)
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩∇θ ˙uθ (x)dx + X
+
+> β
+
+P (ξ)(2 πiξ )β
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩∇θ uθ (x)dx 
+
+)
+
+dξdt (102) 
+
+19 =
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Rn
+
+2( P (D) ˙ u + X
+
+> β
+
+P (D)Dβx u)
+
+n
+
+P (D)∇θ ˙uθ + X
+
+> β
+
+P (D)Dβx ∇θ uθ
+
+o
+
+dxdt (103) =
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Rn
+
+2( P (D) ˙ u + X
+
+> β
+
+P (D)Dβx u)
+
+n
+
+P (D)∇θ ˙uθ + X
+
+> β
+
+P (D)Dβx ∇θ uθ
+
+o
+
+dxdt. (104) Here, both f, g are real-valued. Thus, the gradients are not the same, and solve a different objective. Here, we have noted 
+
+F(P (D) ˙ u) = P (ξ)F( ˙ u) (105) 
+
+F(P (D)Dβx u) = P (ξ)F(Dβx u) = P (ξ)(2 πiξ )β F(u). (106) Notice we have truncated Rn to compact sets. Let us attempt to apply the Plancherel Theorem more rigorously restricted to our compact sets. For example, in physical space, we can relate this to Fourier space with 
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> X
+
+2( P (D) ˙ u + X
+
+> β
+
+P (D)Dβx u)
+
+n
+
+P (D)∇θ ˙uθ + X
+
+> β
+
+P (D)Dβx ∇θ uθ
+
+o
+
+dxdt (107) =
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Rn
+
+2( P (D) ˙ u + X
+
+> β
+
+P (D)Dβx u)
+
+n
+
+P (D)∇θ ˙uθ + X
+
+> β
+
+P (D)Dβx ∇θ uθ
+
+o
+
+χX (x)dxdt (108) 
+
+> Plancherel Theorem
+
+=
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Rn
+
+2F
+
+h
+
+(P (D) ˙ u + X
+
+> β
+
+P (D)Dβx u)
+
+i
+
+F
+
+hn 
+
+P (D)∇θ ˙uθ + X
+
+> β
+
+P (D)Dβx ∇θ uθ
+
+o
+
+χX (x)
+
+i
+
+dxdt 
+
+(109) 
+
+> Convolution Theorem
+
+=
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Rn
+
+2( P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ )) (110) 
+
+×
+
+(
+
+P (ξ)
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩∇θ ˙uθ (x)dx + X
+
+> β
+
+P (ξ)(2 πiξ )β
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩∇θ uθ (x)dx 
+
+)
+
+∗ cχX dξdt, 
+
+(111) and the convolution truncates the domain in a decaying fashion but not compactly. It can be noted Martin (2012) 
+
+cχX (ξ) = 
+
+> n
+
+Y
+
+> j=1
+
+2R sin(2 πRξ j )2πRξ j
+
+=
+
+> n
+
+Y
+
+> j=1
+
+2Rsinc(2 Rξ j ) (112) over a box X = [ −R, R ]n. Also note that the Plancherel Theorem defines an isometry. Note that dominated convergence also holds for C-valued measurable functions. For the Fourier version, we can relate it to physical space with 
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Ω
+
+2Re (P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ )) (113) 
+
+×
+
+(
+
+P (ξ)
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩∇θ ˙uθ (x)dx + X
+
+> β
+
+P (ξ)(2 πiξ )β
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩∇θ uθ (x)dx 
+
+)! 
+
+dξdt (114) = 2Re 
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Rn
+
+(P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ )) × χΩ(ξ) (115) 
+
+×
+
+(
+
+P (ξ)
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩∇θ ˙uθ (x)dx + X
+
+> β
+
+P (ξ)(2 πiξ )β
+
+Z
+
+> Rn
+
+e−2πi ⟨x,ξ ⟩∇θ uθ (x)dx 
+
+)
+
+dξdt (116) 
+
+> Plancherel Theorem
+
+= 2Re 
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Rn
+
+F−1
+
+h
+
+(P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ )) χΩ(ξ)
+
+i
+
+(117) 
+
+×
+
+n
+
+P (D)∇θ ˙uθ + X
+
+> β
+
+P (D)Dβx ∇θ uθ
+
+o
+
+dxdt (118) 
+
+20 Convolution Theorem 
+
+= 2Re 
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Rn
+
+F−1h
+
+(P (ξ)F( ˙ uθ ) + X
+
+> β
+
+P (ξ)(2 πiξ )β F(uθ )) 
+
+i
+
+∗ F −1h
+
+χΩ(ξ)
+
+i
+
+(119) 
+
+×
+
+n
+
+P (D)∇θ ˙uθ + X
+
+> β
+
+P (D)Dβx ∇θ uθ
+
+o
+
+dxdt (120) = 2 
+
+Z 
+
+> [0 ,T ]
+
+Z
+
+> Rn
+
+(
+
+(P (D) ˙ u + X
+
+> β
+
+P (D)Dβx u) ∗ F −1h
+
+χΩ(ξ)
+
+i)( 
+
+P (D)∇θ ˙uθ + X
+
+> β
+
+P (D)Dβx ∇θ uθ
+
+)
+
+dxdt, 
+
+(121) where the last line also follows under the assumption the PDE is real-valued (it is possible F−1[χΩ] is complex-valued). As before, 
+
+F−1[χΩ]( x) = 
+
+> n
+
+Y
+
+> j=1
+
+sin(2 πRx j )
+
+πx j
+
+= (2 R)nnY
+
+> j=1
+
+sinc(2 Rx j ) (122) on Ω = [ −R, R ]n. Observe this function has decay due to the linear function in the denominator. What we just showed was that the gradients on the PDE losses in both physical and Fourier space have truncated representations to compact sets, and we can successfully apply Plancherel’s Theorem after applying characteristic functions χ. We have grouped χ into existing functions in the PDE residuals using a basic product between functions. Even moreso, we can acquire representations of these losses in the alternative space between physical-Fourier space. The reason this connection is meaningful is because as we showed in the beginning of the section, we can relate physical to Fourier losses and their enhanced representations using the Plancherel Theorem, having exactness when our losses are restricted to Rn. Thus, the two gradient paths follow different trajectories because the correspondence is not exact. In all of our arguments, we have assumed Lebesgue dominated convergence applies, which is mostly a reasonable assumption, especially restricted to compact sets (we are also assuming smoothness). 
+
+# C Convergence rates of high frequencies with Fourier gradient-enhancement 
+
+In this section, we discuss spectral bias of neural networks via the neural tangent kernel (NTK). We refer to Gan et al. (2025) Li et al. (2024) for relevant literature. 
+
+Theorem 2 (formal proof, some informal). Let u ∈ C1(X × [0 , T ]; R) ∩ W p, 1(X × [0 , T ]; R) be a solution to a PDE of the form ˙u + Γ[ u, . . . ] = 0. Let ω(ξ) be a polynomial weight dependent on wavenumber in Fourier space. Suppose the domain is periodic. Assume sufficient regularity conditions are met. Suppose tanh( ·) is used. Then, with the Fourier enhanced loss LFourier enhanced and under gradient descent on parameter θ, the infinite-width limit NTK eigenvalue decay becomes ˜λ(ξ) ∼ | ξ|sF (ξ)for some F (ξ), where s > 0. 
+
+Proof. Let us consider the loss we have established 
+
+L(θ) = X
+
+> ξ
+
+ω(ξ)| bRθ (ξ)|2, (123) where ω(ξ) is the Fourier symbol weight and bR is the PDE residual risk in Fourier space. Assuming the parameter follows a continuous version of gradient descent, ˙θ = −∇ θ L(θ). (124) Differentiating the Fourier PDE risk w.r.t time, 
+
+d bRθ (ξ)
+
+dt = ⟨∇ θ bRθ (ξ), ˙θ⟩. (125) By the chain rule on the loss, observe 
+
+∇θ L(θ) ∝ X
+
+> ξ
+
+ω(ξ)Re 
+
+ bRθ (ξ)∇θ bRθ (ξ)
+
+
+
+(126) 
+
+21 (this is the same identity as discussed in B, Li and Adalı (2008)). Substituting this into 48, 
+
+d bRθ (ξ)
+
+dt = −
+
+D
+
+∇θ bRθ (ξ), X
+
+> ξ′
+
+ω(ξ′)Re 
+
+ bRθ (ξ′)∇θ bRθ (ξ′)
+
+E 
+
+= − X
+
+> ξ′
+
+ω(ξ′)Re 
+
+ bRθ (ξ′)
+
+ X 
+
+> k
+
+∂ bRθ (ξ′)
+
+∂θ k
+
+∂ bRθ (ξ)
+
+∂θ k
+
+.
+
+(127) Now, let 
+
+KF E (ξ, ξ ′) = ⟨∇ θ bRθ (ξ), ∇θ bRθ (ξ′)⟩ (128) (we have denoted FE as Fourier-enhanced). The NTK for PINNs Zhou and Yan (2024) Wang et al. (2020) can be defined as 
+
+ ˙Rθ [u]( xf )˙uθ (xb)
+
+
+
+= −
+
+KRR KRb 
+
+KbR Kbb 
+
+  R[u]θ (xf )
+
+uθ (xb) − g(xb)
+
+
+
+(129) 
+
+KRR,ij =
+
+*
+
+∇θ Rθ [u]( xfi ), ∇θ Rθ [u]( xfj )
+
++
+
+(130) 
+
+KRb,ij =
+
+*
+
+∇θ Rθ [u]( xfi ), ∇θ uθ (xbj )
+
++
+
+(131) 
+
+Kbb,ij =
+
+*
+
+∇θ uθ (xbi ), ∇θ uθ (xbj )
+
++
+
+. (132) Thus, the FE NTK is the enhanced PDE kernel. Now, converting the NTK to Fourier space on a periodic domain as an operator Lin et al. (2026) (this reference uses it as a convolution kernel operator but it holds more generalized with pseudo representations) 
+
+bKRR (ξ, ξ ′) = F ◦ KRR ◦ F −1. (133) Hence, notice the neural tangent kernel relation 
+
+bKRR (ξ, ξ ′) = 
+
+Z Z 
+
+> Rn×Rn
+
+e−2πi ⟨ξ,x ⟩KRR (x, y )e2πi ⟨ξ′,y ⟩dxdy. (134) Moreover under regularity, 
+
+KF E (ξ, ξ ′) = ⟨∇ θ bRθ (ξ), ∇θ bRθ (ξ′)⟩ = X
+
+> k
+
+∂ bRθ (ξ)
+
+∂θ k
+
+∂ bRθ (ξ′)
+
+∂θ k
+
+(135) = X
+
+> k
+
+  Z
+
+> Rn
+
+e−2πi ⟨ξ,x ⟩ ∂R θ (x)
+
+∂θ k
+
+dx   Z
+
+> Rn
+
+e−2πi ⟨ξ′,y ⟩ ∂R θ (y)
+
+∂θ k
+
+dy  (136) = X
+
+> k
+
+  Z
+
+> Rn
+
+e−2πi ⟨ξ,x ⟩ ∂R θ (x)
+
+∂θ k
+
+dx   Z
+
+> Rn
+
+e2πi ⟨ξ′,y ⟩ ∂R θ (y)
+
+∂θ k
+
+dy  (137) =
+
+Z Z 
+
+> Rn×Rn
+
+e−2πi ⟨ξ,x ⟩ X
+
+> k
+
+∂R θ (x)
+
+∂θ k
+
+∂R θ (y)
+
+∂θ k
+
+!
+
+e2πi ⟨ξ′,y ⟩dxdy. (138) It can be noted the complex conjugate of the risk in physical space is itself since the risk is real-valued. It is clear that 
+
+KF E (ξ, ξ ′) = bKRR (ξ, ξ ′). (139) Substituting back into 127, 
+
+d bRθ(t)(ξ)
+
+dt = − X
+
+> ξ′
+
+ω(ξ′)Re 
+
+ bRθ (ξ′)
+
+ bKRR (ξ, ξ ′). (140) In particular, in the infinite width limit Jacot et al. (2020) 
+
+d bRdt = −W Re( bR) bKRR , (141) 
+
+22 which a linearized version and is impacted by eigenvalue. We refer to Doikov et al. (2024) for spectral preconditioning arguments. Let us conclude our arguments with a slight lack of rigor. Eigenvalue decay is discussed in Murray et al. (2023) (see Bietti and Bach (2021) Bietti and Mairal (2019) for ReLU arguments) and is typically under smooth tanh( ·) activation 
+
+λ(ξ) ∼ | ξ|−q Q−| ξ| (142) for some Q (see Corollary 4.7; tanh( ·) is real-analytic, so its Taylor coefficients decay exponentially). For simplicity of argument, let us take λ(ξ) ∼ F (ξ). Thus, for us ˜λ(ξ) = ω(ξ) · F (ξ). (143) Thus, high frequencies converge at a faster rate. In particular, ω corresponds to a polynomial in Fourier space under our gradient-enhanced methods. 
+
+□
+
+# D Spectral preconditioning 
+
+The motivation for this section is we can precondition the PDE solution to act as a filter with the pseudo-differential to disperse the considered differential orders in the Fourier loss. We can gain contribution to the backpropagation across a variety of spectral orders with nonconstant scalings for these orders. Moreover, we cut the number of convolutions from a quadratic order to linear. Spectral conditioning is a known phenomenon. It is discussed in Doikov et al. (2024) as a method to condition optimization in convex and nonconvex settings via the Hessian which accommodates geometry of the optimization landscape in order to improve gradient descent methods, which are affected by the Hessian eigenvalues. The work more relevant to us is Geifman et al. (2024), in which the gradient descent trajectory is affected via the eigenvalues of the neural tangent kernel which moreover invoke learning qualities relating to the spectral biases. This is exactly what we will attempt to do in this section. Note that Shi et al. (2025) is closely related as well. Reasons for the above are because the neural network and non-constant coefficients are differentiated in a binomial-theorem type manner, as opposed to applying a commutativity rule to the PDE so that all constants are moved outside the differentiation, leaving only a high order. To elaborate more, consider 
+
+∂αa∂ β u(x, t ) = a∂ α∂β u(x, t ) (the constant moves outside, the derivatives orders coalesce, whereas this is not true for ∂αa(x, t )∂β u(x, t )). In particular, notice 
+
+∂α(au ) = X
+
+> γ≤α
+
+αγ
+
+!
+
+(∂γ a)( ∂α−γ u), (144) and moreover we assume the commutator [D, P ]u = [( ∂t + Γ)( P ) − (P )( ∂t + Γ)] u̸ = 0 (145) identically since in this case Clairaut’s theorem does not apply. We will examine when P u solves the PDE, not u, thus P is a preconditioner. We remark this section is primarily theoretical. We refer to Luo et al. (2020) Zhang et al. (2019) Rahaman et al. (2019) Luo et al. (2019) Xu (2018) on literature that establishes spectral frequencies are learned among a collection of orders, as opposed to learning one frequency and proceeding onto the next (i.e. the process of learning spectral frequencies is continuous and deeply intermingling). First, notice the following: 
+
+F[Dβx P u ] = (2 πiξ )β X
+
+> α
+
+baα(ξ) ∗ [(2 πiξ )α bu(ξ)] 
+
+
+
+. (146) There is a single sum in the above, and the number of convolutions required scales in a linear fashion. Thus, only a linear number of convolutions is needed to compute the above. We will show, by rewriting the above in an alternative form, we gain spectral contribution to the eigenvalue decay quadratically in order. Let us consider a gradient-enhanced setup but with pseudo-differential operator 
+
+∂tP (x, t, D )u + Γ 
+
+h
+
+P (x, t, D )u(x, t ), {∂βx ∂γt P (x, t, D )u(x, t )}β,γ 
+
+i
+
+= 0 . (147) 
+
+23 Thus P acts as a preconditioner 
+
+v = P u (148) solves the PDE. Were we to move P outside with nonconstant functions a, the operators obey the convolution theorem 
+
+F{ a(x)Dαu} = ba(ξ) ∗ ((2 πiξ )α bu(ξ)) , (149) just as they do when inside. The pseudo-differential operator corresponds to the PDE enhancement and should be applied term-by-term with the same P (D). We highlight P (D) does not correspond to the derivatives in the PDE, and these PDE derivatives are still evaluated with automatic differentiation in the physics loss. Observe via the chain rule 
+
+∂tP (x, t, D )u = ˙P u + P ˙u (150) =
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+e2πi ⟨x−y,ξ ⟩ ˙P (x, t, ξ )u(y, t )dydξ 
+
+!
+
+u(x, t )+ (151) +
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+e2πi ⟨x−y,ξ ⟩P (x, t, ξ )u(y, t )dydξ 
+
+!
+
+˙u(x, t ). (152) When P is a polynomial in Fourier space with coefficients, we get =
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+e2πi ⟨x−y,ξ ⟩ X
+
+> |α|≤ m
+
+∂ta(x, t )ξα
+
+u(y, t )dydξ 
+
+!
+
+u(u, t )+ (153) +
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+e2πi ⟨x−y,ξ ⟩ X
+
+> |α|≤ m
+
+a(x, t )ξα
+
+u(y, t )dydξ 
+
+!
+
+˙u(u, t ). (154) Endow sufficient regularity conditions and, moreover, with respect to Γ, we have 
+
+Dβx P (x, t, D )u(x) (155) = X
+
+> |α|≤ m
+
+Z
+
+> Rn
+
+Z
+
+> Rn
+
+Dβx
+
+
+
+e2πi ⟨x−y,ξ ⟩aα(x, t )
+
+
+
+ξαu(y)dydξ (156) = X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+! Z
+
+> Rn
+
+Z
+
+> Rn
+
+
+
+Dγx e2πi ⟨x−y,ξ ⟩ 
+
+Dβ−γx aα(x, t )
+
+
+
+ξαu(y)dydξ (157) = X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+! Z
+
+> Rn
+
+Z
+
+> Rn
+
+e2πi ⟨x−y,ξ ⟩
+
+Dβ−γx aα(x, t )
+
+
+
+(2 πi )|γ|ξα+γ u(y)dydξ (158) = X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩
+
+Dβ−γx aα(x, t )
+
+
+
+ξα+γ
+
+Z
+
+> Rn
+
+e−2πi ⟨y,ξ ⟩u(y)dydξ (159) = X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+Dβ−γx aα(x, t )
+
+h Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩ξα+γ bu(ξ)dξ 
+
+i
+
+(160) = X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+Dβ−γx aα(x, t )
+
+
+
+F−1h
+
+ξα+γ bu(ξ)
+
+i
+
+(161) = X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+!
+
+(2 πi )−| α|
+
+Dβ−γx aα(x, t )
+
+
+
+Dα+γx u(x). (162) Now let us look at the loss function pointwise 
+
+L(x, t ) = |PDE residual |2 = | X
+
+> |β|
+
+∂β u|2. (163) Thus, 
+
+∇θ L =
+
+D X 
+
+> |α|
+
+∂αP u, ∇θ
+
+X
+
+> |β|
+
+∂β P u 
+
+E
+
+. (164) 
+
+24 Now, from the above 
+
+∇θ Dβx P (x, t, D )uθ (x) = X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+Dβ−γx aα(x, t )
+
+
+
+∇θ F−1h
+
+ξα+γ bu(ξ)
+
+i
+
+. (165) Notice γ is the contribution from the PDE operator, and α is the contribution from the pseuo-differential. By choosing a low order for |α| we can mitigate the frequency effects in Fourier space. These effects are not realized to the same extent if P is applied to the PDE residual afterwards, and not as a preconditioner. P on the inside forces the derivatives of the weights a to matter, whereas on the outside, a is just a pointwise weight. In both cases a is weight, but in the inside case, so are its derivatives. When a is constant, the differential operators commute. In the inside case, ∇θ is now forced to interact with the derivatives of the symbol. In both cases, a collection of orders of ξ is incorporated into the learning, but not the derivatives of the symbol scaling functions. The symbol differentiation is observable in 165. Note that different orders of ξ in the gradients correspond to training on different orders of the spectral bias. Thus, by preconditioning, we can obtain gradient contribution from a collection of orders rather that gain newfound contribution from differentiation of aα(x, t ). Moreover, we can scale all orders by an arbitrary function, not just by constants, by including nonconstant a. These functions are collected into the total functions of the eigenvalue decay (so instead of being a polynomial times exponential for all orders, it is now polynomial times exponential times some other function for all orders). In particular, when considering the preconditioned empirical risk ∆ 
+
+L(θ) = X
+
+> ξ
+
+| b∆θ (ξ)|2 (166) = X
+
+> ξ
+
+\˙P u + P ˙u +
+
+\X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+
+
+Dβ−γx aα(x, t )
+
+
+
+F−1
+
+h
+
+ξα+γ bu(ξ)
+
+i
+
+. (167) Now, let us apply a dominated convergence-type argument 
+
+∇θ b∆θ (ξ) = ∇θ Re 
+
+(
+
+\˙P u + P ˙u +
+
+\X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+
+
+Dβ−γx aα(x, t )
+
+
+
+F−1
+
+h
+
+ξα+γ bu(ξ)
+
+i)
+
+(168) + i∇θ Im 
+
+(
+
+\˙P u + P ˙u +
+
+\X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+
+
+Dβ−γx aα(x, t )
+
+
+
+F−1
+
+h
+
+ξα+γ bu(ξ)
+
+i)
+
+(169) = X
+
+> |α|≤ m
+
+b˙aα(ξ) ∗  ξα∇θ bu(ξ) + baα(ξ) ∗  ξα∇θ b˙u(ξ)!
+
+(170) + X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+ \Dβ−γx aα(ξ) ∗  ξα+γ ∇θ bu(ξ)
+
+. (171) As before as in Appendix C, 
+
+   
+
+> db∆θ(ξ)
+> dt
+
+= −constants 
+
+*
+
+∇θ b∆θ (ξ), P 
+
+> ξ′
+
+Re 
+
+ b∆θ (ξ′)∇θ b∆θ (ξ)
+
++
+
+KFE (ξ, ξ ′) = 
+
+D
+
+∇θ b∆θ (ξ), ∇θ b∆θ (ξ′)
+
+E
+
+,
+
+(172) but the above is done with the preconditioned risk, not the true PDE risk. In particular, we can notice 
+
+KFE (ξ, ξ ′) = ⟨∇ θ b∆θ (ξ), ∇θ b∆θ (ξ′)⟩ (173) =
+
+* X
+
+> |α|≤ m
+
+b˙aα(ξ) ∗  ξα∇θ bu(ξ) + baα(ξ) ∗  ξα∇θ b˙u(ξ)!
+
+(174) + X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+ \Dβ−γx aα(ξ) ∗  ξα+γ ∇θ bu(ξ)
+
+, (175) 
+
+25 X
+
+> |α|≤ m
+
+b˙aα(ξ) ∗  ξα∇θ bu(ξ) + baα(ξ) ∗  ξα∇θ b˙u(ξ)!
+
+(176) + X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+ \Dβ−γx aα(ξ) ∗  ξα+γ ∇θ bu(ξ) +
+
+(177) = X
+
+> |α|≤ m
+
+X
+
+> |ψ|≤ m
+
+*b˙aα(ξ) ∗  ξα∇θ bu(ξ) + baα(ξ) ∗  ξα∇θ b˙u(ξ), (178) 
+
+b˙aψ (ξ) ∗  ξψ ∇θ bu(ξ) + baψ (ξ) ∗  ξψ ∇θ b˙u(ξ)+
+
+(179) + 2Re X
+
+> |α|≤ m
+
+| {z } 
+
+> linear contribution
+
+X
+
+> |ψ|≤ m
+
+X
+
+> γ≤β
+
+| {z }
+
+> quadratic contribution
+
+*b˙aα(ξ) ∗  ξα∇θ bu(ξ) + baα(ξ) ∗  ξα∇θ b˙u(ξ), (180) 
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+ \Dβ−γx aψ (ξ) ∗  ξψ+γ ∇θ bu(ξ) +
+
+(181) + X
+
+> |α|≤ m
+
+X
+
+> γ≤β
+
+| {z }
+
+> quadratic contribution
+
+X
+
+> |ψ|≤ m
+
+X
+
+> ϕ≤β
+
+| {z }
+
+> quadratic contribution
+
+*
+
+βγ
+
+!
+
+(2 πi )|γ|
+
+ \Dβ−γx aα(ξ) ∗  ξα+γ ∇θ bu(ξ)
+
+, (182) 
+
+βϕ
+
+!
+
+(2 πi )|ϕ|
+
+ \Dβ−ϕx aψ (ξ) ∗  ξψ+ϕ∇θ bu(ξ) +
+
+. (183) The real part follows since ⟨A, B ⟩ + ⟨B, A ⟩ = 2Re ⟨A, B ⟩ in a complex inner product space. We are paying attention to the orders of a as what are important, and it is actually the lower orders that are important in the above proof. We highlight u does not solve the PDE but rather P u does. Moreover, we highlight the eigenvalue decay of the NTK encompasses a collection of orders, possibly fractional. Another remark is that it is obvious that the leading order will dominate the eigenvalue decay. However, the lower orders still contribute to the gradients of the loss with respect to the parameter. Notice 
+
+∇θ b∆θ (ξ) ∝ O (p2), P inside ∝ O (p), P outside = O(p2), for number of operations p. Thus, we can gain gradient contribution from a quadratic number of orders while only needing a linear number of convolutions. By adding P outside instead of by preconditioning, we require O(p2) convolutions. Thus we can reduce the number of convolutions by a power in order to gain gradient contribution from a spectrum of orders. 
+
+## D.1 Spectral preconditioning example 
+
+We consider an example to illustrate the previous arguments. Let us consider the Allen-Cahn PDE 
+
+∂tu(x, t )−α∂ xx u(x, t )+5 u3(x, t )−5u(x, t ) = 0. Let us consider the preconditioner with Sobolev weights 
+
+P (ξ) = (1 + |ξ|2)1/2 + (1 + |ξ|2)3/2 = a1(ξ) + a2(ξ). (184) Therefore, our physics loss is 
+
+Eu∼δν ∂t(( a1 + a2) ∗ u) − α∂ xx (( a1 + a2) ∗ u) (185) + 5(( a1 + a2) ∗ u) ∗ (( a1 + a2) ∗ u) ∗ (( a1 + a2) ∗ u) − 5( a1 + a2) ∗ u L2(Ω ×[0 ,T ]) 
+
+(186) = Eu∼δν ∂t(( a1 + a2) ∗ u) − α∂ xx (( a1 + a2) ∗ u) (187) + 5 F
+
+h 
+
+F−1(( a1 + a2) ∗ u)
+
+3i
+
+− 5( a1 + a2) ∗ u L2(Ω ×[0 ,T ]) 
+
+(188) = Eu∼δν ∂t(( a1 + a2) ∗ u) − α(2 πiξ )2(( a1 + a2) ∗ u) (189) 
+
+26 + 5 F
+
+h 
+
+F−1(( a1 + a2) ∗ u)
+
+3i
+
+− 5( a1 + a2) ∗ u L2(Ω ×[0 ,T ]) 
+
+. (190) 
+
+# E Burger’s equation details 
+
+Let us consider Burger’s equation 
+
+∂tu(x, t ) + u(x, t )∂xu(x, t ) − ν∂ xx u(x, t ) = 0 . (191) Our procedure as in 4 assumed linearity, while Burger’s equation is a nonlinear PDE. Let us adapt our strategy for the nonlinear term u∂ xu. Recall the identity 12 ∂x(u2) = u∂ xu. (192) Notice 
+
+P (D)( u∂ xu) = 
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (ξ)F(u∂ xu)( ξ)dξ (193) =
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (ξ)
+
+
+
+πiξ F(u2)( ξ)
+
+
+
+dξ (194) =
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (ξ)
+
+
+
+πiξ (bu ∗ bu)( ξ)
+
+
+
+dξ (195) =
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (ξ)
+
+
+
+πiξ 
+
+Z
+
+> Rn
+
+bu(ξ − η)bu(η)dη 
+
+
+
+dξ (196) = F−1
+
+πiξP (ξ)( bu ∗ bu)
+
+
+
+. (197) Thus the loss is 
+
+Lenhanced =
+
+Z T
+
+> 0
+
+Z
+
+> Ω
+
+W (ξ) ·
+
+hb˙u(ξ, t ) + πiξ cu2(ξ, t ) + 4 π2νξ 2 bu(ξ, t )
+
+i 2
+
+dξdt. (198) 
+
+# F Allen-Cahn equation details 
+
+Our setup is the Allen-Cahn equation 
+
+(
+
+∂tu(x, t ) − α∂ xx u(x, t ) + 5 u3(x, t ) − 5u(x, t ) = 0 , (x, t ) ∈ [−1, 1] × [0 , 1] 
+
+u(x, 0) = x2 cos( πx ). (199) To deal with the nonlinear term, we take 
+
+P (D)( u3) = 
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (ξ)F(u3)( ξ)dξ. (200) The loss is 
+
+Lenhanced =
+
+Z T
+
+> 0
+
+Z
+
+> Ω
+
+W (ξ) ·
+
+hb˙u(ξ, t ) + α4π2|ξ|2 bu(ξ, t ) + 5 cu3(ξ, t ) − 5bu(ξ, t )
+
+i 2
+
+dξdt. (201) We have used 
+
+F(∂tu − α∂ xx u) = b˙u − α(2 πiξ )2 bu = b˙u + α4π2ξ2 bu. (202) However, it can be noted that by the convolution theorem 
+
+F(u3)( ξ) = ( bu ∗ bu ∗ bu)( ξ). (203) Thus, 
+
+P (D)( u3) = F−1
+
+P (ξ) · (bu ∗ bu ∗ bu)
+
+
+
+. (204) 
+
+27 G Korteweg-De Vries (KdV) equation details 
+
+We setup our PDE as 
+
+(
+
+∂tu(x, t ) + u(x, t ) · ∂xu(x, t ) + δ2∂xxx u(x, t ) = 0 , (x, t ) ∈ [0 , 2] × [0 , 1] 
+
+u(x, 0) = −α cos( πx ). (205) We will vary α ∈ R+ in our experiments, primarily within [0 .75 , 1.5]. To deal with the nonlinear term, we take 
+
+P (D)( uu x) = 
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (ξ)F(uu x)( ξ)dξ. (206) Again it is possible to use the identity 12 ∂x(u2) = u∂ xu, (207) so 206 reduces to 
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (ξ)F
+
+ 12 ∂x(u2)
+
+
+
+(ξ)dξ =
+
+Z
+
+> Rn
+
+e2πi ⟨x,ξ ⟩P (ξ) · πiξ F(u2)( ξ)dξ, (208) although this is more of a remark and we used 206 experimentally. The loss is 
+
+Lenhanced =
+
+Z T
+
+> 0
+
+Z
+
+> Ω
+
+W (ξ) ·
+
+hb˙u(ξ, t ) + πiλξ cu2(ξ, t ) − 8π3δ2iξ 3 bu(ξ, t )
+
+i 2
+
+dξdt (209) =
+
+Z T
+
+> 0
+
+Z
+
+> Ω
+
+W (ξ) ·
+
+hb˙u(ξ, t ) + duu x(ξ, t ) − 8π3δ2iξ 3 bu(ξ, t )
+
+i 2
+
+dξdt. (210) For these experiments, we will typically take 
+
+W (ξ) = 1 + (2 πiξ ) + (2 πiξ )2. (211) The 1 is crucial to note because this term does not correspond to a derivative. 
+
+# H Navier-Stokes details 
+
+For our Navier-Stokes experiment, we consider the vorticity-stream formulation 
+
+
+
+∂tω + u · ∇ ω = ν∇2ωω = −∇ 2ψ∂tω +
+
+
+
+∂y ψ∂ xω − ∂xψ∂ y ω
+
+
+
+− ν∇2ω = 0 
+
+ω = ∇ × u
+
+(x, t ) × [−2π, 2π] × [T0, T ], ν = 0 .01 .
+
+(212) The initial condition is generated via white noise and applying a spectral filter in Fourier space 
+
+bwrand (ξ) = ζ + iη, ζ, η ∼ N (0 , 1) (213) 
+
+S(|ξ|) = |ξ|1
+
+1 + ( |ξ|/4) 4 (214) 
+
+bw(ξ) = bwrand (ξ) · S(|ξ|) · χ{| ξ|≤ 4}. (215) For our Fourier enhanced loss, one potential solution is the identities 
+
+bψ = F(ψ)
+
+bω = ( ξ2 
+
+> x
+
++ ξ2 
+
+> y
+
+) bψ
+
+bu = iξ y bψ, bv = −iξ x bψ
+
+bωx = iξ x bω, bωy = iξ y bω
+
+advection = F−1(bu) · F −1(bωx) + F−1(bv) · F −1(bωy )
+
+dRisk( ξ) = b˙ω + \advection + ν(ξ2 
+
+> x
+
++ ξ2 
+
+> y
+
+)bω. 
+
+(216) 
+
+28 Empirically, we found the above did not work as well as the Monte Carlo methods, potentially due to the IFFTs. Instead, we perform 
+
+
+
+Φkj = −e−i⟨ξ,x n⟩
+
+bψ = 1 
+
+> N
+
+Φψ
+
+bω = ( ξ2 
+
+> x
+
++ ξ2 
+
+> y
+
+) bψu = Re(Φ † bu), v = Re(Φ †bv)
+
+wx = Re(Φ †(iξ x bω)) , w y = Re(Φ †(iξ y bω)) advection = u · wx + v · wy
+
+dRisk( ξ) = b˙ω + 1 
+
+> N
+
+Φ · advection + ν(ξ2 
+
+> x
+
++ ξ2 
+
+> y
+
+)bω. 
+
+(217) In our experiments, we will propagate the PDE forward with the numerical solver and extract t0 = 0 .5as our starting time, so our time interval of the PINN is [0 .5, 1.5]. 
+
+# I Additional experimental details 
+
+Algorithm 1: Grid-based enhanced loss Take meshes ( x, t ) ∈ Ωx × Ωt = {(x0 + k∆x, j ∆t), k ∈ Nn, j ∈ N, (max j∈[j] j)∆ t = T } ;Evaluate uθ (x, t ) over mesh ; Compute: FFT[ f ] = bf (ξ1, . . . , ξ j ) = 1
+
+Q 
+
+> k
+
+NkN1−1X
+
+> x1=0
+
+· · ·  
+
+> Nj−1
+
+X 
+
+> xj=0
+
+f (x1, . . . , x j )e−2πi P    
+
+> kxkξk/s k
+
+, for f = u, ˙u, . . . ξ ∈ Ξ := collection of Fourier wavenumbers ; 
+
+P (ξ) ← P 
+
+> j
+
+aj (2 πiξ )j ;
+
+W (ξ) ← P (ξ)   
+
+> || P(ξ)|| L∞(Ω ×[0 ,T ]) +ϵ
+
+≈ P (ξ)max |P (ξ)|+ϵ ;Compute residual 
+
+Lenhanced = 1
+
+N
+
+> N
+
+X
+
+> k=1
+
+
+
+(2 πiξ )|α|=1 + (2 πiξ )|α|=2 + . . . 
+
+
+
+· PDE residual in Fourier space 
+
+> 2
+
+;Return Lenhanced .
+
+29 Algorithm 2: Mesh-invariant Monte-Carlo enhanced Loss Take collocation points ( x, t ) ∈ Ω sampled from domain with respect to the uniform measure ; Evaluate uθ (x, t ) and ˙ uθ (x, t ) at sampled points ; 
+
+K ← number of modes ; 
+
+k ← k ∈ { 1, . . . , K } ;
+
+ξk ← k/L ;Φ ∈ CK×N , Φkj = e−2πi ⟨ξk ,x j ⟩ ;
+
+P (ξ) ← P 
+
+> j
+
+aj (2 πiξ )j ;
+
+W (ξ) ← P (ξ)   
+
+> || P(ξ)|| L∞(Ω ×[0 ,T ]) +ϵ
+
+≈ P (ξ)max |P (ξ)|+ϵ ;Compute Fourier projections: 
+
+FMC [f ] ← |Ω|
+
+N Φf ≈
+
+Z
+
+> Rn
+
+f (x, t )e−2πi ⟨ξ,x ⟩dx for f = u, ˙u, . . . (not equispaced) Compute residual 
+
+Lenhanced = 1
+
+K
+
+> K
+
+X
+
+> k=1
+
+
+
+(2 πiξ )|α|=1 + (2 πiξ )|α|=2 + . . . 
+
+
+
+· PDE residual in Fourier space 
+
+> 2
+
+;Return Lenhanced .
+
+Algorithm 3: Get radial power spectral density Compute error ← uθ (x, t ) − u(x, t ), where u(x, t ) := numerical solution ; 
+
+h, w ← error.shape ; Ψ ← FFT-shift[FFT[error]] ; 
+
+ψ(ξ) ← | Ψ( ξ)|2 ;
+
+X, Y ← meshgrid( h, w ) ; 
+
+r(X, Y ) ← int {p(X − center x)2 + ( Y − center y )2} ;
+
+R ← index add( r, ψ ) ; 
+
+C ← index add( r, 1) ; avg R ← R/C ;frequencies ← linspace(0 , Nyquist frequency , m ) ; Return frequencies, avg R. 30 J Additional figures 
+
+Figure 5: We plot relative L2 error discretized on three instances of Burger’s equation (with a square domain; not a triangular domain) using a Monte-Carlo Fourier loss versus a grid FFT Fourier loss over 10 , 000 training iterations with the Adam optimizer. We choose training coefficient 0 .025 × L enhanced , and 200 uniformly sampled points for the physics loss. Here, we choose a vanilla MLP with tanh( ·) activation and a learning rate of γ = 1e −3. We truncate the modes to 12 in each. 31 Figure 6: We plot relative L2 error discretized on three instances of the Allen-Cahn equation using a Monte-Carlo Fourier loss versus a grid FFT Fourier loss over 20 , 000 training iterations with the Adam optimizer. We choose training coefficient 0 .025 × L enhanced , and 100 uniformly sampled points for the physics loss. Here, we choose a vanilla MLP with tanh( ·)activation and a learning rate of γ = 1e −3. We truncate the modes to 12 in each. 
+
+Figure 7: We plot relative L2 error discretized on an instance of the Allen-Cahn equation using advanced techniques over 45 , 000 training iterations. We implement the coefficient tuning procedure via gradient norms as of Wang et al. (2023), and take 0 .05 × λ × L enhanced as the Fourier enhanced loss. We use the Adam optimizer with γ = 1e −3learning rate, and the Fourier feature embedding with σ = 1 .0 in a vanilla MLP. We use a quantile loss with 0 .925 for the enhanced loss. We choose 
+
+N = 1 , 000 collocation points for the physics loss. 32 Figure 8: We plot relative L2 error discretized on an instance of Burger’s equation using the modified MLP architecture over 10 , 000 training iterations with the Adam optimizer. We choose N = 50 collocation points to evaluate the physics loss, sin( ·) activation, a learning rate of γ = 1e −3, and kmax = 8. We take P (ξ) = 2 πi (ξ + ξ2), and we choose varying Fourier mesh sizes between (151 , 301) ∩ N.
+
+Figure 9: We plot relative L2 error discretized on an instance of the Allen-Cahn equation using advanced techniques over 60 , 000 training iterations. We implement fixed coefficients with λphysics = 1, 
+
+λboundary = 10, and take λenhanced = 0 .05 as the Fourier enhanced loss. We use the Adam optimizer with γ = 1e −3 learning rate, and the Fourier feature embedding with σ = 1 .0 in a vanilla MLP. We use a quantile loss with 0 .925 for the enhanced loss. We choose N = 75 collocation points for the physics loss. Our pseudo-differential weight term here takes the form 
+
+P (ξ) = 1 + (2 πiξ )2.33 Figure 10: We plot relative L2 error discretized on an instance of the Allen-Cahn equation over 90 , 000 training iterations. We implement fixed coefficients with λphysics = 1 , λ boundary = 10, and take λenhanced = 0 .025 as the Fourier enhanced loss. We use the Adam optimizer with γ = 1e −3learning rate, and the Fourier feature embedding with σ = 1 .0 in a vanilla MLP. We use a quantile loss with 0 .925 for the enhanced loss. We choose 
+
+N = 25 collocation points for the physics loss, and so we emphasize these results are for a low batch size/collocation point number. Our pseudo-differential weight term here takes the form 
+
+P (ξ) = (2 πiξ ) + (2 πiξ )2.
+
+Figure 11: We provide empirical evidence that the loss plateau breakthrough is not because of greater physics contribution to the gradients of the loss due to the Fourier enhanced loss. Here, we diminished the physics coefficient to λphysics = 0 .9 with the Fourier coefficient to λFourier = 0 .025 (see Figures 9, 10 for comparison). We maintain λphysics = 1 in the non-enhanced case. We also remark 
+
+||∇ θ Lphysics || = 0 .488 , ||∇ θ LFourier || = 0 .064 at the finished training iteration ( ∼ 65 , 000 epochs). 34 Figure 12: We plot relative L2 error discretized on an instance of the Burger’s equation using advanced techniques over 10 , 000 training iterations with the running averages as well on the triangular domain as in Figure 19. We implement fixed coefficients with λphysics = 1, 
+
+λboundary = 10, and take λenhanced = 0 .2 as the Fourier enhanced loss. We use the Adam optimizer with γ = 1e −3 learning rate, and the Fourier feature embedding with σ = 1 .0 in a vanilla MLP. We use a quantile loss with 0 .9 for the enhanced loss. We choose N = 100 collocation points for the physics loss. Our pseudo-differential weight term here takes the form 
+
+P (ξ) = 2 πiξ + (2 πiξ )2.35 Figure 13: We plot relative L2 error discretized on an instance of the Burger’s equation using advanced techniques over 10 , 000 training iterations on the triangular domain as in Figure 19. Here, x is fixed and only time is randomly sampled with 50 samples each epoch, thus there are 50 fixed x. This includes fixed ( x, t ) for both the physics and Fourier losses (the domain is irregular). We implement fixed coefficients with 
+
+λphysics = 1 , λ boundary = 10, and take λenhanced = 0 .1 as the Fourier enhanced loss. We use the Adam optimizer with γ = 1e −3 learning rate, and the Fourier feature embedding with σ = 1 .0 in a vanilla MLP. We use a quantile loss with 0 .9 for the enhanced loss. Our pseudo-differential weight term here takes the form P (ξ) = 1 + 2 πiξ + (2 πiξ )2.36 Figure 14: We plot relative L2 error discretized on an instance of the Burger’s equation over 10 , 000 training iterations on a triangular domain as in Figure 19 but here ( x, t ) are fixed throughout training. This includes fixed ( x, t ) for both the physics and Fourier losses (the domain is irregular). The error is evaluated along a mesh, thus along points not necessarily seen in training. We implement fixed coefficients with 
+
+λphysics = 1 , λ boundary = 10, and take λenhanced = 0 .5 as the Fourier enhanced loss. We use the Adam optimizer with γ = 1e −3 learning rate, and the Fourier feature embedding with σ = 1 .0 in a vanilla MLP. We use a quantile loss with 0 .9 for the enhanced loss. We choose N = 200 collocation points. Our pseudo-differential weight term here takes the form P (ξ) = (2 πiξ ) + (2 πiξ )2. We remark we ensured ( x, t ) had gradients by redefining them each epoch and setting the seed. 37 Figure 15: We plot relative L2 error discretized on an instance of the Allen-Cahn equation over 90 , 000 training iterations. Here, x is fixed and only time is randomly sampled with 50 samples each epoch, thus there are 50 fixed x. We implement fixed coefficients with λphysics = 1, 
+
+λboundary = 10, and take λenhanced = 0 .01 as the Fourier enhanced loss. The Fourier enhanced loss is done here with FFTs, not Monte Carlo sampling (so it is grid-based here). We use the Adam optimizer with 
+
+γ = 1e −3 learning rate, and the Fourier feature embedding with σ = 1 .0in a vanilla MLP. We use a quantile loss with 0 .925 for the enhanced loss. Our pseudo-differential weight term here takes the form P (ξ) = 1 + 2 πiξ .We remark we found a low Fourier coefficient best in this experiment. 
+
+Figure 16: We plot training time versus iteration on the Allen-Cahn equation over 500 training epochs for varying collocation number N . This figure pertains to second order differentiation of the gradient enhancement for both ours and baseline, thus our methods can handle gradient enhancement of high orders rather easily. 38 Figure 17: We measure the error power || \u − uθ || 2 
+
+> L2
+
+across frequency wavenumber ξ for (left) a Fourier enhanced PINN and (right) a vanilla PINN after 2,000 epochs. The figures are similar, but there is a twofold order of mangnitude dropoff on the left for high frequencies, thus the spectral enhanced PINN learns higher frequencies early in training. 
+
+Figure 18: We plot relative L2 error discretized on an instance of the Korteweg-De Vries (KdV) equation over 70 , 000 training iterations. We implement fixed coefficients with λphysics = 1 , λ boundary = 10, and take 
+
+λenhanced = 0 .015 as the Fourier enhanced loss. We use the Adam optimizer with γ = 1e −3 learning rate, and the Fourier feature embedding with σ = 3 .0 in a vanilla MLP. We use a quantile loss with 0 .9 for the enhanced loss. We choose N = 4 , 000 collocation points for the physics loss, and so we emphasize a large batch size. Our pseudo-differential weight term here takes the form P (ξ) = 1 + (2 πiξ ) + (2 πiξ )2. We also remark we found a low coefficient for Lenhanced to work better here. 39 Figure 19: We plot images of pointwise error discretized on an instance of the Burger’s equation using advanced techniques over 10 , 000 training iterations over an irregular domain with a batch size of 200. Thus, Monte Carlo approximations were used for the Fourier loss, demonstrating our methods can handle irregular domains. The figure complements Figure 12 in terms of hyperparameters. (0) represents the true (numerical) solution. (1a) and (1b) are the Fourier-enhanced PINN at 5,000 and 10,000 iterations, and (2a) and (2c) are a vanilla PINN at 5,000 and 10,000 iterations. As a remark, note that the scales are different. Our method performs better primarily except where the Burger’s solution has a rift. 40 Figure 20: We plot absolute pointwise error of the Burger’s equation over 12 , 000 training iterations over an irregular domain with a batch size of 500. (1) in the Fourier enhanced PINN solution with coefficient 
+
+λenhanced = 0 .025 and (2) is the vanilla PINN. As we can see, errors are mostly consistent across retraining, and the Fourier enhanced PINN outperforms. We remark that (1) and (2) look similar but the scales are different. 41 Figure 21: (0) We plot the numerical solution in our Korteweg-De Vries (KdV) experiment; (1a) we plot the PINN solution with a Fourier enhanced loss; (1b) we plot the absolute pointwise error; (1c) we plot the non-truncated Fourier residual with spectral weights in a log plot; (1d) we plot the truncated at Fourier mode 10 residual plot with spectral weights in a log plot. We remark this figure pairs with Figure 18 but in a new instance of training with fewer iterations ( ∼ 35 , 000 epochs). 42 Figure 22: We plot the first 4,000 training epochs in 1,000 epoch chunks for (1) a Fourier enhanced PINN and (2) a baseline PINN. We use a high learning rate 1e −3. 43 Figure 23: We plot four instances of retraining after a mere 2,000 epochs of the KdV experiment on (left two) a Fourier enhanced PINN; and (right two) a vanilla PINN; and (top) numerical solution. We use Adam optimizer with 1e −3 learning rate. We set λphysics = 1, λboundary = 10, 
+
+λFourier = 0 .01. We use a vanilla MLP with σ = 5 .0 in the Fourier feature embedding. We highlight it is possible this figure demonstrates our methods affect frequency bias, as the left demonstrates higher frequencies learned earlier in training. 44 Figure 24: We provide a PINN scenario on Navier-Stokes data under (1) our PINN solution, which is Fourier enhanced (with FFTs), (2) a FFT numerical solver, and (3) the absolute pointwise error. For the PINN, we use a Fourier feature embedding with σ = 3 .0 (2 π omitted), the SOAP optimizer with learning rate 1e −3 and lowered to 5e −4 in late training, fixed weights of λphysics = 1, λboundary = 10, λFourier = 0 .025 × λphysics for some of training and some of training with the grad norm procedure of Wang et al. (2023). We use a batch size of 3,000, and Tmax − Tmin = 1. We use a neural network width of 400 and a depth of 4 with a vanilla architecture with sin( ·) activation, and train for approximately 10 , 000 epochs. 45

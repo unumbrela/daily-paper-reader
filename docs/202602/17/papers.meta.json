@@ -1,0 +1,87 @@
+{
+  "label": "2026-02-17",
+  "date": "2026-02-17",
+  "generated_at": "2026-02-17T19:37:34",
+  "count": 6,
+  "papers": [
+    {
+      "paper_id": "202602/17/2602.14737v1-parameter-minimal-neural-de-solvers-via-horner-polynomials",
+      "section": "deep",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "We propose a parameter-minimal neural architecture for solving differential equations by restricting the hypothesis class to Horner-factorized polynomials, yielding an implicit, differentiable trial solution with only a small set of learnable coefficients. Initial conditions are enforced exactly by construction by fixing the low-order polynomial degrees of freedom, so training focuses solely on matching the differential-equation residual at collocation points. To reduce approximation error without abandoning the low-parameter regime, we introduce a piecewise (\"spline-like\") extension that trains multiple small Horner models on subintervals while enforcing continuity (and first-derivative continuity) at segment boundaries. On illustrative ODE benchmarks and a heat-equation example, Horner networks with tens (or fewer) parameters accurately match the solution and its derivatives and outperform small MLP and sinusoidal-representation baselines under the same training settings, demonstrating a practical accuracy-parameter trade-off for resource-efficient scientific modeling.\n\n---"
+    },
+    {
+      "paper_id": "202602/17/2602.13864v1-evolving-multi-channel-confidence-aware-activation-functions-for-missing-data-with-channel-propagation",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "Learning in the presence of missing data can result in biased predictions and poor generalizability, among other difficulties, which data imputation methods only partially address. In neural networks, activation functions significantly affect performance yet typical options (e.g., ReLU, Swish) operate only on feature values and do not account for missingness indicators or confidence scores. We propose Three-Channel Evolved Activations (3C-EA), which we evolve using Genetic Programming to produce multivariate activation functions f(x, m, c) in the form of trees that take (i) the feature value x, (ii) a missingness indicator m, and (iii) an imputation confidence score c. To make these activations useful beyond the input layer, we introduce ChannelProp, an algorithm that deterministically propagates missingness and confidence values via linear layers based on weight magnitudes, retaining reliability signals throughout the network. We evaluate 3C-EA and ChannelProp on datasets with natural and injected (MCAR/MAR/MNAR) missingness at multiple rates under identical preprocessing and splits. Results indicate that integrating missingness and confidence inputs into the activation search improves classification performance under missingness."
+    },
+    {
+      "paper_id": "202602/17/2602.14928v1-from-classical-to-quantum-extending-prometheus-for-unsupervised-discovery-of-phase-transitions-in-three-dimensions-and-quantum-systems",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "We extend the Prometheus framework for unsupervised phase transition discovery from 2D classical systems to 3D classical and quantum many-body systems, addressing scalability in higher dimensions and generalization to quantum fluctuations. For the 3D Ising model ($L \\leq 32$), the framework detects the critical temperature within 0.01\\% of literature values ($T_c/J = 4.511 \\pm 0.005$) and extracts critical exponents with $\\geq 70\\%$ accuracy ($β= 0.328 \\pm 0.015$, $γ= 1.24 \\pm 0.06$, $ν= 0.632 \\pm 0.025$), correctly identifying the 3D Ising universality class via $χ^2$ comparison ($p = 0.72$) without analytical guidance. For quantum systems, we developed quantum-aware VAE (Q-VAE) architectures using complex-valued wavefunctions and fidelity-based loss. Applied to the transverse field Ising model, we achieve 2\\% accuracy in quantum critical point detection ($h_c/J = 1.00 \\pm 0.02$) and successfully discover ground state magnetization as the order parameter ($r = 0.97$). Notably, for the disordered transverse field Ising model, we detect exotic infinite-randomness criticality characterized by activated dynamical scaling $\\ln ξ\\sim |h - h_c|^{-ψ}$, extracting a tunneling exponent $ψ= 0.48 \\pm 0.08$ consistent with theoretical predictions ($ψ= 0.5$). This demonstrates that unsupervised learning can identify qualitatively different types of critical behavior, not just locate critical points. Our systematic validation across classical thermal transitions ($T = 0$ to $T > 0$) and quantum phase transitions ($T = 0$, varying $h$) establishes that VAE-based discovery generalizes across fundamentally different physical domains, providing robust tools for exploring phase diagrams where analytical solutions are unavailable."
+    },
+    {
+      "paper_id": "202602/17/2602.14011v1-koopgen-koopman-generator-networks-for-representing-and-predicting-dynamical-systems-with-continuous-spectra",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "Representing and predicting high-dimensional and spatiotemporally chaotic dynamical systems remains a fundamental challenge in dynamical systems and machine learning. Although data-driven models can achieve accurate short-term forecasts, they often lack stability, interpretability, and scalability in regimes dominated by broadband or continuous spectra. Koopman-based approaches provide a principled linear perspective on nonlinear dynamics, but existing methods rely on restrictive finite-dimensional assumptions or explicit spectral parameterizations that degrade in high-dimensional settings. Against these issues, we introduce KoopGen, a generator-based neural Koopman framework that models dynamics through a structured, state-dependent representation of Koopman generators. By exploiting the intrinsic Cartesian decomposition into skew-adjoint and self-adjoint components, KoopGen separates conservative transport from irreversible dissipation while enforcing exact operator-theoretic constraints during learning. Across systems ranging from nonlinear oscillators to high-dimensional chaotic and spatiotemporal dynamics, KoopGen improves prediction accuracy and stability, while clarifying which components of continuous-spectrum dynamics admit interpretable and learnable representations."
+    },
+    {
+      "paper_id": "202602/17/2602.14663v1-pseudo-differential-enhanced-physics-informed-neural-networks",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "We present pseudo-differential enhanced physics-informed neural networks (PINNs), an extension of gradient enhancement but in Fourier space. Gradient enhancement of PINNs dictates that the PDE residual is taken to a higher differential order than prescribed by the PDE, added to the objective as an augmented term in order to improve training and overall learning fidelity. We propose the same procedure after application via Fourier transforms, since differentiating in Fourier space is multiplication with the Fourier wavenumber under suitable decay. Our methods are fast and efficient. Our methods oftentimes achieve superior PINN versus numerical error in fewer training iterations, potentially pair well with few samples in collocation, and can on occasion break plateaus in low collocation settings. Moreover, our methods are suitable for fractional derivatives. We establish that our methods improve spectral eigenvalue decay of the neural tangent kernel (NTK), and so our methods contribute towards the learning of high frequencies in early training, mitigating the effects of frequency bias up to the polynomial order and possibly greater with smooth activations. Our methods accommodate advanced techniques in PINNs, such as Fourier feature embeddings. A pitfall of discrete Fourier transforms via the Fast Fourier Transform (FFT) is mesh subjugation, and so we demonstrate compatibility of our methods for greater mesh flexibility and invariance on alternative Euclidean and non-Euclidean domains via Monte Carlo methods and otherwise."
+    },
+    {
+      "paper_id": "202602/17/2602.14853v1-beacons-bounded-error-algebraically-composable-neural-solvers-for-partial-differential-equations",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "The traditional limitations of neural networks in reliably generalizing beyond the convex hulls of their training data present a significant problem for computational physics, in which one often wishes to solve PDEs in regimes far beyond anything which can be experimentally or analytically validated. In this paper, we show how it is possible to circumvent these limitations by constructing formally-verified neural network solvers for PDEs, with rigorous convergence, stability, and conservation properties, whose correctness can therefore be guaranteed even in extrapolatory regimes. By using the method of characteristics to predict the analytical properties of PDE solutions a priori (even in regions arbitrarily far from the training domain), we show how it is possible to construct rigorous extrapolatory bounds on the worst-case L^inf errors of shallow neural network approximations. Then, by decomposing PDE solutions into compositions of simpler functions, we show how it is possible to compose these shallow neural networks together to form deep architectures, based on ideas from compositional deep learning, in which the large L^inf errors in the approximations have been suppressed. The resulting framework, called BEACONS (Bounded-Error, Algebraically-COmposable Neural Solvers), comprises both an automatic code-generator for the neural solvers themselves, as well as a bespoke automated theorem-proving system for producing machine-checkable certificates of correctness. We apply the framework to a variety of linear and non-linear PDEs, including the linear advection and inviscid Burgers' equations, as well as the full compressible Euler equations, in both 1D and 2D, and illustrate how BEACONS architectures are able to extrapolate solutions far beyond the training data in a reliable and bounded way. Various advantages of the approach over the classical PINN approach are discussed."
+    }
+  ],
+  "errors": []
+}

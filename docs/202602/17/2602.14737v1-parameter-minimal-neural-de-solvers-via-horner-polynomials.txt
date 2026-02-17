@@ -1,0 +1,768 @@
+Title: Parameter-Minimal Neural DE Solvers via Horner Polynomials
+
+URL Source: https://arxiv.org/pdf/2602.14737v1
+
+Published Time: Tue, 17 Feb 2026 02:56:48 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+> 1
+
+Parameter-Minimal Neural DE Solvers via Horner Polynomials 
+
+1st Tomislav Matuli´ c Dept. of Electronic Systems and Information Processing Faculty of Electrical Engineering and Computing University of Zagreb 
+
+Zagreb, Croatia tomislav.matulic@fer.hr 2nd Damir Serˇ si´ c Dept. of Electronic Systems and Information Processing Faculty of Electrical Engineering and Computing University of Zagreb 
+
+Zagreb, Croatia damir.sersic@fer.hr 
+
+Abstract 
+
+We propose a parameter-minimal neural architecture for solving differential equations by restricting the hypoth-esis class to Horner-factorized polynomials, yielding an implicit, differentiable trial solution with only a small set of learnable coefficients. Initial conditions are enforced exactly by construction by fixing the low-order polynomial degrees of freedom, so training focuses solely on matching the differential-equation residual at collocation points. To reduce approximation error without abandoning the low-parameter regime, we introduce a piecewise (“spline-like”) extension that trains multiple small Horner models on subintervals while enforcing continuity (and first-derivative continuity) at segment boundaries. On illustrative ODE benchmarks and a heat-equation example, Horner networks with tens (or fewer) parameters accurately match the solution and its derivatives and outperform small MLP and sinusoidal-representation baselines under the same training settings, demonstrating a practical accuracy–parameter trade-off for resource-efficient scientific modeling. 
+
+Index Terms 
+
+Neural networks, Differential equations, Horner scheme, Piecewise continuity penalties 
+
+I. I NTRODUCTION 
+
+Neural networks have found widespread applications in many domains, including biology [1], [2], medicine [3]–[5], hyperspectral data analysis [6], and even creative fields such as music, art, and digital media [7]. Their ability to recognize patterns and make predictions from large and complex datasets has fundamentally transformed how we address many scientific, technological, and creative challenges. Large Language Models(LLMs), such as GPT [8], or DeepSeek [9], have seen unprecedented growth and innovation in recent years. These models, capable of comprehending and generating human-like language with extraordinary accuracy, are opening new frontiers in communication, education, research, and creative writing. Differential equations (DEs) are a central modeling tool in science and engineering, but many practical settings require solution strategies that are both accurate and lightweight (e.g., rapid prototyping, embedded deployment, or repeated solution under limited compute). In recent years, scientific machine learning has popularized neural approaches that represent the unknown solution as a differentiable function approximator and train it by minimizing the governing-equation residual at collocation points. Implicit Neural Representation (INR) is an approach that encodes data, such as images, audio signals, or 3D objects, using a neural network [10]–[13]. Here, the network itself acts as a continuous function, mapping the input coordinates to the corresponding data values. Unlike traditional explicit methods that store data as discrete arrays (e.g., pixel grids or voxel grids), INRs provide a compact, flexible, and resolution-independent way to represent and model complex signals. This approach has a wide range of applications, including 3D scene representation, high-resolution image reconstruction, and audio/video encoding. A particularly exciting application of INRs is in solving ordinary differential equations (ODEs) and partial differential equations (PDEs) by representing their solutions as continuous functions learned by neural networks. One common way to implement this is to use a Multilayer Perceptron (MLP), where the network learns the solution through coordinate mappings. Activation functions such as ReLU, Tanh, and Softplus are often used in these architectures to capture the underlying structures of solutions. In 
+
+> arXiv:2602.14737v1 [cs.LG] 16 Feb 2026 2
+
+[14], researchers have developed super-resolution frameworks to generate grid-free solutions to PDEs, demonstrating the power of neural networks in avoiding the need for traditional discretized grids. The use of periodic activation functions (such as sine and cosine) has been shown to offer significant advantages over traditional activation functions when representing high-frequency signals in applications such as audio, video, and 3D object modeling. These periodic functions also excel in solving complex differential equations by accurately capturing oscillatory and periodic behaviors that other activations struggle to represent. [15] Tensor Neural Networks, presented in [16], have also been developed to tackle PDEs, offering powerful architectures capable of solving complex physical models. Physics-Informed Neural Networks [17]–[20] (PINNs) represent a powerful class of deep learning models designed to solve problems governed by physical laws, often described by ODE or PDE. Unlike conventional neural networks, which rely primarily on data-driven learning, PINNs embed known physical principles directly into the training process. This integration ensures that the network’s predictions adhere to the underlying laws of physics while learning from the observed data. Traditional neural networks train by minimizing the difference between predictions and ground truth data, but PINNs take this a step further by incorporating physics-based constraints directly into the loss function, creating more reliable and physically accurate models. A canonical example is the class of neural networks [20], where a neural network represents the unknown field and is trained by minimizing a loss that penalizes the differential operator residual at collocation points, optionally augmented by data misfit and initial/boundary condition terms. Several extensions address accuracy and training efficiency by enriching the constraint information. Gradient-enhanced PINN [21] augment the standard PINN objective by also penalizing derivatives of the PDE residual; this can improve convergence and reduce the number of points required to achieve a given accuracy. A distinct and increasingly influential paradigm is operator learning, where the goal is not to solve a single PDE instance, but to learn the mapping from an input function (e.g., initial condition, coefficient field, forcing) to the corresponding solution function. Deep Operator Networks [22] realize this by combining a branch network that encodes the input function sampled at sensors and a trunk network that encodes the query location, resulting in a mesh-independent surrogate that can generalize across families of PDE instances after amortized training. The Fourier Neural Operator [23] parameterizes an integral operator in Fourier space, enabling efficient learning of solution operators for parametric PDEs and providing strong accuracy–speed trade-offs, with the important practical feature that evaluation can be performed on resolutions different from those used during training. A line of research explores structured function classes inside neural architectures, such as inductive bias, in-cluding polynomial- and spline-like parameterizations. Classical polynomial neural networks [24] build multi-layer models from low-order polynomial units (often quadratic) with data-driven structure selection, while higher-order sigma–pi–sigma networks [25] explicitly introduce multiplicative interactions to represent polynomial terms more directly. More recently, deep polynomial networks (e.g. Π-nets [26]) revisit polynomial representations in modern deep learning by realizing high-order polynomials through architectural compositions and skip connections, and theoretical work [27] studies the expressive power of deep polynomial networks through an algebraic lens. In a related spirit, Kolmogorov–Arnold Networks (KANs) [28] replace fixed node activations with learnable univariate functions on edges, typically parameterized by splines, offering an alternative to MLPs that is explicitly biased toward low-dimensional functional structure and has attracted attention for scientific regression tasks. Inspired by the fact that biological systems can produce rich and robust behavior with a surprisingly small number of neurons; from the compact C. elegans connectome to small central pattern generators and sophisticated insect cognition; we hypothesize that strong structural priors and hard constraints can substitute for sheer parameter count. Guided by this principle, we propose parameter-minimal neural architectures for solving differential equations that incorporate rules and constraints directly into the structure of the model rather than relying on delicate loss-term balancing. Our contribution is architecture-first and parameter-minimal: instead of relying on a large, generic network whose compliance with the governing equation and constraints emerges only through a delicately balanced multi-term loss, we explicitly restrict the hypothesis class to a Horner-factorized polynomial representation and learn only a small set of coefficients. The most important constraints are enforced by construction: initial conditions are embedded directly into the model so that they are satisfied exactly, removing a major source of penalty-weight tuning and reducing the risk of partially feasible solutions that satisfy the residual but drift at the initial condition. Beyond efficiency, this structural restriction also improves interpretability: the learnable parameters correspond to identifiable polynomial (and piecewise-polynomial) degrees of freedom, enabling transparent control over model capacity. This 3
+
+architectural constraint viewpoint aligns with the broader theme of embedding physics/constraints into the network structure, but here it is paired with an unusually tight control of capacity. As a result, the learning problem becomes low-dimensional and strongly regularized, which empirically yields faster and more reliable convergence than over-parameterized baselines in the intended single-instance setting, while achieving high accuracy with orders-of-magnitude fewer learnable parameters. In summery, the main contributions of this work are:  
+
+> •
+
+Architecture-first, parameter-minimal solver for ODEs and PDEs. We propose a Horner-factorized poly-nomial neural architecture for ODE/PDE solving that achieves a smooth, differentiable solution representation with a tightly limited number of learnable coefficients.  
+
+> •
+
+Hard enforcement of initial conditions via architectural embedding. We embed initial conditions directly into the model so that they are satisfied exactly, reducing hyperparameter sensitivity (e.g., penalty weights) and improving training reliability.  
+
+> •
+
+High-accuracy solutions (including derivatives) with far fewer parameters. The proposed model accurately captures both the solution and its derivatives, while using fewer learnable parameters.  
+
+> •
+
+Interpretability and user control. Model capacity is explicitly controlled by polynomial order and/or the number of segments, yielding an interpretable parameterization with transparent accuracy–complexity trade-offs.  
+
+> •
+
+Spline-like piecewise extension. We extend the Horner model to a piecewise Horner construction that im-proves approximation accuracy with minimal parameter growth, enforcing continuity and smoothness across subinterval boundaries. Section II presents the notation used throughout this paper. Section III demonstrates solving differential equations using standard MLP neural networks (competitive methods), which serve as a baseline for comparison. Section IV introduces the motivation for our neural network architecture and paradigm, based on polynomial linear regression models. Section V presents a novel neural network architecture inspired by the Horner scheme. Section VI extends these models using a spline-like approach to further enhance their flexibility and accuracy. Finally, Section VII concludes the paper with a summary of our findings and potential future directions. II. N OTATION AND BENCHMARK PROBLEMS 
+
+This paper develops a parameter-minimal neural-network paradigm for solving ordinary differential equations (ODEs). We first fix the notation and summarize the benchmark problems used throughout the paper. 
+
+A. Problem setup 
+
+Let x : I → R defined on interval 0 ∈ I ⊆ R denote the unknown solution and let x(i)(t) denote its i-th derivative. We consider an n-th order ODE that can be written in the general form 
+
+F t, x (t), x ′(t), . . . , x (n)(t) = G u(t), u ′(t), . . . , u (l)(t),
+
+where u(t) is a known input signal. Since the right-hand side depends only on known quantities, we define the (known) forcing term 
+
+f (t) := G u(t), u ′(t), . . . , u (l)(t),
+
+and hence study the explicit-forcing form 
+
+F t, x (t), x ′(t), . . . , x (n)(t) = f (t). (1) To uniquely determine x(t), we assume n initial conditions specified at t = 0 :
+
+x(i)(0) = xi, i = 0 , 1, . . . , n − 1.
+
+B. Collocation data 
+
+Residual-based training evaluates the known forcing at a set of collocation points T = {tk}Mk=1 ⊂ I. The available data are therefore the samples 
+
+D = {(tk, f k)}Mk=1 , fk := f (tk).
+
+Note that the sampling of {tk} need not be uniform. 4
+
+TABLE I: Benchmark ODEs used throughout the paper.                         
+
+> Type ODE Initial conditions Exact solution Ax′(t) + 2 x(t) = 1 x(0) = 1 x(t) = 12
+>  1 + e−2t
+> Bx′(t)x(t) = tx(0) = 1 x(t) = pt2+ 1
+> Cx′′ (t) + 4 x′(t) + 13 x(t) = 2 x(0) = 0 ,x′(0) = 1 x(t) = 213 +e−2t
+> 313 sin(3 t)−213 cos(3 t)
+> 
+
+C. Benchmark problems 
+
+To illustrate the proposed approach, we solve three representative ODEs: a first-order linear ODE, a first-order nonlinear ODE, and a second-order linear ODE. Type A (first-order linear). 
+
+x′(t) + 2 x(t) = 1 ,x(0) = 1 , (2) with exact solution x(t) = 12
+
+ 1 + e−2t. We consider this benchmark on the interval of interest I = [0 , 4] .Type B (first-order nonlinear). 
+
+x′(t) x(t) = t, x(0) = 1 , (3) whose solution satisfying the initial condition is the positive branch x(t) = √t2 + 1 . We consider this benchmark on the interval of interest I = [0 , 3] .Type C (second-order linear). 
+
+x′′ (t) + 4 x′(t) + 13 x(t) = 2 ,x(0) = 0 ,x′(0) = 1 ,
+
+(4) with exact solution 
+
+x(t) = 213 + e−2t
+
+ 313 sin(3 t) − 213 cos(3 t)
+
+
+
+.
+
+We consider this benchmark on the interval of interest I = [0 , 3] .Table I summarizes the benchmark ODEs used throughout the paper, including the governing equation, the initial conditions, and the corresponding closed-form solution. Unless stated otherwise, all problems are considered on the same interval of interest I, and all reported training and evaluation results in the subsequent sections refer to these benchmarks and the notation introduced above. III. B ASELINE SOLVERS : MLP AND SIREN N ETWORKS 
+
+To contextualize the proposed parameter-minimal Horner architectures, we first evaluate standard coordinate-based neural solvers that represent the unknown solution by a neural network N (t) and minimize the differential-equation residual at collocation points. These baselines follow the common residual-minimization paradigm used in physics-informed training and implicit neural representations. 
+
+A. Residual loss with soft initial-condition penalties 
+
+Given collocation points T = {ti}Mi=1 ⊂ I, we define the residual 
+
+r(ti) = F ti, N (ti), ddt N (ti), . . . , dn 
+
+> dt n
+
+N (ti) − f (ti),
+
+and minimize the mean-squared residual augmented by soft penalties on the initial conditions: 
+
+Lbase = 1
+
+M
+
+> M
+
+X
+
+> i=1
+
+r(ti)2 +
+
+> n−1
+
+X
+
+> j=0
+
+λj
+
+ dj 
+
+> dt j
+
+N (0) − xj
+
+2
+
+. (5) 5
+
+Here, λj ≥ 0 are hyperparameters controlling the strength of the initial-condition enforcement. In contrast, the Horner-based models introduced later embed these conditions by construction and therefore do not require such penalty terms. 
+
+B. Baseline architectures and training protocol 
+
+We report results for Type A and compare three representative baselines: (i) a wide MLP with a piecewise-linear activation (Leaky ReLU), (ii) a compact MLP with a smooth activation (sigmoid), and (iii) a compact sinusoidal representation network (SIREN). All models are trained using Adam with an initial learning rate of 10 −3 for 10 ,000 
+
+epochs on M = 400 collocation points. Unless stated otherwise, we set λ0 = 0 .1 and use the remaining λj only when higher-order initial conditions are present. 
+
+Baseline 1 (MLP–Leaky ReLU).: We use an MLP with 5 hidden layers of width 256 (263,937 learnable parameters) and Leaky ReLU activations. 
+
+Baseline 2 (MLP–sigmoid).: We use an MLP with 4 hidden layers of width 5 (106 learnable parameters) and sigmoid activations. 
+
+Baseline 3 (SIREN).: We use a SIREN with 4 hidden layers of width 5 (106 learnable parameters), following the standard sinusoidal-activation design and initialization. 
+
+C. Results and discussion 
+
+Figure 1 compares the learned solution for Type A and its first two derivatives against the analytical ground truth. The wide Leaky-ReLU network yields visibly larger errors, particularly in higher derivatives. This behavior is consistent with the fact that piecewise-linear activations provide limited smoothness, and their higher-order derivatives vanish almost everywhere, which is unfavorable when the training objective involves derivatives of 
+
+N (t) through the residual. In contrast, the sigmoid and SIREN baselines (both with 106 parameters) provide substantially better agreement and will serve as the main reference baselines in the remainder of the paper. The above results show that standard coordinate MLP/SIREN models can solve simple ODE instances and can achieve reasonable accuracy even with a modest number of parameters. However, their performance depends strongly on the choice of activation function and, crucially, on the tuning of penalty weights {λj } used to enforce initial conditions via the loss. This motivates architectures that (i) restrict the hypothesis class to a structured, low-dimensional family and (ii) satisfy essential constraints exactly by construction , thereby reducing hyperparameter sensitivity while improving accuracy per parameter. IV. M OTIVATION : L INEAR REGRESSION VIEWPOINT 
+
+As motivation for the neural network architecture developed in Section V, we show how the solution of a linear ODE with constant coefficients can be approximated using a low-dimensional polynomial regression model. This viewpoint highlights two ideas that will be reused later: (i) accurate approximation on an interval of interest I can be achieved with a small number of parameters, and (ii) initial conditions can be enforced exactly by fixing a subset of coefficients (a hard-constraint construction). 
+
+A. Linear ODE with constant coefficients 
+
+We consider the n-th order linear ODE 
+
+> n
+
+X
+
+> i=0
+
+ai x(i)(t) = f (t), t ∈ I, (6) where ai ∈ R are constant coefficients and f (t) is a known forcing term. 6
+
+MLP (Leaky ReLU)      
+
+> (a) x(t)(b) x′(t)(c) x′′ (t)
+
+MLP (sigmoid)      
+
+> (d) x(t)(e) x′(t)(f) x′′ (t)
+
+SIREN      
+
+> (g) x(t)(h) x′(t)(i) x′′ (t)
+
+Fig. 1: Type A benchmark: baseline network predictions for the solution and its derivatives. Rows correspond to architectures (MLP with Leaky ReLU, MLP with sigmoid, and SIREN), while columns show x(t), x′(t), and x′′ (t). Each panel compares the learned output against the analytical reference. 
+
+B. Polynomial regression model 
+
+We approximate x(t) by a degree-m polynomial model 
+
+P (t) = 
+
+> m
+
+X
+
+> j=0
+
+cj
+
+tj
+
+j! , (7) where cj are coefficients to be determined. The factorial scaling is chosen so that derivatives at t = 0 correspond directly to coefficients, which will allow exact embedding of initial conditions. The derivatives of P (t) are 
+
+P (l)(t) = 
+
+> m
+
+X
+
+> j=l
+
+cj
+
+tj−l
+
+(j − l)! , l = 0 , 1, 2, . . . (8) 7
+
+Assume m ≥ n, i.e., the polynomial degree is at least the order of the differential equation. 
+
+C. Exact embedding of initial conditions 
+
+We impose n initial conditions at t = 0 :
+
+x(i)(0) = xi, i = 0 , 1, . . . , n − 1.
+
+Evaluating (8) at t = 0 yields 
+
+P (i)(0) = ci, i = 0 , 1, . . . , n − 1,
+
+and therefore the initial conditions are enforced exactly by setting 
+
+ci = xi, i = 0 , 1, . . . , n − 1. (9) Hence only the remaining coefficients {cj }mj=n are unknown. 
+
+D. Substitution into the ODE and separation of known/unknown terms 
+
+Substituting the polynomial model into (6) gives 
+
+f (t) = 
+
+> n
+
+X
+
+> i=0
+
+ai P (i)(t) = 
+
+> n
+
+X
+
+> i=0
+
+aimX
+
+> j=i
+
+cj
+
+tj−i
+
+(j − i)! =
+
+> n
+
+X
+
+> i=0
+
+ai
+
+
+
+> n−1
+
+X
+
+> j=i
+
+cj
+
+tj−i
+
+(j − i)! 
+
+ +
+
+> n
+
+X
+
+> i=0
+
+ai
+
+
+
+> m
+
+X
+
+> j=n
+
+cj
+
+tj−i
+
+(j − i)! 
+
+ . (10) The first term in (10) depends only on c0, . . . , c n−1, which are fixed by (9). We therefore define the IC-corrected forcing 
+
+f1(t) := f (t) −
+
+> n
+
+X
+
+> i=0
+
+ain−1X
+
+> j=i
+
+cj
+
+tj−i
+
+(j − i)! , (11) so that the remaining unknown coefficients satisfy 
+
+f1(t) = 
+
+> n
+
+X
+
+> i=0
+
+aimX
+
+> j=n
+
+cj
+
+tj−i
+
+(j − i)! =
+
+> m
+
+X
+
+> j=n
+> n
+
+X
+
+> i=0
+
+ai
+
+tj−i
+
+(j − i)! 
+
+!
+
+cj . (12) 
+
+E. Collocation and least-squares estimation 
+
+Let {tk}Mk=1 ⊂ I be collocation points and assume 
+
+M > m − n + 1 ,
+
+so the system is overdetermined. Evaluating (12) at tk gives 
+
+f1(tk) = 
+
+> m
+
+X
+
+> j=n
+> n
+
+X
+
+> i=0
+
+ai
+
+t j−ik
+
+(j − i)! 
+
+!
+
+cj , k = 1 , . . . , M. (13) This can be written in matrix form as 
+
+b = Ac , (14) where c = [ cn, . . . , c m]⊤ ∈ Rm−n+1 , b ∈ RM , A ∈ RM ×(m−n+1) , and 
+
+bk = f1(tk), Ak, (j−n+1) =
+
+> n
+
+X
+
+> i=0
+
+ai
+
+t j−ik
+
+(j − i)! , j = n, . . . , m. 
+
+We estimate the unknown coefficients by least squares: 
+
+ˆc = arg min  
+
+> c
+
+∥Ac − b∥22. (15) 8     
+
+> (a) Solution x(t)and error. (b) Derivative x′(t)and error.
+
+Fig. 2: Type A: polynomial regression (degree m = 15 ) versus the analytical solution on I = [0 , 4] .When A has full column rank, the minimizer can be expressed via the normal equations 
+
+ˆc = ( A⊤A)−1A⊤b, (16) although in practice ˆc is preferably computed using a QR- or SVD-based least-squares solver for improved numerical stability. Finally, combining ˆc with the fixed coefficients c0, . . . , c n−1 from (9) yields the polynomial approximation 
+
+P (t) = 
+
+> m
+
+X
+
+> j=0
+
+cj
+
+tj
+
+j! ,
+
+which serves as a low-parameter model of the solution of (6) on I.
+
+F. Implications for parameter-minimal neural solvers 
+
+This regression construction demonstrates that (i) the solution can be represented using a small number of degrees of freedom and (ii) essential constraints (initial conditions) can be enforced exactly by fixing low-order coefficients. However, global polynomials may require higher degree over longer intervals and do not directly extend to more flexible function classes. Section V retains the same two principles—low-dimensional parameterization and hard initial-condition embedding—but implements them as a trainable neural module using a nested (Horner) form and introduces extensions that improve approximation power while keeping the number of learnable parameters small. 
+
+G. Example 1 (Type A) 
+
+We first consider the Type A benchmark ODE from Table I and solve it using the polynomial regression model described above. We use a degree-m = 15 polynomial (i.e., m + 1 = 16 coefficients) and M = 10 ,000 collocation samples {tk}Mk=1 drawn i.i.d. from the uniform distribution on the interval of interest I = [0 , 4] . The corresponding values f (tk) are computed from the known forcing term, and the IC-corrected samples f1(tk) are formed according to (11). Figure 2 compares the polynomial approximation with the analytical solution, and also reports the corresponding errors. Despite using only 16 parameters, the regression model provides a very accurate approximation of the solution and its derivatives on I.9     
+
+> (a) Solution x(t)and error. (b) Derivative x′(t)and error.
+
+Fig. 3: Matched forcing: polynomial regression (degree m = 15 ) versus the analytical solution on I = [0 , 4] .
+
+H. Example 2 (matched forcing) 
+
+Next, we consider the ODE 
+
+x′(t) + 2 x(t) = e−2t,x(0) = 0 ,
+
+whose closed-form solution is x(t) = te −2t. This example is intentionally chosen so that the forcing term matches the decay rate of the homogeneous solution, which yields a polynomially modulated exponential response. We keep the same regression settings as in Example 1 ( m = 15 , M = 10 ,000 , tk ∼ U (I) with I = [0 , 4] ). Figure 3 compares the polynomial approximation to the exact solution and also shows the corresponding derivative-level errors. As in Example 1, a 16-parameter polynomial provides a strong approximation over the interval of interest. 
+
+I. Example 3 (Type C) 
+
+Finally, we consider the Type C benchmark ODE from Table I, which exhibits damped oscillatory behavior. We again use the same regression settings: m = 15 , M = 10 ,000 , I = [0 , 3] . Figure 4 compares the polynomial regression model with the analytical solution and reports the errors for the solution as well as for the first and second derivatives. The approximation remains accurate across both the transient and oscillatory components. These examples indicate that a very small number of degrees of freedom can already yield accurate DE solutions on moderate intervals when the initial conditions are embedded by construction. However, global polynomial models can become less reliable as the interval grows or the target behavior becomes more complex; in particular, higher-degree global polynomials may suffer from boundary oscillations and sensitivity to sampling (a classical issue related to Runge-type behavior). This motivates the next section: we retain the same two principles: i) a low-dimensional parameterization, and ii) exact enforcement of essential constraints but implement them via a structured, trainable neural module (Horner form) that is more flexible and can be extended (e.g., piecewise constructions) while keeping the parameter count small. V. H ORNER NETWORKS (P ARAMETER -M INIMAL NEURAL DE S OLVERS )In this section, we introduce a parameter-minimal neural architecture for solving differential equations by restrict-ing the hypothesis class to a Horner-factorized polynomial. The resulting model is a smooth, fully differentiable implicit representation whose learnable parameters correspond directly to polynomial degrees of freedom. We evaluate this architecture on the benchmark ODEs from Table I and compare it against the MLP and SIREN baselines from Section III. 10     
+
+> (a) Solution x(t)and error. (b) First derivative and error. (c) Second derivative and error.
+
+Fig. 4: Type C: polynomial regression (degree m = 15 ) versus the analytical solution on I = [0 , 3] . 
+
+> (a) Basic Horner Block (BHB): one multiply–add stage with coefficient ai.
+> (b) Horner Network (HN): cascade of BHBs implementing (17).
+
+Fig. 5: Horner-based architecture used as a parameter-minimal neural solver. 
+
+A. Horner scheme and network architecture 
+
+A degree-m polynomial can be evaluated efficiently in nested (Horner) form, 
+
+Ph(t) = a0 + t
+
+
+
+a1 + t a2 + · · · + t(am−1 + amt) · · · 
+
+, (17) which requires only m multiply–add stages and yields an efficient (and numerically stable) evaluation procedure. Equivalently, (17) can be written as the recursion 
+
+zm = am, zi = ai + t z i+1 (i = m − 1, . . . , 0) , Ph(t) = z0.
+
+This recursion directly motivates our architecture: a Basic Horner Block (BHB) implements one stage zi = ai+t z i+1 
+
+with a single coefficient ai, and chaining m+1 blocks yields the full Horner Network (HN). 
+
+B. Hard embedding of initial conditions 
+
+Let N (t) denote the Horner network output (i.e., N (t) = Ph(t)). For an n-th order ODE with initial conditions 
+
+x(j)(0) = xj , j = 0 , . . . , n − 1, we embed these constraints by construction by fixing the corresponding low-order coefficients. For the benchmark problems considered here, this reduces to: 
+
+a0 = N (0) = x(0) = x0 (Types A and B) ,
+
+and for the second-order case, 
+
+a0 = N (0) = x(0) = x0, a1 = ddt N (0) = x′(0) = x1 (Type C) .
+
+As a result, the initial conditions are satisfied exactly and do not require additional penalty terms in the loss. 11 
+
+C. Residual loss and training protocol 
+
+We follow the standard residual-minimization paradigm: given collocation points T = {tk}Mk=1 ⊂ I with known forcing samples fk = f (tk), we minimize the mean-squared residual 
+
+LHN = 1
+
+M
+
+> M
+
+X
+
+> k=1
+
+
+
+F
+
+
+
+tk, N (tk), ddt N (tk), . . . , dn 
+
+> dt n
+
+N (tk)
+
+
+
+− f (tk)
+
+2
+
+, (18) where derivatives are obtained by automatic differentiation. Unless stated otherwise, we use M = 200 collocation points, Adam optimization with initial learning rate 10 −3,and train for 10 ,000 epochs. We test the Horner network on the three benchmark ODEs (Types A–C). To assess the accuracy of the learned model, we report the root mean square error (RMSE) between the network-predicted solution N (t) and the corresponding analytical solution x(t) (Table I): 
+
+RMSE( N , x ) = 
+
+vuut 1
+
+Neval 
+
+> Neval
+
+X
+
+> k=1
+
+ N (˜ tk) − x(˜ tk)2. (19) The error is computed on a dense uniform evaluation grid Teval = {˜tk}Neval  
+
+> k=1
+
+⊆ I with Neval = 100 000 points . 
+
+D. Results on benchmark ODEs 
+
+For Types A and B we use a Horner network with 10 learnable parameters, while for Type C we use 13 learnable parameters (the remaining low-order coefficients are fixed by the embedded initial conditions). For each benchmark, we report the learned solution as well as its first and second derivatives (computed from the network representation). Figure 6 compares the Horner predictions to the analytical solutions. Table II reports RMSE values for the solution as well as for the first and second derivatives, computed on the same dense evaluation grid for all methods (lower is better; the best result in each row is shown in bold). Across all three benchmarks, the proposed Horner network achieves the lowest RMSE while using markedly fewer learnable parameters: 10 (Types A/B) or 13 (Type C) parameters, compared with O(10 2) parameters for the compact MLP (sigmoid) and SIREN baselines and 263,937 parameters for the wide MLP with Leaky ReLU. This highlights a strong accuracy–efficiency trade-off in favor of the proposed structured, parameter-minimal architecture. TABLE II: RMSE on a dense uniform evaluation grid ( Neval = 100 000 points on I) for the solution and its first two derivatives. Lower is better; the best value in each row is shown in bold.                                                                                                                  
+
+> LeakyReLU Sigmoid SIREN Horner net Type A
+> RMSE( N, x )2.6·10 −38.5·10 −52.7·10 −54.6·10 −6
+> RMSE( N′, x ′)2.0·10 −25.6·10 −45.2·10 −43.3·10 −5
+> RMSE( N′′ , x ′′ )12.3·10 −22.7·10 −25.6·10 −4
+> Type B
+> RMSE( N, x )2.5·10 −32.7·10 −46.9·10 −46.6·10 −6
+> RMSE( N′, x ′)1.8·10 −21.5·10 −31·10 −37.8·10 −5
+> RMSE( N′′ , x ′′ )7.7·10 −11.4·10 −21.6·10 −22.3·10 −3
+> Type C
+> RMSE( N, x )1.3·10 −14.2·10 −41.1·10 −58.0·10 −6
+> RMSE( N′, x ′)1.7·10 −11.6·10 −39.1·10 −55.8·10 −5
+> RMSE( N′′ , x ′′ )1.56.0·10 −31.3·10 −35.6·10 −4
+
+E. PDE - Horner Network 
+
+In addition to ordinary differential equations that describe phenomena dependent on a single variable (e.g., time, position, temperature), many natural processes are influenced by multiple variables simultaneously. Such phenomena are modeled by partial differential equations (PDEs). We first explain how to generalize the 1D Horner network model presented in Section V.A to handle two variables. A general polynomial of order n in two variables can be expressed as 
+
+P2(x, y ) = P1,n (x) + y · P1,n −1(x) + y2 · P1,n −2(x) + · · · + yn · P1,0(x) = 
+
+> n
+
+X
+
+> i=0
+
+yiP1,n −i(x),12 
+
+(a) Type A: solution x(t). (b) Type A: x′(t). (c) Type A: x′′ (t).
+
+(d) Type B: solution x(t). (e) Type B: x′(t). (f) Type B: x′′ (t).
+
+(g) Type C: solution x(t). (h) Type C: x′(t). (i) Type C: x′′ (t).
+
+Fig. 6: Horner network predictions for the three benchmark ODEs (Types A–C): solution and derivatives compared to analytical references. where P1,k (x) are polynomials of order k in a single variable. This expression can be rewritten using Horner’s scheme as 
+
+P2(x, y ) = P1,n (x) + y  P1,n −1(x) + y P1,n −2(x) + · · · + y P1,1(x) + y · P1,0(x)...  .
+
+Each polynomial P1,k (x) can be implemented using the Horner network architecture introduced in Section V.A, denoted as H(P1,k ). Moreover, the same architectural design generalizes to higher dimensions. The learnable parameters a0, a1, . . . , am from Fig. 5 and Eq. 17 are now entire neural networks H(P1,k ).We implemented this extended model to solve the initial-boundary value problem for the heat equation 
+
+∂u ∂t − k ∂2u∂x 2 = 0 ,u(x, 0) = f (x),u(0 , t ) = u(L, t ) = 0 ,
+
+(20) where we set k = 0 .1, L = 1 , and f (x) = sin( πx ). The exact solution to this PDE is 
+
+u(x, t ) = sin( πx )e−0.1π2t.13 
+
+The input data consists of a point cloud (xi, t i, g (xi, t i)) for i = 1 , 2, . . . , M 1, where g(x, t ) represents the excitation. The initial and boundary conditions are also provided as point clouds 
+
+(xj , 0, f (xj )) , j = 1 , 2, . . . , M 2,
+
+(0 , t k, h 1(tk)) , k = 1 , 2, . . . , M 3,
+
+(L, t p, h 2(tp)) , p = 1 , 2, . . . , M 4.
+
+In our example, we used M1 = 5000 and M2 = M3 = M4 = 2500 . The right-hand side of the PDE is set to zero (g(xi, t i) = 0 ) because the equation is homogeneous. The initial condition is f (xj ) = sin( πx j ), and the boundary conditions are h1(tk) = 0 and h2(tp) = 0 . The initial and boundary conditions are enforced directly through the loss function 
+
+Lloss = 1
+
+M1
+
+> M1
+
+X
+
+> i=1
+
+
+
+F (ti, N (ti), ddt N (ti), ..., dn
+
+dt n N (ti)) 
+
+2
+
++ λM2
+
+> M2
+
+X
+
+> j=1
+
+(N (xj , 0) − f (xj )) 2 +
+
+μM3
+
+> M3
+
+X
+
+> k=1
+
+(N (0 , t k) − h1(tk)) 2 + νM4
+
+> M4
+
+X
+
+> p=1
+
+(N (L, t p) − h2(tp)) 2 .
+
+We set the hyperparameters as λ = 0 .5 and μ = ν = 0 .25 . The total number of learnable parameters in the model is 45. Training is performed as described previously. Fig. 7 compares the solution obtained from the neural network with the exact solution. The results demon-strate that the error is minimal despite using only 45 parameters, highlighting the efficiency and accuracy of the multidimensional Horner network.   
+
+> (a) Horner model (b) Exact solution (c) Error
+
+Fig. 7: Comparison of the solution obtained from the multidimensional Horner network with the exact solution of the heat equation. The error is minimal, even with only 45 learnable parameters. VI. S PLINE -LIKE MODEL 
+
+In this section, we extend the Horner network by introducing a spline-like approach to further reduce the approximation error when solving differential equations. The key advantage of this approach lies in its ability to balance accuracy with computational efficiency by keeping the number of learnable parameters to a minimum (slightly higher than the baseline model), even as the model complexity increases. This technique is particularly beneficial for problems involving complex differential equations, where traditional single-network architectures may struggle to provide accurate solutions without a significant increase in the number of parameters. By leveraging the spline-like approach, we achieve an efficient trade-off between model size and accuracy, making it suitable for applications where computational resources are limited or precision is critical. Let the interval of interest, where we solve the differential equation, be denoted as [c, d ]. We partition this interval into subintervals such that c = c0 < c 1 < c 2 < · · · < c l = d. On each subinterval Ci = [ ci, c i+1 ], for 
+
+i = 0 , 1, . . . , l − 1, we train a separate Horner network with a small number of parameters (corresponding to a lower-order polynomial). By employing a spline-like approach, we ensure through the loss function that the overall solution model belongs to the class Cj ([ c, d ]) for a suitable value of j, ensuring continuity and smoothness. 14 
+
+This procedure is illustrated schematically in Fig. 8. The input value x is fed into a demultiplexer and logic module, which selects the corresponding network HN i based on the subinterval Ci containing x. The output from the selected network is then passed through a multiplexer to produce the output of the entire spline-like model. Thus, we have l Horner networks in total, with each network HN i responsible for learning the solution on its respective subinterval Ci. As stated earlier, the loss function enforces the model to be of class Cj ([ c, d ]) .We test this model on a Type a differential equation. In this case, the loss function is defined as 
+
+Lloss = 1
+
+M
+
+> M
+
+X
+
+> i=1
+
+
+
+F (ti, N (ti), ddt N (ti), ..., dn
+
+dt n N (ti)) − u(ti)
+
+2
+
++ λ0 |N (0) − x(0) | +
+
+> l−2
+
+X
+
+> j=0
+
+μj |N j (tj,r ) − N j+1 (tj+1 ,l )| +
+
+> l−2
+
+X
+
+> j=0
+
+νj
+
+ddt Nj (tj,r ) − ddt Nj+1 (tj+1 ,l ) .
+
+Here, tj,l and tj,r denote the left and right endpoints of subinterval Cj . The third and fourth terms in the loss function enforce continuity of the solution and its first derivative at the subinterval boundaries. For training the Type a differential equation solution, we used M = 200 data points. The hyperparameters were set to λ0 = 1 , μj = 0 .5, and νj = 0 .5. The subintervals were chosen as [0 , 1] , [1 , 2] , [2 , 3] , and [3 , 4] , resulting in a total of 4 Horner networks. Each network is characterized by 8 learnable parameters. We employ the Adam optimizer and the starting learning rate is set to 10 −3. The network is trained for 10,000 epochs. x P(x) 
+
+Demux  Mux 
+
+...
+
+> Logic
+> HN 0
+> HN 1
+> HN l-1
+
+Fig. 8: Spline-like model architecture. The input value x determines which Horner network HN i is selected based on the interval it falls into, ensuring a piecewise smooth representation of the solution. The results are presented in Fig. 9. We observe that, in this example, the spline-like model achieves at least an order of magnitude improvement in accuracy over the baseline model presented in Section V.A. VII. C ONCLUSION 
+
+In this paper, we have demonstrated that natural phenomena can be successfully modeled and solved using neural networks with a minimal number of learnable parameters. By leveraging carefully designed architectures, we have shown that even with a significantly reduced parameter count, accurate and reliable solutions to differential equations can be achieved. Our model, based on the Horner scheme, achieved exceptional results with only around 10 learnable parameters. These models exhibited improvements of nearly three orders of magnitude in accuracy compared to standard MLP neural networks and networks with periodic activation functions, both of which typically require at least twice the number of parameters. This highlights the efficiency of our proposed architectures in scenarios where computational resources and parameter budgets are limited. The spline-like approach further improved accuracy by effectively reducing the approximation error while only minimally increasing the number of learnable parameters. This method ensured continuity and smoothness across 15 
+
+(a) Type 1 - solution (b) Type 1 - first derivative (c) Type 1 - second derivative 
+
+Fig. 9: Comparison of the solution and its derivatives predicted by the spline-like Horner network with the exact solutions. The results demonstrate improved accuracy and smoothness across the subinterval boundaries. subinterval boundaries, making it particularly effective for applications requiring fine-grained precision and dynamic adaptation to problem complexity. By solving the heat equation, we generalized the Horner-based approach to two-dimensional domains. Our results demonstrated that even with as few as 50 learnable parameters, we could accurately solve partial differential equations (PDEs). This shows that our method is not limited to one-dimensional problems but can be extended to more complex multidimensional scenarios with minimal computational overhead. Further reductions in the number of learnable parameters in the spline-like model can be achieved by embedding boundary conditions of subintervals directly into the neural network architecture. This eliminates the need to enforce continuity or derivative constraints through the loss function, thus simplifying the training process and improving efficiency. We also propose potential extensions of the Horner-based approach to higher-order PDEs, offering exciting opportunities for addressing complex dynamic systems in future work. An additional challenge lies in integrating the spline-like approach into models that solve complex partial differential equations (PDEs). This involves extending the current architecture to handle higher-dimensional domains and ensuring that continuity, smoothness, and physical boundary conditions are maintained directly through the network design. Overcoming this challenge will allow for scalable solutions to PDEs in fields such as fluid dynamics, electromagnetism, and thermodynamics, where traditional methods often face limitations in terms of parameter efficiency and computational complexity. A further challenge involves learning suitable subintervals for 1D cases, or patches in higher dimensions, to minimize the number of parameters or reduce the error, rather than keeping them fixed. Addressing these challenges will be a step in further advancing neural network-based approaches for scientific modeling. In conclusion, our work provides a robust and scalable framework for solving differential equations using compact neural networks. Future efforts will focus on generalizing the approach to higher-order PDEs and exploring real-world applications in physics, engineering, and computational science, where accuracy, parameter efficiency, and adaptability are critical. REFERENCES                                
+
+> [1] Y. Jiang, M. Balaban, Q. Zhu, and S. Mirarab, “Depp: Deep learning enables extending species trees using single genes,” Systematic Biology , vol. 72, no. 1, p. 17–34, Apr. 2022. [Online]. Available: http://dx.doi.org/10.1093/sysbio/syac031 [2] W. P. Walters and R. Barzilay, “Applications of deep learning in molecule generation and molecular property prediction,” Accounts of Chemical Research , vol. 54, no. 2, p. 263–270, Dec. 2020. [Online]. Available: http://dx.doi.org/10.1021/acs.accounts.0c00699 [3] R. Aggarwal, V. Sounderajah, G. Martin, D. S. W. Ting, A. Karthikesalingam, D. King, H. Ashrafian, and A. Darzi, “Diagnostic accuracy of deep learning in medical imaging: a systematic review and meta-analysis,” npj Digital Medicine , vol. 4, no. 1, Apr. 2021. [Online]. Available: http://dx.doi.org/10.1038/s41746-021-00438-z [4] C. Shen, D. Nguyen, Z. Zhou, S. B. Jiang, B. Dong, and X. Jia, “An introduction to deep learning in medical physics: advantages, potential, and challenges,” Physics in Medicine and Biology , vol. 65, no. 5, p. 05TR01, Mar. 2020. [Online]. Available: http://dx.doi.org/10.1088/1361-6560/ab6f51 [5] S. S and J. S. Raj, “Analysis of deep learning techniques for early detection of depression on social media network - a comparative study,” March 2021 , 2021. [Online]. Available: https://api.semanticscholar.org/CorpusID:235193557 16
+
+[6] J. M. Bioucas-Dias, A. Plaza, G. Camps-Valls, P. Scheunders, N. Nasrabadi, and J. Chanussot, “Hyperspectral remote sensing data analysis and future challenges,” IEEE Geoscience and Remote Sensing Magazine , vol. 1, no. 2, p. 6–36, Jun. 2013. [Online]. Available: http://dx.doi.org/10.1109/MGRS.2013.2244672 [7] J.-P. Briot and F. Pachet, “Deep learning for music generation: challenges and directions,” Neural Computing and Applications ,vol. 32, no. 4, p. 981–993, Oct. 2018. [Online]. Available: http://dx.doi.org/10.1007/s00521-018-3813-6 [8] OpenAI, “Chatgpt (feb 11 version),” 2025, large language model. Accessed: February 11, 2025. [Online]. Available: https://openai.com [9] DeepSeek-AI, :, X. Bi, D. Chen, G. Chen, S. Chen, D. Dai, C. Deng, H. Ding, K. Dong, Q. Du, Z. Fu, H. Gao, K. Gao, W. Gao, R. Ge, K. Guan, D. Guo, J. Guo, G. Hao, Z. Hao, Y. He, W. Hu, P. Huang, E. Li, G. Li, J. Li, Y. Li, Y. K. Li, W. Liang, F. Lin, A. X. Liu, B. Liu, W. Liu, X. Liu, X. Liu, Y. Liu, H. Lu, S. Lu, F. Luo, S. Ma, X. Nie, T. Pei, Y. Piao, J. Qiu, H. Qu, T. Ren, Z. Ren, C. Ruan, Z. Sha, Z. Shao, J. Song, X. Su, J. Sun, Y. Sun, M. Tang, B. Wang, P. Wang, S. Wang, Y. Wang, Y. Wang, T. Wu, Y. Wu, X. Xie, Z. Xie, Z. Xie, Y. Xiong, H. Xu, R. X. Xu, Y. Xu, D. Yang, Y. You, S. Yu, X. Yu, B. Zhang, H. Zhang, L. Zhang, L. Zhang, M. Zhang, M. Zhang, W. Zhang, Y. Zhang, C. Zhao, Y. Zhao, S. Zhou, S. Zhou, Q. Zhu, and Y. Zou, “Deepseek llm: Scaling open-source language models with longtermism,” 2024. [Online]. Available: https://arxiv.org/abs/2401.02954 [10] D. Xu, P. Wang, Y. Jiang, Z. Fan, and Z. Wang, “Signal processing for implicit neural representations,” in Advances in Neural Information Processing Systems , S. Koyejo, S. Mohamed, A. Agarwal, D. Belgrave, K. Cho, and A. Oh, Eds., vol. 35. Curran Associates, Inc., 2022, pp. 13 404–13 418. [Online]. Available: https://proceedings.neurips.cc/paper files/paper/2022/file/ 575c450013d0e99e4b0ecf82bd1afaa4-Paper-Conference.pdf [11] Y. Str¨ umpler, J. Postels, R. Yang, L. V. Gool, and F. Tombari, Implicit Neural Representations for Image Compression . Springer Nature Switzerland, 2022, p. 74–91. [Online]. Available: http://dx.doi.org/10.1007/978-3-031-19809-0 5 [12] X. Chen, J. Pan, and J. Dong, “Bidirectional multi-scale implicit neural representations for image deraining,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , June 2024, pp. 25 627–25 636. [13] S. Yang, M. Ding, Y. Wu, Z. Li, and J. Zhang, “Implicit neural representation for cooperative low-light image enhancement,” in 
+
+Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) , October 2023, pp. 12 918–12 927. [14] C. l. Jiang, S. Esmaeilzadeh, K. Azizzadenesheli, K. Kashinath, M. Mustafa, H. A. Tchelepi, P. Marcus, M. Prabhat, and A. Anandkumar, “Meshfreeflownet: A physics-constrained deep continuous space-time super-resolution framework,” in SC20: International Conference for High Performance Computing, Networking, Storage and Analysis . IEEE, Nov. 2020, p. 1–15. [Online]. Available: http://dx.doi.org/10.1109/SC41405.2020.00013 [15] V. Sitzmann, J. N. Martel, A. W. Bergman, D. B. Lindell, and G. Wetzstein, “Implicit neural representations with periodic activation functions,” in Proc. NeurIPS , 2020. [16] R. Patel, C.-W. Hsing, S. Sahin, S. S. Jahromi, S. Palmer, S. Sharma, C. Michel, V. Porte, M. Abid, S. Aubert, P. Castellani, C.-G. Lee, S. Mugel, and R. Orus, “Quantum-inspired tensor neural networks for partial differential equations,” 2022. [Online]. Available: https://arxiv.org/abs/2208.02235 [17] S. Cuomo, V. S. Di Cola, F. Giampaolo, G. Rozza, M. Raissi, and F. Piccialli, “Scientific machine learning through physics–informed neural networks: Where we are and what’s next,” Journal of Scientific Computing , vol. 92, no. 3, Jul. 2022. [Online]. Available: http://dx.doi.org/10.1007/s10915-022-01939-z [18] J. Donnelly, A. Daneshkhah, and S. Abolfathi, “Physics-informed neural networks as surrogate models of hydrodynamic simulators,” 
+
+Science of The Total Environment , vol. 912, p. 168814, Feb. 2024. [Online]. Available: http://dx.doi.org/10.1016/j.scitotenv.2023.168814 [19] X.-X. Chen, P. Zhang, and Z.-Y. Yin, “Physics-informed neural network solver for numerical analysis in geoengineering,” Georisk: Assessment and Management of Risk for Engineered Systems and Geohazards , vol. 18, no. 1, p. 33–51, Jan. 2024. [Online]. Available: http://dx.doi.org/10.1080/17499518.2024.2315301 [20] M. Raissi, P. Perdikaris, and G. Karniadakis, “Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations,” Journal of Computational Physics , vol. 378, p. 686–707, Feb. 2019. [Online]. Available: http://dx.doi.org/10.1016/j.jcp.2018.10.045 [21] J. Yu, L. Lu, X. Meng, and G. E. Karniadakis, “Gradient-enhanced physics-informed neural networks for forward and inverse pde problems,” Computer Methods in Applied Mechanics and Engineering , vol. 393, p. 114823, Apr. 2022. [Online]. Available: http://dx.doi.org/10.1016/j.cma.2022.114823 [22] L. Lu, P. Jin, G. Pang, Z. Zhang, and G. E. Karniadakis, “Learning nonlinear operators via deeponet based on the universal approximation theorem of operators,” Nature Machine Intelligence , vol. 3, no. 3, p. 218–229, Mar. 2021. [Online]. Available: http://dx.doi.org/10.1038/s42256-021-00302-5 [23] N. Kovachki, Z. Li, B. Liu, K. Azizzadenesheli, K. Bhattacharya, A. Stuart, and A. Anandkumar, “Neural operator: Learning maps between function spaces with applications to pdes,” Journal of Machine Learning Research , vol. 24, no. 89, pp. 1–97, 2023. [Online]. Available: http://jmlr.org/papers/v24/21-1524.html [24] S.-K. Oh and W. Pedrycz, “The design of self-organizing polynomial neural networks,” Information Sciences , vol. 141, no. 3–4, p. 237–258, Apr. 2002. [Online]. Available: http://dx.doi.org/10.1016/S0020-0255(02)00175-5 [25] C.-K. Li, “A sigma-pi-sigma neural network (spsnn),” Neural Processing Letters , vol. 17, no. 1, p. 1–19, Feb. 2003. [Online]. Available: http://dx.doi.org/10.1023/A:1022967523886 [26] G. Chrysos, S. Moschoglou, G. Bouritsas, Y. Panagakis, J. Deng, and S. Zafeiriou, “ π−nets: Deep polynomial neural networks,” in 
+
+Conference on Computer Vision and Pattern Recognition (CVPR) , 2020, pp. 7325–7335. [27] J. Kileel, M. Trager, and J. Bruna, “On the expressive power of deep polynomial neural networks,” in Advances in Neural Information Processing Systems , H. Wallach, H. Larochelle, A. Beygelzimer, F. d'Alch´ e-Buc, E. Fox, and R. Garnett, Eds., vol. 32. Curran Associates, Inc., 2019. [28] Z. Liu, Y. Wang, S. Vaidya, F. Ruehle, J. Halverson, M. Soljacic, T. Y. Hou, and M. Tegmark, “KAN: Kolmogorov–arnold networks,” in The Thirteenth International Conference on Learning Representations , 2025. [Online]. Available: https: //openreview.net/forum?id=Ozo7qJ5vZi
