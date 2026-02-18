@@ -9,28 +9,26 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-02-17
-- 运行时间：2026-02-17 19:37:34 UTC
+- 最新运行日期：2026-02-18
+- 运行时间：2026-02-18 19:35:45 UTC
 - 运行状态：成功
-- 本次总论文数：6
-- 精读区：1
-- 速读区：5
-- 详情：[/202602/17/README](/202602/17/README)
+- 本次总论文数：5
+- 精读区：3
+- 速读区：2
+- 详情：[/202602/18/README](/202602/18/README)
 
 ### 精读区论文标签
-1. [Parameter-Minimal Neural DE Solvers via Horner Polynomials](/202602/17/2602.14737v1-parameter-minimal-neural-de-solvers-via-horner-polynomials)  
+1. [Learning the S-matrix from data: Rediscovering gravity from gauge theory via symbolic regression](/202602/18/2602.15169v1-learning-the-s-matrix-from-data-rediscovering-gravity-from-gauge-theory-via-symbolic-regression)  
+   标签：keyword:SR、query:SR
+2. [Symbolic recovery of PDEs from measurement data](/202602/18/2602.15603v1-symbolic-recovery-of-pdes-from-measurement-data)  
+   标签：keyword:SR、query:SR
+3. [Physics-informed data-driven inference of an interpretable equivariant LES model of incompressible fluid turbulence](/202602/18/2602.15743v1-physics-informed-data-driven-inference-of-an-interpretable-equivariant-les-model-of-incompressible-fluid-turbulence)  
    标签：keyword:SR、query:SR
 
 ### 速读区论文标签
-1. [Evolving Multi-Channel Confidence-Aware Activation Functions for Missing Data with Channel Propagation](/202602/17/2602.13864v1-evolving-multi-channel-confidence-aware-activation-functions-for-missing-data-with-channel-propagation)  
+1. [A Quantum Genetic Algorithm with application to Cosmological Parameters Estimation](/202602/18/2602.15459v1-a-quantum-genetic-algorithm-with-application-to-cosmological-parameters-estimation)  
    标签：keyword:SR、query:SR
-2. [From Classical to Quantum: Extending Prometheus for Unsupervised Discovery of Phase Transitions in Three Dimensions and Quantum Systems](/202602/17/2602.14928v1-from-classical-to-quantum-extending-prometheus-for-unsupervised-discovery-of-phase-transitions-in-three-dimensions-and-quantum-systems)  
-   标签：keyword:SR、query:SR
-3. [KoopGen: Koopman Generator Networks for Representing and Predicting Dynamical Systems with Continuous Spectra](/202602/17/2602.14011v1-koopgen-koopman-generator-networks-for-representing-and-predicting-dynamical-systems-with-continuous-spectra)  
-   标签：keyword:SR、query:SR
-4. [Pseudo-differential-enhanced physics-informed neural networks](/202602/17/2602.14663v1-pseudo-differential-enhanced-physics-informed-neural-networks)  
-   标签：keyword:SR、query:SR
-5. [BEACONS: Bounded-Error, Algebraically-Composable Neural Solvers for Partial Differential Equations](/202602/17/2602.14853v1-beacons-bounded-error-algebraically-composable-neural-solvers-for-partial-differential-equations)  
+2. [Controlled oscillation modeling using port-Hamiltonian neural networks](/202602/18/2602.15704v1-controlled-oscillation-modeling-using-port-hamiltonian-neural-networks)  
    标签：keyword:SR、query:SR
 
 
