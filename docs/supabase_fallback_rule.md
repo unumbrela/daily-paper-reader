@@ -9,7 +9,7 @@
 3. 若 Supabase 查询失败或返回 0 条：
    - 回退到本地 arXiv 抓取流程。
 
-维护者同步到 Supabase 时，会同时写入 `embedding`、`embedding_model`、`embedding_dim`、`embedding_updated_at`（用于后续向量检索）。
+在 `maintainer mode` 下同步到 Supabase 时，会同时写入 `embedding`、`embedding_model`、`embedding_dim`、`embedding_updated_at`（用于后续向量检索）。
 
 配置入口：
 
@@ -20,7 +20,7 @@
   - `supabase.anon_key`
   - `supabase.papers_table`
 
-## Workflow 自动分流（单仓库双模式）
+## Workflow 自动分流（`maintainer mode` / `user mode`）
 
 `daily-paper-reader.yml` 现已按密钥自动分流：
 
