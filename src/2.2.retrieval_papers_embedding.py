@@ -17,6 +17,7 @@ import numpy as np
 
 from filter import EmbeddingCoarseFilter, encode_queries
 from subscription_plan import build_pipeline_inputs
+from supabase_source import get_supabase_read_config, match_papers_by_embedding
 
 
 # 当前脚本位于 src/ 下，config.yaml 在上一级目录
@@ -295,6 +296,85 @@ def rank_papers_for_queries(
   }
 
 
+def rank_papers_for_queries_via_supabase(
+  model,
+  queries: List[dict],
+  top_k: int,
+  supabase_conf: Dict[str, Any],
+) -> dict:
+  if not queries:
+    return {"queries": [], "papers": {}, "total_hits": 0}
+
+  url = str(supabase_conf.get("url") or "").strip()
+  api_key = str(supabase_conf.get("anon_key") or "").strip()
+  rpc_name = str(supabase_conf.get("vector_rpc") or "match_arxiv_papers").strip()
+  if not url or not api_key:
+    return {"queries": [], "papers": {}, "total_hits": 0}
+
+  q_texts = [str(q.get("query_text") or "").strip() for q in queries]
+  q_embs = encode_queries(model, q_texts)
+
+  id_to_paper: Dict[str, Paper] = {}
+  results_per_query: List[dict] = []
+  total_hits = 0
+
+  for idx, q in enumerate(queries):
+    q_text = str(q.get("query_text") or "").strip()
+    paper_tag = str(q.get("paper_tag") or "").strip()
+    if not q_text:
+      continue
+
+    q_vec = q_embs[idx]
+    rows, msg = match_papers_by_embedding(
+      url=url,
+      api_key=api_key,
+      rpc_name=rpc_name,
+      query_embedding=q_vec.tolist(),
+      match_count=max(int(top_k or 1), 1),
+    )
+    log(f"[Supabase Vector] {msg} | tag={q.get('tag') or ''}")
+
+    sim_scores: Dict[str, Dict[str, float | int]] = {}
+    for rank_idx, row in enumerate(rows, start=1):
+      pid = str(row.get("id") or "").strip()
+      if not pid:
+        continue
+      score = float(row.get("similarity") or 0.0)
+      sim_scores[pid] = {"score": score, "rank": rank_idx}
+      total_hits += 1
+
+      if pid not in id_to_paper:
+        id_to_paper[pid] = Paper(
+          id=pid,
+          source=str(row.get("source") or "supabase").strip() or "supabase",
+          title=str(row.get("title") or "").strip(),
+          abstract=str(row.get("abstract") or "").strip(),
+          authors=[str(a) for a in (row.get("authors") or [])],
+          primary_category=str(row.get("primary_category") or "") or None,
+          categories=[str(c) for c in (row.get("categories") or [])],
+          published=str(row.get("published") or "") or None,
+          link=str(row.get("link") or "") or None,
+        )
+      if paper_tag:
+        id_to_paper[pid].tags.add(paper_tag)
+
+    results_per_query.append(
+      {
+        "type": q.get("type"),
+        "tag": q.get("tag"),
+        "paper_tag": q.get("paper_tag"),
+        "query_text": q_text,
+        "sim_scores": sim_scores,
+      }
+    )
+
+  return {
+    "queries": results_per_query,
+    "papers": id_to_paper,
+    "total_hits": total_hits,
+  }
+
+
 def save_tagged_results(
   result: dict,
   output_path: str,
@@ -391,11 +471,17 @@ def main() -> None:
     default="cpu",
     help="向量模型运行设备，例如 cuda 或 cpu（默认 cpu）。",
   )
+  parser.add_argument(
+    "--disable-supabase-vector",
+    action="store_true",
+    help="关闭 Supabase 向量召回，强制使用本地 embedding 检索。",
+  )
 
   args = parser.parse_args()
 
   config = load_config()
   pipeline_inputs = build_pipeline_inputs(config)
+  supabase_conf = get_supabase_read_config(config)
   queries = pipeline_inputs.get("embedding_queries") or []
   comparison = pipeline_inputs.get("comparison") or {}
   if comparison:
@@ -446,32 +532,59 @@ def main() -> None:
     # 更新粗筛器的 top_k
     coarse_filter.top_k = dynamic_top_k
 
-    # 1) 优先使用 Supabase 下发的论文 embedding（本地仅算 query embedding）；
-    #    若缺失/不一致，再回退本地重算论文 embedding。
-    paper_embeddings = try_use_precomputed_embeddings(papers, expected_model=args.model)
-    if paper_embeddings is not None:
-      group_start(f"Step 2.2 - use precomputed embeddings ({os.path.basename(input_path)})")
-      log(
-        f"[INFO] 使用预置论文 embedding：{paper_embeddings.shape[0]} 篇，"
-        f"dim={paper_embeddings.shape[1]}。"
+    result: Optional[dict] = None
+    supabase_enabled = (
+      bool(supabase_conf.get("enabled"))
+      and bool(supabase_conf.get("use_vector_rpc"))
+      and not bool(args.disable_supabase_vector)
+    )
+
+    # 1) 优先数据库侧向量召回（Supabase pgvector RPC）
+    if supabase_enabled:
+      group_start(f"Step 2.2 - supabase vector recall ({os.path.basename(input_path)})")
+      try:
+        result_sb = rank_papers_for_queries_via_supabase(
+          model=coarse_filter.model,
+          queries=queries,
+          top_k=dynamic_top_k,
+          supabase_conf=supabase_conf,
+        )
+        total_hits = int(result_sb.get("total_hits") or 0)
+        if total_hits > 0:
+          log(f"[INFO] Supabase 向量召回命中 {total_hits} 条，采用数据库召回结果。")
+          result = result_sb
+        else:
+          log("[WARN] Supabase 向量召回无命中，将回退本地 embedding 检索。")
+      except Exception as e:
+        log(f"[WARN] Supabase 向量召回异常，将回退本地 embedding 检索：{e}")
+      finally:
+        group_end()
+
+    # 2) 回退：本地 embedding 检索（保留原有逻辑）
+    if result is None:
+      paper_embeddings = try_use_precomputed_embeddings(papers, expected_model=args.model)
+      if paper_embeddings is not None:
+        group_start(f"Step 2.2 - use precomputed embeddings ({os.path.basename(input_path)})")
+        log(
+          f"[INFO] 使用预置论文 embedding：{paper_embeddings.shape[0]} 篇，"
+          f"dim={paper_embeddings.shape[1]}。"
+        )
+        group_end()
+      else:
+        group_start(f"Step 2.2 - compute embeddings ({os.path.basename(input_path)})")
+        coarse_result = coarse_filter.filter(items=papers, queries=queries)
+        group_end()
+        paper_embeddings = coarse_result["embeddings"]
+
+      group_start(f"Step 2.2 - rank queries ({os.path.basename(input_path)})")
+      result = rank_papers_for_queries(
+        model=coarse_filter.model,
+        papers=papers,
+        paper_embeddings=paper_embeddings,
+        queries=queries,
+        top_k=dynamic_top_k,
       )
       group_end()
-    else:
-      group_start(f"Step 2.2 - compute embeddings ({os.path.basename(input_path)})")
-      coarse_result = coarse_filter.filter(items=papers, queries=queries)
-      group_end()
-      paper_embeddings = coarse_result["embeddings"]
-
-    # 2) 再用当前文件中的 rank_papers_for_queries 做「打 tag + 生成 top_ids」
-    group_start(f"Step 2.2 - rank queries ({os.path.basename(input_path)})")
-    result = rank_papers_for_queries(
-      model=coarse_filter.model,
-      papers=papers,
-      paper_embeddings=paper_embeddings,
-      queries=queries,
-      top_k=dynamic_top_k,
-    )
-    group_end()
 
     save_tagged_results(result, output_path)
 

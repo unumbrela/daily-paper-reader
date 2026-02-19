@@ -278,7 +278,14 @@ def build_scored_papers(papers: List[Dict[str, Any]], llm_ranked: List[Dict[str,
         paper["llm_tldr_en"] = tldr_en
         paper["llm_tldr_cn"] = tldr_cn or tldr_en
         paper["llm_tldr"] = paper["llm_tldr_cn"]
-        paper["llm_tags"] = normalize_tags(item.get("tags"))
+        tags = normalize_tags(item.get("tags"))
+        matched_query_tag = str(item.get("matched_query_tag") or "").strip()
+        if matched_query_tag and matched_query_tag not in tags:
+            tags.append(matched_query_tag)
+        paper["llm_tags"] = tags
+        paper["matched_query_tag"] = matched_query_tag
+        paper["matched_query_text"] = str(item.get("matched_query_text") or "").strip()
+        paper["matched_requirement_id"] = str(item.get("matched_requirement_id") or "").strip()
         merged[pid] = paper
 
     return list(merged.values())

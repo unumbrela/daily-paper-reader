@@ -600,14 +600,15 @@ def build_glance_fallback(paper: Dict[str, Any]) -> str:
 
 def build_tags_html(section: str, llm_tags: List[str]) -> str:
     tags_html: List[str] = []
-    # keyword:SR 与 query:SR 这种“同名不同来源”的标签需要同时展示，
-    # 因此去重 key 必须包含 kind，而不是只看 label。
+    # 新链路按 query 标签展示；历史 keyword:* 统一折叠为 query:*，避免重复。
     seen = set()
     for tag in llm_tags:
         raw = str(tag).strip()
         if not raw:
             continue
         kind, label = split_sidebar_tag(raw)
+        if kind == "keyword":
+            kind = "query"
         label = (label or "").strip()
         if not label:
             continue
@@ -616,12 +617,8 @@ def build_tags_html(section: str, llm_tags: List[str]) -> str:
             continue
         seen.add(dedup_key)
 
-        # 使用“面板”里的配色语义：
-        # - keyword: 绿色
-        # - query:   蓝色
-        # - paper:   紫色（预留）
+        # 前台主标签统一使用 query（蓝色），paper 为预留类型。
         css = {
-            "keyword": "tag-green",
             "query": "tag-blue",
             "paper": "tag-pink",
         }.get(kind, "tag-pink")
@@ -900,16 +897,16 @@ def extract_sidebar_tags(paper: Dict[str, Any], max_tags: int = 6) -> List[Tuple
     if isinstance(paper.get("llm_tags"), list):
         raw.extend([str(t) for t in (paper.get("llm_tags") or [])])
 
-    # keyword:SR 与 query:SR 这种“同名不同来源”的标签需要同时展示，
-    # 因此去重 key 必须包含 kind，而不是只看 label。
+    # 历史 keyword:* 统一折叠到 query:*，避免同名重复。
     seen_labels = set()
-    kw: List[Tuple[str, str]] = []
     q: List[Tuple[str, str]] = []
     paper_tags: List[Tuple[str, str]] = []
     other: List[Tuple[str, str]] = []
 
     for t in raw:
         kind, label = split_sidebar_tag(t)
+        if kind == "keyword":
+            kind = "query"
         label = (label or "").strip()
         if not label:
             continue
@@ -917,9 +914,7 @@ def extract_sidebar_tags(paper: Dict[str, Any], max_tags: int = 6) -> List[Tuple
         if dedup_key in seen_labels:
             continue
         seen_labels.add(dedup_key)
-        if kind == "keyword":
-            kw.append((kind, label))
-        elif kind == "query":
+        if kind == "query":
             q.append((kind, label))
         elif kind == "paper":
             paper_tags.append((kind, label))
@@ -929,8 +924,8 @@ def extract_sidebar_tags(paper: Dict[str, Any], max_tags: int = 6) -> List[Tuple
         if max_tags > 0 and len(seen_labels) >= max_tags:
             break
 
-    # 展示顺序：评分 -> 关键词 -> 智能订阅(query) -> 论文引用(paper) -> 其它
-    tags = kw + q + paper_tags + other
+    # 展示顺序：评分 -> query -> 论文引用(paper) -> 其它
+    tags = q + paper_tags + other
     return [("score", build_sidebar_stars_html(paper.get("llm_score")))] + tags
 
 
@@ -1075,6 +1070,8 @@ def build_tags_list(section: str, llm_tags: List[str]) -> List[str]:
         if not raw:
             continue
         kind, label = split_sidebar_tag(raw)
+        if kind == "keyword":
+            kind = "query"
         label = (label or "").strip()
         if not label:
             continue

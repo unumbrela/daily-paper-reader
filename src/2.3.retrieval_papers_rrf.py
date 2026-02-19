@@ -45,18 +45,15 @@ def save_json(data: Dict[str, Any], path: str) -> None:
   log(f"[INFO] 已写入融合结果：{path}")
 
 
-def make_query_key(q: Dict[str, Any]) -> Tuple[str, str]:
+def make_query_key(q: Dict[str, Any]) -> Tuple[str, str, str]:
   """
   生成用于对齐 BM25 / Embedding 查询的稳定键。
-  优先使用 paper_tag（同一意图在 2.1/2.2 里一致），再退回 tag / query_text。
+  需要同时保留 paper_tag + query_text，避免“同 tag 的多条语义 query”被覆盖。
   """
   q_type = str(q.get("type") or "")
-  key_text = (
-    str(q.get("paper_tag") or "")
-    or str(q.get("tag") or "")
-    or str(q.get("query_text") or "")
-  )
-  return (q_type, key_text)
+  paper_tag = str(q.get("paper_tag") or q.get("tag") or "")
+  query_text = str(q.get("query_text") or "")
+  return (q_type, paper_tag, query_text)
 
 
 def normalize_rank_list(sim_scores: Any) -> List[Tuple[str, int]]:
@@ -214,7 +211,7 @@ def main() -> None:
   bm25_map = {make_query_key(q): q for q in bm25_queries}
   emb_map = {make_query_key(q): q for q in emb_queries}
 
-  all_keys = list({*bm25_map.keys(), *emb_map.keys()})
+  all_keys = sorted({*bm25_map.keys(), *emb_map.keys()})
   log(f"[INFO] RRF keys={len(all_keys)} | bm25_queries={len(bm25_queries)} | emb_queries={len(emb_queries)}")
 
   group_start("Step 2.3 - merge papers")
@@ -230,10 +227,10 @@ def main() -> None:
     bm25_q = bm25_map.get(key) or {}
     emb_q = emb_map.get(key) or {}
 
-    q_type, q_key_text = key
-    if not q_key_text:
+    q_type, q_key_tag, q_key_text = key
+    if not q_key_text and not q_key_tag:
       continue
-    log(f"[INFO] fuse {idx}/{len(all_keys)} type={q_type} key={q_key_text}")
+    log(f"[INFO] fuse {idx}/{len(all_keys)} type={q_type} key={q_key_tag} | text={q_key_text[:80]}")
     q_tag = bm25_q.get("tag") or emb_q.get("tag") or ""
     q_paper_tag = bm25_q.get("paper_tag") or emb_q.get("paper_tag") or ""
     q_text = bm25_q.get("query_text") or emb_q.get("query_text") or ""

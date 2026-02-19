@@ -20,10 +20,17 @@ class SupabaseInitAndSyncTest(unittest.TestCase):
         root = pathlib.Path(__file__).resolve().parents[1]
         src_dir = root / "src"
         try:
-            cls.init_mod = _load_module(
+            init_mod = _load_module(
                 "init_supabase_mod",
                 src_dir / "1.3.init_supabase_from_arxiv.py",
             )
+            # 兼容“入口包装脚本”场景：真实实现可能位于中文命名文件
+            if not hasattr(init_mod, "resolve_date_token") or not hasattr(init_mod, "find_latest_raw_file"):
+                init_mod = _load_module(
+                    "init_supabase_real_mod",
+                    src_dir / "1.3.初始化一个月的内容上传supabase.py",
+                )
+            cls.init_mod = init_mod
             cls.sync_mod = _load_module(
                 "sync_supabase_mod",
                 src_dir / "1.2.sync_supabase_public.py",

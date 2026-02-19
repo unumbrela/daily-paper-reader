@@ -23,12 +23,15 @@ def get_supabase_read_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
     enabled = bool(sb.get("enabled", False))
     prefer_read = bool(setting.get("prefer_supabase_read", True))
+    use_vector_rpc = bool(sb.get("use_vector_rpc", False))
     return {
         "enabled": enabled and prefer_read,
+        "use_vector_rpc": use_vector_rpc,
         "url": _norm(sb.get("url")),
         "anon_key": _norm(sb.get("anon_key")),
         "papers_table": _norm(sb.get("papers_table") or "arxiv_papers"),
         "schema": _norm(sb.get("schema") or "public"),
+        "vector_rpc": _norm(sb.get("vector_rpc") or "match_arxiv_papers"),
     }
 
 
@@ -92,28 +95,83 @@ def fetch_recent_papers(
     safe_days = max(int(days_window or 1), 1)
     end_dt = datetime.now(timezone.utc)
     start_dt = end_dt - timedelta(days=safe_days)
+    return fetch_papers_by_date_range(
+        url=url,
+        api_key=api_key,
+        papers_table=papers_table,
+        start_dt=start_dt,
+        end_dt=end_dt,
+        schema=schema,
+        timeout=timeout,
+        max_rows=max_rows,
+    )
+
+
+def fetch_papers_by_date_range(
+    *,
+    url: str,
+    api_key: str,
+    papers_table: str,
+    start_dt: datetime,
+    end_dt: datetime,
+    schema: str = "public",
+    timeout: int = DEFAULT_TIMEOUT,
+    max_rows: int = 20000,
+) -> Tuple[List[Dict[str, Any]], str]:
+    """
+    按明确时间区间拉取论文：
+    - published >= start_dt
+    - published < end_dt
+    """
+    if start_dt.tzinfo is None:
+        start_dt = start_dt.replace(tzinfo=timezone.utc)
+    if end_dt.tzinfo is None:
+        end_dt = end_dt.replace(tzinfo=timezone.utc)
+    start_dt = start_dt.astimezone(timezone.utc)
+    end_dt = end_dt.astimezone(timezone.utc)
+    if end_dt <= start_dt:
+        return ([], "时间窗口非法：end_dt <= start_dt")
+
     # 避免 +00:00 在 URL 中被当成空格，统一转 Z 并编码
-    start_iso = start_dt.isoformat().replace("+00:00", "Z")
-    start_iso_q = quote(start_iso, safe="")
+    start_iso_q = quote(start_dt.isoformat().replace("+00:00", "Z"), safe="")
+    end_iso_q = quote(end_dt.isoformat().replace("+00:00", "Z"), safe="")
 
     rest = _base_rest_url(url, schema)
-    endpoint = (
-        f"{rest}/{papers_table}"
-        f"?select=id,title,abstract,authors,primary_category,categories,published,link,source,"
-        f"embedding,embedding_model,embedding_dim,embedding_updated_at"
-        f"&published=gte.{start_iso_q}"
-        f"&order=published.desc"
-        f"&limit={int(max_rows)}"
-    )
+    per_page = min(max(int(max_rows or 1), 1), 1000)
+    fetched = 0
+    offset = 0
+    all_rows: List[Dict[str, Any]] = []
     try:
-        resp = requests.get(endpoint, headers=_build_headers(api_key), timeout=timeout)
-        if resp.status_code >= 300:
-            return ([], f"papers 查询失败：HTTP {resp.status_code} {resp.text[:200]}")
-        rows = resp.json() or []
-        if not isinstance(rows, list):
-            return ([], "papers 查询结果格式异常")
+        while fetched < int(max_rows):
+            page_limit = min(per_page, int(max_rows) - fetched)
+            endpoint = (
+                f"{rest}/{papers_table}"
+                f"?select=id,title,abstract,authors,primary_category,categories,published,link,source,"
+                f"embedding,embedding_model,embedding_dim,embedding_updated_at"
+                f"&published=gte.{start_iso_q}"
+                f"&published=lt.{end_iso_q}"
+                f"&order=published.desc"
+                f"&limit={int(page_limit)}"
+                f"&offset={int(offset)}"
+            )
+            resp = requests.get(endpoint, headers=_build_headers(api_key), timeout=timeout)
+            if resp.status_code >= 300:
+                return ([], f"papers 查询失败：HTTP {resp.status_code} {resp.text[:200]}")
+            rows = resp.json() or []
+            if not isinstance(rows, list):
+                return ([], "papers 查询结果格式异常")
+            if not rows:
+                break
+            all_rows.extend(rows)
+            got = len(rows)
+            fetched += got
+            offset += got
+            # 最后一页（不足页大小）即可结束
+            if got < page_limit:
+                break
+
         out: List[Dict[str, Any]] = []
-        for r in rows:
+        for r in all_rows:
             if not isinstance(r, dict):
                 continue
             pid = _norm(r.get("id"))
@@ -141,6 +199,82 @@ def fetch_recent_papers(
                     "embedding_updated_at": _norm(r.get("embedding_updated_at")),
                 }
             )
-        return (out, f"papers 查询成功：{len(out)} 条")
+        return (
+            out,
+            f"papers 查询成功：{len(out)} 条（分页，offset 到 {offset}，window={start_dt.isoformat()}~{end_dt.isoformat()}）",
+        )
     except Exception as e:
         return ([], f"papers 查询异常：{e}")
+
+
+def match_papers_by_embedding(
+    *,
+    url: str,
+    api_key: str,
+    rpc_name: str,
+    query_embedding: List[float],
+    match_count: int,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> Tuple[List[Dict[str, Any]], str]:
+    """
+    调用 Supabase RPC，在数据库侧执行向量相似度检索。
+    约定 RPC 参数：
+      - query_embedding: vector(N)
+      - match_count: int
+    """
+    safe_rpc = _norm(rpc_name)
+    if not safe_rpc:
+        safe_rpc = "match_arxiv_papers"
+    vec = [float(x) for x in (query_embedding or [])]
+    if not vec:
+        return ([], "query embedding 为空")
+    k = max(int(match_count or 1), 1)
+    endpoint = f"{_base_rest_url(url, 'public')}/rpc/{safe_rpc}"
+    payload = {
+        "query_embedding": vec,
+        "match_count": k,
+    }
+    try:
+        resp = requests.post(
+            endpoint,
+            headers={
+                **_build_headers(api_key),
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=max(int(timeout or DEFAULT_TIMEOUT), 1),
+        )
+        if resp.status_code >= 300:
+            return ([], f"rpc 查询失败：HTTP {resp.status_code} {resp.text[:200]}")
+        rows = resp.json() or []
+        if not isinstance(rows, list):
+            return ([], "rpc 查询结果格式异常")
+        out: List[Dict[str, Any]] = []
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            pid = _norm(r.get("id"))
+            if not pid:
+                continue
+            sim = r.get("similarity")
+            try:
+                sim_f = float(sim)
+            except Exception:
+                sim_f = 0.0
+            out.append(
+                {
+                    "id": pid,
+                    "title": _norm(r.get("title")),
+                    "abstract": _norm(r.get("abstract")),
+                    "published": _norm(r.get("published")) or None,
+                    "link": _norm(r.get("link")) or None,
+                    "authors": r.get("authors") if isinstance(r.get("authors"), list) else [],
+                    "primary_category": _norm(r.get("primary_category")) or None,
+                    "categories": r.get("categories") if isinstance(r.get("categories"), list) else [],
+                    "source": "supabase",
+                    "similarity": sim_f,
+                }
+            )
+        return (out, f"rpc 查询成功：{len(out)} 条")
+    except Exception as e:
+        return ([], f"rpc 查询异常：{e}")

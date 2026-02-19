@@ -148,16 +148,27 @@ def process_file(
 ) -> None:
   data = load_json(input_path)
   papers_list = data.get("papers") or []
-  queries = data.get("queries") or []
-  if not papers_list or not queries:
+  all_queries = data.get("queries") or []
+  if not papers_list or not all_queries:
     log(f"[WARN] 文件 {os.path.basename(input_path)} 中缺少 papers 或 queries，跳过。")
+    return
+
+  # 仅使用 semantic query（llm_query）进行 rerank。
+  queries = [q for q in all_queries if str(q.get("type") or "").strip().lower() == "llm_query"]
+  if not queries:
+    log("[WARN] 当前输入中没有 llm_query，跳过 rerank。")
+    # 保持输出结构一致，避免后续步骤读不到文件
+    meta_generated_at = data.get("generated_at") or ""
+    data["reranked_at"] = datetime.utcnow().isoformat()
+    data["generated_at"] = meta_generated_at
+    save_json(data, output_path)
     return
 
   papers_by_id = {str(p.get("id")): p for p in papers_list if p.get("id")}
   encoder = build_token_encoder()
   group_start(f"Step 3 - rerank {os.path.basename(input_path)}")
   log(
-    f"[INFO] 开始 rerank：queries={len(queries)}，papers={len(papers_list)}，"
+    f"[INFO] 开始 rerank：queries={len(queries)}（仅 llm_query），papers={len(papers_list)}，"
     f"batch_size={BATCH_SIZE}，max_chars={MAX_CHARS_PER_DOC}，token_safety={TOKEN_SAFETY}"
   )
 

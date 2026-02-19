@@ -4,9 +4,10 @@ import argparse
 import json
 import os
 import random
+import re
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from llm import BltClient
 from subscription_plan import build_pipeline_inputs
@@ -81,47 +82,84 @@ def unique_tagged(items: List[Dict[str, str]], tag_key: str = "tag") -> List[Dic
     return result
 
 
-def build_context_lists(
+def _slug(text: str, fallback: str = "query") -> str:
+    raw = str(text or "").strip().lower()
+    raw = re.sub(r"[^a-z0-9]+", "-", raw)
+    raw = re.sub(r"-+", "-", raw).strip("-")
+    return raw or fallback
+
+
+def _normalize_query_tag(raw_tag: str, query_text: str, idx: int) -> str:
+    text = str(raw_tag or "").strip()
+    if text.startswith("query:"):
+        base = text.split(":", 1)[1].strip()
+        return f"query:{_slug(base, fallback=f'q{idx}')}"
+    if text:
+        return f"query:{_slug(text, fallback=f'q{idx}')}"
+    return f"query:{_slug(query_text, fallback=f'q{idx}')}"
+
+
+def build_user_requirements(
     config: Dict[str, Any],
     fallback_queries: List[Dict[str, Any]],
-) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
-    keywords: List[Dict[str, str]] = []
-    queries: List[Dict[str, str]] = []
+) -> List[Dict[str, str]]:
+    """
+    统一的用户需求列表（不区分 keyword/query 概念）：
+    - 仅保留 query_text/semantic query 语义
+    - 为每条需求生成英文描述，供 Step4 评分 prompt 使用
+    """
+    requirements: List[Dict[str, str]] = []
+    seen = set()
 
-    # 优先读取新结构（intent_profiles）统一编译后的上下文
     pipeline_inputs = build_pipeline_inputs(config or {})
-    for item in pipeline_inputs.get("context_keywords") or []:
-        tag = (item.get("tag") or "").strip()
-        keyword = (item.get("keyword") or "").strip()
-        logic_cn = (item.get("logic_cn") or "").strip()
-        if tag and keyword:
-            keywords.append({"tag": tag, "keyword": keyword, "logic_cn": logic_cn})
     for item in pipeline_inputs.get("context_queries") or []:
-        tag = (item.get("tag") or "").strip()
-        query_text = (item.get("query") or "").strip()
-        logic_cn = (item.get("logic_cn") or "").strip()
-        if tag and query_text:
-            queries.append({"tag": tag, "query": query_text, "logic_cn": logic_cn})
+        text = (item.get("query") or "").strip()
+        if not text:
+            continue
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        tag = _normalize_query_tag(
+            str(item.get("tag") or "").strip(),
+            text,
+            len(requirements) + 1,
+        )
+        requirements.append(
+            {
+                "id": f"req-{len(requirements) + 1}",
+                "query": text,
+                "tag": tag,
+                "description_en": f"Find papers relevant to this user requirement: {text}",
+            }
+        )
 
-    if not keywords:
+    if not requirements:
         for q in fallback_queries:
-            if (q.get("type") or "") != "keyword":
+            q_type = str(q.get("type") or "").strip().lower()
+            if q_type and q_type != "llm_query":
                 continue
             text = (q.get("query_text") or "").strip()
-            if text:
-                tag_label = (q.get("tag") or text).strip()
-                keywords.append({"tag": f"keyword:{tag_label}", "keyword": text})
-
-    if not queries:
-        for q in fallback_queries:
-            if (q.get("type") or "") != "llm_query":
+            if not text:
                 continue
-            text = (q.get("query_text") or "").strip()
-            if text:
-                tag_label = (q.get("tag") or text).strip()
-                queries.append({"tag": f"query:{tag_label}", "query": text})
-
-    return unique_tagged(keywords), unique_tagged(queries)
+            key = text.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            tag = _normalize_query_tag(
+                str(q.get("paper_tag") or q.get("tag") or "").strip(),
+                text,
+                len(requirements) + 1,
+            )
+            requirements.append(
+                {
+                    "id": f"req-{len(requirements) + 1}",
+                    "query": text,
+                    "tag": tag,
+                    "description_en": f"Find papers relevant to this user requirement: {text}",
+                }
+            )
+    return requirements
 
 
 def build_paper_map(papers: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -146,8 +184,7 @@ def chunk_list(items: List[Any], batch_size: int) -> List[List[Any]]:
 
 def call_filter(
     client: BltClient,
-    keywords: List[Dict[str, str]],
-    queries: List[Dict[str, str]],
+    all_requirements: List[Dict[str, str]],
     docs: List[Dict[str, str]],
     debug_dir: str,
     debug_tag: str,
@@ -185,21 +222,21 @@ def call_filter(
                     "type": "object",
                     "properties": {
                         "id": {"type": "string"},
+                        "matched_requirement_index": {"type": "integer"},
                         "evidence_en": {"type": "string"},
                         "evidence_cn": {"type": "string"},
                         "tldr_en": {"type": "string"},
                         "tldr_cn": {"type": "string"},
                         "score": {"type": "number"},
-                        "tags": {"type": "array", "items": {"type": "string"}},
                     },
                     "required": [
                         "id",
+                        "matched_requirement_index",
                         "evidence_en",
                         "evidence_cn",
                         "tldr_en",
                         "tldr_cn",
                         "score",
-                        "tags",
                     ],
                     "additionalProperties": False,
                 },
@@ -224,47 +261,57 @@ def call_filter(
 
     system_prompt = (
         "You are an intelligent Research Relevance Evaluator. "
-        "Score papers (0-10) based purely on relevance to the user's profile and queries. "
+        "Score papers (0-10) based purely on relevance to ANY item in user's requirement list. "
+        "Prioritize conceptual/method relevance over exact term overlap. "
         "Use the rubric and return JSON only."
     )
+    req_lines = []
+    for idx, req in enumerate(all_requirements, start=1):
+        desc = (req.get("description_en") or req.get("query") or "").strip()
+        req_tag = (req.get("tag") or "").strip()
+        if desc:
+            if req_tag:
+                req_lines.append(f"{idx}. {desc} [tag={req_tag}]")
+            else:
+                req_lines.append(f"{idx}. {desc}")
     user_prompt = (
-        "Context (packaged):\n"
-        f"KeywordsWithTags: {json.dumps(keywords, ensure_ascii=False)}\n"
-        f"QueriesWithTags: {json.dumps(queries, ensure_ascii=False)}\n\n"
-        "USER PROFILE (for reference):\n"
-        f"Long_Term_Interests = {json.dumps(keywords, ensure_ascii=False)}\n"
-        f"Current_Search_Queries = {json.dumps(queries, ensure_ascii=False)}\n\n"
+        "User requirements list:\n"
+        f"{chr(10).join(req_lines)}\n\n"
         "SCORING RUBRIC:\n"
-        "9-10: Perfect Match (directly answers a query and aligns with interests)\n"
-        "7-8: Domain Hit (strongly aligns with interests, slightly broader than query)\n"
-        "5-6: Methodological Bridge (transferable method/approach)\n"
+        "9-10: Direct Requirement Match (same problem target and same evaluation intent)\n"
+        "8-9: Strong Method Match (different wording but equivalent objective/technical core)\n"
+        "6-8: Methodological Bridge (transferable method/approach likely useful for requirement)\n"
         "3-4: Tangential (same broad discipline, weak link)\n"
         "0-2: Noise (irrelevant)\n\n"
         "GUARDRAILS:\n"
         "1) Beware of Polysemy: If a keyword is ambiguous, only match the sense that aligns with the user's intent.\n"
-        "2) Reject Literal Matching: Do NOT assign a tag just because the word appears; require conceptual relevance.\n\n"
+        "2) Reject Literal Matching: Do NOT score high just because the same word appears.\n"
+        "3) Reward Conceptual Equivalence: If wording differs but goals/methods are equivalent, score as high relevance.\n"
+        "4) Reward Enabling Methods: If a paper provides a generally applicable method/tool that directly supports requirement tasks, do not under-score it.\n"
+        "5) Be strict only when mismatch is substantive (different task objective, incompatible setting, or no reusable method).\n\n"
         "Papers:\n"
         f"{json.dumps(docs, ensure_ascii=False)}\n\n"
         "Output JSON format example:\n"
-        "{\"results\": [{\"id\": \"paper_id\", \"evidence_en\": \"short English phrase\", \"evidence_cn\": \"简短中文短语\", \"tldr_en\": \"one-sentence TLDR\", \"tldr_cn\": \"一句话 TLDR\", \"score\": 7, \"tags\": [\"tag1\", \"tag2\"]}]}\n\n"
+        "{\"results\": [{\"id\": \"paper_id\", \"matched_requirement_index\": 1, \"evidence_en\": \"short English phrase\", \"evidence_cn\": \"简短中文短语\", \"tldr_en\": \"one-sentence TLDR\", \"tldr_cn\": \"一句话 TLDR\", \"score\": 7}]}\n\n"
         "Requirement: You MUST return exactly one result for every input paper. "
         "The results length must match the papers length, and every input id must appear once.\n\n"
         "Output must be a single-line JSON string. "
         "Do not include line breaks inside any string fields. "
         "Avoid double quotes inside evidence text fields.\n\n"
-        "Task: Identify papers worth recommending, using divergent thinking. "
+        "Task: Evaluate papers against the WHOLE requirement list. "
+        "If a paper matches any one point, it can get a high score. "
+        "Set matched_requirement_index to the best-matched requirement (1-based). "
+        "Use semantic interpretation, not only lexical overlap, to decide relevance and score tier. "
         "Evidence must be provided in both languages: "
         "evidence_en (English) and evidence_cn (Chinese). "
-        "They should be short phrases linking the paper to the queries or interests; "
+        "They should be short phrases linking the paper to the matched requirement; "
         "they do NOT need to be direct quotes. "
         "Also generate TLDR in both languages: tldr_en and tldr_cn. "
         "TLDR should be one sentence summarizing what the paper does and why it matters. "
         "Keep TLDR concise: <= 120 characters in English and <= 60 Chinese characters. "
         "Then give a score (0-10). "
-        "Tags must be selected from the provided tags (use tag values only). "
-        "Tag values already include prefixes like \"keyword:\" or \"query:\", keep them as-is. "
         "If unrelated, use evidence_en=\"not relevant\", evidence_cn=\"不相关\", "
-        "tldr_en=\"not relevant\", tldr_cn=\"不相关\", score 0, and tags=[]."
+        "tldr_en=\"not relevant\", tldr_cn=\"不相关\", score 0, matched_requirement_index=0."
     )
 
     resp = client.chat(
@@ -320,7 +367,11 @@ def process_file(
         return
 
     config = load_config()
-    keywords, query_items = build_context_lists(config, queries)
+    user_requirements = build_user_requirements(config, queries)
+    if not user_requirements:
+        log("[WARN] no user requirements built from config/queries, skip.")
+        save_json(data, output_path)
+        return
     paper_map = build_paper_map(papers)
 
     api_key = os.getenv("BLT_API_KEY")
@@ -373,19 +424,19 @@ def process_file(
     batches = chunk_list(docs, batch_size)
     log(
         f"[INFO] global candidates={len(docs)} batches={len(batches)} "
-        f"| keywords={len(keywords)} queries={len(query_items)}"
+        f"| user_requirements={len(user_requirements)}"
     )
 
     merged: Dict[str, Dict[str, Any]] = {}
     debug_dir = os.path.join(RANKED_DIR, "debug")
+    requirement_by_index = {i + 1: r for i, r in enumerate(user_requirements)}
     for idx, batch in enumerate(batches, start=1):
         log(f"[INFO] filter batch {idx}/{len(batches)} docs={len(batch)}")
         try:
             results = call_filter(
                 filter_client,
-                keywords,
-                query_items,
-                batch,
+                all_requirements=user_requirements,
+                docs=batch,
                 debug_dir=debug_dir,
                 debug_tag=f"batch_{idx:03d}",
             )
@@ -411,16 +462,21 @@ def process_file(
             if not evidence_en:
                 evidence_en = legacy
             if not evidence_cn:
-                # 若模型未返回中文 evidence，则回退为英文（下游可再做翻译/展示策略）
                 evidence_cn = legacy or evidence_en
             if not tldr_en:
                 tldr_en = "not relevant" if score <= 0 else evidence_en
             if not tldr_cn:
                 tldr_cn = "不相关" if score <= 0 else (evidence_cn or tldr_en)
-            tags = item.get("tags")
-            if not isinstance(tags, list):
-                tags = []
-            tags = [str(t).strip() for t in tags if str(t).strip()]
+
+            try:
+                matched_idx = int(item.get("matched_requirement_index") or 0)
+            except Exception:
+                matched_idx = 0
+            matched_req = requirement_by_index.get(matched_idx) if matched_idx > 0 else None
+            matched_tag = str((matched_req or {}).get("tag") or "").strip()
+            matched_id = str((matched_req or {}).get("id") or "").strip()
+            matched_query = str((matched_req or {}).get("query") or "").strip()
+
             prev = merged.get(pid)
             if (prev is None) or (score > float(prev.get("score", 0))):
                 merged[pid] = {
@@ -430,7 +486,9 @@ def process_file(
                     "evidence_cn": evidence_cn,
                     "tldr_en": tldr_en,
                     "tldr_cn": tldr_cn,
-                    "tags": tags,
+                    "matched_requirement_id": matched_id,
+                    "matched_query_tag": matched_tag,
+                    "matched_query_text": matched_query,
                 }
 
     if not merged:
