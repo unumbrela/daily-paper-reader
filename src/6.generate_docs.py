@@ -739,6 +739,11 @@ def _format_entry_tags(tags: List[Tuple[str, str]]) -> str:
         k = (kind or "").strip()
         v = (label or "").strip()
         if k == "score":
+            try:
+                score_num = float(v)
+                labels.append(f"评分：{score_num:.1f}/10")
+            except Exception:
+                labels.append(f"评分：{v}")
             continue
         if not v:
             continue
@@ -747,6 +752,93 @@ def _format_entry_tags(tags: List[Tuple[str, str]]) -> str:
         else:
             labels.append(v)
     return "、".join(labels) if labels else "无标签"
+
+
+def _entry_score_text(tags: List[Tuple[str, str]]) -> str:
+    for kind, label in tags or []:
+        if (kind or "").strip() == "score":
+            v = (label or "").strip()
+            if not v:
+                return ""
+            try:
+                return f"{float(v):.1f}/10"
+            except Exception:
+                return v
+    return ""
+
+
+def build_daily_brief_summary(
+    date_label: str,
+    deep_entries: List[Tuple[str, str, List[Tuple[str, str]]]],
+    quick_entries: List[Tuple[str, str, List[Tuple[str, str]]]],
+    total_count: int,
+    run_status: str,
+) -> str:
+    if total_count == 0:
+        return "> 今日无新推荐，系统未产出可展示论文。"
+
+    def _format_preview_item(paper_id: str, title: str, tags: List[Tuple[str, str]]) -> str:
+        name = ((title or "").strip() or paper_id)
+        score = _entry_score_text(tags)
+        return f"《{name}》（{score}）" if score else f"《{name}》"
+
+    deep_preview = [_format_preview_item(paper_id, title, tags) for paper_id, title, tags in deep_entries[:2] if (title or paper_id)]
+    quick_preview = [_format_preview_item(paper_id, title, tags) for paper_id, title, tags in quick_entries[:3] if (title or paper_id)]
+    highlight = []
+    if deep_preview:
+        highlight.append(f"- 精读：{', '.join(deep_preview)}")
+    if quick_preview:
+        highlight.append(f"- 速读：{', '.join(quick_preview)}")
+    if not highlight:
+        return (
+            f"- 状态：{run_status}。\n"
+            f"- 已完成今日生成，共收录 {total_count} 篇（精读 {len(deep_entries)} 篇，速读 {len(quick_entries)} 篇）。"
+        )
+
+    fallback = (
+        f"- 今日共生成 {total_count} 篇推荐（精读 {len(deep_entries)} 篇，速读 {len(quick_entries)} 篇）\n"
+        + "\n".join(highlight)
+        + "\n- 这些结果覆盖了当下较热的方向，建议先看精读区论文的关键问题与方法。"
+    )
+
+    if LLM_CLIENT is None:
+        return fallback
+
+    system_prompt = (
+        "你是日报编辑，请输出 3 句以内、吸引人、简洁但具体的中文总结。"
+        "内容必须基于给定的推荐数据，不要编造论文信息。"
+    )
+    user_prompt = (
+        f"日报日期：{date_label}\n"
+        f"状态：{run_status}\n"
+        f"总数：{total_count} 篇\n"
+        f"精读：{len(deep_entries)} 篇\n"
+        f"速读：{len(quick_entries)} 篇\n"
+        f"精读列表（含分数）：{json.dumps(deep_preview, ensure_ascii=False)}\n"
+        f"速读列表（含分数）：{json.dumps(quick_preview, ensure_ascii=False)}\n\n"
+        "请按以下格式输出：\n"
+        "1) 一句概括今天做了什么，适合标题感官。\n"
+        "2) 一句给出最值得看的 1~2 个方向/结论。\n"
+        "3) 一句给出下步建议（面向普通读者）。\n"
+        "直接输出 1-3 行文本，不要 Markdown 标题，也不要 JSON。"
+    )
+    try:
+        content = call_blt_text(
+            LLM_CLIENT,
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.45,
+            max_tokens=768,
+        )
+        content = (content or "").strip()
+        if content:
+            return content
+    except Exception as e:
+        log(f"[WARN] 生成日报简报失败：{e}")
+
+    return fallback
 
 
 def build_docsify_id_href(path_no_ext: str) -> str:
@@ -774,6 +866,14 @@ def build_latest_report_section(
     effective_label = (date_label or "").strip() or format_date_str(date_str)
     run_status = "成功" if recommend_exists else "未产出 recommend 文件（视为无结果）"
     total = len(deep_entries) + len(quick_entries)
+    summary = build_daily_brief_summary(
+        date_label=effective_label,
+        deep_entries=deep_entries,
+        quick_entries=quick_entries,
+        total_count=total,
+        run_status=run_status,
+    )
+
     lines: List[str] = []
     lines.append(f"- 最新运行日期：{effective_label}")
     lines.append(f"- 运行时间：{generated_at}")
@@ -781,6 +881,10 @@ def build_latest_report_section(
     lines.append(f"- 本次总论文数：{total}")
     lines.append(f"- 精读区：{len(deep_entries)}")
     lines.append(f"- 速读区：{len(quick_entries)}")
+    if summary:
+        lines.append("")
+        lines.append("### 今日简报（AI）")
+        lines.append(summary)
     if RANGE_DATE_RE.match(date_str):
         report_href = build_docsify_id_href(f"{date_str}/README")
     else:
@@ -926,7 +1030,14 @@ def extract_sidebar_tags(paper: Dict[str, Any], max_tags: int = 6) -> List[Tuple
 
     # 展示顺序：评分 -> query -> 论文引用(paper) -> 其它
     tags = q + paper_tags + other
-    return [("score", build_sidebar_stars_html(paper.get("llm_score")))] + tags
+    score = paper.get("llm_score")
+    score_tag = []
+    if score is not None:
+        try:
+            score_tag.append(("score", str(float(score))))
+        except Exception:
+            score_tag.append(("score", str(score)))
+    return score_tag + tags
 
 
 def ensure_text_content(pdf_url: str, txt_path: str) -> str:
@@ -1300,8 +1411,8 @@ def update_sidebar(
     def render_sidebar_tag(kind: str, label: str) -> str:
         safe_kind = html.escape(kind or "other")
         if kind == "score":
-            # label 为内嵌 HTML（星星），上游已对 title 等字段做 escape，这里不再二次转义
-            return f'<span class="dpr-sidebar-tag dpr-sidebar-tag-{safe_kind}">{label}</span>'
+            star_html = build_sidebar_stars_html(label)
+            return f'<span class="dpr-sidebar-tag dpr-sidebar-tag-{safe_kind}">{star_html}</span>'
         return f'<span class="dpr-sidebar-tag dpr-sidebar-tag-{safe_kind}">{html.escape(label)}</span>'
 
     effective_label = (date_label or "").strip() or format_date_str(date_str)
@@ -1402,6 +1513,14 @@ def build_day_report_markdown(
     effective_label = (date_label or "").strip() or format_date_str(date_str)
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     total = len(deep_entries) + len(quick_entries)
+    run_status = "成功" if recommend_exists else "未产出 recommend 文件（视为无结果）"
+    summary = build_daily_brief_summary(
+        date_label=effective_label,
+        deep_entries=deep_entries,
+        quick_entries=quick_entries,
+        total_count=total,
+        run_status=run_status,
+    )
 
     lines: List[str] = []
     lines.append(f"# 日报 · {effective_label}")
@@ -1410,6 +1529,10 @@ def build_day_report_markdown(
     lines.append(f"- 当次推荐总数：{total}")
     lines.append(f"- 精读区：{len(deep_entries)}")
     lines.append(f"- 速读区：{len(quick_entries)}")
+    if summary:
+        lines.append("")
+        lines.append("## 今日简报（AI）")
+        lines.append(summary)
     lines.append("")
 
     if not recommend_exists:
@@ -1423,7 +1546,9 @@ def build_day_report_markdown(
     if deep_entries:
         for idx, (paper_id, title, _tags) in enumerate(deep_entries, start=1):
             safe_title = (title or "").strip() or paper_id
-            lines.append(f"{idx}. [{safe_title}]({build_docsify_id_href(paper_id)})")
+            score = _entry_score_text(_tags)
+            suffix = f"（{score}）" if score else ""
+            lines.append(f"{idx}. [{safe_title}]({build_docsify_id_href(paper_id)}) {suffix}")
     else:
         lines.append("- 本次无精读推荐。")
     lines.append("")
@@ -1432,7 +1557,9 @@ def build_day_report_markdown(
     if quick_entries:
         for idx, (paper_id, title, _tags) in enumerate(quick_entries, start=1):
             safe_title = (title or "").strip() or paper_id
-            lines.append(f"{idx}. [{safe_title}]({build_docsify_id_href(paper_id)})")
+            score = _entry_score_text(_tags)
+            suffix = f"（{score}）" if score else ""
+            lines.append(f"{idx}. [{safe_title}]({build_docsify_id_href(paper_id)}) {suffix}")
     else:
         lines.append("- 本次无速读推荐。")
     lines.append("")
