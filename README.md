@@ -1,119 +1,110 @@
-# Daily Paper Reader（Fork 即用）
+# Daily Paper Reader（免费 / 开源 / Fork即用）
 
-这是一个基于 **GitHub Actions** 每天自动更新的 arXiv 论文推荐站，输出到 **GitHub Pages（/docs）**。
+一个相当智能的 arXiv 论文推荐系统：Fork 后每天自动抓取论文、推荐、生成站点，并支持订阅定制。
 
-你会得到：
-- **零服务器**：Fork 后即可跑，每天自动产出推荐页
-- **自动推荐**：抓取 arXiv → 召回 → 重排 → LLM 评分 → 生成站点
-- **站内管理（可选）**：在网页里改订阅、触发工作流（需要 GitHub Token）
-- **隐私优先**：私人研讨区聊天记录默认仅保存在本机（IndexedDB）
+## 你能快速得到什么
 
----
+- 每天自动更新的推荐站（GitHub Pages）
+- 可按关键词/意图筛选的推荐流
+- 随时提问的gemini-3 论文阅读小助手
+- 支持 Fork 后 5 分钟搭建
 
-## 5 分钟上线（推荐路径）
+## 5 分钟快速启动
 
-### Step 1：Fork 本仓库
-- 入口：仓库页面右上角 `Fork` → 选择你的账号 → `Create fork`
+### 0. 提前准备两个密钥
 
-### Step 2：启用 Actions
-- 入口：Fork 后仓库顶部 `Actions`
-- 如果看到提示：点击 `I understand my workflows, go ahead and enable them` / `Enable workflows`
+#### 0.1 获取 `BLT_API_KEY`（柏拉图平台）
 
-### Step 3：配置必需 Secret（BLT）
-> 没有它也能生成基础页面，但 **重排/评分/精读总结** 会不可用或效果很差；建议先配好。
+> 不是柏拉图行不行？ 对比了市面上的集成平台，柏拉图是性价比最高的，柏拉图平台上有按0.001元/次的reranker模型调用，和非常便宜的gemini3 flash模型: 提示¥0.5/M tokens 补全 ¥3/M tokens，建议还是配这个，每天花费1~3毛钱。
 
-- 入口：`Settings → Secrets and variables → Actions → New repository secret`
-- 添加：
-  - Name：`BLT_API_KEY`
-  - Secret：你的 BLT Key
+- 打开 [柏拉图（Blt）API 平台](https://api.bltcy.ai/)完成注册/登录
+- 充值5元
+- 进入 API Key 管理页，新建一个 Key，记录下来后面会用到
 
-### Step 4：手动跑一次工作流（生成首批内容）
-- 入口：`Actions → daily-paper-reader → Run workflow → Run workflow`
-- 预期结果：
-  - 自动生成/更新 `docs/`（站点内容）
-  - 自动生成/更新 `archive/<YYYYMMDD>/recommend/`（当日推荐存档）
-  - 工作流会自动 `commit` 并 `push` 到 `main`
-- 耗时：首次通常 **3–8 分钟**（取决于下载向量模型与当日论文量）
+#### 0.2 获取 `GITHUB_PAT`（GitHub Personal Access Token）
+- 打开 [GitHub 新建 PAT 页面](https://github.com/settings/tokens/new?type=beta&scopes=repo,workflow,gist) 
+- 勾选 **这三项权限**（上面链接已预勾选）：
+  - `repo`
+  - `workflow`
+  - `gist`
+- 确认
 
-### Step 5：开启 GitHub Pages（指向 /docs）
-- 入口：`Settings → Pages`
-- 配置（按 GitHub UI 实际字段名为准）：
-  - `Source`：选择 `Deploy from a branch`
-  - `Branch`：选择 `main`
-  - `Folder/Directory`：选择 `/docs`
-  - `Save`
+--- 
 
-### Step 6：打开站点确认
-- 入口：`Settings → Pages` 顶部会出现站点地址
-- 常见地址：`https://<你的用户名>.github.io/<仓库名>/`
+### 1. Fork 本仓库
+仓库页面点 `Fork`。
 
----
+--- 
+以下内容需在自己仓库下执行（因为下面链接均为相对目录），并不是在原仓库中执行
 
-## 最少必需配置
+### 2. 开启 Actions
+进入你 Fork 的仓库，点 `Actions`，如有提示点击允许 workflow 运行。
 
-### 1) `BLT_API_KEY` 放哪里？
-- GitHub 路径：`Settings → Secrets and variables → Actions`
-- 名称必须是：`BLT_API_KEY`
+### 3. 配置必需密钥（必须）
 
-### 2) 自动更新时间
-- 默认定时：`.github/workflows/daily-paper-reader.yml` 中 `cron: "30 2 * * *"`
-- 含义：每天 **UTC 02:30**（约等于 **北京时间 10:30**；其它时区请自行换算）
 
----
+### 4. 第一次跑通（建议手动触发一次）
+- `Actions → daily-paper-reader → Run workflow → Run workflow`
+- 成功后可看到：
+  - 自动更新 `archive/.../recommend/` 推荐文件
+  - 自动更新 `docs/` 页面内容
+  - 有 workflow 产物自动 `commit` 到 `main`
 
-## 可选：站内后台能力（需要 GitHub Token）
+### 5. 开启 GitHub Pages
+- 点击 [GitHub Pages 设置（相对路径，可直接打开）](../../settings/pages)  
+- `Settings → Pages → Source`
+- 选 `Deploy from a branch`，分支 `main`，目录 `/docs`，保存
+- 站点地址会显示在页面顶部
 
-什么时候需要：
-- 在网页里“保存订阅配置到仓库”
-- 在网页里“一键触发工作流（立即更新/同步上游）”
-- 生成 Gist 分享链接
+### 6. 打开站点验收
+访问 `https://<你的用户名>.github.io/<仓库名>/`
 
-Token 要求（Classic PAT）：
-- 权限：`repo`、`workflow`、`gist`
-- 配置入口：打开你的站点 → 左下角 `📚 后台管理` → `密钥配置` → 填入 `GitHub Token`
+耗时参考：首次通常 3~8 分钟（取决于网络与论文量），后续更新一般更快。
 
----
+## 站点模式说明（Fork 用户）
 
-## 修改订阅（2 选 1）
+- 用户仓库（无 `SUPABASE_SERVICE_KEY`）：执行完整本地链路，产出推荐站 + 自动提交内容。
+- 维护者仓库（配置了 `SUPABASE_SERVICE_KEY`）：执行专用链路，侧重同步到 Supabase，不提交 docs。
 
-### 方式 A（推荐）：直接编辑 `config.yaml`
-- 文件：`config.yaml`
-- 修改字段：`subscriptions.keywords` / `subscriptions.llm_queries` / `subscriptions.tracked_papers`
-- 提交到 `main` 后，下一次 Actions 运行会生效（也可手动触发工作流）
+> `SUPABASE_SCHEMA` 仅用于数据库 schema 选择，默认 `public` 即可。  
+> 不需要做复杂配置，非特别分离场景可直接不设置。
 
-### 方式 B：在站内后台管理修改并保存
-- 需要：GitHub Token（见上面）
-- 入口：站点 → `📚 后台管理` → 修改关键词/智能订阅 → `保存`
+## 订阅配置（最小改法）
 
----
+- 方式 1（推荐）：修改 `config.yaml` 并提交
+- 方式 2：站点后台改（需 GitHub Token）
 
-## 常见问题（快速排错）
+常见字段：`subscriptions.keywords`、`subscriptions.llm_queries`、`subscriptions.tracked_papers`
 
-1) **站点能打开但没内容**
-- 去看：`Actions → daily-paper-reader` 是否运行成功；首次必须至少成功跑一次才能生成 `docs/`
+## 版本迭代（请持续更新）
 
-2) **Pages 404**
-- 检查：`Settings → Pages` 是否选择了 `main` + `/docs`
+| 版本 | 日期 | 更新内容 |
+| --- | --- | --- |
+| v1.0.0 | 2026-02-19 | 基础功能实现完成 |
+| Unreleased | - | 请在每次发布时补充 |
 
-3) **Actions 失败（依赖/模型下载慢）**
-- 先重试一次 `Run workflow`；如果长期失败，再查看失败日志中是否是网络或额度问题
+## Star 曲线（项目热度）
 
-4) **今天没有更新**
-- 可能当天时间窗内无新论文，或全部被筛掉；以 `Actions` 运行日志为准
+[![Star History Chart](https://api.star-history.com/svg?repos=ziwenhahaha/daily-paper-reader&type=Date)](https://star-history.com/#ziwenhahaha/daily-paper-reader&Date)
 
-5) **Secrets 配了但似乎没生效**
-- 确认 Secret 名称完全一致：`BLT_API_KEY`
-- 确认 Secret 配置在你的 Fork 仓库（不是上游仓库）
+> 当前仓库：`ziwenhahaha/daily-paper-reader`
 
----
+## 常见问题（2 分钟排障）
 
-## 安全与隐私提示（请务必读）
-- 私人研讨区聊天记录默认仅保存在本机（IndexedDB），不会自动上传到 GitHub。
-- `secret.private` 是加密备份文件，但它会随站点一起发布为公开静态文件：请使用强密码；不需要后台能力时可直接游客模式阅读。
+- 站点无内容  
+  先看 `Actions` 是否成功；第一次成功运行后才会生成 `docs/`。
+- Pages 404  
+  检查 `Pages` 是否已指向 `main` + `/docs`。
+- workflow 运行失败（重试）  
+  先重试一次，若长期失败查看日志中是否为依赖下载/限流。
+- 没有更新  
+  可能当天无新论文或被过滤，查看 `Actions` 输出的窗口与过滤信息。
+- Secret 配了但没生效  
+  确认 Secret 名称一致且在 Fork 仓库里配置（不是上游仓库）。
 
----
+## 参考文件
 
-## 更多资料（可选）
-- 开发/脚本说明：`CLAUDE.md`
-- 工作流配置：`.github/workflows/daily-paper-reader.yml`
-- 订阅配置示例：`config.yaml`
+- 流程说明：`CLAUDE.md`  
+- 工作流：`.github/workflows/daily-paper-reader.yml`  
+- 配置示例：`config.yaml`  
+- Supabase 规则说明：`docs/supabase_fallback_rule.md`
