@@ -559,14 +559,6 @@ actions:
         newNote.setNote(noteHtml);
         await newNote.saveTx();
 
-        if (canUseBetterNotes && Zotero.BetterNotes?.api?.note?.insert) {
-          try {
-            await Zotero.BetterNotes.api.note.insert(newNote, noteHtml, -1);
-          } catch (err) {
-            // fallback to standard note API
-          }
-        }
-
         if (parsed.original) {
           targetItem.setField(
             "abstractNote",
