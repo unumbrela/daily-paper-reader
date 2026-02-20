@@ -200,6 +200,9 @@ window.$docsify = {
           const { aiSummaryText: rawSummary, originalAbstractText: rawOriginal } =
             getRawPaperSections(rawPaperContent || '');
 
+          // 每次路由刷新先清理上一个页面注入的摘要 meta，避免重复残留
+          clearSummaryMetaFields();
+
           // 构造给 Zotero 用的“摘要”元信息：按「AI 总结 / 对话历史 / 原始摘要」分段组织
           let abstractText = '';
           const sectionEl = document.querySelector('.markdown-section');
@@ -344,20 +347,8 @@ window.$docsify = {
             // 为兼容 Zotero 的摘要存储行为，将换行统一替换为占位符 __BR__
             const abstractForMeta = abstractText.replace(/\n/g, '__BR__');
 
-            // 写入多种摘要字段，提升 Zotero 等工具的识别率
+            // 仅保留 citation_abstract，避免 head 中重复注入多个相同摘要字段
             updateMetaTag('citation_abstract', abstractForMeta, {
-              useFallback: false,
-            });
-            updateMetaTag('description', abstractForMeta, {
-              useFallback: false,
-            });
-            updateMetaTag('dc.description', abstractForMeta, {
-              useFallback: false,
-            });
-            updateMetaTag('abstract', abstractForMeta, {
-              useFallback: false,
-            });
-            updateMetaTag('DC.description', abstractForMeta, {
               useFallback: false,
             });
           }
@@ -566,8 +557,9 @@ window.$docsify = {
       };
 
       const updateMetaTag = (name, content, options = {}) => {
-        const old = document.querySelector(`meta[name="${name}"]`);
-        if (old) old.remove();
+        document
+          .querySelectorAll(`meta[name="${name}"]`)
+          .forEach((el) => el.remove());
         const useFallback = options.useFallback !== false;
         const value = content || (useFallback ? metaFallbacks[name] : '');
         if (!value) return;
@@ -575,6 +567,22 @@ window.$docsify = {
         meta.name = name;
         meta.content = value;
         document.head.appendChild(meta);
+      };
+
+      const SUMMARY_META_NAMES = [
+        'citation_abstract',
+        'description',
+        'dc.description',
+        'DC.description',
+        'abstract',
+      ];
+
+      const clearSummaryMetaFields = () => {
+        SUMMARY_META_NAMES.forEach((name) => {
+          document
+            .querySelectorAll(`meta[name="${name}"]`)
+            .forEach((el) => el.remove());
+        });
       };
 
       // 导出给外部模块（例如聊天模块）复用
