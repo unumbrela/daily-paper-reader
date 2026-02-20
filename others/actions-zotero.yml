@@ -52,6 +52,23 @@ actions:
         return normalizeSourceText(v).replace(/\s+/g, "");
       }
 
+      function normalizeSectionFingerprint(value) {
+        return normalizeSourceText(value)
+          .toLowerCase()
+          .replace(/\s+/g, "")
+          .replace(/[`*_#>\-+]/g, "")
+          .replace(/^\*\*?(.+?)\*\*?:?/g, "")
+          .replace(/\*\*/g, "")
+          .replace(/[^\w\u4e00-\u9fa5]/g, "");
+      }
+
+      function normalizeTitleKey(title) {
+        return normalizeSourceText(title)
+          .toLowerCase()
+          .replace(/\s+/g, "")
+          .replace(/[^\w\u4e00-\u9fa5]/g, "");
+      }
+
       function escapeHtml(v) {
         return normalizeText(v)
           .replace(/&/g, "&amp;")
@@ -103,35 +120,21 @@ actions:
         return bestText;
       }
 
-      function classifySectionTitle(title) {
-        const source = normalizeText(title).trim();
-        const raw = source
-          .toLowerCase()
-          .replace(/^\s*#{1,6}\s*/, "")
-          .trim();
-        const isPotentialHeader =
-          /^#{1,6}\s/.test(source) || /^[🤖💬📄]/.test(source);
-        if (!isPotentialHeader) {
-          return "";
-        }
-
-        if (
-          raw.includes("论文详细总结") ||
-          raw.includes("ai summary") ||
-          raw.includes("🤖 ai summary") ||
-          raw.includes("详细总结")
-        ) {
-          return "summary";
-        }
-        if (raw.includes("chat history") || raw.includes("💬 chat history")) {
-          return "chat";
-        }
-        if (
-          raw.includes("original abstract") ||
-          raw.includes("原始摘要") ||
-          raw.includes("原文摘要")
-        ) {
-          return "original";
+      function getMarkerTitle(lineText) {
+        const text = normalizeText(lineText).trim();
+        if (!text) return "";
+        const markerText = [MARKER_SUMMARY, MARKER_CHAT, MARKER_ORIG].map((v) =>
+          normalizeText(v).trim(),
+        );
+        const map = {
+          [markerText[0]]: "🤖 AI Summary",
+          [markerText[1]]: "💬 Chat History",
+          [markerText[2]]: "📄 Original Abstract",
+        };
+        for (const marker of markerText) {
+          if (text.startsWith(marker)) {
+            return map[marker] || text;
+          }
         }
         return "";
       }
@@ -165,84 +168,148 @@ actions:
           .trim();
       }
 
-      function splitByHeadings(text) {
-        const lines = normalizeSourceText(text).split("\n");
-        const result = { summary: "", chat: "", original: "" };
-        let currentType = "";
-        let buffer = [];
+      function normalizeSectionTitle(line) {
+        const text = normalizeText(line).trim();
+        const markerTitle = getMarkerTitle(text);
+        if (markerTitle) return markerTitle;
+        return text
+          .replace(/^#{1,6}\s*/, "")
+          .replace(/^[🤖💬📄]\s*/, "")
+          .replace(/^\*\s*/, "")
+          .trim();
+      }
+
+      function isSectionHeading(line) {
+        const text = normalizeText(line).trim();
+        if (!text) {
+          return false;
+        }
+        if (getMarkerTitle(text)) {
+          return true;
+        }
+        if (/^#{1,6}\s+/.test(text)) {
+          return true;
+        }
+        return (
+          /^[🤖💬📄]/.test(text) ||
+          /^(AI Summary|Chat History|Original Abstract|论文详细总结|原始摘要|标题|摘要|聊天记录)/i.test(
+            text,
+          )
+        );
+      }
+
+      function splitSectionsByHeadings(fullText) {
+        const lines = normalizeSourceText(fullText).split("\n");
+        const result = [];
+        let currentTitle = "📝 文章内容";
+        let currentBuffer = [];
 
         const flush = () => {
-          if (!currentType) {
-            return;
+          const content = trimLeadingMetadataLines(currentBuffer.join("\n"));
+          if (content) {
+            result.push({
+              title: currentTitle,
+              content,
+            });
           }
-          if (!result[currentType]) {
-            const merged = trimLeadingMetadataLines(buffer.join("\n"));
-            if (merged) {
-              result[currentType] = merged;
-            }
-          }
-          buffer = [];
+          currentBuffer = [];
         };
 
         for (const rawLine of lines) {
-          const line = rawLine.trim();
-          const headerType = classifySectionTitle(line);
-          const isPotentialHeading = /^#{1,6}\s/.test(line) || /^[🤖💬📄]/.test(line);
-          if (headerType || isPotentialHeading) {
+          const headingTitle = normalizeSectionTitle(rawLine);
+          if (isSectionHeading(rawLine)) {
             flush();
-            currentType = headerType && !result[headerType] ? headerType : "";
+            currentTitle = headingTitle ? headingTitle : currentTitle;
+            if (!currentTitle) {
+              currentTitle = "📝 文章内容";
+            }
             continue;
           }
-          if (currentType) {
-            buffer.push(rawLine);
-          }
+          currentBuffer.push(rawLine);
         }
         flush();
+
         return result;
       }
 
-      function extractFirstSectionBlock(text) {
-        const lines = normalizeSourceText(text).split("\n");
-        const out = [];
-        for (const rawLine of lines) {
-          if (classifySectionTitle(rawLine.trim())) {
-            break;
-          }
-          out.push(rawLine);
+      function splitSectionsByMarkers(fullText) {
+        const cleaned = normalizeSourceText(fullText);
+        const marks = [
+          { marker: MARKER_SUMMARY, title: "🤖 AI Summary" },
+          { marker: MARKER_CHAT, title: "💬 Chat History" },
+          { marker: MARKER_ORIG, title: "📄 Original Abstract" },
+        ];
+        const matched = marks
+          .map((m) => ({
+            marker: m.marker,
+            title: m.title,
+            index: cleaned.indexOf(m.marker),
+          }))
+          .filter((item) => item.index > -1)
+          .sort((a, b) => a.index - b.index);
+
+        if (!matched.length) {
+          return [];
         }
-        return trimLeadingMetadataLines(out.join("\n"));
+
+        const result = [];
+        for (let i = 0; i < matched.length; i += 1) {
+          const current = matched[i];
+          const nextIndex =
+            i + 1 < matched.length ? matched[i + 1].index : cleaned.length;
+          const rawSection = cleaned.substring(
+            current.index + current.marker.length,
+            nextIndex,
+          );
+          const content = trimLeadingMetadataLines(rawSection);
+          if (!content) {
+            continue;
+          }
+          result.push({ title: current.title, content });
+          if (i === 0 && current.index > 0) {
+            const prefix = trimLeadingMetadataLines(cleaned.substring(0, current.index));
+            if (prefix) {
+              result.unshift({ title: "📝 文章内容", content: prefix });
+            }
+          }
+        }
+        return result;
       }
 
-      function splitByMarkersIfNeed(text) {
-        const s = text.indexOf(MARKER_SUMMARY);
-        const o = text.indexOf(MARKER_ORIG);
-        const c = text.indexOf(MARKER_CHAT);
-        if (s === -1 && o === -1 && c === -1) {
-          return { summary: "", chat: "", original: "" };
-        }
+      function dedupeSections(sections) {
+        const output = [];
+        const seenTitles = {};
+        const seenContents = new Set();
+        const titleContentMap = {};
 
-        const nextOf = (start) => {
-          let next = -1;
-          [MARKER_SUMMARY, MARKER_CHAT, MARKER_ORIG].forEach((marker) => {
-            const p = text.indexOf(marker, start);
-            if (p > -1 && (next === -1 || p < next)) {
-              next = p;
-            }
+        for (const section of sections) {
+          const title = normalizeText(section.title || "📝 文章内容").trim();
+          const content = trimLeadingMetadataLines(section.content || "");
+          if (!content) {
+            continue;
+          }
+
+          const c = normalizeSectionFingerprint(content);
+          const t = normalizeTitleKey(title);
+          const titleCount = seenTitles[t] || 0;
+          seenTitles[t] = titleCount + 1;
+          titleContentMap[t] = titleContentMap[t] || new Set();
+
+          if (seenContents.has(c)) {
+            continue;
+          }
+
+          if (titleContentMap[t].has(c)) {
+            continue;
+          }
+          titleContentMap[t].add(c);
+          seenContents.add(c);
+          output.push({
+            title,
+            content,
           });
-          return next === -1 ? text.length : next;
-        };
-
-        const summary = s === -1
-          ? ""
-          : trimLeadingMetadataLines(text.substring(s + MARKER_SUMMARY.length, nextOf(s + MARKER_SUMMARY.length)));
-        const chat = c === -1
-          ? ""
-          : trimLeadingMetadataLines(text.substring(c + MARKER_CHAT.length, nextOf(c + MARKER_CHAT.length)));
-        const original = o === -1
-          ? ""
-          : trimLeadingMetadataLines(text.substring(o + MARKER_ORIG.length, nextOf(o + MARKER_ORIG.length)));
-
-        return { summary, chat, original };
+        }
+        return output;
       }
 
       function splitSections(fullText) {
@@ -254,62 +321,66 @@ actions:
           };
         }
 
-        const headingParsed = splitByHeadings(cleaned);
-        if (headingParsed.summary || headingParsed.original || headingParsed.chat) {
-          const summary = headingParsed.summary;
-          const original = headingParsed.original;
-          const chat = headingParsed.chat;
-          if (
-            summary &&
-            original &&
-            cleanForCompare(summary) === cleanForCompare(original)
-          ) {
-            return {
-              valid: true,
-              summary,
-              chat,
-              original: "",
-            };
-          }
-          return {
-            valid: true,
-            summary: headingParsed.summary,
-            chat: headingParsed.chat,
-            original: headingParsed.original,
-          };
-        }
+        const markerSections = splitSectionsByMarkers(cleaned);
+        const headingSections = splitSectionsByHeadings(cleaned);
+        const sections = dedupeSections(markerSections.concat(headingSections));
 
-        const markerParsed = splitByMarkersIfNeed(cleaned);
-        if (markerParsed.summary || markerParsed.original || markerParsed.chat) {
-          const summary = markerParsed.summary;
-          const original = markerParsed.original;
-          const chat = markerParsed.chat;
-          if (
-            summary &&
-            original &&
-            cleanForCompare(summary) === cleanForCompare(original)
-          ) {
-            return {
-              valid: true,
-              summary,
-              chat,
-              original: "",
-            };
-          }
+        if (!sections.length) {
           return {
             valid: true,
-            summary: markerParsed.summary,
-            chat: markerParsed.chat,
-            original: markerParsed.original,
+            sections: [{ title: "📝 文章内容", content: cleaned }],
           };
         }
 
         return {
           valid: true,
-          summary: cleaned,
-          chat: "",
-          original: "",
+          sections,
         };
+      }
+
+      function collectItemMetadata(targetItem) {
+        const creators = targetItem.getCreators ? targetItem.getCreators() : [];
+        const authorTexts = creators
+          .map((author) => {
+            const part =
+              normalizeText(author.lastName) ||
+              normalizeText(author.name) ||
+              normalizeText(author.fieldMode) ||
+              "";
+            const display = normalizeText(author.firstName)
+              ? `${part} ${normalizeText(author.firstName)}`
+              : part;
+            return display.trim();
+          })
+          .filter(Boolean);
+
+        const tags = targetItem.getTags ? targetItem.getTags() : [];
+        const tagTexts = tags
+          .map((t) => normalizeText(t.tag).trim())
+          .filter(Boolean);
+
+        const metadataItems = [
+          ["标题", normalizeText(targetItem.getField("title"))],
+          ["作者", authorTexts.join("；")],
+          ["发表年份", normalizeText(targetItem.getField("year"))],
+          ["日期", normalizeText(targetItem.getField("date"))],
+          ["期刊", normalizeText(targetItem.getField("publicationTitle"))],
+          ["出版社", normalizeText(targetItem.getField("publisher"))],
+          ["DOI", normalizeText(targetItem.getField("DOI"))],
+          ["文章类型", normalizeText(targetItem.getField("itemType"))],
+          ["URL", normalizeText(targetItem.getField("url"))],
+          ["标签", tagTexts.join("；")],
+        ].filter((tuple) => tuple[1]);
+
+        if (!metadataItems.length && !authorTexts.length && !tagTexts.length) {
+          return "";
+        }
+
+        const lines = ["## 📌 文章元信息"];
+        metadataItems.forEach(([k, v]) => {
+          lines.push(`- **${k}**: ${normalizeText(v)}`);
+        });
+        return lines.join("\n");
       }
 
       function formatChatMarkdown(rawChatString) {
@@ -332,8 +403,9 @@ actions:
         return lines.join("\n\n");
       }
 
-      function buildNoteMarkdown(parsed) {
+      function buildNoteMarkdown(targetItem, parsed) {
         const blocks = [];
+        const rawText = parsed && parsed.rawText ? normalizeSourceText(parsed.rawText) : "";
         const addBlock = (title, content) => {
           if (!content) return;
           blocks.push(`## ${title}`);
@@ -353,43 +425,40 @@ actions:
             .trim();
         };
 
-        const summaryText = parsed.summary
-          ? extractFirstSectionBlock(
-              trimLeadingMetadataLines(
-                stripLeadingHeading(parsed.summary, "🤖 AI Summary"),
-              ),
-            )
-          : "";
-        const originalText = parsed.original
-          ? extractFirstSectionBlock(
-              trimLeadingMetadataLines(
-                stripLeadingHeading(parsed.original, "📄 Original Abstract"),
-              ),
-            )
-          : "";
+        const metadata = collectItemMetadata(targetItem);
+        if (metadata) {
+          addBlock("📋 文章元信息", metadata);
+        }
 
-        const shouldKeepOriginal =
-          summaryText &&
-          originalText &&
-          cleanForCompare(summaryText) === cleanForCompare(originalText);
-
-        if (!summaryText && originalText) {
-          // 只有原始摘要时，不额外补一段“AI Summary（缺失）”占位，避免重复展示相同内容
-          addBlock("📄 Original Abstract", originalText);
-        } else {
-          addBlock(
-            "🤖 AI Summary",
-            summaryText || "（未检测到 AI Summary，已自动降级展示原始内容）",
-          );
-
-          if (parsed.chat) {
-            const chatText = formatChatMarkdown(parsed.chat);
-            addBlock("💬 Chat History", chatText);
+        const sections = parsed.sections || [];
+        const hasChat = sections.some((item) => /chat history|💬/i.test(item.title));
+        sections.forEach((section) => {
+          const title = normalizeText(section.title || "📝 文章内容");
+          let content = trimLeadingMetadataLines(section.content);
+          if (!content) {
+            return;
           }
-          if (originalText && !shouldKeepOriginal) {
-            addBlock("📄 Original Abstract", originalText);
+
+          if (/chat history|💬/i.test(title)) {
+            content = formatChatMarkdown(content) || content;
+          }
+          addBlock(title, content);
+        });
+
+        if (!sections.length) {
+          addBlock("📝 文章内容", "（无可解析内容）");
+        }
+
+        if (!hasChat && rawText && rawText.includes("💬 Chat History")) {
+          const markerStart = normalizeSourceText(parsed.rawText).indexOf(MARKER_CHAT);
+          if (markerStart > -1) {
+            const markerChat = normalizeSourceText(parsed.rawText).substring(
+              markerStart + MARKER_CHAT.length,
+            );
+            addBlock("💬 Chat History", formatChatMarkdown(markerChat));
           }
         }
+
         return blocks.join("\n\n");
       }
 
@@ -530,7 +599,10 @@ actions:
           return parsed.reason;
         }
 
-        const noteMarkdown = buildNoteMarkdown(parsed);
+        const noteMarkdown = buildNoteMarkdown(targetItem, {
+          ...parsed,
+          rawText: sourceText,
+        });
         let noteHtml = "";
         const canUseBetterNotes =
           !!(
@@ -558,14 +630,6 @@ actions:
         newNote.addTag(AUTO_NOTE_TAG, 1);
         newNote.setNote(noteHtml);
         await newNote.saveTx();
-
-        if (parsed.original) {
-          targetItem.setField(
-            "abstractNote",
-            normalizeText(parsed.original).replace(BR_PLACEHOLDER, "\n"),
-          );
-          await targetItem.saveTx();
-        }
 
         return `✅ [${escapeHtml(title)}] 已自动创建 AI Summary 条目笔记`;
       }

@@ -126,6 +126,111 @@ window.$docsify = {
         ),
       });
 
+      const collectPaperBodySections = (sectionEl) => {
+        if (!sectionEl || !sectionEl.children) return [];
+
+        const headingTag = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+        const shouldSkipHeadingBlock = (headingText) => {
+          const text = normalizeTextForMeta(headingText || '').toLowerCase();
+          if (!text) return false;
+          const blocked = [
+            'paper-title-row',
+            'paper-meta-row',
+            'paper-glance-section',
+            '互动区',
+            '页面导航与交互层',
+            '原文摘要',
+            'original abstract',
+            '论文详细总结',
+            'ai summary',
+            'chat history',
+          ];
+          return blocked.some((token) => text.includes(token));
+        };
+
+        const shouldSkipNode = (node) =>
+          !!(
+            node &&
+            node.classList &&
+            (node.classList.contains('paper-title-row') ||
+              node.classList.contains('paper-meta-row') ||
+              node.classList.contains('paper-glance-section') ||
+              node.classList.contains('paper-title-cn') ||
+              node.classList.contains('paper-title-en'))
+          );
+        const sections = [];
+        let currentTitle = '📝 论文正文';
+        let currentContent = [];
+        let seenHeading = false;
+        let skipCurrentSection = false;
+        const collectText = (node) => normalizeTextForMeta(node && (node.innerText || node.textContent || ''));
+
+        const flush = () => {
+          const text = trimBeforeMarkers(collectText({ innerText: currentContent.join('\n') }), []);
+          const cleanText = text.replace(/\n{3,}/g, '\n\n').trim();
+          if (cleanText) {
+            sections.push({
+              title: currentTitle,
+              text: cleanText,
+            });
+          }
+          currentContent = [];
+        };
+
+        const children = Array.from(sectionEl.children);
+        for (const child of children) {
+          const tag = child.tagName || '';
+          if (shouldSkipNode(child)) {
+            flush();
+            continue;
+          }
+          if (
+            child.id === 'paper-chat-container' ||
+            (child.querySelector && child.querySelector('#paper-chat-container'))
+          ) {
+            flush();
+            continue;
+          }
+
+          if (headingTag.includes(tag)) {
+            flush();
+            const text = normalizeTextForMeta(child.innerText || '').trim();
+            skipCurrentSection = shouldSkipHeadingBlock(text);
+            if (skipCurrentSection) {
+              continue;
+            }
+            if (text) {
+              currentTitle = text;
+              seenHeading = true;
+            }
+            continue;
+          }
+          if (skipCurrentSection) {
+            continue;
+          }
+
+          const txt = collectText(child).replace(/\n{2,}/g, '\n').trim();
+          if (!txt) {
+            continue;
+          }
+          currentContent.push(txt);
+          seenHeading = true;
+        }
+
+        if (seenHeading) {
+          flush();
+        } else {
+          const fallback = collectText(sectionEl);
+          if (fallback) {
+            sections.push({
+              title: currentTitle,
+              text: fallback,
+            });
+          }
+        }
+        return sections;
+      };
+
       // Zotero 元数据更新函数：可被 Docsify 生命周期和聊天模块重复调用
       const updateZoteroMetaFromPage = (
         paperId,
@@ -199,6 +304,14 @@ window.$docsify = {
 
           const { aiSummaryText: rawSummary, originalAbstractText: rawOriginal } =
             getRawPaperSections(rawPaperContent || '');
+          const frontmatterPaperMeta = (() => {
+            try {
+              const parsed = parseFrontMatter(rawPaperContent || '');
+              return parsed && parsed.meta ? parsed.meta : {};
+            } catch {
+              return {};
+            }
+          })();
 
           // 每次路由刷新先清理上一个页面注入的摘要 meta，避免重复残留
           clearSummaryMetaFields();
@@ -315,14 +428,225 @@ window.$docsify = {
 
             const parts = [];
             const seenBlocks = new Set();
+            const seenTitles = new Set();
+            const cleanText = (value) => cleanSectionText(normalizeTextForMeta(value));
+            const addMetaSectionBlock = (title, content) => {
+              const cleanText = cleanSectionText(content);
+              if (!cleanText) return;
+              const titleKey = normalizeTextForMeta(title)
+                .toLowerCase()
+                .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
+              const contentKey = cleanText
+                .toLowerCase()
+                .replace(/\s+/g, '')
+                .replace(/[#>*_`[\]]/g, '');
+              const signature = `${titleKey}|${contentKey}`;
+              if (seenTitles.has(titleKey) && seenBlocks.has(signature)) {
+                return;
+              }
+              seenTitles.add(titleKey);
+              if (seenBlocks.has(signature)) return;
+              seenBlocks.add(signature);
+              parts.push(`## ${title}\n${cleanText}`);
+            };
+            const normalizeMarkerTitle = (label) => {
+              const raw = normalizeTextForMeta(label).trim();
+              if (!raw) return "";
+              if (raw === START_MARKER) return "🤖 AI Summary";
+              if (raw === CHAT_MARKER) return "💬 Chat History";
+              if (raw === ORIG_MARKER) return "📄 Original Abstract";
+              return raw.replace(/^#{1,6}\s*/, '');
+            };
             const addMetaBlock = (label, content) => {
               const cleanText = cleanSectionText(content);
               if (!cleanText) return;
               const signature = cleanText.replace(/\s+/g, ' ');
               if (seenBlocks.has(signature)) return;
               seenBlocks.add(signature);
-              parts.push(`${label}\n${cleanText}`);
+              const sectionTitle = normalizeMarkerTitle(label);
+              parts.push(`## ${sectionTitle}\n${cleanText}`);
             };
+            const parseLabelLine = (line) => {
+              const raw = normalizeTextForMeta(line || '').trim();
+              if (!raw) return null;
+              const lineText = raw
+                .replace(/^[\-\*]\s*/, '')
+                .replace(/^\*\*(.*?)\*\*\s*:?\s*/, '$1:');
+              const m = lineText.match(/^(.+?)\s*[:：]\s*(.*)$/);
+              if (!m) return null;
+              return [normalizeTextForMeta(m[1]).trim(), normalizeTextForMeta(m[2]).trim()];
+            };
+            const pickFirst = (labelList, fallbackValue) => {
+              for (const item of labelList) {
+                if (item) return item;
+              }
+              return fallbackValue || '';
+            };
+            const normalizeTagValue = (value) =>
+              normalizeTextForMeta(value || '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            const collectLabeledPairs = (rows) => {
+              const map = new Map();
+              rows.forEach((line) => {
+                const parsed = parseLabelLine(line);
+                if (!parsed) return;
+                const [label, value] = parsed;
+                if (!label || !value) return;
+                const key = label.toLowerCase();
+                if (!map.has(key) || normalizeTagValue(map.get(key)).length < value.length) {
+                  map.set(key, value);
+                }
+              });
+              return map;
+            };
+            const buildLabeledText = (map, order) => {
+              const lines = [];
+              order.forEach((label) => {
+                const key = normalizeTextForMeta(label).toLowerCase();
+                if (map.has(key)) {
+                  lines.push(`- **${label}**: ${map.get(key)}`);
+                }
+              });
+              map.forEach((value, key) => {
+                if (!order.includes(key)) {
+                  lines.push(`- **${key}**: ${value}`);
+                }
+              });
+              return lines.join('\n');
+            };
+
+            const splitBlockText = (text) => {
+              const normalized = normalizeTextForMeta(text || '');
+              if (!normalized) return [];
+              return normalized
+                .split('\n')
+                .map((item) => item.trim())
+                .filter(Boolean);
+            };
+            const getNodeText = (el) =>
+              normalizeTextForMeta(el && (el.innerText || el.textContent || ''));
+            const titleZhText = getNodeText(
+              document.querySelector('.paper-title-row .paper-title-zh'),
+            ) || getNodeText(document.querySelector('.paper-title-zh'));
+            const titleEnText = getNodeText(
+              document.querySelector('.paper-title-row .paper-title-en'),
+            ) || getNodeText(document.querySelector('.dpr-title-en'));
+            const metaLeftRows = Array.from(
+              document.querySelectorAll('.paper-meta-left p'),
+            ).flatMap((el) => splitBlockText(getNodeText(el)));
+            const metaRightRows = Array.from(
+              document.querySelectorAll('.paper-meta-right p'),
+            ).flatMap((el) => splitBlockText(getNodeText(el)));
+            const glanceRows = Array.from(
+              document.querySelectorAll('.paper-glance-col'),
+            ).map((col) => {
+              const label = getNodeText(
+                col.querySelector('.paper-glance-label'),
+              );
+              const content = getNodeText(
+                col.querySelector('.paper-glance-content'),
+              );
+              if (!label && !content) return '';
+              return `- **${label || '项'}**: ${content || '-'}`;
+            });
+            const fallbackArray = (value, label = '') =>
+              value ? [`- **${label}**: ${Array.isArray(value) ? value.join(' / ') : String(value)}`] : [];
+
+            const titleRowText = [
+              `- **中英文标题**: ${titleZhText || frontmatterPaperMeta.title_zh || '-'} / ${titleEnText || frontmatterPaperMeta.title || '-'}`,
+            ].filter(Boolean);
+
+            const metaPairs = collectLabeledPairs([...metaLeftRows, ...metaRightRows]);
+            const fallbackMetaPairs = collectLabeledPairs([
+              ...fallbackArray(frontmatterPaperMeta.evidence, 'Evidence'),
+              ...fallbackArray(frontmatterPaperMeta.tldr, 'TLDR'),
+              ...fallbackArray(frontmatterPaperMeta.authors, 'Authors'),
+              ...fallbackArray(frontmatterPaperMeta.date, 'Date'),
+              ...fallbackArray(frontmatterPaperMeta.pdf, 'PDF'),
+              ...fallbackArray(frontmatterPaperMeta.tags, 'Tags'),
+              ...fallbackArray(frontmatterPaperMeta.score, 'Score'),
+            ]);
+            ['Evidence', 'TLDR', 'Authors', 'Date', 'PDF', 'Tags', 'Score'].forEach(
+              (label) => {
+                const key = label.toLowerCase();
+                if (!metaPairs.has(key)) {
+                  const value = normalizeTagValue(
+                    fallbackMetaPairs.get(key) || '',
+                  );
+                  if (value) metaPairs.set(key, value);
+                }
+              },
+            );
+            const glancePairs = collectLabeledPairs(glanceRows);
+            const fallbackGlancePairs = collectLabeledPairs([
+              ...fallbackArray(frontmatterPaperMeta.motivation, 'Motivation'),
+              ...fallbackArray(frontmatterPaperMeta.method, 'Method'),
+              ...fallbackArray(frontmatterPaperMeta.result, 'Result'),
+              ...fallbackArray(frontmatterPaperMeta.conclusion, 'Conclusion'),
+            ]);
+            ['Motivation', 'Method', 'Result', 'Conclusion'].forEach((label) => {
+              const key = label.toLowerCase();
+              if (!glancePairs.has(key)) {
+                const value = normalizeTagValue(
+                  fallbackGlancePairs.get(key) || '',
+                );
+                if (value) glancePairs.set(key, value);
+              }
+            });
+
+            const titleBarEl = document.querySelector('.dpr-title-bar');
+            const pageContentEl = document.querySelector('.dpr-page-content');
+            const chatContainerEl = document.getElementById('paper-chat-container');
+            const chatHistoryEl = document.getElementById('chat-history');
+            const uiRows = [
+              `- **dpr-title-bar**: ${titleBarEl ? '已挂载' : '未检测到'}`,
+              `- **dpr-page-content**: ${pageContentEl ? '已挂载' : '未检测到'}`,
+              `- **paper-title-row**: ${document.querySelector('.paper-title-row') ? '已挂载' : '未检测到'}`,
+              `- **paper-meta-row**: ${document.querySelector('.paper-meta-row') ? '已挂载' : '未检测到'}`,
+              `- **paper-glance-section**: ${document.querySelector('.paper-glance-section') ? '已挂载' : '未检测到'}`,
+              `- **#paper-chat-container**: ${chatContainerEl ? '已挂载' : '未检测到'}`,
+              `- **#chat-history**: ${chatHistoryEl ? '已挂载' : '未检测到'}`,
+            ];
+
+            addMetaSectionBlock(
+              'paper-title-row（双语标题区域）',
+              titleRowText.join('\n'),
+            );
+            addMetaSectionBlock(
+              'paper-meta-row（中间信息区）',
+              cleanText(
+                buildLabeledText(
+                  metaPairs,
+                  ['evidence', 'tldr', 'authors', 'date', 'pdf', 'tags', 'score'],
+                ),
+              ),
+            );
+            addMetaSectionBlock(
+              'paper-glance-section（速览卡）',
+              cleanText(
+                buildLabeledText(glancePairs, [
+                  'motivation',
+                  'method',
+                  'result',
+                  'conclusion',
+                ]),
+              ),
+            );
+            addMetaSectionBlock(
+              '页面导航与交互层',
+              cleanText(uiRows.join('\n')),
+            );
+
+            // 1) 全文段落：按页面 heading 自动切块，保持顺序写入
+            const paperBodySections = collectPaperBodySections(sectionEl);
+            paperBodySections.forEach((section) => {
+              if (section && section.text) {
+                addMetaSectionBlock(section.title, section.text);
+              }
+            });
+
             if (aiSummaryText || tagsLine) {
               // AI Summary 区块：保留 Tags 行，但不再包含 Authors 信息
               let aiBlock = `${START_MARKER}\n`;
