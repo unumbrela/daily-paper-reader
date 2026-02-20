@@ -84,9 +84,8 @@ actions:
         const raw = normalizeText(title).toLowerCase().trim();
         if (
           raw.includes("论文详细总结") ||
-          raw.includes("🤖 ai summary") ||
           raw.includes("ai summary") ||
-          (raw.includes("summary") && !raw.includes("original"))
+          raw.includes("🤖 ai summary")
         ) {
           return "summary";
         }
@@ -95,50 +94,32 @@ actions:
         }
         if (
           raw.includes("original abstract") ||
-          raw.includes("📄 original abstract") ||
-          raw.includes("原文摘要") ||
-          (raw.includes("摘要") && !raw.includes("详细") && !raw.includes("原文"))
+          raw.includes("原始摘要") ||
+          raw.includes("原文摘要")
         ) {
           return "original";
         }
-        return "other";
+        return "";
       }
 
       function trimLeadingMetadataLines(text) {
         const lines = normalizeSourceText(text).split("\n");
         const filtered = [];
         let started = false;
-        const skipExact = new Set([
-          MARKER_SUMMARY,
-          MARKER_CHAT,
-          MARKER_ORIG,
-          "## 🤖 AI Summary",
-          "## 📄 Original Abstract",
-          "## 💬 Chat History",
-          "## 论文详细总结",
-          "## 论文详细总结（自动生成）",
-        ]);
         for (const line of lines) {
           const t = line.trim();
-          if (!started && (t === "" || skipExact.has(t))) {
+          if (!t) {
+            if (!started) {
+              continue;
+            }
+          }
+          if (!started && t.startsWith("Tags:")) {
             continue;
           }
-          if (
-            !started &&
-            /^#{1,6}\s+/.test(t) &&
-            (
-              /\bAI Summary\b/i.test(t) ||
-              /\bOriginal Abstract\b/i.test(t) ||
-              /\bChat History\b/i.test(t) ||
-              t.includes("论文详细总结")
-            )
-          ) {
+          if (!started && /^> 由 daily-paper-reader 自动生成/i.test(t)) {
             continue;
           }
-          if (t.startsWith("Tags:")) {
-            continue;
-          }
-          if (/^> 由 daily-paper-reader 自动生成/.test(t)) {
+          if (!started && t.includes("daily-paper-reader 自动生成")) {
             continue;
           }
           started = true;
@@ -152,17 +133,19 @@ actions:
 
       function splitByHeadings(text) {
         const lines = normalizeSourceText(text).split("\n");
-        const sectionMap = { summary: [], chat: [], original: [] };
-        let currentType = null;
+        const result = { summary: "", chat: "", original: "" };
+        let currentType = "";
         let buffer = [];
 
         const flush = () => {
           if (!currentType) {
             return;
           }
-          const merged = trimLeadingMetadataLines(buffer.join("\n"));
-          if (merged) {
-            sectionMap[currentType].push(merged);
+          if (!result[currentType]) {
+            const merged = trimLeadingMetadataLines(buffer.join("\n"));
+            if (merged) {
+              result[currentType] = merged;
+            }
           }
           buffer = [];
         };
@@ -172,86 +155,47 @@ actions:
           const headerMatch = line.match(/^#{1,6}\s+(.*)$/);
           if (headerMatch) {
             flush();
-            const kind = classifySectionTitle(headerMatch[1]);
-            currentType = kind === "other" ? null : kind;
+            currentType = classifySectionTitle(headerMatch[1]);
             continue;
           }
-
           if (currentType) {
             buffer.push(rawLine);
           }
         }
         flush();
-
-        return sectionMap;
+        return result;
       }
 
-      function pickSection(sectionMap, keys) {
-        for (const key of keys) {
-          const arr = sectionMap[key] || [];
-          if (!arr.length) continue;
-          for (let i = 0; i < arr.length; i += 1) {
-            const item = trimLeadingMetadataLines(arr[i]);
-            if (item) {
-              return item;
-            }
-          }
-        }
-        return "";
-      }
-
-      function nextBoundary(text, startPos) {
-        let best = -1;
-        [MARKER_SUMMARY, MARKER_CHAT, MARKER_ORIG].forEach((marker) => {
-          const pos = text.indexOf(marker, startPos);
-          if (pos > -1 && (best === -1 || pos < best)) {
-            best = pos;
-          }
-        });
-        return best === -1 ? text.length : best;
-      }
-
-      function splitByMarkers(text) {
+      function splitByMarkersIfNeed(text) {
         const s = text.indexOf(MARKER_SUMMARY);
-        const c = text.indexOf(MARKER_CHAT);
         const o = text.indexOf(MARKER_ORIG);
-        if (s === -1 && c === -1 && o === -1) {
-          return {
-            summary: trimLeadingMetadataLines(text),
-            chat: "",
-            original: "",
-            hasMarkers: false,
-          };
+        const c = text.indexOf(MARKER_CHAT);
+        if (s === -1 && o === -1 && c === -1) {
+          return { summary: "", chat: "", original: "" };
         }
 
-        const summaryStart = s === -1 ? -1 : s + MARKER_SUMMARY.length;
-        const chatStart = c === -1 ? -1 : c + MARKER_CHAT.length;
-        const originalStart = o === -1 ? -1 : o + MARKER_ORIG.length;
-
-        return {
-          summary:
-            s === -1
-              ? ""
-              : trimLeadingMetadataLines(
-                  text.substring(summaryStart, nextBoundary(text, summaryStart)),
-                ),
-          chat:
-            c === -1
-              ? ""
-              : trimLeadingMetadataLines(
-                  text.substring(chatStart, nextBoundary(text, chatStart)),
-                ),
-          original:
-            o === -1
-              ? ""
-              : trimLeadingMetadataLines(
-                  text.substring(
-                    originalStart,
-                    nextBoundary(text, originalStart),
-                  ),
-                ),
-          hasMarkers: true,
+        const nextOf = (start) => {
+          let next = -1;
+          [MARKER_SUMMARY, MARKER_CHAT, MARKER_ORIG].forEach((marker) => {
+            const p = text.indexOf(marker, start);
+            if (p > -1 && (next === -1 || p < next)) {
+              next = p;
+            }
+          });
+          return next === -1 ? text.length : next;
         };
+
+        const summary = s === -1
+          ? ""
+          : trimLeadingMetadataLines(text.substring(s + MARKER_SUMMARY.length, nextOf(s + MARKER_SUMMARY.length)));
+        const chat = c === -1
+          ? ""
+          : trimLeadingMetadataLines(text.substring(c + MARKER_CHAT.length, nextOf(c + MARKER_CHAT.length)));
+        const original = o === -1
+          ? ""
+          : trimLeadingMetadataLines(text.substring(o + MARKER_ORIG.length, nextOf(o + MARKER_ORIG.length)));
+
+        return { summary, chat, original };
       }
 
       function splitSections(fullText) {
@@ -264,34 +208,30 @@ actions:
         }
 
         const headingParsed = splitByHeadings(cleaned);
-        const parsedSummary = pickSection(headingParsed, ["summary"]);
-        const parsedChat = pickSection(headingParsed, ["chat"]);
-        const parsedOriginal = pickSection(headingParsed, ["original"]);
-
-        if (parsedSummary || parsedChat || parsedOriginal) {
+        if (headingParsed.summary || headingParsed.original || headingParsed.chat) {
           return {
             valid: true,
-            summary: parsedSummary,
-            chat: parsedChat,
-            original: parsedOriginal,
-            hasMarkers: true,
+            summary: headingParsed.summary,
+            chat: headingParsed.chat,
+            original: headingParsed.original,
           };
         }
 
-        const markerParsed = splitByMarkers(cleaned);
-        if (!markerParsed.summary && !markerParsed.chat && !markerParsed.original) {
+        const markerParsed = splitByMarkersIfNeed(cleaned);
+        if (markerParsed.summary || markerParsed.original || markerParsed.chat) {
           return {
-            valid: false,
-            reason: "⚠️ 未检测到可识别的 AI 摘要结构，等待重试中。",
+            valid: true,
+            summary: markerParsed.summary,
+            chat: markerParsed.chat,
+            original: markerParsed.original,
           };
         }
 
         return {
           valid: true,
-          summary: markerParsed.summary,
-          chat: markerParsed.chat,
-          original: markerParsed.original,
-          hasMarkers: markerParsed.hasMarkers,
+          summary: cleaned,
+          chat: "",
+          original: "",
         };
       }
 
