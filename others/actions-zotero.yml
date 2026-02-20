@@ -593,6 +593,11 @@ actions:
         }
       }
 
+      function hasLatexFormula(content) {
+        const text = normalizeSourceText(content || "");
+        return /\${1,2}[^$]+?\${1,2}/.test(text);
+      }
+
       async function removeAutoSummaryNotes(targetItem) {
         try {
           const notes = Zotero.Items.get(targetItem.getNotes()) || [];
@@ -669,8 +674,9 @@ actions:
             Zotero.BetterNotes.api.note &&
             Zotero.BetterNotes.api.note.insert
           );
+        const hasMathFormula = hasLatexFormula(noteMarkdown);
 
-        if (canUseBetterNotes) {
+        if (canUseBetterNotes && !hasMathFormula) {
           try {
             noteHtml = await Zotero.BetterNotes.api.convert.md2html(noteMarkdown);
           } catch (err) {
