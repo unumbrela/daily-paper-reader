@@ -40,6 +40,10 @@ actions:
           .trim();
       }
 
+      function normalizeSourceTextRawMarkdown(v) {
+        return normalizeText(v).replace(BR_PLACEHOLDER, "\n").replace(/\r/g, "\n").trim();
+      }
+
       function hasAnyMarker(text) {
         return (
           text.includes(MARKER_SUMMARY) ||
@@ -89,6 +93,7 @@ actions:
 
       function getSourceText(targetItem) {
         const candidateFields = [
+          "citation_abstract_raw_md",
           "citation_abstract_raw",
           "citation_abstract",
           "dc.description",
@@ -101,7 +106,11 @@ actions:
         let bestText = "";
         let bestLength = 0;
         for (const fieldName of candidateFields) {
-          const raw = normalizeSourceText(getFieldSafe(targetItem, fieldName));
+          const rawValue = getFieldSafe(targetItem, fieldName);
+          const raw =
+            fieldName === "citation_abstract_raw_md"
+              ? normalizeSourceTextRawMarkdown(rawValue)
+              : normalizeSourceText(rawValue);
           if (!raw) {
             continue;
           }

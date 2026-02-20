@@ -716,6 +716,9 @@ window.$docsify = {
               updateMetaTag('citation_abstract_raw', abstractTextForMetaRaw.replace(/\n/g, '__BR__'), {
                 useFallback: false,
               });
+              updateMetaTag('citation_abstract_raw_md', abstractTextForMetaRaw, {
+                useFallback: false,
+              });
             }
           }
 
@@ -938,6 +941,7 @@ window.$docsify = {
       const SUMMARY_META_NAMES = [
         'citation_abstract',
         'citation_abstract_raw',
+        'citation_abstract_raw_md',
         'description',
         'dc.description',
         'DC.description',
