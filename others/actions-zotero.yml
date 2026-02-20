@@ -369,20 +369,26 @@ actions:
           : "";
 
         const shouldKeepOriginal =
-          !(summaryText && originalText &&
-            cleanForCompare(summaryText) === cleanForCompare(originalText));
+          summaryText &&
+          originalText &&
+          cleanForCompare(summaryText) === cleanForCompare(originalText);
 
-        addBlock(
-          "🤖 AI Summary",
-          summaryText || "（未检测到 AI Summary，已自动降级展示原始内容）",
-        );
-
-        if (parsed.chat) {
-          const chatText = formatChatMarkdown(parsed.chat);
-          addBlock("💬 Chat History", chatText);
-        }
-        if (shouldKeepOriginal && originalText) {
+        if (!summaryText && originalText) {
+          // 只有原始摘要时，不额外补一段“AI Summary（缺失）”占位，避免重复展示相同内容
           addBlock("📄 Original Abstract", originalText);
+        } else {
+          addBlock(
+            "🤖 AI Summary",
+            summaryText || "（未检测到 AI Summary，已自动降级展示原始内容）",
+          );
+
+          if (parsed.chat) {
+            const chatText = formatChatMarkdown(parsed.chat);
+            addBlock("💬 Chat History", chatText);
+          }
+          if (originalText && !shouldKeepOriginal) {
+            addBlock("📄 Original Abstract", originalText);
+          }
         }
         return blocks.join("\n\n");
       }
