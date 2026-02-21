@@ -811,10 +811,6 @@ window.SubscriptionsSmartQuery = (function () {
 
     displayListEl.innerHTML = currentProfiles
       .map((p) => {
-        const qCount = Array.isArray(p.semantic_queries) ? p.semantic_queries.length : 0;
-        const queryListHtml = (Array.isArray(p.semantic_queries) ? p.semantic_queries : [])
-          .map((q) => `<div class="dpr-entry-query-item">${escapeHtml(normalizeText(q.text || '')) || '（无文本）'}</div>`)
-          .join('');
         return `
           <div class="dpr-entry-card" data-profile-id="${escapeHtml(p.id || '')}">
             <div class="dpr-entry-top">
@@ -826,10 +822,6 @@ window.SubscriptionsSmartQuery = (function () {
                 <button class="arxiv-tool-btn dpr-entry-edit-btn" data-action="edit-profile" data-profile-id="${escapeHtml(p.id || '')}">修改</button>
                 <button class="arxiv-tool-btn dpr-entry-delete-btn" data-action="delete-profile" data-profile-id="${escapeHtml(p.id || '')}">删除</button>
               </div>
-            </div>
-            <div class="dpr-entry-main">
-              <div class="dpr-entry-meta">Query ${qCount} ${p.enabled === false ? '· 已停用' : ''}</div>
-              <div class="dpr-entry-query-list">${queryListHtml || '<div class="dpr-entry-empty">暂无 Query</div>'}</div>
             </div>
           </div>
         `;
