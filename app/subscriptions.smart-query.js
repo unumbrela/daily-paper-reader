@@ -873,7 +873,7 @@ window.SubscriptionsSmartQuery = (function () {
       </div>
       <div class="dpr-chat-result-module dpr-chat-result-module-no-radius">
         <div class="dpr-modal-sub">大模型 Query（语义重写）</div>
-        <div class="dpr-cloud-scroll">${qHtml ? `<div class="dpr-cloud-grid">${qHtml}</div>` : '<div class="dpr-cloud-empty"></div>'}</div>
+        <div class="dpr-cloud-scroll dpr-cloud-scroll-no-box">${qHtml ? `<div class="dpr-cloud-grid">${qHtml}</div>` : '<div class="dpr-cloud-empty"></div>'}</div>
       </div>
       <div class="dpr-chat-result-module">
         <div class="dpr-modal-sub">关键词（检索召回）</div>

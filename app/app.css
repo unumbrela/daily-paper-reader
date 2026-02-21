@@ -3332,6 +3332,22 @@ article.markdown-section {
   border-radius: 0;
 }
 
+.dpr-cloud-scroll-no-box,
+.dpr-cloud-scroll-no-box .dpr-cloud-item {
+  border: none;
+}
+
+.dpr-chat-result-module-no-radius {
+  border: none;
+  padding: 0 0 8px 0;
+  background: transparent;
+}
+
+.dpr-chat-result-module-no-radius .dpr-modal-sub {
+  margin-bottom: 6px;
+  color: #2f4069;
+}
+
 .dpr-chat-list {
   margin: 5px 0 8px;
 }
