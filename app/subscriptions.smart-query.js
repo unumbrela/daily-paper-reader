@@ -576,10 +576,102 @@ window.SubscriptionsSmartQuery = (function () {
     return true;
   };
 
+  const replaceProfileFromSelection = (profileId, tag, description, candidates) => {
+    const profileKey = normalizeText(profileId);
+    if (!profileKey) return false;
+
+    const selectedKeywords = (candidates.keywords || []).filter((x) => x._selected);
+    const selectedQueries = (candidates.queries || []).filter((x) => x._selected);
+    if (!selectedKeywords.length && !selectedQueries.length) return false;
+
+    let found = false;
+    window.SubscriptionsManager.updateDraftConfig((cfg) => {
+      const next = cfg || {};
+      if (!next.subscriptions) next.subscriptions = {};
+      const subs = next.subscriptions;
+      const profiles = Array.isArray(subs.intent_profiles) ? subs.intent_profiles.slice() : [];
+      const idx = profiles.findIndex((p) => normalizeText(p.id) === profileKey);
+      if (idx < 0) return next;
+      found = true;
+
+      const existedProfile = profiles[idx] || {};
+      profiles[idx] = {
+        ...existedProfile,
+        id: existedProfile.id,
+        tag: normalizeText(tag || existedProfile.tag || ''),
+        description: normalizeText(description || existedProfile.description || ''),
+        keyword_rules: selectedKeywords
+          .map((item, i) => ({
+            id: normalizeText(item.id) || `kw-${Date.now()}-${i + 1}`,
+            expr: normalizeText(item.expr || ''),
+            logic_cn: normalizeText(item.logic_cn || ''),
+            must_have: uniqList(item.must_have),
+            optional: uniqList(item.optional),
+            exclude: uniqList(item.exclude),
+            rewrite_for_embedding:
+              normalizeText(item.rewrite_for_embedding || '') || cleanBooleanForEmbedding(normalizeText(item.expr || '')),
+            enabled: item.enabled !== false,
+            source: normalizeText(item.source || 'manual'),
+            note: normalizeText(item.note || ''),
+          }))
+          .filter((x) => x.expr),
+        semantic_queries: selectedQueries
+          .map((item, i) => ({
+            id: normalizeText(item.id) || `q-${Date.now()}-${i + 1}`,
+            text: normalizeText(item.text || ''),
+            logic_cn: normalizeText(item.logic_cn || ''),
+            enabled: item.enabled !== false,
+            source: normalizeText(item.source || 'manual'),
+            note: normalizeText(item.note || ''),
+          }))
+          .filter((x) => x.text),
+        updated_at: new Date().toISOString(),
+      };
+      subs.intent_profiles = profiles;
+      next.subscriptions = subs;
+      return next;
+    });
+    return found;
+  };
+
   const parseCandidatesForState = (candidates, selected = true) => {
     return {
       keywords: (candidates.keywords || []).map((x) => ({ ...x, _selected: selected })),
       queries: (candidates.queries || []).map((x) => ({ ...x, _selected: selected })),
+    };
+  };
+
+  const toProfileSelectableCandidates = (profile) => {
+    const rawKeywords = Array.isArray(profile && profile.keyword_rules) ? profile.keyword_rules : [];
+    const rawQueries = Array.isArray(profile && profile.semantic_queries) ? profile.semantic_queries : [];
+    const keywords = rawKeywords.map((k) => ({
+      id: normalizeText(k.id),
+      expr: normalizeText(k.expr || ''),
+      logic_cn: normalizeText(k.logic_cn || ''),
+      must_have: uniqList(k.must_have),
+      optional: uniqList(k.optional),
+      exclude: uniqList(k.exclude),
+      rewrite_for_embedding:
+        normalizeText(k.rewrite_for_embedding || '') || cleanBooleanForEmbedding(normalizeText(k.expr || '')),
+      enabled: k.enabled !== false,
+      source: normalizeText(k.source || 'manual'),
+      note: normalizeText(k.note || ''),
+    }));
+
+    const queries = rawQueries.map((q) => ({
+      id: normalizeText(q.id),
+      text: normalizeText(q.text || ''),
+      logic_cn: normalizeText(q.logic_cn || ''),
+      enabled: q.enabled !== false,
+      source: normalizeText(q.source || 'manual'),
+      note: normalizeText(q.note || ''),
+    }));
+
+    const keywordState = parseCandidatesForState({ keywords, queries: [] }, false);
+    const queryState = parseCandidatesForState({ keywords: [], queries }, false);
+    return {
+      keywords: keywordState.keywords,
+      queries: queryState.queries,
     };
   };
 
@@ -719,8 +811,10 @@ window.SubscriptionsSmartQuery = (function () {
 
     displayListEl.innerHTML = currentProfiles
       .map((p) => {
-        const kwCount = Array.isArray(p.keyword_rules) ? p.keyword_rules.length : 0;
         const qCount = Array.isArray(p.semantic_queries) ? p.semantic_queries.length : 0;
+        const queryListHtml = (Array.isArray(p.semantic_queries) ? p.semantic_queries : [])
+          .map((q) => `<div class="dpr-entry-query-item">${escapeHtml(normalizeText(q.text || '')) || '（无文本）'}</div>`)
+          .join('');
         return `
           <div class="dpr-entry-card" data-profile-id="${escapeHtml(p.id || '')}">
             <div class="dpr-entry-top">
@@ -734,7 +828,8 @@ window.SubscriptionsSmartQuery = (function () {
               </div>
             </div>
             <div class="dpr-entry-main">
-              <div class="dpr-entry-meta">关键词 ${kwCount} · Query ${qCount} ${p.enabled === false ? '· 已停用' : ''}</div>
+              <div class="dpr-entry-meta">Query ${qCount} ${p.enabled === false ? '· 已停用' : ''}</div>
+              <div class="dpr-entry-query-list">${queryListHtml || '<div class="dpr-entry-empty">暂无 Query</div>'}</div>
             </div>
           </div>
         `;
@@ -799,7 +894,7 @@ window.SubscriptionsSmartQuery = (function () {
 
     modalPanel.innerHTML = `
       <div class="dpr-modal-head">
-        <div class="dpr-modal-title">新增词条候选</div>
+        <div class="dpr-modal-title">${modalState && modalState.editProfileId ? '修改词条' : '新增词条候选'}</div>
         <button class="arxiv-tool-btn" data-action="close">关闭</button>
       </div>
       <div class="dpr-modal-sub">标签：${escapeHtml(modalState.tag || '')} ｜ 描述：${escapeHtml(modalState.description || '（无）')}</div>
@@ -818,7 +913,9 @@ window.SubscriptionsSmartQuery = (function () {
         <button class="arxiv-tool-btn" data-action="add-custom-query">加入候选</button>
       </div>
       <div class="dpr-modal-actions">
-        <button class="arxiv-tool-btn" data-action="apply-add" style="background:#2e7d32;color:#fff;">确认新增</button>
+        <button class="arxiv-tool-btn" data-action="apply-add" style="background:#2e7d32;color:#fff;">${
+          modalState && modalState.editProfileId ? '确认修改' : '确认新增'
+        }</button>
       </div>
     `;
   };
@@ -827,17 +924,31 @@ window.SubscriptionsSmartQuery = (function () {
     if (!modalState || modalState.type !== 'add') return;
     const selectedKeywords = (modalState.keywords || []).filter((x) => x._selected);
     const selectedQueries = (modalState.queries || []).filter((x) => x._selected);
-    if (!applyCandidateToProfile(modalState.tag, modalState.description, {
-      ...modalState,
-      keywords: selectedKeywords,
-      queries: selectedQueries,
-    })) {
+    const isEditMode = !!(modalState && modalState.editProfileId);
+    const ok = isEditMode
+      ? replaceProfileFromSelection(
+          modalState.editProfileId,
+          modalState.tag,
+          modalState.description,
+          {
+            ...modalState,
+            keywords: selectedKeywords,
+            queries: selectedQueries,
+          },
+        )
+      : applyCandidateToProfile(modalState.tag, modalState.description, {
+          ...modalState,
+          keywords: selectedKeywords,
+          queries: selectedQueries,
+        });
+
+    if (!ok) {
       setMessage('请至少选择一条候选。', '#c00');
       return;
     }
 
     if (typeof reloadAll === 'function') reloadAll();
-    setMessage('新增词条已应用，请点击「保存」。', '#666');
+    setMessage(isEditMode ? '词条修改已应用，请点击「保存」。' : '新增词条已应用，请点击「保存」。', '#666');
     closeModal();
   };
 
@@ -1005,10 +1116,25 @@ window.SubscriptionsSmartQuery = (function () {
     if (!profile) return;
 
     modalState = {
-      type: 'edit',
-      profile: deepClone(profile),
+      type: 'add',
+      editProfileId: normalizeText(profile.id),
+      tag: profile.tag || '',
+      description: profile.description || '',
+      ...toProfileSelectableCandidates(profile),
+      customKeyword: '',
+      customKeywordLogic: '',
+      customQuery: '',
+      customQueryLogic: '',
     };
-    renderEditModal();
+    modalState.keywords = (modalState.keywords || []).map((item) => ({
+      ...item,
+      _selected: item.enabled !== false,
+    }));
+    modalState.queries = (modalState.queries || []).map((item) => ({
+      ...item,
+      _selected: item.enabled !== false,
+    }));
+    renderAddModal();
     openModal();
   };
 
@@ -1432,9 +1558,8 @@ window.SubscriptionsSmartQuery = (function () {
       const profile = (currentProfiles || []).find((p) => normalizeText(p.id) === normalizeText(profileId));
       const tag = normalizeText(profile && profile.tag) || '该词条';
       const desc = normalizeText(profile && profile.description);
-      const kwCount = Array.isArray(profile && profile.keyword_rules) ? profile.keyword_rules.length : 0;
       const qCount = Array.isArray(profile && profile.semantic_queries) ? profile.semantic_queries.length : 0;
-      const summary = desc || `关键词 ${kwCount} 条，Query ${qCount} 条`;
+      const summary = desc || `Query ${qCount} 条`;
       const ok = window.confirm(
         `确认删除词条「${tag}」吗？\n简介：${summary}\n此操作可在未保存前通过刷新放弃。`,
       );

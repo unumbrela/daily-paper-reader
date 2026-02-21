@@ -3104,6 +3104,27 @@ article.markdown-section {
   margin-bottom: 2px;
 }
 
+.dpr-entry-query-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dpr-entry-query-item {
+  border: 1px solid #dbe6fb;
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 11px;
+  color: #3d4a71;
+  background: #fff;
+  word-break: break-word;
+}
+
+.dpr-entry-empty {
+  font-size: 11px;
+  color: #999;
+}
+
 .dpr-entry-actions {
   display: flex;
   gap: 6px;
