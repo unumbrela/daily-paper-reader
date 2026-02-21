@@ -2075,6 +2075,13 @@ window.$docsify = {
           }
         }
 
+        // 兜底：若只有英文标题（缺少 title_zh），将英文挪到左侧显示，
+        // 避免 dpr-title-single 样式把右侧英文区域隐藏后出现“无标题”。
+        if (!cnTitle && enTitle) {
+          cnTitle = enTitle;
+          enTitle = '';
+        }
+
         // 隐藏原始 h1，但保留在 DOM 里供复制/SEO/元信息提取兜底
         h1s.forEach((h) => h.classList.add('dpr-title-hidden'));
 
