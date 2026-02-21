@@ -444,13 +444,11 @@ window.SubscriptionsSmartQuery = (function () {
         try {
           let current = null;
           let txt = '';
-          try {
-            current = await doFetchWithFallbackHeader(endpoint, true);
-            if (current && !current.ok) {
-              txt = await current.text().catch(() => '');
-              if (current.status === 400 && /response[\s-]*format|json_object/i.test(txt)) {
-                current = await doFetchWithFallbackHeader(endpoint, false);
-              }
+          current = await doFetchWithFallbackHeader(endpoint, true);
+          if (current && !current.ok) {
+            txt = await current.text().catch(() => '');
+            if (current.status === 400 && /response[\s-]*format|json_object/i.test(txt)) {
+              current = await doFetchWithFallbackHeader(endpoint, false);
             }
           }
           if (current && !current.ok) {
