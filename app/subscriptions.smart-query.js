@@ -1359,13 +1359,18 @@ window.SubscriptionsSmartQuery = (function () {
     const idx = Number(target.getAttribute('data-index'));
     const list = kind === 'query' ? modalState.queries : modalState.keywords;
     if (!Array.isArray(list) || idx < 0 || idx >= list.length) return;
+    const selected = !!target.checked;
+    const card = target.closest('.dpr-cloud-item');
+    if (card) {
+      card.classList.toggle('selected', selected);
+    }
 
     if (kind === 'kw' && Array.isArray(modalState.keywords) && idx >= 0 && idx < modalState.keywords.length) {
-      modalState.keywords[idx]._selected = !!target.checked;
+      modalState.keywords[idx]._selected = selected;
       return;
     }
     if (kind === 'query' && Array.isArray(modalState.queries) && idx >= 0 && idx < modalState.queries.length) {
-      modalState.queries[idx]._selected = !!target.checked;
+      modalState.queries[idx]._selected = selected;
     }
   };
 

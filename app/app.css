@@ -3385,6 +3385,11 @@ article.markdown-section {
   color: #1f5f2f;
 }
 
+.dpr-cloud-item input[type='checkbox']:checked + .dpr-cloud-item-body .dpr-cloud-item-title,
+.dpr-cloud-item input[type='checkbox']:checked + .dpr-cloud-item-body .dpr-cloud-item-desc {
+  color: #1f5f2f;
+}
+
 .dpr-cloud-item input[type='checkbox'] {
   margin-top: 1px;
   accent-color: #2e7d32;
