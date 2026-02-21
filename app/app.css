@@ -3249,7 +3249,7 @@ article.markdown-section {
   display: flex;
   flex-wrap: nowrap;
   gap: 8px;
-  align-items: center;
+  align-items: flex-end;
 }
 
 .dpr-chat-inline-tag {
