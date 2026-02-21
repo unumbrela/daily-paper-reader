@@ -3249,7 +3249,7 @@ article.markdown-section {
   display: flex;
   flex-wrap: nowrap;
   gap: 8px;
-  align-items: stretch;
+  align-items: center;
 }
 
 .dpr-chat-inline-tag {
@@ -3267,6 +3267,7 @@ article.markdown-section {
 }
 
 .dpr-chat-inline-desc textarea {
+  height: 56px;
   min-height: 56px;
 }
 
@@ -3275,6 +3276,7 @@ article.markdown-section {
   background: #5dcf85 !important;
   color: #fff !important;
   padding: 6px 10px !important;
+  height: 56px;
   min-height: 56px;
   border-radius: 6px;
   white-space: nowrap;
