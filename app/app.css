@@ -3247,9 +3247,9 @@ article.markdown-section {
 
 .dpr-chat-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
-  align-items: flex-start;
+  align-items: flex-end;
 }
 
 .dpr-chat-inline-tag {
@@ -3262,8 +3262,8 @@ article.markdown-section {
 }
 
 .dpr-chat-inline-desc {
-  flex: 1 1 240px;
-  min-width: 200px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .dpr-chat-inline-desc textarea {
@@ -3276,9 +3276,19 @@ article.markdown-section {
   color: #fff !important;
   padding: 6px 10px !important;
   height: 32px;
-  margin-bottom: 2px;
   border-radius: 6px;
   white-space: nowrap;
+  margin: 0 0 2px;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .dpr-chat-row {
+    flex-wrap: wrap;
+  }
+  .dpr-chat-send-btn {
+    margin-left: auto;
+  }
 }
 
 .dpr-chat-label {
