@@ -27,11 +27,13 @@ def get_supabase_read_config(config: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "enabled": enabled and prefer_read,
         "use_vector_rpc": use_vector_rpc,
+        "use_bm25_rpc": bool(sb.get("use_bm25_rpc", False)),
         "url": _norm(sb.get("url")),
         "anon_key": _norm(sb.get("anon_key")),
         "papers_table": _norm(sb.get("papers_table") or "arxiv_papers"),
         "schema": _norm(sb.get("schema") or "public"),
         "vector_rpc": _norm(sb.get("vector_rpc") or "match_arxiv_papers"),
+        "bm25_rpc": _norm(sb.get("bm25_rpc") or "match_arxiv_papers_bm25"),
     }
 
 
@@ -279,6 +281,75 @@ def match_papers_by_embedding(
                     "categories": r.get("categories") if isinstance(r.get("categories"), list) else [],
                     "source": "supabase",
                     "similarity": sim_f,
+                }
+            )
+        return (out, f"rpc 查询成功：{len(out)} 条")
+    except Exception as e:
+        return ([], f"rpc 查询异常：{e}")
+
+
+def match_papers_by_bm25(
+    *,
+    url: str,
+    api_key: str,
+    rpc_name: str,
+    query_text: str,
+    match_count: int,
+    schema: str = "public",
+    timeout: int = DEFAULT_TIMEOUT,
+) -> Tuple[List[Dict[str, Any]], str]:
+    """
+    调用 Supabase RPC，在数据库侧执行 BM25 风格检索（PostgreSQL FTS）。
+    约定 RPC 参数：
+      - query_text: text
+      - match_count: int
+    """
+    safe_rpc = _norm(rpc_name)
+    if not safe_rpc:
+        safe_rpc = "match_arxiv_papers_bm25"
+    q = _norm(query_text)
+    if not q:
+        return ([], "query_text 为空")
+    k = max(int(match_count or 1), 1)
+    endpoint = f"{_base_rest_url(url)}/rpc/{safe_rpc}"
+    payload = {
+        "query_text": q,
+        "match_count": k,
+    }
+    try:
+        resp = requests.post(
+            endpoint,
+            headers={
+                **_build_headers(api_key, schema),
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=max(int(timeout or DEFAULT_TIMEOUT), 1),
+        )
+        if resp.status_code >= 300:
+            return ([], f"rpc 查询失败：HTTP {resp.status_code} {resp.text[:200]}")
+        rows = resp.json() or []
+        if not isinstance(rows, list):
+            return ([], "rpc 查询结果格式异常")
+        out: List[Dict[str, Any]] = []
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            pid = _norm(r.get("id"))
+            if not pid:
+                continue
+            out.append(
+                {
+                    "id": pid,
+                    "title": _norm(r.get("title")),
+                    "abstract": _norm(r.get("abstract")),
+                    "published": _norm(r.get("published")) or None,
+                    "link": _norm(r.get("link")) or None,
+                    "authors": r.get("authors") if isinstance(r.get("authors"), list) else [],
+                    "primary_category": _norm(r.get("primary_category")) or None,
+                    "categories": r.get("categories") if isinstance(r.get("categories"), list) else [],
+                    "score": r.get("score"),
+                    "similarity": r.get("similarity"),
                 }
             )
         return (out, f"rpc 查询成功：{len(out)} 条")

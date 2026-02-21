@@ -13,6 +13,8 @@ supabase:
   papers_table: arxiv_papers
   use_vector_rpc: true
   vector_rpc: match_arxiv_papers
+  use_bm25_rpc: true
+  bm25_rpc: match_arxiv_papers_bm25
   sync_table: arxiv_sync_status
   sync_success_value: success
   schema: public

@@ -24,6 +24,7 @@ from query_boolean import (
   match_term,
 )
 from subscription_plan import build_pipeline_inputs
+from supabase_source import get_supabase_read_config, match_papers_by_bm25
 
 
 # 当前脚本位于 src/ 下，config.yaml 在上一级目录
@@ -286,6 +287,99 @@ def build_bm25_index(papers: List[Paper], k1: float = 1.5, b: float = 0.75) -> B
   docs = [p.text_for_bm25 for p in papers]
   tokenized = [tokenize(d) for d in docs]
   return BM25Index(tokenized_docs=tokenized, k1=k1, b=b)
+
+
+def _query_text_for_supabase_bm25(q: dict) -> str:
+  boolean_expr = str(q.get("boolean_expr") or "").strip()
+  if boolean_expr:
+    return clean_expr_for_embedding(boolean_expr) or boolean_expr
+  q_text = str(q.get("query_text") or "").strip()
+  return q_text
+
+
+def rank_papers_for_queries_via_supabase(
+  queries: List[dict],
+  top_k: int,
+  supabase_conf: Dict[str, Any],
+) -> dict:
+  if not queries:
+    return {"queries": [], "papers": {}, "total_hits": 0}
+
+  url = str(supabase_conf.get("url") or "").strip()
+  api_key = str(supabase_conf.get("anon_key") or "").strip()
+  rpc_name = str(supabase_conf.get("bm25_rpc") or "match_arxiv_papers_bm25").strip()
+  schema = str(supabase_conf.get("schema") or "public").strip()
+  if not url or not api_key:
+    return {"queries": [], "papers": {}, "total_hits": 0}
+
+  id_to_paper: Dict[str, Paper] = {}
+  results_per_query: List[dict] = []
+  total_hits = 0
+
+  for q in queries:
+    q_text = _query_text_for_supabase_bm25(q)
+    paper_tag = str(q.get("paper_tag") or "").strip()
+    if not q_text:
+      continue
+
+    rows, msg = match_papers_by_bm25(
+      url=url,
+      api_key=api_key,
+      rpc_name=rpc_name,
+      query_text=q_text,
+      match_count=max(int(top_k or 1), 1),
+      schema=schema,
+    )
+    log(f"[Supabase BM25] {msg} | tag={q.get('tag') or ''}")
+
+    sim_scores: Dict[str, Dict[str, float | int]] = {}
+    for rank_idx, row in enumerate(rows, start=1):
+      pid = str(row.get("id") or "").strip()
+      if not pid:
+        continue
+      score_raw = row.get("score")
+      if score_raw is None:
+        score_raw = row.get("similarity")
+      try:
+        score = float(score_raw)
+      except Exception:
+        score = 0.0
+      sim_scores[pid] = {"score": score, "rank": rank_idx}
+      total_hits += 1
+
+      if pid not in id_to_paper:
+        id_to_paper[pid] = Paper(
+          id=pid,
+          source="supabase",
+          title=str(row.get("title") or "").strip(),
+          abstract=str(row.get("abstract") or "").strip(),
+          authors=[str(a) for a in (row.get("authors") or [])],
+          primary_category=str(row.get("primary_category") or "") or None,
+          categories=[str(c) for c in (row.get("categories") or [])],
+          published=str(row.get("published") or "") or None,
+          link=str(row.get("link") or "") or None,
+        )
+      if paper_tag:
+        id_to_paper[pid].tags.add(paper_tag)
+
+    results_per_query.append(
+      {
+        "type": q.get("type"),
+        "tag": q.get("tag"),
+        "paper_tag": q.get("paper_tag"),
+        "query_text": q_text,
+        "logic_cn": q.get("logic_cn") or "",
+        "boolean_expr": q.get("boolean_expr") or "",
+        "bm25_mode": "supabase",
+        "sim_scores": sim_scores,
+      }
+    )
+
+  return {
+    "queries": results_per_query,
+    "papers": id_to_paper,
+    "total_hits": total_hits,
+  }
 
 
 def score_boolean_mixed_for_query(
@@ -559,10 +653,16 @@ def main() -> None:
     default=0.75,
     help="BM25 b 参数（默认 0.75）。",
   )
+  parser.add_argument(
+    "--disable-supabase-bm25",
+    action="store_true",
+    help="关闭 Supabase BM25 召回，强制使用本地 BM25 索引。",
+  )
 
   args = parser.parse_args()
 
   config = load_config()
+  supabase_conf = get_supabase_read_config(config)
   pipeline_inputs = build_pipeline_inputs(config)
   queries = pipeline_inputs.get("bm25_queries") or []
   comparison = pipeline_inputs.get("comparison") or {}
@@ -577,6 +677,39 @@ def main() -> None:
   if not queries:
     log("[ERROR] 未能从订阅配置中解析到 BM25 查询，退出。")
     return
+
+  supabase_enabled = (
+    bool(supabase_conf.get("enabled"))
+    and bool(supabase_conf.get("use_bm25_rpc"))
+    and not bool(args.disable_supabase_bm25)
+  )
+
+  def run_supabase_rank(output_path: str) -> bool:
+    label = os.path.basename(output_path)
+    if args.top_k is None or args.top_k <= 0:
+      dynamic_top_k = 50
+    else:
+      dynamic_top_k = args.top_k
+      log(f"[INFO] Supabase BM25 使用命令行指定的 Top K = {dynamic_top_k}，输出文件：{label}")
+
+    group_start(f"Step 2.1 - supabase bm25 recall ({label})")
+    try:
+      result_sb = rank_papers_for_queries_via_supabase(
+        queries=queries,
+        top_k=dynamic_top_k,
+        supabase_conf=supabase_conf,
+      )
+      total_hits = int(result_sb.get("total_hits") or 0)
+      if total_hits > 0:
+        log(f"[INFO] Supabase BM25 命中 {total_hits} 条，采用数据库端召回结果。")
+        save_tagged_results(result_sb, output_path)
+        return True
+      log("[WARN] Supabase BM25 未命中，准备回退本地 BM25。")
+    except Exception as e:
+      log(f"[WARN] Supabase BM25 异常，将回退本地 BM25：{e}")
+    finally:
+      group_end()
+    return False
 
   def process_single_file(input_path: str, output_path: str) -> None:
     papers = load_paper_pool(input_path)
@@ -648,13 +781,25 @@ def main() -> None:
       return
 
     log(f"[INFO] 批量模式：将在 {RAW_DIR} 下处理 {len(raw_files)} 个 JSON 文件。")
-    for name in raw_files:
-      input_path = os.path.join(RAW_DIR, name)
-      base = name
-      if base.lower().endswith(".json"):
-        base = base[:-5]
-      output_path = os.path.join(FILTERED_DIR, f"{base}.bm25.json")
-      process_single_file(input_path, output_path)
+    if supabase_enabled:
+      log("[INFO] Supabase BM25 已启用：将直接使用数据库端召回（如异常则回退本地）。")
+      for name in raw_files:
+        input_path = os.path.join(RAW_DIR, name)
+        base = name
+        if base.lower().endswith(".json"):
+          base = base[:-5]
+        output_path = os.path.join(FILTERED_DIR, f"{base}.bm25.json")
+        if run_supabase_rank(output_path):
+          continue
+        process_single_file(input_path, output_path)
+    else:
+      for name in raw_files:
+        input_path = os.path.join(RAW_DIR, name)
+        base = name
+        if base.lower().endswith(".json"):
+          base = base[:-5]
+        output_path = os.path.join(FILTERED_DIR, f"{base}.bm25.json")
+        process_single_file(input_path, output_path)
 
 
 if __name__ == "__main__":
