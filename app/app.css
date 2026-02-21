@@ -3315,11 +3315,11 @@ article.markdown-section {
 
 .dpr-chat-result-module .dpr-cloud-scroll {
   min-height: 104px;
-  border: 1px solid #e8edf5;
-  border-radius: 10px;
-  background: #fff;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   box-sizing: border-box;
-  padding: 4px;
+  padding: 0;
 }
 
 .dpr-chat-list {
