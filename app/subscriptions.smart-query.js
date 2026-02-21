@@ -393,7 +393,11 @@ window.SubscriptionsSmartQuery = (function () {
       const payload = {
         model: llm.model,
         messages: [
-          { role: 'system', content: '你是检索规划助手，只能返回合法 JSON。' },
+          {
+            role: 'system',
+            content:
+              '你是检索规划助手，只能返回合法 JSON。该请求必须完全基于本次用户输入生成，不得参考或沿用任何历史会话内容。',
+          },
           { role: 'user', content: prompt },
         ],
         temperature: 0.1,
@@ -913,7 +917,7 @@ window.SubscriptionsSmartQuery = (function () {
     const hasItems = selectedKeywords.length || selectedQueries.length;
 
     if (hasItems) {
-      const tag = normalizeText(modalState.chatTag || modalState.inputTag || (modalState.roundTag || ''));
+      const tag = normalizeText(modalState.inputTag || '');
       const desc = normalizeText(modalState.lastDesc || modalState.inputDesc || '');
       const ok = applyCandidateToProfile(tag || `SR-${new Date().toISOString().slice(0, 10)}`, desc, {
         ...modalState,
@@ -935,10 +939,10 @@ window.SubscriptionsSmartQuery = (function () {
   const askChatOnce = async () => {
     if (!modalState || modalState.type !== 'chat') return;
     if (modalState.pending) return;
-    const tag = normalizeText(document.getElementById('dpr-chat-tag-input')?.value || modalState.chatTag || '');
+    const tag = normalizeText(document.getElementById('dpr-chat-tag-input')?.value || '');
     const desc = normalizeText(document.getElementById('dpr-chat-desc-input')?.value || '');
     const finalTag = tag || `SR-${new Date().toISOString().slice(0, 10)}`;
-    const finalDesc = desc || normalizeText(modalState.inputDesc || '');
+    const finalDesc = desc;
 
     if (!finalDesc) {
       setChatStatus('请先填写检索需求（描述）', '#c00');
