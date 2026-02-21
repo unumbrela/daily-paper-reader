@@ -862,7 +862,7 @@ window.SubscriptionsSmartQuery = (function () {
       </div>
       <div class="dpr-chat-result-module">
         <div class="dpr-modal-sub">关键词（检索召回）</div>
-        <div class="dpr-cloud-scroll">${kwHtml ? `<div class="dpr-cloud-grid">${kwHtml}</div>` : '<div style="color:#999;">暂无关键词候选。</div>'}</div>
+        <div class="dpr-cloud-scroll">${kwHtml ? `<div class="dpr-cloud-grid dpr-cloud-grid-keywords">${kwHtml}</div>` : '<div style="color:#999;">暂无关键词候选。</div>'}</div>
       </div>
       <div class="dpr-modal-actions dpr-chat-action-area">
         <div class="dpr-chat-input-group">

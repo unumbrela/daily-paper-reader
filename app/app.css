@@ -3323,6 +3323,10 @@ article.markdown-section {
   gap: 7px;
 }
 
+.dpr-cloud-grid-keywords {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 @media (max-width: 1024px) {
   .dpr-cloud-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3331,6 +3335,9 @@ article.markdown-section {
 
 @media (max-width: 700px) {
   .dpr-cloud-grid {
+    grid-template-columns: 1fr;
+  }
+  .dpr-cloud-grid-keywords {
     grid-template-columns: 1fr;
   }
 }
