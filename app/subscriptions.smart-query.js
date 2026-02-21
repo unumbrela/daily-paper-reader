@@ -864,27 +864,26 @@ window.SubscriptionsSmartQuery = (function () {
       </div>
       <div class="dpr-modal-actions dpr-chat-action-area">
         <div class="dpr-chat-input-group">
-          <label class="dpr-chat-label">
-            <span class="dpr-chat-label-text">标签</span>
-            <input id="dpr-chat-tag-input" type="text" placeholder="例如：SR" value="${escapeHtml(modalState.inputTag || '')}" />
-          </label>
-          <label class="dpr-chat-label">
-            <span class="dpr-chat-label-text">你的检索需求</span>
-            <textarea id="dpr-chat-desc-input" rows="2" placeholder="例如：我想找最近的符号回归跨学科论文" >${escapeHtml(
-              modalState.inputDesc || '',
-            )}</textarea>
-          </label>
-        </div>
-        <div class="dpr-chat-ops">
-          <button
-            class="arxiv-tool-btn"
-            style="position: relative; background:#2e7d32;color:#fff;"
-            data-action="chat-send"
-            ${modalState.pending ? 'disabled' : ''}
-          >
-            <span class="dpr-chat-send-label">${actionLabel}</span>
-            <span class="dpr-mini-spinner" aria-hidden="true"></span>
-          </button>
+          <div class="dpr-chat-inline-row">
+            <label class="dpr-chat-label dpr-chat-inline-tag">
+              <span class="dpr-chat-label-text">标签</span>
+              <input id="dpr-chat-tag-input" type="text" placeholder="例如：SR" value="${escapeHtml(modalState.inputTag || '')}" />
+            </label>
+            <label class="dpr-chat-label dpr-chat-inline-desc">
+              <span class="dpr-chat-label-text">检索需求</span>
+              <textarea id="dpr-chat-desc-input" rows="2" placeholder="例如：我想找最近的符号回归跨学科论文" >${escapeHtml(
+                modalState.inputDesc || '',
+              )}</textarea>
+            </label>
+            <button
+              class="arxiv-tool-btn dpr-chat-send-btn"
+              data-action="chat-send"
+              ${modalState.pending ? 'disabled' : ''}
+            >
+              <span class="dpr-chat-send-label">${actionLabel}</span>
+              <span class="dpr-mini-spinner" aria-hidden="true"></span>
+            </button>
+          </div>
           <div id="dpr-chat-inline-status" class="dpr-chat-inline-status">${escapeHtml(modalState.chatStatus || '')}</div>
         </div>
         <button class="arxiv-tool-btn" data-action="apply-chat" style="background:#2e7d32;color:#fff;" ${hasCandidates ? '' : 'disabled'}>

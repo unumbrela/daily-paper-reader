@@ -3230,9 +3230,43 @@ article.markdown-section {
   background: #f9fbff;
   padding: 8px;
   margin-bottom: 10px;
+  display: block;
+}
+
+.dpr-chat-inline-row {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.dpr-chat-inline-tag {
+  flex: 0 0 120px;
+  min-width: 120px;
+}
+
+.dpr-chat-inline-tag input {
+  width: 100%;
+}
+
+.dpr-chat-inline-desc {
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.dpr-chat-inline-desc textarea {
+  min-height: 42px;
+}
+
+.dpr-chat-send-btn {
+  flex: 0 0 auto;
+  background: #5dcf85 !important;
+  color: #fff !important;
+  padding: 6px 10px !important;
+  height: 32px;
+  margin-bottom: 2px;
+  border-radius: 6px;
+  white-space: nowrap;
 }
 
 .dpr-chat-label {
