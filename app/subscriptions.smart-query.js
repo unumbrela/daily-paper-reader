@@ -342,6 +342,9 @@ window.SubscriptionsSmartQuery = (function () {
     if (!llm) {
       throw new Error('未检测到可用大模型配置，请先完成密钥配置。');
     }
+    if (!llm.apiKey) {
+      throw new Error('未检测到可用 API Key，请先在密钥配置里填写摘要/Chat Token。');
+    }
 
     const cfg = window.SubscriptionsManager.getDraftConfig ? window.SubscriptionsManager.getDraftConfig() : {};
     const subs = (cfg && cfg.subscriptions) || {};
@@ -398,12 +401,14 @@ window.SubscriptionsSmartQuery = (function () {
     };
 
     const doFetch = async (endpoint, useResponseFormat) => {
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${llm.apiKey}`,
+      };
+      headers['x-api-key'] = llm.apiKey;
       return fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${llm.apiKey}`,
-        },
+        headers,
         body: JSON.stringify(requestPayload(useResponseFormat)),
         signal: controller.signal,
       });
