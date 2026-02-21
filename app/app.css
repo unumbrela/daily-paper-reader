@@ -3276,15 +3276,26 @@ article.markdown-section {
 }
 
 .dpr-cloud-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
+}
+
+@media (max-width: 1024px) {
+  .dpr-cloud-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .dpr-cloud-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .dpr-cloud-item {
   box-sizing: border-box;
-  width: min(260px, calc(50% - 4px));
-  min-width: 130px;
+  min-width: 0;
   border: 1px solid #d4dfef;
   background: #fff;
   border-radius: 14px;
@@ -3328,6 +3339,11 @@ article.markdown-section {
   color: #6a7694;
   line-height: 1.35;
   word-break: break-word;
+}
+
+.dpr-cloud-scroll {
+  max-height: 36vh;
+  overflow: auto;
 }
 
 .dpr-btn-loading {

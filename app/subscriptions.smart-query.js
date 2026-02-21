@@ -757,6 +757,7 @@ window.SubscriptionsSmartQuery = (function () {
       type: 'chat',
       keywords: [],
       queries: [],
+      requestHistory: [],
       inputTag: '',
       inputDesc: '',
       pending: false,
@@ -847,6 +848,18 @@ window.SubscriptionsSmartQuery = (function () {
       descField: 'logic_cn',
       defaultDesc: '（与原始 query 保持同主题）',
     });
+    const requestHistory = Array.isArray(modalState.requestHistory) ? modalState.requestHistory : [];
+    const historyHtml = requestHistory
+      .map(
+        (item, idx) => `
+      <div class="dpr-chat-round">
+        <div class="dpr-chat-round-head">${escapeHtml(item.label || `补充请求 ${idx + 1}`)}</div>
+        <div class="dpr-chat-round-desc">${escapeHtml(item.desc || '（无描述）')}</div>
+        <div class="dpr-chat-round-desc">关键词 ${item.newKeywords || 0} 条 · Query ${item.newQueries || 0} 条</div>
+      </div>
+    `,
+      )
+      .join('');
     const hasCandidates = (modalState.keywords || []).length + (modalState.queries || []).length > 0;
 
     modalPanel.innerHTML = `
@@ -854,36 +867,41 @@ window.SubscriptionsSmartQuery = (function () {
         <div class="dpr-modal-title">新增（大模型对话）</div>
         <button class="arxiv-tool-btn" data-action="close">关闭</button>
       </div>
-      <div class="dpr-chat-input-group">
-        <label class="dpr-chat-label">
-          <span class="dpr-chat-label-text">标签</span>
-          <input id="dpr-chat-tag-input" type="text" placeholder="例如：SR" value="${escapeHtml(modalState.inputTag || '')}" />
-        </label>
-        <label class="dpr-chat-label">
-          <span class="dpr-chat-label-text">你的检索需求</span>
-          <textarea id="dpr-chat-desc-input" rows="2" placeholder="例如：我想找最近的符号回归跨学科论文" >${escapeHtml(
-            modalState.inputDesc || '',
-          )}</textarea>
-        </label>
-        <button
-          class="arxiv-tool-btn"
-          style="position: relative; background:#2e7d32;color:#fff; align-self:flex-end;"
-          data-action="chat-send"
-          ${modalState.pending ? 'disabled' : ''}
-        >
-          <span class="dpr-chat-send-label">生成候选</span>
-          <span class="dpr-mini-spinner" aria-hidden="true"></span>
-        </button>
-        <div id="dpr-chat-inline-status" class="dpr-chat-inline-status">${escapeHtml(modalState.chatStatus || '')}</div>
+      <div class="dpr-modal-sub">文案说明：先建立「首次基线」，后续每次提问只补充「新增候选」，保留你已勾选内容。</div>
+      <div class="dpr-modal-group-title">对话进展（大模型版本）</div>
+      <div class="dpr-modal-list dpr-chat-messages">
+        ${historyHtml || '<div style="color:#999;">还未有对话记录，先发起一次「生成候选」。</div>'}
       </div>
       <div class="dpr-modal-group-title">对话生成记录</div>
       <div class="dpr-modal-list">
-        <div class="dpr-modal-sub" style="margin-bottom: 8px;">关键词候选</div>
-        <div class="dpr-cloud-grid">${kwHtml || '<div style="color:#999;">暂无关键词候选。</div>'}</div>
-        <div class="dpr-modal-sub" style="margin: 10px 0 8px;">语义 Query 候选</div>
-        <div class="dpr-cloud-grid">${qHtml || '<div style="color:#999;">暂无 Query 候选。</div>'}</div>
+        <div class="dpr-modal-sub" style="margin-bottom: 8px;">大模型 Query（语义重写）</div>
+        <div class="dpr-cloud-scroll">${qHtml ? `<div class="dpr-cloud-grid">${qHtml}</div>` : '<div style="color:#999;">暂无 Query 候选。</div>'}</div>
+        <div class="dpr-modal-sub" style="margin: 10px 0 8px;">关键词（检索召回）</div>
+        <div class="dpr-cloud-scroll">${kwHtml ? `<div class="dpr-cloud-grid">${kwHtml}</div>` : '<div style="color:#999;">暂无关键词候选。</div>'}</div>
       </div>
       <div class="dpr-modal-actions">
+        <div class="dpr-chat-input-group">
+          <label class="dpr-chat-label">
+            <span class="dpr-chat-label-text">标签</span>
+            <input id="dpr-chat-tag-input" type="text" placeholder="例如：SR" value="${escapeHtml(modalState.inputTag || '')}" />
+          </label>
+          <label class="dpr-chat-label">
+            <span class="dpr-chat-label-text">你的检索需求</span>
+            <textarea id="dpr-chat-desc-input" rows="2" placeholder="例如：我想找最近的符号回归跨学科论文" >${escapeHtml(
+              modalState.inputDesc || '',
+            )}</textarea>
+          </label>
+          <button
+            class="arxiv-tool-btn"
+            style="position: relative; background:#2e7d32;color:#fff; align-self:flex-end;"
+            data-action="chat-send"
+            ${modalState.pending ? 'disabled' : ''}
+          >
+            <span class="dpr-chat-send-label">生成候选</span>
+            <span class="dpr-mini-spinner" aria-hidden="true"></span>
+          </button>
+          <div id="dpr-chat-inline-status" class="dpr-chat-inline-status">${escapeHtml(modalState.chatStatus || '')}</div>
+        </div>
         <button class="arxiv-tool-btn" data-action="apply-chat" style="background:#2e7d32;color:#fff;" ${hasCandidates ? '' : 'disabled'}>
           应用勾选结果
         </button>
@@ -936,16 +954,26 @@ window.SubscriptionsSmartQuery = (function () {
     setMessage('正在生成候选，请稍候...', '#666');
 
     try {
-    const candidates = await requestCandidatesByDesc(finalTag, finalDesc);
+      const candidates = await requestCandidatesByDesc(finalTag, finalDesc);
       const nextCandidates = parseCandidatesForState(candidates, false);
       const nextKeywords = mergeCloudSelections(modalState.keywords || [], nextCandidates.keywords, 'expr');
       const nextQueries = mergeCloudSelections(modalState.queries || [], nextCandidates.queries, 'text');
+      const roundLabel = requestHistoryLength(modalState);
+      const history = Array.isArray(modalState.requestHistory) ? modalState.requestHistory.slice() : [];
+      history.push({
+        label: roundLabel,
+        desc: finalDesc,
+        newKeywords: nextCandidates.keywords.length,
+        newQueries: nextCandidates.queries.length,
+        createdAt: new Date().toISOString(),
+      });
       modalState.keywords = nextKeywords;
       modalState.queries = nextQueries;
       modalState.chatTag = finalTag;
       modalState.inputTag = finalTag;
       modalState.lastTag = finalTag;
       modalState.lastDesc = finalDesc;
+      modalState.requestHistory = history;
       modalState.inputDesc = '';
       modalState.chatStatus = `已生成候选（关键词 ${nextCandidates.keywords.length} 条新增、共 ${nextKeywords.length} 条；Query ${nextCandidates.queries.length} 条新增、共 ${nextQueries.length} 条）。`;
       if (document.getElementById('dpr-chat-desc-input')) {
@@ -1350,6 +1378,14 @@ window.SubscriptionsSmartQuery = (function () {
     if (kind === 'query' && Array.isArray(modalState.queries) && idx >= 0 && idx < modalState.queries.length) {
       modalState.queries[idx]._selected = !!target.checked;
     }
+  };
+
+  const requestHistoryLength = (state) => {
+    const history = Array.isArray(state && state.requestHistory) ? state.requestHistory : [];
+    if (!history.length) {
+      return '首次生成';
+    }
+    return `新增第 ${history.length + 1} 轮`;
   };
 
   const generateAndOpenAddModal = async () => {
