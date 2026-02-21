@@ -848,38 +848,21 @@ window.SubscriptionsSmartQuery = (function () {
       descField: 'logic_cn',
       defaultDesc: '（与原始 query 保持同主题）',
     });
-    const requestHistory = Array.isArray(modalState.requestHistory) ? modalState.requestHistory : [];
-    const historyHtml = requestHistory
-      .map(
-        (item, idx) => `
-      <div class="dpr-chat-round">
-        <div class="dpr-chat-round-head">${escapeHtml(item.label || `补充请求 ${idx + 1}`)}</div>
-        <div class="dpr-chat-round-desc">${escapeHtml(item.desc || '（无描述）')}</div>
-        <div class="dpr-chat-round-desc">关键词 ${item.newKeywords || 0} 条 · Query ${item.newQueries || 0} 条</div>
-      </div>
-    `,
-      )
-      .join('');
     const hasCandidates = (modalState.keywords || []).length + (modalState.queries || []).length > 0;
+    const actionLabel = requestHistoryLength(modalState) === '首次生成' ? '生成候选' : '新增候选';
 
     modalPanel.innerHTML = `
       <div class="dpr-modal-head">
         <div class="dpr-modal-title">新增（大模型对话）</div>
         <button class="arxiv-tool-btn" data-action="close">关闭</button>
       </div>
-      <div class="dpr-modal-sub">文案说明：先建立「首次基线」，后续每次提问只补充「新增候选」，保留你已勾选内容。</div>
-      <div class="dpr-modal-group-title">对话进展（大模型版本）</div>
-      <div class="dpr-modal-list dpr-chat-messages">
-        ${historyHtml || '<div style="color:#999;">还未有对话记录，先发起一次「生成候选」。</div>'}
-      </div>
-      <div class="dpr-modal-group-title">对话生成记录</div>
       <div class="dpr-modal-list">
         <div class="dpr-modal-sub" style="margin-bottom: 8px;">大模型 Query（语义重写）</div>
         <div class="dpr-cloud-scroll">${qHtml ? `<div class="dpr-cloud-grid">${qHtml}</div>` : '<div style="color:#999;">暂无 Query 候选。</div>'}</div>
         <div class="dpr-modal-sub" style="margin: 10px 0 8px;">关键词（检索召回）</div>
         <div class="dpr-cloud-scroll">${kwHtml ? `<div class="dpr-cloud-grid">${kwHtml}</div>` : '<div style="color:#999;">暂无关键词候选。</div>'}</div>
       </div>
-      <div class="dpr-modal-actions">
+      <div class="dpr-modal-actions dpr-chat-action-area">
         <div class="dpr-chat-input-group">
           <label class="dpr-chat-label">
             <span class="dpr-chat-label-text">标签</span>
@@ -891,13 +874,15 @@ window.SubscriptionsSmartQuery = (function () {
               modalState.inputDesc || '',
             )}</textarea>
           </label>
+        </div>
+        <div class="dpr-chat-ops">
           <button
             class="arxiv-tool-btn"
-            style="position: relative; background:#2e7d32;color:#fff; align-self:flex-end;"
+            style="position: relative; background:#2e7d32;color:#fff;"
             data-action="chat-send"
             ${modalState.pending ? 'disabled' : ''}
           >
-            <span class="dpr-chat-send-label">生成候选</span>
+            <span class="dpr-chat-send-label">${actionLabel}</span>
             <span class="dpr-mini-spinner" aria-hidden="true"></span>
           </button>
           <div id="dpr-chat-inline-status" class="dpr-chat-inline-status">${escapeHtml(modalState.chatStatus || '')}</div>

@@ -3455,6 +3455,38 @@ article.markdown-section {
   gap: 8px;
 }
 
+.dpr-chat-action-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.dpr-chat-ops {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.dpr-chat-ops .arxiv-tool-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.dpr-chat-ops .dpr-chat-inline-status {
+  flex: 1;
+  margin-top: 0;
+  min-width: 0;
+  font-size: 11px;
+  word-break: break-word;
+}
+
+.dpr-chat-action-area > .arxiv-tool-btn {
+  width: 100%;
+}
+
 .dpr-modal-actions-inline {
   margin-top: 6px;
   display: flex;
