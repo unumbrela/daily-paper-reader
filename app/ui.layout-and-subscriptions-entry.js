@@ -181,7 +181,10 @@
     quickBtn.title = '快速抓取';
     quickBtn.setAttribute('aria-label', '快速抓取');
 
-    quickBtn.addEventListener('click', function () {
+    quickBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
       if (window.PrivateDiscussionChat && typeof window.PrivateDiscussionChat.openQuickRunPanel === 'function') {
         window.PrivateDiscussionChat.openQuickRunPanel();
         return;

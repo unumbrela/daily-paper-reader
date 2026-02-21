@@ -1122,7 +1122,7 @@ body.close .chat-footer {
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.35);
-  z-index: 12050;
+  z-index: 2100;
   opacity: 0;
   transition: opacity 0.16s ease;
 }
@@ -1133,21 +1133,25 @@ body.close .chat-footer {
 }
 
 .chat-quick-run-modal-panel {
-  width: min(520px, calc(100vw - 32px));
-  max-height: min(640px, calc(100vh - 48px));
+  width: min(720px, 90vw);
+  max-height: 85vh;
   background: #fff;
-  border: 1px solid #e3e6ed;
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 16px;
   box-sizing: border-box;
-  transform: translateY(-4px) scale(0.98);
-  transition: transform 0.16s ease;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transform: scale(0.9) translateY(20px);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease-out;
 }
 
 .chat-quick-run-modal.is-open .chat-quick-run-modal-panel {
-  transform: translateY(0) scale(1);
+  transform: scale(1) translateY(0);
+  opacity: 1;
 }
 
 .chat-quick-run-modal-head {
@@ -1156,29 +1160,40 @@ body.close .chat-footer {
   align-items: center;
   margin-bottom: 6px;
   gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eceff5;
+}
+
+.chat-quick-run-title {
+  margin: 0;
+  font-size: 14px;
+  color: #2f4069;
+  font-weight: 600;
 }
 
 .chat-quick-run-close-btn {
   width: 24px;
   height: 24px;
-  border: none;
-  background: #f1f3f6;
+  border: 1px solid #d9d9d9;
+  background: #f7f8fb;
   color: #666;
-  border-radius: 999px;
+  border-radius: 4px;
+  line-height: 1;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.chat-quick-run-divider {
+  height: 1px;
+  background: #eceff5;
+  margin: 6px 0 12px;
 }
 
 .chat-quick-run-close-btn:hover {
   background: #e5e9f2;
-}
-
-.chat-quick-run-title {
-  font-size: 11px;
-  color: #666;
-  margin-bottom: 6px;
 }
 
 .chat-quick-run-item {
@@ -1196,12 +1211,6 @@ body.close .chat-footer {
 .chat-quick-run-item:hover {
   background: #f4f8ff;
   border-color: #cfe0ff;
-}
-
-.chat-quick-run-divider {
-  height: 1px;
-  background: #eceff5;
-  margin: 6px 0 8px;
 }
 
 .chat-quick-run-row {
