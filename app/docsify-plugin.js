@@ -1985,12 +1985,12 @@ window.$docsify = {
       // 侧边栏/正文的论文页标题条：英文右侧，中文左侧，中间竖线
       const isPaperRouteFile = (file) => {
         const f = String(file || '');
-        return /^\d{6}\/\d{2}\/(?!README\.md$).+\.md$/i.test(f);
+        return /^(?:\d{6}\/\d{2}|\d{8}-\d{8})\/(?!README\.md$).+\.md$/i.test(f);
       };
 
       const isReportRouteFile = (file) => {
         const f = String(file || '');
-        return /^\d{6}\/\d{2}\/README\.md$/i.test(f);
+        return /^(?:\d{6}\/\d{2}|\d{8}-\d{8})\/README\.md$/i.test(f);
       };
 
       const fitTextToBox = (el, minPx, maxPx) => {

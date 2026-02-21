@@ -1,0 +1,441 @@
+Title: Differentiable Modeling for Low-Inertia Grids: Benchmarking PINNs, NODEs, and DP for Identification and Control of SMIB System
+
+URL Source: https://arxiv.org/pdf/2602.09667v1
+
+Published Time: Wed, 11 Feb 2026 01:58:32 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+> JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 1
+
+# Differentiable Modeling for Low-Inertia Grids: Benchmarking PINNs, NODEs, and DP for Identification and Control of SMIB System 
+
+Shinhoo Kang, Sangwook Kim, and Sehyun Yun 
+
+Abstract —The transition toward low-inertia power systems demands modeling frameworks that provide not only accurate state predictions but also physically consistent sensitivities for control. While scientific machine learning offers powerful nonlin-ear modeling tools, the control-oriented implications of different differentiable paradigms remain insufficiently understood. This paper presents a comparative study of Physics-Informed Neu-ral Networks (PINNs), Neural Ordinary Differential Equations (NODEs), and Differentiable Programming (DP) for modeling, identification, and control of power system dynamics. Using the Single Machine Infinite Bus (SMIB) system as a benchmark, we evaluate their performance in trajectory extrapolation, parame-ter estimation, and Linear Quadratic Regulator (LQR) synthesis. Our results highlight a fundamental trade-off between data-driven flexibility and physical structure. NODE exhibits superior extrapolation by capturing the underlying vector field, whereas PINN shows limited generalization due to its reliance on a time-dependent solution map. In the inverse problem of parameter identification, while both DP and PINN successfully recover the unknown parameters, DP achieves significantly faster conver-gence by enforcing governing equations as hard constraints. Most importantly, for control synthesis, the DP framework yields closed-loop stability comparable to the theoretical optimum. Furthermore, we demonstrate that NODE serves as a viable data-driven surrogate when governing equations are unavailable. 
+
+Index Terms —Scientific Machine Learning, Physics-Informed Machine Learning, Differentiable Programming, Power System Dynamics 
+
+I. I NTRODUCTION 
+
+# MODERN power grids are evolving toward increasingly complex and data-rich environments due to the large-scale integration of renewable energy sources, such as solar and wind, along with Internet-of-Things (IoT) sensing in-frastructures [1], [2]. Although these infrastructures provide high-resolution measurements of diverse physical quantities— including power output, weather conditions, frequency, and voltage—practical challenges such as measurement noise, communication latency, and partial observability still hinder the direct identification of dynamic system states and under-lying physical parameters [3]–[5]. In particular, the rapid transition toward low-inertia power systems poses a critical operational challenge. In conventional grids dominated by large rotational inertia, frequency dynam-ics evolved on a slow timescale, as system responses were inherently buffered by mechanical mass. However, as the grid 
+
+> This work was supported by Korea University Grants (No. K2411041, K2414071, K2425851). Shinhoo Kang and Sangwook Kim are with the Department of Computer Science and Software Engineering, Korea University, Sejong, Korea (email: shinkang@korea.ac.kr; sw2067@korea.ac.kr). Sehyun Yoon is with the Department of Autonomous Driving at Hyundai Motor Company, Korea (email:sehyuny@hyundai.com).
+
+shifts toward inverter-based resources, this implicit mechani-cal buffering is significantly diminished, making the system highly sensitive to fluctuations and control actions [6]–[9]. Consequently, predictive accuracy alone is no longer sufficient. There is an urgent demand for advanced modeling paradigms that provide not only accurate trajectories but also physically meaningful gradients, enabling the precise quantification of how system dynamics respond to state and control inputs. To address these challenges, scientific machine learning ap-proaches have attracted increasing attention due to their pow-erful nonlinear modeling capabilities. Specifically Physics-Informed Neural Networks (PINNs) have been widely adopted for state estimation and parameter identification by explic-itly embedding governing equations into the training loss as soft constraints [10]–[15]. Parallel to this, Neural Ordinary Differential Equations (NODEs) offer a robust paradigm for continuous-time dynamics, utilizing neural networks to di-rectly parameterize the latent vector field from observed trajec-tories [16]–[20]. More recently, the concept of Differentiable Programming (DP) was introduced to the power engineering community in [21], [22]. This paradigm establishes a rig-orous framework where classical numerical solvers serve as differentiable layers within a deep learning pipeline, thereby enforcing physics as hard constraints. Unlike black-box neural networks, DP integrates governing equations directly into the optimization loop. This structural prior, often referred to as inductive bias, ensures that the model’s predictions strictly ad-here to physical principles, leading to superior interpretability and reliability. Driven by these advantages, similar frameworks have already been successfully adapted in other domains, such as fluid mechanics [23], [24]. Despite the architectural elegance of these differentiable models, a critical research gap remains regarding the physical fidelity of the learned gradients. In low-inertia grids, the accuracy of system sensitivities—typically characterized by the Jacobian matrix—is far more vital for stability analysis and control synthesis than trajectory interpolation alone [7]. While existing studies have primarily focused on minimiz-ing state trajectory errors, they have paid limited attention to the physical consistency and reliability of the learned sensitivities. Furthermore, there is still a critical gap in un-derstanding how these differentiable paradigms behave under practical IoT constraints. In such noisy, limited-observability environments, differentiable pipelines can induce numerical instabilities or gradient shattering [25], [26]. This phenomenon can lead to unreliable sensitivity estimates and biased gains in downstream control applications such as Linear Quadratic Regulator (LQR). At present, it remains unclear how the fidelity of computed gradients causally affects the stability and  
+
+> arXiv:2602.09667v1 [cs.LG] 10 Feb 2026 JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 2
+
+robustness of closed-loop control systems. To bridge this gap, this paper presents a comparative analysis of PINN, NODE, and DP frameworks using the Single Machine Infinite Bus (SMIB) system as a canonical benchmark. We specifically focus on their ability to recover physically consistent Jacobians for LQR design under low-inertia conditions. The main contributions of this paper are summarized as follows:  
+
+> •
+
+We establish a benchmark of differentiable modeling frameworks for SMIB dynamics, categorizing approaches into NODE (black-box), PINN (soft-constrained), and DP (hard-constrained). We rigorously assess their per-formance in forecasting state trajectories and identifying physical parameters under noisy measurement conditions.  
+
+> •
+
+We demonstrate that NODE achieves superior extrap-olation performance by capturing the intrinsic vector field, whereas PINN exhibits limited generalization due to its approximation of a solution map rather than the underlying system dynamics.  
+
+> •
+
+We show that DP significantly accelerates parameter estimation convergence compared to PINN. By enforcing governing equations as hard constraints, DP drastically reduces the learnable parameter space while maintaining comparable accuracy.  
+
+> •
+
+We validate the control utility of these models in LQR synthesis. The DP-based controller achieves near-ideal stability margins, while NODE serves as a promising data-driven surrogate for control when governing equa-tions are unavailable. The rest of this paper is organized as follows. Section II presents the mathematical formulation of the SMIB system dynamics and defines the problem of parameter identifica-tion. Section III details the differential models of PINNs, NODEs, and the proposed DP approach. Section IV provides a comparative analysis of prediction, identification, and control performance. Finally, Section V concludes the paper and discusses directions for future research. II. P ROBLEM FORMULATION 
+
+A power transmission grid consists of generators, loads, and transmission lines that interconnect them. Each generator is modeled with an internal node connected to a terminal bus through transient reactance. In contrast, load buses are connected only to the transmission network. Both generators and loads exhibit their own intrinsic dynamics, which are cou-pled through nonlinear AC power flows along the transmission lines. The standard structure-preserving model [27] explicitly represents both generator and load dynamics while retaining the original network topology and nonlinear AC power-flow couplings. This model has been widely adopted as a reference model for stability and control analysis in power systems [14], [28]. The dynamics of a single generator is described by the swing equation, which governs the evolution of the rotor (internal voltage) angle δ:
+
+M d2δ
+
+dt2 + D dδ
+
+dt + Pe(δ) = Pm (1) where M denotes the inertia constant, D is the damping coefficient, and Pe(δ) and Pm correspond to the electrical output and the mechanical input powers, respectively. 
+
+A. Single Machine Infinite Bus system 
+
+# V∞
+
+# X
+
+# E 
+
+> Fig. 1. Single machine infinite bus (SMIB) system.
+
+As illustrated in Fig. 1, the SMIB system serves as a simplified representation of the structure-preserving model, connecting a single synchronous generator to an infinite bus that approximates the remainder of the power grid. The infinite bus provides a fixed dynamic reference for the generator by maintaining a constant voltage magnitude and frequency [29]. Assuming negligible transmission losses and bus voltage deviations, the generator’s electrical output power is expressed as: Pe(δ) = EV ∞ 
+
+> X
+
+sin δ where E is the internal generator voltage, V∞ is the infinite bus voltage, and X denotes the equivalent reactance between the generator and the infinite bus. Substituting this expression into (1) yields the swing equation for the SMIB system, 
+
+M d2δ
+
+dt2
+
+| {z } 
+
+> inertia
+
++ D dδ
+
+dt| {z } 
+
+> damping
+
++ EV ∞
+
+X sin δ
+
+| {z }
+
+> restoring
+
+= Pm. (2) The equation (2) admits a direct mechanical analogy to a mass-spring-damper system. Under this interpretation, the rotor angle δ corresponds to the displacement of a mass, the inertia constant M represents the mass that resists changes in rotor speed, and the damping coefficient D accounts for the dissipation of oscillatory energy. Moreover, the synchronizing stiffness, defined as dPe 
+
+> dδ
+
+= EV ∞ 
+
+> X
+
+cos δ, acts as the spring constant that pulls the rotor angle back toward equilibrium. By introducing the rotor speed ω, we reformulate (2) as an equivalent first-order state-space system: 
+
+dδ
+
+dt = ω, (3a) 
+
+dω
+
+dt = 1
+
+M
+
+
+
+Pm − EV ∞
+
+X sin δ − Dω 
+
+
+
+. (3b) By introducing the state variable x = ( δ, ω )T and control variable u = Pm, we compactly rewrite (3) as 
+
+dx
+
+dt = f (x, u ) (4) where f (x, u ) = 1
+
+> M
+
+ M ω, P m − EV ∞ 
+
+> X
+
+sin δ − Dω T .As power systems transition toward renewable-dominated grids, the passive nature of conventional grid-following invert-ers becomes insufficient for maintaining system stability. Low-inertia renewable energy system, including wind and solar power generation, are susceptible to rapid dynamic fluctua-tions. Consequently, these systems require to regulate their JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 3
+
+synchronization with the synchronous grid. To address this, inverters must adopt grid-forming capabilities that emulate the physics of conventional machines by synthesizing virtual inertia and damping responses [6], [30]. To fully leverage these capabilities, optimal control strate-gies such as LQR are often employed. However, the per-formance of LQR relies on an accurate knowledge of the systems’ underlying physical parameters. Unlike traditional synchronous generators where inertia constant ( M ) and damp-ing coefficient ( D) are fixed mechanical properties, the virtual inertia in modern inverter-dominated grids is often uncertain and time-varying [8]. Consequently, the mere adoption of grid-forming control is insufficient; it must be complemented by the accurate identification of the dynamic parameters from real-time mea-surements. This requirements motivates the use of differen-tiable modeling techniques, which not only enable robust parameter estimation under noisy conditions, but also facilitate the synthesis of stable and optimal control gains. To formulate this identification problem, we treat M and D
+
+in (3) as learnable parameters θM and θD , respectively: 
+
+dδ
+
+dt = ω, (5a) 
+
+dω
+
+dt = 1
+
+θM
+
+
+
+Pm − EV ∞
+
+X sin δ − θD ω
+
+
+
+. (5b) 
+
+B. LQR Control 
+
+LQR is a state-feedback control method that synthesizes optimal gains from a linearized system model, explicitly balancing stability and control effort. Its performance critically depends on the accuracy of the system Jacobians used in the linearization [31], [32]. For the SMIB system, the small-signal dynamics linearized around the equilibrium point x∗ = ( δ∗, ω ∗)T are given by the state-space equation: 
+
+d∆ x
+
+dt = A∆x + B∆u (6) where ∆x = (∆ δ, ∆ω)T represents the state perturbations from the equilibrium, and ∆u = ∆ Pm denotes the control input deviation. The system Jacobian matrix A and the control input matrix B are defined as: 
+
+A =
+
+ 0 1
+
+− EV ∞ 
+
+> M X
+
+cos δ∗ − DM
+
+
+
+and B =
+
+ 0
+
+> 1
+> M
+
+
+
+.
+
+The LQR objective is to minimize the quadratic cost func-tion weighted by the matrices Q and R:
+
+C =
+
+Z ∞
+
+> 0
+
+∆xT Q∆x + ∆ uT R∆u dt. (7) It turns out that the optimal control input is given by ∆u =
+
+−K∆x, where the feedback gain K = R−1BT P is derived from the solution P of the continuous-time Algebraic Riccati Equation: AT P + P A − P BR −1BT P + Q = 0 . In the closed-loop simulation, this linear control signal ∆u is superimposed on the mechanical power Pm in (3), updating the control input as Pm ← Pm + ∆ u at each timestep. III. D IFFERENTIABLE MODELS 
+
+In this section, we explain the general architecture of PINNs, NODEs, and a DP approach applied to the SMIB system described in (4). 
+
+A. Physics-Informed Neural Networks 
+
+PINNs directly approximate the state trajectories x(t) of the SMIB system by neural network functions ˆx(t; θ), where 
+
+θ denotes the network parameters. PINNs enforce the SMIB dynamics by embedding the governing equations in (4) into the following mean squared error loss function: To ensure physical consistency, PINNs enforce the underly-ing SMIB dynamics by embedding the differential equations (4) directly into the training objective. The network is op-timized by minimizing the following physics-informed loss function, which penalizes the residuals of the system dynamics at a set of collocation points: 
+
+Lphys = 1
+
+ncncX
+
+> i=1
+
+dˆ xi
+
+dt − f (ˆ xi)
+
+> 2
+
+(8) where ˆxi = ˆx(ti; θ) is the predicted state at the temporal coordinate t = ti, and nc is the number of collocation points. In practice, the loss function in (8) can be augmented with additional terms that penalize the discrepancies between observed data and model predictions, as well as to enforce the prescribed initial conditions. These constraints enable the PINN to simultaneously satisfy the governing equations (4) and fit the available measurement data: 
+
+L = Lphys + λd
+
+1
+
+ndndX
+
+> i=1
+
+∥ˆxi − xi∥2 + λi ∥ˆx0 − x0∥2 (9) where nd denotes the number of data points, while λd and λi
+
+represent the weighting factors for the data loss and the initial condition loss, respectively. For parameter identification, the PINN approach embeds (5) into the loss function in (8). Consequently, the learnable parameters θM and θD are updated simultaneously with the network parameters θ during the training. 
+
+B. Neural Ordinary Differential Equations 
+
+Unlike direct state approximation methods, NODEs [16] captures the SMIB dynamics by learning the tendency func-tion. Specifically, f (x, u ) in (4) is approximated by a neural network ˆf (x, u ; θ), leading to the parameterized ordinary dif-ferential equation, 
+
+dx
+
+dt = ˆf (x, u ; θ). (10) Given an initial condition, the state trajectory is obtained by numerically integrating (10) using a standard time integrator, such as a Runge-Kutta method. Training is performed by minimizing the discrepancies between simulated and observed trajectories. Specifically, we randomly select nb trajectory segments. For each sample i, we generate m consecutive pre-dictions ˆx(i)1 , · · · , ˆx(i) 
+
+> m
+
+starting from an initial state x(i)0 . The JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 4
+
+neural network parameters θ are optimized via the following loss function: 
+
+L = 1
+
+nbm
+
+> nb
+
+X
+
+> i=1
+> m
+
+X
+
+> j=1
+
+ˆx(i) 
+
+> j
+
+− x(i)
+
+> j
+> 2
+
+. (11) This data-driven approach allows NODEs to identify the sys-tem dynamics directly from data, offering a flexible framework for scenarios where the underlying physical structure is am-biguous or mathematically intractable. However, this flexibility comes at a cost: standard NODEs are inherently black-box models. They lack the structural transparency required to explicitly recover physical parameters. This is where DP offers a decisive advantage. 
+
+C. Differentiable Programming approach 
+
+The Differentiable Programming approach generalizes the learning process by treating the entire numerical simulation of the SMIB system in (4) as an end-to-end differentiable computational graph. This approach facilitates a hybrid mod-eling paradigm, which retains the physical structure of the swing equations while identifies unknown parameters via backpropagation through the ODE solver. Because all operations within the numerical integrator are compatible with automatic differentiation, gradients can be propagated directly through the time integration process. Con-sequently, DP provides direct access to exact system Jacobians and sensitivities with respect to both states and parameters, avoiding the approximation errors inherent in PINNs (which approximate state trajectories) and NODEs (which approxi-mate the tendency operator). This unifies physical consistency with gradient-based learning, making it an ideal framework for control-oriented analysis. In the DP approach, the forward predictions are generated by numerically integrating (5) and then evaluated against the loss function in (11). Because the DP solver itself differen-tiable, gradients are backpropagated directly to the system co-efficients, resulting in the update of the learnable parameters. IV. N UMERICAL RESULTS 
+
+In this section, we evaluate the performance of the proposed DP approach in comparison with two differentiable models, namely PINNs and NODEs. We first assess the forward prediction accuracy. Next, we consider an inverse problem to identify unknown physical parameters ( M and D) from data. Finally, we examine the control-oriented applicability of these differentiable models by designing an LQR controller. All models were implemented using PyTorch on an NVIDIA RTX 4500 Ada GPU. The differential equation solvers were implemented using the torchdiffeq library, and the alge-braic Riccati equations for LQR synthesis were solved using the scipy.linalg library. Both the PINN and NODE models employ fully con-nected neural networks with four hidden layers of sizes 
+
+[200 , 150 , 100 , 50] and tanh activations. Regarding input-output dimensions, the PINN model maps the time coordinate 
+
+t (1 neuron) to the state vector x (2 neurons), whereas the NODE model maps the state x (2 neurons) to the time derivative ˙x (2 neurons). For parameter estimation, both the DP and PINN models treat the physical coefficients θM and 
+
+θD as learnable scalar parameters. For the control task, the NODE input dimension is expanded to three neurons ( x and 
+
+u), ˙x (2 neurons). To accommodate the structural differences between the models, we adopt distinct data sampling strategies. The PINN model is trained on nc = 1000 random collocation points, whereas the NODE and DP models utilize a fixed batch of nb = 100 trajectory segments (sequence length m). All models were trained using the Adam optimizer with fixed learning rates. The differential equations were integrated using the dopri5 solver [33] with tolerances rtol=1e-7 and 
+
+atol=1e-9 . Further details on hyperparameter configura-tions are provided in Appendix. We quantify the model accuracy using the ℓ2 relative error, defined as ∥ˆv−vr ∥2  
+
+> ∥vr∥2
+
+, where ˆv and vr denote the model prediction and the reference solution, respectively. 
+
+A. Forward problem: Trajectory Prediction 
+
+In this section, we evaluate the capability of NODE and PINN to capture the underlying dynamics of the SMIB sys-tem under two conditions: stable and oscillatory. We assume that the system is in a non-equilibrium state. The physical parameters for the stable scenario are configured as Pm = 0 .1,
+
+E = V∞ = 1 , X = 5 , D = 0 .2, and M = 0 .4, while the oscillatory scenario uses Pm = 0 .5, E = X = 5 , V∞ = 1 ,
+
+D = 0 .01 , and M = 0 .1. Using these physical parameters and the initial condition x = (0 .1, 0.1) T , we integrate (3) via the 
+
+dopri5 method from t = 0 to t = 20 with a timestep size of dt = 0 .02 to obtain the reference solutions. Fig. 2 and Fig. 3 compare the predicted state trajectories obtained using the NODE and PINN models. Specifically, Fig. 2 depicts the stable scenario, while Fig. 3 illustrates the oscillatory case. The models are trained on the interval 
+
+t ∈ [0 , 10] , and perform predictions over the entire duration 
+
+t ∈ [0 , 20] . The shaded region indicates the extrapolation horizon. While all the models performed well within the training region, PINN struggles to accurately predict the state variables δ and ω during extrapolation. Conversely, NODE exhibits superior generalization capabilities. This performance gap stems from a fundamental difference in methodology: PINN approximates the solution map ˆx(t), whereas NODE explicitly learns the continuous operator ˆf (x). By learning the intrinsic dynamics rather than fitting a solution curve, NODE offers a robust extrapolation. To quantify model accuracy, we performed numerical ex-periments across 10 independent trials with distinct random seeds. Table I summarizes the mean and the standard deviation of the relative errors for the state variables δ and ω in the stable and the oscillatory cases. Overall, NODE demonstrates superior performance compared to PINN, reducing the error by a factor of at least two for δ and five for ω compared to its counterpart. Next, we examine the ability of NODE to capture the underlying dynamics when data is subjected to measurement noise. We introduce Gaussian random noise to both the stable JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 5
+
+TABLE I COMPARISON OF ℓ2 RELATIVE ERROR FOR PREDICTION OF δ AND ω OF THREE DIFFERENTIABLE MODELS 
+
+Scenario Model δ ω
+
+Min Average Max Std Min Average Max Std Stable NODE 2.823e-03 4.614e-03 8.732e-03 1.647e-03 1.250e-02 1.957e-02 3.408e-02 6.486e-03 PINN 1.323e-02 2.134e-02 3.357e-02 6.949e-03 9.475e-02 1.303e-01 1.544e-01 1.963e-02 Oscillatory NODE 3.014e-02 4.295e-02 7.056e-02 1.302e-02 7.876e-02 1.187e-01 2.000e-01 3.957e-02 PINN 1.862e-01 2.669e-01 4.403e-01 8.248e-02 8.995e-01 1.203e+00 1.498e+00 1.467e-01 TABLE II 
+
+ℓ2 RELATIVE ERROR OF NODE FOR PREDICTION OF δ AND ω OF THREE DIFFERENTIABLE MODELS 
+
+Scenario Noise Level δ ω
+
+Min Average Max Std Min Average Max Std Stable σ = 0 .01 4.615e-03 7.936e-03 1.030e-02 1.828e-03 1.976e-02 3.308e-02 4.922e-02 8.723e-03 
+
+σ = 0 .05 2.220e-02 3.408e-02 5.943e-02 1.027e-02 1.093e-01 1.854e-01 2.929e-01 6.406e-02 Oscillatory σ = 0 .01 2.657e-02 5.810e-02 9.544e-02 1.864e-02 6.978e-02 1.563e-01 2.594e-01 5.309e-02 
+
+σ = 0 .05 8.675e-02 1.093e-01 1.557e-01 2.073e-02 2.040e-01 2.905e-01 4.402e-01 6.920e-02 
+
+Fig. 2. Comparison of predicted trajectories for rotor angle δ (top) and angular velocity ω (bottom) in the stable scenario. The shaded region ( t > 10 s)indicates the extrapolation horizon. 
+
+and the oscillatory trajectories by xnoisy (t) = x(t)(1 + ϵ),where ϵ ∼ N (0 , σ 2) and σ denotes the noise level. In the following experiments, noise levels of σ ∈ [0 .01 , 0.05] (i.e., 
+
+1% and 5% ) are considered. All numerical experiments are conducted over 10 independent trials with distinct random seeds. Table II reports the mean and the standard deviation of the relative errors for the state variables δ and ω in both the stable and oscillatory cases. As noise level increases, the relative ℓ2 errors increase. Furthermore, we observe that the errors in the oscillatory case are approximately three times higher for δ and 1.5 times higher for ω compared to the stable case. 
+
+Fig. 3. Comparison of predicted trajectories for rotor angle δ (top) and angular velocity ω (bottom) in the oscillating scenario. The shaded region ( t > 10 s)indicates the extrapolation horizon. 
+
+Fig. 4 illustrates the predicted trajectories of NODE for δ
+
+and ω in the oscillatory case under 5% noise. Remarkably, NODE effectively recovers the underlying continuous dynam-ics directly from the noisy observations, without relying on any explicit filtering. 
+
+B. Inverse problem: Discovery of Inertia and Damping 
+
+We evaluate the ability of PINN and DP models to identify the inertia constant M and damping coefficient D from observed state trajectories. We choose the oscillatory scenario where the true values are (M, D ) = (0 .1, 0.01) . To ensure the positivity constraints ( M, D > 0), we utilize the softplus func-JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 6                                     
+
+> Fig. 4. Predicted trajectories of NODE for rotor angle δ(top) and angular velocity ω(bottom) in the oscillatory scenario with 5% noise. TABLE III COMPARISON OF ℓ2RELATIVE ERROR FOR ESTIMATING OF INERTIA CONSTANT θMAND DAMPING COEFFICIENT θDOF PINN AND DP Model Noise Level θMθD
+> DP
+> σ= 0 1.610e-05 8.768e-03
+> σ= 0 .01 7.307e-04 4.864e-02
+> σ= 0 .05 1.593e-03 2.306e-01 PINN
+> σ= 0 1.710e-03 1.321e-02
+> σ= 0 .01 2.393e-03 1.280e-02
+> σ= 0 .05 3.274e-03 2.414e-02
+
+tion ln(1 + eθ ), where θ denotes the unconstrained trainable parameter. We first examine the convergence behavior of the PINN and DP models in the noiseless scenario ( σ = 0 ). Under a fixed learning rate of lr = 10 −3, Fig. 5 shows that increasing data loss weight λd for PINN accelerate convergence toward the true values. Notably, DP achieves faster convergence compared to PINN. This is because DP optimizes only two trainable parameters ( θM and θD ), whereas PINN must simultaneously update a much larger parameter space, including the neural network weights for δ and ω.In real-world power systems, sensor data is often corrupted by noise. To account for this situation, we evaluate the ro-bustness of the parameter estimation by introducing Gaussian noise to the oscillatory trajectories. Table III presents the ℓ2 relative errors for the estimation of the inertia constant θM and damping coefficient θD , obtained from 5 independent trials. In this experiment, the hyperparam-eter is set to λd = 1 for PINN. Overall, the results demonstrate that both models successfully recover the system parameters 
+
+M and D. As expected, the relative estimation error tends to increase as the noise level rises.      
+
+> Fig. 5. Convergence behavior of PINN in parameter estimation for inertia θM
+> (top) and damping coefficient θD(bottom) with respect to data loss weight
+> λd. Higher values of λdaccelerate the convergence to the true values.
+
+C. Control application: LQR Performance Comparison 
+
+The efficacy of the control system is evaluated by its ability to stabilize the system against a disturbance. We introduce a mechanical power perturbation ( P ef f m = Pm + ∆ Pm) to the closed-loop system to observe its recovery behavior. Implementing LQR control requires the explicit knowledge of the system Jacobian matrix A and the control input B,as defined in (6). However, PINNs learn a trajectory map rather than the underlying system dynamics, they do not directly yield these matrices. Furthermore, LQR demands sim-ulating the closed-loop dynamics with varying control inputs (P ef f m ← P ef f m + ∆ u). This poses a difficulty for PINNs, as it necessitates learning a control-parameterized solution map 
+
+ˆx(t, u ; θ).The DP approach avoids this complexity. Once θM and 
+
+θD are identified, the DP model can immediately perform forward integration with the active controller. For the noisy oscillatory case ( σ = 0 .05 , Table III), we utilize parameters (θM = 0 .1003 and θD = 0 .0124 ) estimated by the DP model and compare the control performance with that of true system. The equilibrium state is computed by setting the time deriva-tives in (3) and (5) to zero, yielding (δ∗, ω ∗) = (0 .5236 , 0) . We set the weighting matrices as Q = diag (10 , 1) and R = 0 .1.Given the initial condition x = (0 .5236 , 0) T , we integrate the system (3) and (5) for t ∈ [0 , 20] .Fig. 6 illustrates the performance comparison of LQR control strategies for rotor angle δ (top) and angular velocity ω
+
+(bottom). The trajectories compare the controller using exact system parameters M and D (Control (True)) against the one JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 7           
+
+> Fig. 6. The performance comparison of LQR control strategies for rotor angle
+> δ(top) and angular velocity ω(bottom). The trajectories compare the LQR controller using exact system parameters Mand D(Control (True)) against one using DP-estimated parameters θMand θD(Control (DP)).
+
+using estimated parameters θM and θD (Control (DP)). A me-chanical power perturbation of ∆Pm = 0 .1 is applied during the interval t ∈ [1 , 2] (pink shaded region). The LQR controller is activated at t = 5 , indicated by the green vertical dotted line. The DP-based controller effectively stabilizes the system, yielding a trajectory that is nearly indistinguishable from the ground truth solution. Quantitatively, the relative ℓ2 errors are 
+
+0.0032 for δ and 0.028 for ω. We note that the DP model preserve the same control structure as the governing equation, the resulting LQR gains coincide with the ideal solution when the learned parameters and Jacobians are sufficiently accurate. These finding underscore that DP approach effectively bridges the gap between system identification and practical control synthesis by enforcing hard physical constraints as defined in (5). We next address the control problem using the NODE model. Although the governing equations are assumed to be unknown in this setting, the matrices A and B in (6) can be approximated by computing the Jacobian of the learned vector field ˆf (x, u ; θ) with respect to x and u:
+
+A ≈ ∂ˆf (x, u ; θ)
+
+∂x , and B ≈ ∂ˆf (x, u ; θ)
+
+∂u .
+
+To learn the dependency of the dynamics on the control input 
+
+u, we generate a training dataset comprising four trajectories corresponding to Pm = [0 .1, 0.2, 0.3, 0.4] . The physical pa-rameters are set to E = V∞ = 1 , X = 2 , D = 0 .1, and 
+
+M = 0 .2. Using these parameters, we integrate (3) via the 
+
+dopri5 solver over the interval t ∈ [0 , 20] with a timestep      
+
+> Fig. 7. The performance comparison of LQR control strategies for rotor angle δ(top) and angular velocity ω(bottom). The trajectories compare the LQR controller using exact Jacobian (Control (True)) against approximated one using NODE (Control (NODE)).
+
+size of dt = 0.02 . The model is trained on the interval 
+
+t ∈ [0 , 10] using nb = 100 batches of size m = 10 per epoch, randomly sampled from the generated trajectories. Fig. 7 shows the performance comparison of LQR control strategies for rotor angle δ (top) and angular velocity ω
+
+(bottom). The system is initialized at the equilibrium state 
+
+(δ∗, ω ∗) = (0 .6435 , 0) , corresponding to Pm = 0.3. Aperturbation ( ∆Pm = 0.1) is introduced during the pink shaded region ( t ∈ [1 , 2] ). The LQR controller, activated at 
+
+t = 2 , rapidly suppresses the deviations in δ and ω, effectively restoring the system to equilibrium by approximately t = 3 .7.These results suggest that NODE is a promising option for control design, particularly when the governing equations are unavailable. V. C ONCLUSION 
+
+In this paper, we presented a comprehensive comparative analysis of DP, PINN, and NODE frameworks for the mod-eling, identification, and control of power system dynamics. Using the SMIB system as a benchmark, we rigorously evaluated these paradigms with a specific focus on their ability to recover physically consistent Jacobians for robust control. Our numerical study yields three key findings. First, re-garding forward trajectory prediction, NODE demonstrated superior generalization capabilities compared to PINN. While PINN effectively interpolated states within the training hori-zon, it exhibited limited extrapolation performance due to its approximation of a time-dependent solution map. In contrast, JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 8
+
+NODE successfully captured the underlying intrinsic vector field, enabling robust long-term prediction even in oscillatory regimes and under measurement noise. Second, in the inverse problem of parameter identification, while both DP and PINN successfully estimated the unknown parameters, the proposed DP approach significantly outper-formed PINN in convergence speed under a fixed learning rate condition. By embedding the governing equations directly into the computational graph as hard constraints, the DP framework reduced the optimization landscape strictly to the physical parameters ( M and D). This structural enforcement enabled rapid and accurate identification, whereas PINN required simultaneous optimization of state trajectories and physical parameters, resulting in slower convergence. Finally, we validated the control-oriented utility of the learned models through closed-loop synthesis using LQR. The DP framework proved particularly well suited for control applications. By enforcing the governing equations as hard constraints, DP prevents gradient shattering, thereby ensuring the physical consistency of the learned Jacobians. This struc-tural inductive bias allowed for the direct and reliable recon-struction of system dynamics from the identified parameters, yielding accurate LQR gains. Furthermore, we demonstrated that NODE serves as a promising data-driven surrogate when the governing equations are unavailable. It is capable of approximating system Jacobians via automatic differentiation to stabilize the system. Future work will extend this differentiable modeling frame-work to multi-machine power systems with complex network topologies. In addition, we plan to explore the integration of these methods with advanced control strategies, such as Model Predictive Control, to address explicit constraints and nonlinearities in large-scale power grids. APPENDIX 
+
+HYPERPARAMETER SETTINGS 
+
+To ensure the reproducibility of the reported results, we provide the detailed hyperparameter configurations for the PINN, NODE, and DP frameworks. Table IV summarizes the specific configurations used in our experiments. REFERENCES [1] Y. Saleem, N. Crespi, M. H. Rehmani, and R. Copeland, “Internet of Things-Aided Smart Grid: Technologies, Architectures, Applications, Prototypes, and Future Research Directions,” IEEE Access , vol. 7, pp. 62 962–63 003, 2019. [Online]. Available: https://ieeexplore.ieee.org/ document/8701687/ [2] S. M. A. A. Abir, A. Anwar, J. Choi, and A. S. M. Kayes, “IoT-Enabled Smart Energy Grid: Applications and Challenges,” IEEE Access , vol. 9, pp. 50 961–50 981, 2021. [3] V. Terzija, G. Valverde, Deyu Cai, P. Regulski, V. Madani, J. Fitch, S. Skok, M. M. Begovic, and A. Phadke, “Wide-Area Monitoring, Protection, and Control of Future Electric Power Networks,” Proceedings of the IEEE , vol. 99, no. 1, pp. 80–93, Jan. 2011. [Online]. Available: http://ieeexplore.ieee.org/document/5549870/ [4] M. You, J. Jiang, A. M. Tonello, T. Doukoglou, and H. Sun, “On Statistical Power Grid Observability under Communication Constraints (invited paper),” IET Smart Grid , vol. 1, no. 2, pp. 40–47, Jul. 2018. [Online]. Available: https://ietresearch.onlinelibrary.wiley.com/ doi/10.1049/iet-stg.2018.0009 [5] J. Zhao, J. Qi, Z. Huang, A. P. S. Meliopoulos, A. Gomez-Exposito, M. Netto, L. Mili, A. Abur, V. Terzija, I. Kamwa, B. Pal, and A. K. Singh, “Power System Dynamic State Estimation: Motivations, Definitions, Methodologies, and Future Work,” IEEE Transactions on Power Systems , vol. 34, no. 4, pp. 3188–3198, Jul. 2019. [Online]. Available: https://ieeexplore.ieee.org/document/8624411/ [6] Q.-C. Zhong and G. Weiss, “Synchronverters: Inverters That Mimic Synchronous Generators,” IEEE Transactions on Industrial Electronics ,vol. 58, no. 4, pp. 1259–1267, Apr. 2011. [Online]. Available: http://ieeexplore.ieee.org/document/5456209/ [7] F. Milano, F. D¨ orfler, G. Hug, D. J. Hill, and G. Verbiˇ c, “Foundations and Challenges of Low-Inertia Systems (Invited Paper),” in 2018 Power Systems Computation Conference (PSCC) . Dublin, Ireland: IEEE, Jun. 2018, pp. 1–25. [Online]. Available: https: //ieeexplore.ieee.org/document/8450880/ [8] K. S. Ratnam, K. Palanisamy, and G. Yang, “Future low-inertia power systems: Requirements, issues, and solutions - A review,” 
+
+Renewable and Sustainable Energy Reviews , vol. 124, p. 109773, May 2020. [Online]. Available: https://linkinghub.elsevier.com/retrieve/ pii/S1364032120300691 [9] B. Elenga Baningobera, I. Oleinikova, K. Uhlen, and B. R. Pokhrel, “Challenges and solutions in low-inertia power systems with high wind penetration,” IET Generation, Transmission & Distribution ,vol. 18, no. 24, pp. 4221–4244, Dec. 2024. [Online]. Available: https://ietresearch.onlinelibrary.wiley.com/doi/10.1049/gtd2.13270 [10] M. Raissi, P. Perdikaris, and G. E. Karniadakis, “Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations,” 
+
+Journal of Computational Physics , vol. 378, pp. 686–707, 2019. [11] G. S. Misyris, A. Venzke, and S. Chatzivasileiadis, “Physics-Informed Neural Networks for Power Systems,” in 2020 IEEE Power & Energy Society General Meeting (PESGM) . Montreal, QC, Canada: IEEE, Aug. 2020, pp. 1–5. [Online]. Available: https://ieeexplore.ieee.org/document/9282004/ [12] M. Mohammadian, K. Baker, and F. Fioretto, “Gradient-enhanced physics-informed neural networks for power systems operational support,” Electric Power Systems Research , vol. 223, p. 109551, Oct. 2023. [Online]. Available: https://linkinghub.elsevier.com/retrieve/pii/ S0378779623004406 [13] Q.-H. Ngo, B. L. Nguyen, T. V. Vu, J. Zhang, and T. Ngo, “Physics-informed graphical neural network for power system state estimation,” 
+
+Applied Energy , vol. 358, p. 122602, Mar. 2024. [Online]. Available: https://linkinghub.elsevier.com/retrieve/pii/S0306261923019669 [14] J. Zou, R. Wang, J. Yan, and X. Wang, “PINNs-Driven Transient Estimation in Power Systems with the Second-Order Kuramoto Model,” in 2025 IEEE 14th Data Driven Control and Learning Systems (DDCLS) . Wuxi, China: IEEE, May 2025, pp. 428–433. [Online]. Available: https://ieeexplore.ieee.org/document/11065298/ [15] I. V. Nadal, J. Stiasny, and S. Chatzivasileiadis, “Physics-Informed Neural Networks: a Plug and Play Integration into Power System Dynamic Simulations,” Electric Power Systems Research , vol. 248, p. 111885, Nov. 2025, arXiv:2404.13325 [eess]. [Online]. Available: http://arxiv.org/abs/2404.13325 [16] R. T. Q. Chen, Y. Rubanova, J. Bettencourt, and D. Duvenaud, “Neu-ral Ordinary Differential Equations,” Advances in Neural Information Processing systems , vol. 31, 2018. [17] X. Xie, A. K. Parlikad, and R. S. Puri, “A Neural Ordinary Differential Equations Based Approach for Demand Forecasting within Power Grid Digital Twins,” in 2019 IEEE International Conference on Communications, Control, and Computing Technologies for Smart Grids (SmartGridComm) . Beijing, China: IEEE, Oct. 2019, pp. 1–6. [Online]. Available: https://ieeexplore.ieee.org/document/8909789/ [18] T. Xiao, Y. Chen, S. Huang, T. He, and H. Guan, “Feasibility Study of Neural ODE and DAE Modules for Power System Dynamic Component Modeling,” IEEE Transactions on Power Systems ,vol. 38, no. 3, pp. 2666–2678, May 2023. [Online]. Available: https://ieeexplore.ieee.org/document/9844253/ [19] P. Aslami, T. Aryal, A. Rai, N. Bhujel, H. M. Rekabdarkolaee, K. Fu, R. Tonkoski, Z. Wang, and T. M. Hansen, “Power System Frequency Dynamics Modeling, State Estimation, and Control using Neural Ordinary Differential Equations (NODEs) and Soft Actor-Critic (SAC) Machine Learning Approaches,” ACM SIGAPP Applied Computing Review , vol. 24, no. 1, pp. 24–39, Mar. 2024. [Online]. Available: https://dl.acm.org/doi/10.1145/3663652.3663655 [20] M. Karacelebi and J. L. Cremer, “Power System Frequency Monitoring and Emergency Control with Neural Ordinary Differential Equations,” 2024. [Online]. Available: https://www.ssrn.com/abstract=5059220 JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 9
+
+TABLE IV HYPERPARAMETER CONFIGURATIONS FOR PINN, NODE, AND DP 
+
+Model Parameter Fig. 2 Fig. 3 Table II Fig. 4 Fig. 5 Table III Fig. 7 
+
+PINN 
+
+Epochs 10 5 2 · 10 5 - - 2 · 10 4 2 · 10 4 -Learning Rate 10 −3 10 −3 - - 10 −3 10 −3 -
+
+λd 0 0 - - [0 , 0.1, 0.5, 1.0] 1.0 -
+
+λi 2.0 2.0 - - 2.0 2.0 -
+
+NODE 
+
+Epochs 10 3 2 · 10 3 [1000 , 2000 , 4000] 4000 - - 2000 
+
+Learning Rate 10 −3 10 −3 10 −3 10 −3 - - 10 −3
+
+Step Length ( m) 10 10 [10 , 30 , 60] 60 - - 10 
+
+DP 
+
+Epochs - - - - 10 4 4000 -Learning Rate - - - - 10 −3 10 −2 -Step Length ( m) - - - - 10 [10 , 30 , 60] -[21] C. Hyett, L. Pagnier, J. Alisse, I. Goldshtein, L. Saban, R. Ferrando, and M. Chertkov, “Differentiable Simulator For Dynamic & Stochastic Optimal Gas & Power Flows,” in 2024 IEEE 63rd Conference on Decision and Control (CDC) . Milan, Italy: IEEE, Dec. 2024, pp. 98–105. [Online]. Available: https://ieeexplore.ieee.org/document/ 10886588/ [22] A. Rosemberg, M. Klamkin, and P. V. Hentenryck, “Differentiable Optimization for Deep Learning-Enhanced DC Approximation of AC Optimal Power Flow,” Nov. 2025, arXiv:2504.01970 [math]. [Online]. Available: http://arxiv.org/abs/2504.01970 [23] S. Kang and E. M. Constantinescu, “Learning subgrid-scale models with neural ordinary differential equations,” Computers & Fluids , vol. 261, p. 105919, 2023. [24] ——, “Enhancing low-order discontinuous galerkin methods with neural ordinary differential equations for compressible navier–stokes equa-tions,” arXiv preprint arXiv:2310.18897 , 2023. [25] D. Balduzzi, M. Frean, L. Leary, J. Lewis, K. W.-D. Ma, and B. McWilliams, “The shattered gradients problem: If resnets are the answer, then what is the question?” in International conference on machine learning . PMLR, 2017, pp. 342–350. [26] L. Metz, C. D. Freeman, S. S. Schoenholz, and T. Kachman, “Gradients are Not All You Need,” Jan. 2022, arXiv:2111.05803 [cs]. [Online]. Available: http://arxiv.org/abs/2111.05803 [27] A. R. Bergen and D. J. Hill, “A Structure Preserving Model for Power System Stability Analysis,” IEEE Transactions on Power Apparatus and Systems , no. 1, pp. 25–35, 1981. [28] T. L. Vu and K. Turitsyn, “A Framework for Robust Assessment of Power Grid Stability and Resiliency,” IEEE Transactions on Automatic Control , vol. 62, no. 3, pp. 1165–1177, Mar. 2017. [Online]. Available: http://ieeexplore.ieee.org/document/7488976/ [29] P. W. Sauer, M. A. Pai, and J. H. Chow, Power system dynamics and stability: with synchrophasor measurement and power system toolbox .John Wiley & Sons, 2017. [30] M. Prodanovic and T. Green, “High-Quality Power Generation Through Distributed Control of a Power Park Microgrid,” IEEE Transactions on Industrial Electronics , vol. 53, no. 5, pp. 1471–1482, Oct. 2006. [Online]. Available: http://ieeexplore.ieee.org/document/1705638/ [31] U. Markovic, Z. Chu, P. Aristidou, and G. Hug, “LQR-Based Adaptive Virtual Synchronous Machine for Power Systems With High Inverter Penetration,” IEEE Transactions on Sustainable Energy ,vol. 10, no. 3, pp. 1501–1512, Jul. 2019. [Online]. Available: https://ieeexplore.ieee.org/document/8579100/ [32] L. Lv, Y. Yang, B. Wan, J. Jia, Y. Ma, and T. Yu, “LQR control design for virtual inertia of new energy: A GA-assisted design method,” in 
+
+2024 39th Youth Academic Annual Conference of Chinese Association of Automation (YAC) . Dalian, China: IEEE, Jun. 2024, pp. 624–629. [Online]. Available: https://ieeexplore.ieee.org/document/10598677/ [33] E. Hairer, G. Wanner, and S. P. Nørsett, Solving ordinary differential equations I: Nonstiff problems . Springer, 1993.

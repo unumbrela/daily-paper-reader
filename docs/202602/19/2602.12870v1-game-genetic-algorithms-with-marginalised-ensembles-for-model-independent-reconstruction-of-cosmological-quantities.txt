@@ -1,0 +1,799 @@
+Title: GAME: Genetic Algorithms with Marginalised Ensembles for model-independent reconstruction of cosmological quantities
+
+URL Source: https://arxiv.org/pdf/2602.12870v1
+
+Published Time: Mon, 16 Feb 2026 02:08:13 GMT
+
+Number of Pages: 29
+
+Markdown Content:
+Prepared for submission to JCAP 
+
+# GAME: Genetic Algorithms with Marginalised Ensembles for model-independent reconstruction of cosmological quantities 
+
+# M. Peronaci, a,b,c M. Martinelli, d,e S. Nesseris f
+
+> a
+
+Dipartimento di Fisica, Universit` a di Roma “Tor Vergata”, Via della Ricerca Scientifica 1, 00133, Roma, Italy 
+
+> b
+
+Istituto Nazionale di Fisica Nucleare (INFN), Sezione di Roma 2, Via della Ricerca Scien-tifica 1, 00133, Roma, Italy 
+
+> c
+
+Dipartimento di Fisica, Universit` a di Roma “Sapienza”, Piazzale Aldo Moro 5, 00185, Roma, Italy 
+
+> d
+
+INAF - Osservatorio Astronomico di Roma, via Frascati 33, 00078 Monte Porzio Catone, Italy 
+
+> e
+
+Istituto Nazionale di Fisica Nucleare (INFN), Sezione di Roma, P.le A. Moro 5, I-00185, Roma, Italy  
+
+> f
+
+Instituto de F´ ısica Te´ orica (IFT) UAM-CSIC, Calle Nicol´ as Cabrera 13-15, Campus de Cantoblanco UAM, 28049 Madrid, Spain E-mail: matteo.peronaci@roma2.infn.it 
+
+Abstract. Genetic Algorithms (GA) are a powerful tool for stochastic optimisation and non-parametric symbolic regression, already widely used in cosmology. They are capable of reconstructing analytical functions directly from data points without introducing new phys-ical models. A limitation of this approach is that while the reconstructed function is very efficient at reproducing the behaviour of the data points, non-observable quantities involving derivatives are particularly sensitive to stochasticity, hyperparameters, and to the choice of the best-fit function obtained by the GA, which implies the risk of the algorithm getting stuck in a local minimum. In this work we propose an update to the GA methodology for the reconstruction of analytical functions that involves computing a weighted average of an ensemble of GA configurations ( GAME ). We define the weights via a quantity that accounts for both the goodness-of-fit of the points and the smoothness of the resulting function. We also present a practical method to analytically estimate and correct the errors on the averaged function by combining a path-integral approach with an ensemble variance. We demon-strate the improvement offered by GAME methodology on a generic test function. We then apply the new methodology to a non-parametric reconstruction of the Hubble rate H(z) us-ing Cosmic Chronometers data and, assuming a flat Friedmann-Lemaˆ ıtre-Robertson-Walker background and General Relativity, we infer the corresponding dark energy equation of state 
+
+w(z). Through consistency tests, we show that current data produces results compatible with ΛCDM, and that Stage IV cosmology surveys will allow GA reinforced with GAME methodol-ogy to become an even more competitive tool for discriminating between different models. 
+
+> arXiv:2602.12870v1 [astro-ph.CO] 13 Feb 2026
+
+Contents 
+
+1 Introduction 12 Genetic Algorithms methodology 3
+
+2.1 Practical example 32.2 Standard GA reconstruction 42.2.1 χ2 marginalisation 52.2.2 Error analysis: path-integral 62.3 Ensemble of hyperparameter models 82.3.1 Marginalisation over the ensemble ( GAME ) 92.3.2 Error analysis: ensembling and total uncertainty 12 2.3.3 Improvements in the reconstruction 13 
+
+3 Application to cosmological quantities 15 
+
+3.1 Dark energy equation of state 15 3.2 Testing ΛCDM with current data surveys 16 3.2.1 Reconstruction of H(z) 16 3.2.2 Derivation of w(z) 16 3.3 Forecasts with future data surveys 18 3.3.1 Reconstruction of H(z) 19 3.3.2 Derivation of w(z) 20 
+
+4 Conclusions and outlook 21 A Testing ΛCDM with a subset of current data 25 
+
+A.1 Impact on the reconstruction of H(z) 25 A.2 Impact on the derivation of w(z) 26 
+
+B Hyperparameter configurations setup 27 
+
+1 Introduction 
+
+The standard cosmological model, ΛCDM, has achieved unparalleled success in describing a wide range of observations [1], from the anisotropies of the Cosmic Microwave Background (CMB) to the large-scale distribution of galaxies. Within Einstein’s equations of General Relativity (GR), this success relies on the introduction of Cold Dark Matter (CDM) and dark energy in the form of a cosmological constant Λ. Despite its effectiveness, the model still faces major open questions: the unknown nature of the CDM component and of Λ, as well as prominent observational tensions in the measurements of the Hubble constant H0
+
+[2, 3]. While these issues suggest that ΛCDM might not be a complete description of the universe, there is currently no compelling alternative model that satisfactorily solves this tension [4]. Consequently, we might want to let data guide us towards the construction of new physical models. This necessitates the search for robust model-independent and non-parametric recon-structions that can probe cosmological functions directly from data, minimising theoretical – 1 – priors and parametrisations. A particularly promising direction is to test the consistency between the cosmic expansion history and the properties of dark energy inferred from it. In GR, the background expansion and the physical content of the universe are tightly linked: if we reconstruct the expansion rate H(z) and infer an effective dark energy equation of state 
+
+w(z), any significant and statistically robust deviation from w(z) = −1 could point to new physics. The difficulty lies in the fact that consistency tests based on non-observable quanti-ties often require derivatives of reconstructed functions, making them especially sensitive to hyperparameters, overfitting, and the smoothness of the best-fit function. Various non-parametric methods have been employed to address this, most notably Gaussian Processes (GP) [5, 6]. GP provides a fully bayesian reconstruction of a function and its derivatives, requiring the definition of a kernel function, which is in charge of con-trolling the correlations between different points of the reconstructed function [7]. However, although GP enable model-independent reconstructions by choosing a zero mean function to minimise cosmological assumptions, they can be sensitive to the choice of the kernel hyperpa-rameters [8]. In this work, we focus on Genetic Algorithms (GA) [9, 10], a symbolic-regression technique capable of reconstructing analytical functions from data without introducing new physical parameters. Unlike GP, GA return explicit functional forms that can be more easily interpretable than kernel-based representations. However, a known limitation is that the GA best-fit function can reproduce the data extremely well, yet non-observable quantities involving derivatives can be fragile. Indeed, different GA runs (or different hyperparameter configurations) may generate similarly good fits that present noticeably different derivatives. This methodology has been successfully applied in various cosmological contexts, such as performing null tests of the cosmological constant model [11–13], for building emulators for complex observables [14–18], performing searches for new physics beyond ΛCDM [19–22], design quantum optics experiments and related quantum optimization algorithms [23, 24], etc. We therefore propose an update to the standard GA 1 approach based on a model-averaging procedure over an ensemble of GA reconstructions. The key idea is to compute a weighted average of many GA best-fit functions in order to reduce the uncertainty due to stochasticity or to a particular choice of hyperparameters configuration, defining weights through a combined estimator that accounts not only for the goodness-of-fit (via χ2) but also for smoothness (via a roughness penalty). We refer to this marginalised ensemble methodol-ogy as GAME 2 (Genetic Algorithms with Marginalised Ensembles). In addition, since a model-averaged reconstruction requires a consistent uncertainty estimate, we introduce a practical method to estimate and combine both the measurement-driven statistical uncertainty, computed through a path-integral uncertainty approach [10], and an additional configuration-driven uncertainty quantified by the weighted variance across the ensemble. We validate the improvement on a generic test function f (x) and then apply 
+
+GAME to the reconstruction of the Hubble rate H(z) using Cosmic Chronometers (CC) data. Finally, assuming a Friedmann-Lemaˆ ıtre-Robertson-Walker (FLRW) background and GR, we derive the corresponding dark energy equation of state w(z) and compare it with the ΛCDM expectation. We also generate a set of mock data with the characteristics of Stage IV surveys in order to additionally validate and test GAME methodology’s robustness. This paper is structured as follows. In Section 2 we review the standard GA framework and present the GAME marginalisation methodology, then describe the corresponding total un-
+
+> 1https://github.com/snesseris/Genetic-Algorithms
+> 2https://github.com/matteoperonaci/GAME
+
+– 2 – certainty estimation. In Section 3 we apply GAME to cosmological observables, reconstructing 
+
+H(z) from CC data and deriving the dark energy equation of state w(z), and we then test performance on Stage IV-like mock datasets. We conclude in Section 4 with a summary of the results and possible extensions of the work. 
+
+2 Genetic Algorithms methodology 
+
+Genetic Algorithms (GA) are a model-independent machine learning tool for symbolic re-gression. They follow the principles of biological evolution via natural selection, where a population of mathematical functions, often referred to as chromosomes, evolves over time. In this context, a chromosome represents the analytical string of a function, and this evolution occurs under the influence of operations such as crossover (the combination of two different chromosomes to create an offspring) and mutation (a random change in one chromosome) [10]. The algorithm begins with an initial population of candidate individuals: Npop functions randomly generated (analogous to traditional Monte Carlo approaches) based on a defined set of basic functions (sin, cos, log, polynomial, exp, etc.) and operators (+ , −, ×, ÷). Together, these elements constitute a set we refer to as the grammar . The algorithm is fed with Ndata 
+
+points in the form ( xi, y i, σ i) and establishes the adequacy of each function to represent the data points by calculating the χ2 which, for uncorrelated measurements, is: 
+
+χ2 =
+
+> Ndata
+
+X
+
+> i=1
+
+ fj (xi) − yi
+
+σi
+
+2
+
+, with j = 1 , . . . , N pop , (2.1) where fj (xi) is one of the Npop functions generated by the GA. The χ2 is then computed for each individual function in the population. After generating the first population of functions, the algorithm starts producing the next generation by selecting a percentage of the best individuals (i.e., the functions with the minimum χ2 values) from the previous population. Once selected, these optimal individuals are combined through crossover and mutation to produce offspring. After the new population is generated, the algorithm repeats until a termination goal is achieved, such as a minimum 
+
+χ2 value or a maximum number of generations Ngen . Finally, the best-fit analytical function returned at the end of the iteration is the one presenting the minimum χ2.The grammar, number of individuals in the population, selection percentage, crossover and mutation probability, number of generations, and stochastic seed constitute the hyperpa-rameters of the GA; they affect how fast the GA converges to the best-fit and the complexity of the final expression. 
+
+2.1 Practical example 
+
+We present a simplified example of a standard GA iteration to explain how it determines the best-fit function given a dataset of Ndata . The following hyperparameters are fixed: 
+
+• Ngen = 100; 
+
+• Npop = 3; 
+
+• grammar = polynomial, exponential, trigonometric; 
+
+• selection rate = 2 /3; – 3 – • crossover rate = 0 .8; 
+
+• mutation rate = 0 .3; 
+
+• random seed = 12345; The first population F(ngen = 0) (with ngen = 0 , . . . , N gen ) of Npop functions is generated randomly, according to the random seed and the grammar . Let us assume the initial Npop 
+
+functions are: 
+
+F(0) = x2, exp x, sin x . (2.2) Initially, the algorithm computes the χ2 for each function in F(0) using the Equation (2.1) with the data points. Let us assume we obtain: ⃗χ 2(0) = {300 , 200 , 600 } . (2.3) The algorithm sorts the population with respect to χ2. Since the fixed selection rate is 2/3, it selects the two best functions out of the three. These are, respectively, the second (exp x) and the first ( x2). Once the best functions are sorted and selected, the first generation begins, and the algorithm combines and modifies them via crossover and mutation, replacing all non-selected function slots (in this case, just the third remaining slot). One might obtain: 
+
+F(1) = 
+
+
+
+exp x, x 2, exp x3
+
+x2
+
+
+
+. (2.4) Once F(1) is generated, the algorithm computes ⃗χ 2(1) and repeats the process. Finally, at the final generation (in our case Ngen = 100), we will have a population F(ngen = 100) consisting of analytical and likely complex functions, alongside the final vector ⃗χ 2(100). At this point, the analytical function associated with the minimum χ2 is selected as the final output of the algorithm, referred to as fGA (x): 
+
+χ2min = min ⃗χ 2(100) , −→ fGA (x) = Fχ2min (100) . (2.5) Equation (2.5) can be read as the function coming out of the last generation that presents the minimum χ2, that is the function that better reproduce the input data points. 
+
+2.2 Standard GA reconstruction 
+
+To demonstrate the algorithm in action and illustrate the proposed improvement, we follow the procedure described in [10]. First, we generate a set of 20 sparse mock data points (xi, y i, σ i) based on the model: 
+
+f (x; a, b, c ) = a + ( x − b) · e−cx 2
+
+, (2.6) where the parameters are ( a, b, c ) = (0 .75 , 0.25 , 0.10). The objective of GA is to generate a symbolic analytical function that reproduces the underlying f (x) model only from data points. We selected a function that exhibits smooth behaviour and possesses a maximum on purpose, to demonstrate that this methodology is capable of detecting the features underlying the function we are attempting to reconstruct. Then, to establish a benchmark for compar-ison, we minimised χ2 
+
+> i
+
+(a, b, c ) from Equation (2.1) with respect to the parameters ( a, b, c ). – 4 – We refer to the obtained result as χ2threshold , representing the value obtained from a standard parametric analysis that we aim to surpass with a non-parametric algorithm. Next, we fix a set of hyperparameters for the GA and let the algorithm generate the best-fit function. Figure 1 shows the evolution of the χ2 of the GA-generated function against the number of generations ngen . Once the algorithm converges, if the curve goes below the threshold set by the standard parametric approach, it means we obtain an analytical function that fits data better than the one obtained from the model-dependent parameter minimisation. 
+
+Figure 1 . Evolution of the GA χ2 with the number of generations ngen . The black dotted line is the χ2threshold , representing the χ2 we aim to overcome, obtained through standard model-dependent minimisation of the parametrised function. The blue curve represents the χ2 of the function generated by the GA. In the legend the hyperparameters setup of the GA are listed: the random seed is 76822, the probability of crossover and mutation is 85%, the grammar set for the generation is made of polynomial and exponential functions, the number of generations is Ngen = 30000, sufficient for χ2GA 
+
+to drop below χ2threshold .
+
+2.2.1 χ2 marginalisation 
+
+Given that GA rely entirely on the estimator used to establish whether a function adequately represents data (in our case, the χ2), it is often useful to incorporate simple statistical techniques to refine the reconstruction process. A practical approach is to assume that the underlying model may differ from the GA reconstruction function by a constant y0.Depending on the problem, this constant can act as an additive offset (e.g. an uncertain zero-point) or as a multiplicative normalisation (e.g. an unknown overall scale). 
+
+• Additive offset: y(x) = y0 + fGA (x); 
+
+• Multiplicative offset: y(x) = y0 · fGA (x). Physically, the additive offset is helpful when dealing with a calibration or systematic error that may add a constant independent on the overall reconstructed function. On the other side, the multiplicative offset is suited when dealing with a normalisation factor of the quantity we are interested in reconstructing. For the Hubble rate, and analogously the test function, we are more interested in the shape of H(z), while the overall normalisation is set by the Hubble constant H0, so it is natural to treat H0 as a multiplicative offset. – 5 – We want to re-define the χ2 to take into account eventual offsets ([25–28]). Inserting these expressions into the standard uncorrelated χ2 in Equation (2.1), the χ2 becomes a quadratic function of the single nuisance parameter y0,
+
+χ2(y0) = C y 20 − 2B y 0 + A, (2.7) where A, B and C depend only on the data and on the GA reconstruction fGA . Their explicit expressions are 
+
+• Additive offset: 
+
+A ≡
+
+> Ndata
+
+X
+
+> i=1
+
+ fGA (xi) − yi
+
+σi
+
+2
+
+, B ≡
+
+> Ndata
+
+X
+
+> i=1
+
+yi − fGA (xi)
+
+σ2
+
+> i
+
+, C ≡
+
+> Ndata
+
+X
+
+> i=1
+
+1
+
+σ2
+
+> i
+
+; (2.8) 
+
+• Multiplicative offset: 
+
+A ≡
+
+> Ndata
+
+X
+
+> i=1
+
+ yi
+
+σi
+
+2
+
+, B ≡
+
+> Ndata
+
+X
+
+> i=1
+
+fGA (xi) yi
+
+σ2
+
+> i
+
+, C ≡
+
+> Ndata
+
+X
+
+> i=1
+
+ fGA (xi)
+
+σi
+
+2
+
+. (2.9) Now, in order to reduce the impact of the offset, we want to marginalise y0. Since χ2(y0) is quadratic, it can be minimised analytically with respect to y0. One finds 
+
+dχ 2
+
+dy 0!
+
+= 0 , −→ ybest 0 = BC , (2.10) and the corresponding minimum value of the χ2 is 
+
+χ2min = A − B2
+
+C . (2.11) This analytical minimisation allows us to use χ2min , a quantity now independent on the offset 
+
+y0, directly as the effective fitness function. This implies that the optimal constant offset is accounted for and does not need to be encoded in the chromosome. This way, GA do not have to waste generations simply to fix the offset, and for each fGA (x) the best y0 is found exactly and instantaneously. This speeds up convergence and makes the comparison between different grammars more robust, since functions with the same shape but different normalisations are not artificially penalised. Moreover, different grammars can easily generate different scales, marginalising with respect to an offset reduces the possibility of the GA randomly favouring reconstructions with a normalisation closer to data, rather than reconstructions with better behaviour and representation of the underlying model. From this point on, any χ2 appearing in the GA context will denote the marginalised quantity χ2min .
+
+2.2.2 Error analysis: path-integral 
+
+A limitation of GA is that they do not provide a direct method for estimating the uncertain-ties of the resulting analytical function. Furthermore, the fact that the algorithm samples the function space by randomly generating function combinations can complicate the in-terpretation of errors associated with the best-fit. An efficient and innovative approach is therefore required to extrapolate a function δf (x) indicative of the uncertainty along the reconstructed function fGA (x). While bootstrap Monte Carlo [13] offers one solution, we – 6 – adopt the approximation of the error using the path-integral approach from [10]. This ap-proach is compatible with uncertainty estimation in Monte Carlo simulations, where errors are determined by sampling the parameter space around the best-fit [29]. Finally, it provides a way of obtaining an analytical, smooth, uncertainty function which can be computed in every x, analogously to fGA (x). The fundamental idea is to treat the reconstructed function as the object of inference and to define a (formal) likelihood functional over the space of functions: 
+
+L[f ] ∝ exp 
+
+
+
+− 12 χ2[f ]
+
+
+
+, (2.12) where χ2[f ] is the same goodness-of-fit functional estimator adopted in the GA. Under the assumption of Gaussian measurement errors and, in the simplest case, uncorrelated data points, the likelihood is the product of the single-point likelihoods at the sampled xi. In this framework, the uncertainty band is constructed by determining the probability that the true function lies within an uncertainty band of half-width δf (x) around a chosen reference reconstruction fGA (x): 
+
+fGA (x) − δf (x) ≤ f (x) ≤ fGA (x) + δf (x). (2.13) The path-integral construction offers a practical way to approximate this probability without explicitly resampling the dataset; it is computationally less demanding than bootstrap Monte Carlo while generating comparable confidence regions. More concretely, for each data point (xi, y i, σ i), one can introduce a confidence interval CI (xi, δf i), defined as the probability (under the Gaussian likelihood) that the value of the function at xi lies within [ fGA (xi) −
+
+δf i, f GA (xi) + δf i]. For statistically independent errors, this probability can be written in closed form using error functions. The 1 σ half-width is then obtained by imposing 
+
+CI (xi, δf i) = erf 
+
+ 1
+
+√2
+
+
+
+≃ 0.6827 , (2.14) which corresponds to the standard 68% confidence level of a Gaussian distribution. If one were to determine a separate δf i at each xi, the resulting band would display strong point-to-point fluctuations driven by the noise in the data. To avoid this, we model 
+
+δf (x) as a smooth function (for example, a low-order polynomial δf (x; α, β, γ ) = αx 2+βx +γ)and fix its parameters by minimizing a functional constructed from the confidence intervals over the full dataset: 
+
+χ2CI [δf ] = 
+
+> Ndata
+
+X
+
+> i=1
+
+
+
+CI (xi, δf (xi)) − erf 
+
+ 1
+
+√2
+
+ 2
+
+. (2.15) In practice, we constrain the solution by requiring that the perturbed reconstructions fGA (x)±
+
+δf (x) remain statistically consistent with the data, according to the same χ2 metric used in the original GA fit. In this way, the final band reflects the measurement-driven statistical uncertainty encoded in the likelihood. The result is a smooth estimate of the 1 σ confidence region around the GA reconstruction, obtained without the need to repeatedly rerun the GA on many mock datasets. The path-integral result can be extended to the case where data points are correlated [25]. Following [10], one can account for correlations and incorporate the covariance matrix – 7 – and modify the χ2 entering the GA to 
+
+χ2 =
+
+> Ndata
+
+X
+
+> i,j
+
+(yi − f (xi)) C−1 
+
+> ij
+
+(yj − f (xj )) , (2.16) where Cij is the covariance matrix. For the final uncertainty estimate, the derivation follows the uncorrelated case but requires rotating the data into a basis in which they are uncorrelated (see Section II.C.2 of [10]). In this correlated framework, one obtains an analogous polynomial 
+
+δf PI (x) that now incorporates the correlations between points. In what follows, we will denote this function simply as δf PI (x), emphasizing that it represents the measurement-driven uncertainty derived via the path-integral method. 
+
+2.3 Ensemble of hyperparameter models 
+
+A sensitive point of GA is their intrinsic stochasticity and the choice of hyperparameters. The final function fGA (x) may differ considerably depending on the selected grammar set or on values of crossover and mutation probabilities. However, since the hyperparameter space containes elements that cannot be easily marginalised (such as the grammar ), a standard marginalisation is not feasible. In addition, even if all hyperparameters are fixed, different random seed can still produce substantially different best-fit functions. In order to identify the best hyperparameter setup, the typical strategy is to repeat-edly run the GA with Nconf different hyperparameter choices and track the corresponding evolution illustrated in Figure 2.            
+
+> Figure 2 .Evolution of the GA χ2with the number of generations ngen .The black dotted line is the χ2threshold , representing the χ2we aim to overcome, obtained through standard model-dependent minimisation of the parametrised function. The coloured curves represent the χ2of the functions generated by the GA for different configurations of the hyperparameters. In the legend each hyper-parameters setup of the GA are listed.
+
+In line with Section 2.2, once the final generation is reached, the only new ingredient is that we now have a set of Nconf best-fit functions. The straighforward GA prescription would be to select the single overall best-fit function, i.e. the one with the absolute minimum 
+
+χ2. However, this result would still represent just one particularly lucky hyperparameter configuration. The selected function does not interact with the other candidates and does – 8 – not reflect the impact of hyperparameter variations. Furthermore, we cannot guarantee that choosing a different endpoint for Ngen would still favour the same optimal function (as suggested by Figure 2, where stopping earlier could return the best-fit of a different configuration). Since focusing only on the global minimum in χ2 limits the potential of GA, we instead adopt a model-averaging approach . This strategy reduces the effects of stochasticity while incorporating multiple models across the hyperparameter space, offering greater stability for the resulting function, especially with respect to its derivatives. 
+
+2.3.1 Marginalisation over the ensemble ( GAME )
+
+We face Nconf different configurations, and for each configuration we obtain one best-fit func-tion fj, GA , forming a set of Nconf candidate functions (Figure 3) that we wish to combine. Since the GA output is analytical, we aim to compute a weighted average of analytic recon-structions, which acts as a representative combination of multiple GA solutions, therefore includes all the possible contributions across the hyperparameter space, including stochas-ticity taken into account by the random seed. 
+
+Figure 3 . Ensemble of reconstructions obtained by running the GA across multiple hyperparameter configurations. Left: Reconstructed functions fj, GA (x) (blue curves) compared with the fiducial model we are trying to reproduce (black line) and the mock data points with uncertainties generated on the fiducial model. Right: Corresponding derivatives f ′
+
+> j, GA
+
+(x) for the same ensemble, highlighting how the spread between GA solutions grows when taking derivatives, especially near the boundaries. The collection of curves motivates a model-averaging treatment to obtain a more stable reconstructed function and derivative. 
+
+To perform averaging, we must define an estimator. A first attempt might consider the minimum χ2 and define corresponding Nconf normalised weights wj with an inverse-square or an exponential cut-off: 
+
+wj =exp 
+
+
+
+− 12
+
+
+
+χ2 
+
+> j
+
+− χ2min 
+
+
+
+> Nconf
+
+X
+
+> k=1
+
+exp 
+
+
+
+− 12
+
+ χ2 
+
+> k
+
+− χ2min 
+
+ , with 
+
+> Nconf
+
+X
+
+> j=1
+
+wj = 1 . (2.17) However, this does not address the smoothness of the final function nor the fact that we are attempting to reproduce a physical quantity from statistical assumptions. A very low χ2 does – 9 – not guarantee that the function faithfully reproduces the underlying physical model; often, it indicates overfitting, which becomes evident only when considering derivatives. Therefore, using χ2 alone is insufficient. We define a new estimator to weigh the average and compute it for each of the Nconf functions: 
+
+Sj (λ) = χ2 
+
+> j
+
++ λR j , with Rj =
+
+Z
+
+f ′′  
+
+> j
+
+(x) 2
+
+dx, (2.18) where Rj is the roughness term [30], quantifying the smoothness of the first derivative. In our implementation, this is computed numerically on the same grid used for plotting and likelihood evaluations. λ is a regularisation parameter, an arbitrary real number quantifying the relative importance of the roughness term. The lower its value, the more weight is given to the χ2; conversely, the greater it is, the more the smoothness is prioritised over the data fit. Ideally, λ is fixed via a trade-off between smoothness and representativeness. We employ the L-curve method [31, 32], optimising the choice of regularisation parameter based on the log-log plot of the two quantities χ2 and R. Note that we also tried to marginalise over λ
+
+by treating it as an additional hyperparameter. Although the result was consistent with the L-curve technique, this procedure was significantly slower; therefore, we chose to retain the L-curve method for reasons of computational efficiency. To identify the optimal trade-off between χ2 and R, we construct a cost matrix by evaluating Sj (λ) over a dense discrete grid of λ ∈ 10 −5, 10 5 for all Nconf models: 
+
+λ
+
+−−−−−−−−−−−−−−−−−−−−−−−−→
+
+j
+
+y
+
+S1(λ1) . . . S1(λi) . . . S1(λfin )... . . . ... . . . ...
+
+Sj (λ1) . . . Sj (λi) . . . Sj (λfin )... . . . ... . . . ...
+
+SNconf (λ1) . . . S Nconf (λi) . . . S Nconf (λfin )
+
+
+
+(2.19) From this matrix we are able to extract the lower envelope of the model set. In practice, for each column (representing a specific λi), we identify the row element (representing a specific hyperparameter configuration j⋆) corresponding to the minimum values of Sj (λi): 
+
+j⋆(λi) = arg min 
+
+> j∈1,...,N conf
+
+Sj (λi). (2.20) By scanning the λ grid results of Sj in the matrix (2.19), and then locating Sj⋆ (λi), it is possible to identify and collect for each λi the corresponding pair χ2 
+
+> j⋆
+
+and Rj⋆ associated with the minimum, i.e., the optimal pair configuration that produces the best S at a given 
+
+λ:
+
+Smin (λ) = Sj⋆ (λ), −→ 
+
+
+
+Rj⋆(λ), χ 2
+
+> j⋆(λ)
+
+
+
+. (2.21) Note that many different values of λi can correspond to the same optimal model j⋆ (i.e., as we vary λ, we may keep obtaining the same index j⋆ and the same corresponding minimum value Sj⋆ ). The reason is that, with χ2 
+
+> j
+
+fixed, minimising the sum with λR j often produces only a limited number of distinct Smin values, making the outcome quite sensitive to the step size chosen for λ. As a result, the full scan effectively identifies only a relatively small subset of configurations that are effectively active in the trade-off. This process filters the ensemble – 10 – Figure 4 . L-curve used to identify the optimal regularization parameter λ for the estimator Sj (λ) = 
+
+χ2 
+
+> j
+
++λR j . Black markers represent the lower-envelope points ( Rj⋆ , χ 2 
+
+> j⋆
+
+) obtained by scanning the λ grid and identifying the specific configuration j⋆ that minimizes Sj at each step. These points represent the active subset of the Nconf ensemble; their limited number indicates that many λ values map to the same optimal model j⋆. The blue marker identifies the elbow point, defined by the maximum curvature in the log R-log χ2 plane, where the trade-off between goodness-of-fit ( χ2) and smoothness (R) is optimized. This determines λelbow , which is subsequently used to calculate the exponential weights wj for the final model-averaging procedure. 
+
+down to the small subset of models that are optimal for at least one value of λ. The pairs 
+
+Rj⋆ , χ 2
+
+> j⋆
+
+
+
+corresponding to this subset are then plotted to form the L-curve in Figure 4. The L-curve method involves choosing the regularisation parameter λ at the point where the curve exhibits the largest bending in the log-log space (the so-called elbow ) [31, 32]. This point represents the optimal trade-off, marking the transition between the regime driven mainly by χ2 (small λ), where the model fits the noise, and the regime dominated by the regularity constraint (large λ), where the actual signal begins to be smoothed. It serves as a criterion to select a regularisation parameter introduced without any prior. In practice, after collecting and ordering the envelope points by increasing R, we work in log-log space and identify the elbow as the point of maximum distance from the straight line connecting the two endpoints of the envelope. This produces a characteristic configuration jelbow and an associated representative value 
+
+λelbow , chosen within the range of λ for which jelbow minimises Sj (λ). Once λelbow is fixed, we define the weights wj through Sj :
+
+wj (λelbow ) = exp 
+
+
+
+− 12 (Sj (λelbow ) − Smin (λelbow )) 
+
+
+
+> Nconf
+
+X
+
+> k=1
+
+exp 
+
+
+
+− 12 (Sk(λelbow ) − Smin (λelbow )) 
+
+ , (2.22) – 11 – which corresponds to an exponential cut-off driven by the combined estimator S. We can interpret this estimator not only as a likelihood ( χ2) but as a posterior with regularisation prior ( λR ). The averaged analytical function is then computed as a weighted sum of the symbolic 
+
+Nconf best-fit solutions of the GA: 
+
+fGAME (x) = 
+
+> Nconf
+
+X
+
+> j=1
+
+wj (λelbow ) · fj, GA (x). (2.23) 
+
+2.3.2 Error analysis: ensembling and total uncertainty 
+
+The model-averaging described above mitigates the intrinsic stochasticity and the impact of hyperparameters setup of the GA. However, working with an averaged reconstruction requires an upgrade in the uncertainty estimation: besides the measurement-driven statis-tical uncertainty on the resulting function ( δf PI (x)), we must account for an additional configuration-driven spread, that is the dispersion among the different GA best-fit functions entering the ensemble ( σens ). For the former, we quantify the statistical uncertainty around the reconstructed function using the path-integral approach described in Section 2.2.2. In the averaged scenario, we adopt the weighted-mean reconstruction fGAME (x) and generate a smooth error band by imposing the 1 σ confidence interval condition. The function δf PI (x) encodes the uncertainty implied by the likelihood functional L[f ] ∝ exp[ −χ2[f ]/2]. For the latter, we consider the set of best-fit GA reconstructions fj, GA and the associated weights wj , evaluated at λelbow , obtaining the weighted-averaged analytical function given in Equation (2.23). At each x, we define a weighted ensemble variance as a quantitative measure of the remaining configuration uncertainty [33]: 
+
+σ2ens (x) = 
+
+> Nconf
+
+X
+
+> j=1
+
+wj (λelbow )
+
+
+
+fj, GA (x) − fGAME (x)
+
+2
+
+, (2.24) which quantifies how much the reconstructions fluctuate around the averaged solution when scanning the hyperparameters space. Note that σens (x) is tied to the stability of the recon-struction procedure itself rather than the measurement errors of a single run. Finally, we combine the two contributions into a single effective 1 σ band. Since the measurement noise (captured by δf PI ) and the stochastic nature of the GA (quantified by 
+
+σens ) are uncorrelated processes, we treat them as independent sources of error and therefore sum their variances in quadrature: 
+
+σ2tot (x) = δf 2PI (x) + σ2ens (x), −→ fGAME (x) ± σtot (x), (2.25) This provides a conservative and numerically stable error estimate. Here, δf PI (x) is computed for the final averaged reconstruction fGAME (x) (representing the statistical measurement un-certainty driven by the data likelihood), independent on the Nconf explored. In contrast, 
+
+σens (x) inflates the error band in regions where different GA configurations produce signifi-cantly different functional behaviours, that is particularly relevant for derivatives as seen in Figure 3. – 12 – The same logic applies to derived quantities such as f ′(x). We compute the analytical derivative for each model, then build the weighted-averaged derivative: 
+
+f ′
+
+> GAME
+
+(x) = 
+
+> Nconf
+
+X
+
+> j=1
+
+wj (λelbow ) · f ′
+
+> j, GA
+
+(x), (2.26) and define the corresponding weighted ensemble variance for the derivative: 
+
+σ2ens 
+
+f ′(x) =
+
+> Nconf
+
+X
+
+> j=1
+
+wj (λelbow )
+
+
+
+f ′
+
+> j, GA
+
+(x) − f ′
+
+> GAME
+
+(x)
+
+2
+
+. (2.27) For the path-integral contribution δf PI , we propagate the uncertainty by differentiating the reconstruction band. This assumes that the variation operator δ commuted with the deriva-tive: 
+
+δ
+
+ df dx 
+
+
+
+= ddx δf (x). (2.28) While this commutation is not generally true for arbitrary distributions, it is consistent with the Gaussian likelihood approximation ( L ∝ e−χ2/2) employed in the path-integral framework (Section 2.2.2). Under this approximation, the perturbations are treated as linear fluctuations around the best-fit, allowing for standard error propagation [25]. The final 1 σ uncertainty on the derivative of the GAME function is obtained analogously to Equation (2.25): 
+
+σ2tot 
+
+f ′(x) = δf ′ 2PI (x) + σ2ens 
+
+f ′(x) , −→ f ′
+
+> GAME
+
+(x) ± σtot 
+
+f ′(x) . (2.29) 
+
+2.3.3 Improvements in the reconstruction 
+
+Finally, we fix the different Nconf hyperparameters configurations (Appendix B) and feed the algorithm with the mock data. It generates a set of candidates from which we identify the standard best-fit GA function fGA (x) (corresponding to the minimum χ2 between all the configurations) and compute the GAME averaged function fGAME (x) with its associated total uncertainty. We then compare the reconstructions obtained via the two methodologies. In Figure 5, we observe that for the reconstruction of f (x), both methodologies generate analytical functions that are compatible at the 1 σ level. However, GAME reconstruction tends to be more stable and resistant to overfitting. To rigorously quantify this improvement, we introduce the cumulative statistic ˜ χ2tot = P 
+
+> x
+
+[( ffid (x) − fGA (x)) /σ tot (x)] 2. This estimator serves as a metric to evaluate and compare how well the reconstructions reproduce the un-derlying target model 3 f (x). In Figure 6, we observe the evolution of the cumulative ˜ χ2tot for both the function and it derivative. While the improvement for f (x) is visually subtle in the reconstruction plots, the cumulative estimator reveals a quantitative improvement of ∼ 20%. For the derivative f ′(x), the advantage of the GAME approach is evident. As seen in the right panel of Figure 5, the differentiated GA best-fit is inaccurate at both low and high values of x despite having the global minimum χ2 on the data. Instead, by applying GAME 
+
+and weighting the ensemble with an estimator sensitive to roughness, makes the derivative significantly more stable, with an uncertainty that accounts for major deviations (in this case, at low and high x values), and achieving an improvement of ∼ 95%.       
+
+> 3The tilde ∼is introduced to distinguish this model-function χ2from the data-function χ2used within the GA (Equation (2.1)).
+
+– 13 – Figure 5 . Comparison of function reconstruction and derivative estimation between the standard GA and GAME methodologies. The bottom sub-panels display the residuals for the GA and GAME methods, respectively. Left: Reconstruction of the function f (x). The solid black line indicates the underlying fiducial function (Equation (2.6)) we are trying to reproduce from the mock dataset. The orange dashed line shows the standard best-fit GA result, while the blue dashed line represents the GAME 
+
+averaged reconstruction. Shaded regions indicate 1 σ confidence intervals. Right: Derivation of the derivative f ′(x). While the reconstructed functions fGA and fGAME are comparable, the derivative estimation highlights the stability of the GAME averaging at the boundaries ( x ≈ 0 and x ≈ 2), where the standard GA deviates significantly from the fiducial line. 
+
+Figure 6 . Cumulative performance of the reconstruction methodologies against the true fiducial model. The panel show the cumulative ˜ χ2tot as a function of x, calculated between the reconstructed function and the underlying target model, normalised by the total uncertainty σtot . Left: Cumulative ˜χ2tot for the function f (x). The blue line ( GAME approach) reaches a final value of ˜ χ2tot ≈ 22, represent-ing a ∼ 20% improvement over the orange line (standard GA best-fit) ˜ χ2tot ≈ 28. Right: Cumulative ˜χ2tot for the derivative f ′(x). Here the difference is drastic: the standard GA accumulates a massive error at the boundaries due to instability ( ˜ χ2tot ≈ 4783), while GAME maintains stability throughout ( ˜ χ2tot ≈ 221) resulting in a ∼ 95% improvement in accuracy. 
+
+– 14 – This test confirms that the GAME methodology has the potential to reconstruct generic functions and derived quantities in a non-parametric and model-independent manner. We proceed by applying GAME to cosmological quantities and real data to assess the quality of such reconstructions and their ability to constrain cosmological parameters. 
+
+3 Application to cosmological quantities 
+
+3.1 Dark energy equation of state 
+
+We aim to test the standard ΛCDM model through dark energy, which is not a directly observable quantity. One can study its equation of state w using direct observations of background quantities such as the luminosity distance of Type Ia supernovae DL(z), or the expansion rate of the universe, H(z). From H(z), w can be derived following parametric or non-parametric approaches [34]. We assume the universe is well described by an FLRW metric and consider a Friedmann equation for a late-time flat universe containing only matter and dark energy (neglecting radiation at low redshifts): 
+
+H(z)2
+
+H20
+
+= Ω m, 0(1 + z)3 + Ω de (z), with Ωde (z) = ρde (z) 8πG 
+
+3H(z)2 . (3.1) Assuming dark energy acts as a perfect fluid ( pde ≡ w(z)ρde ), and as a non-interacting fluid ( ˙ ρde + 3 H(1 + w)ρde = 0), we obtain [9]: 
+
+w(z) = −1 + 13 (1 + z)
+
+d ln 
+
+ H(z)2
+
+H20
+
+− Ωm, 0 (1 + z)3
+
+
+
+dz . (3.2) This expression links the evolving dark energy equation of state to background evolution quantities. By reconstructing H(z) from data and assuming a prior value for Ω m, 0, we can perform a consistency check with the expected ΛCDM value ( w = −1). However, Equation (3.2) is derived under the assumptions of a flat FLRW geometry and the GR theory of gravity. If any of these assumptions is violated (Ω k̸ = 0 or modified gravity affecting Friedmann equations), then the reconstructed w(z) ceases to measure the physical properties of the dark energy fluid alone. Instead, it absorbs the effects of curvature and modified gravity, making them mathematically indistinguishable from a change in the dark energy equation of state. Within this framework, any deviation from w = −1 can imply one of these physical scenarios [8]: 
+
+• Dynamical dark energy: the fluid is not a vacuum energy density but a dynamical field with a time-evolving equation of state [35]. 
+
+• Interacting dark energy: our derivation assumes the continuity equation. If there is an energy exchange between dark matter and dark energy, this interaction can mimic an effective equation of state w(z)̸ = −1 even if the fluid itself is a cosmological constant [36]. 
+
+• Matter density parameter bias: the reconstruction of w(z) is mathematically de-generate with the matter density parameter. An incorrect prior on Ω m, 0 will induce a spurious evolution in w(z) to compensate for the density mismatch [37]. – 15 – In order to disentangle the dark energy sector from the systematic parameter bias (sce-nario 3), we frame the current observational landscape by computing w(z) using two distinct priors on Ω m, 0:
+
+• Planck 2018 [38]: Ω m, 0 = 0 .315 ± 0.007, representing the CMB constraints. 
+
+• DESI DR1 [39]: Ω m, 0 = 0 .295 ± 0.015, representing recent constraints from Baryonic Acoustic Oscillations (BAO). 
+
+3.2 Testing ΛCDM with current data surveys 
+
+To derive w(z), we must reconstruct H(z). A known issue is that any possible data relating the two quantities must be differentiated at least once. Distance data, such as Type Ia su-pernovae, require two derivatives [35], greatly enhancing the error on w(z). Following [8], we utilise direct measurements of H(z) from CC. Although these observations are sparser and much more affected by systematics, they require only one derivative (see Equation (3.2)), making them good candidates to apply GAME methodology. CC are based on massive, pas-sively evolving early-type galaxies that act as standard clocks. By measuring the differential age evolution dt between two such galaxies separated by a small redshift interval dz , one can directly determine the expansion rate via the relation H(z) = − 11+ zdz dt . Particularly, the dataset we have used comes from Table 1 of [40], at which we have added a recent measure-ment from [41]. Unlike luminosity distance, this method measures the Hubble rate directly, allowing for a determination of the expansion history that does not rely on integrations over the equation of state w(z) [42]. 
+
+3.2.1 Reconstruction of H(z)We first fix the hyperparameters configurations (Appendix B), then we feed the GA with CC data to reconstruct H(z). We consider a dataset of measurements at z ≲ 2. Even though some of these data points are known to be correlated [43], we treat the sample as uncorrelated to perform an additional robustness test, with the objective of remaining as agnostic as possible in order to test the goodness of the methodology. Including correlations inject extra information and, as seen in Section 2.2.2, correlated data just impact the value of the χ2 entering the GA (Equation (2.16)). In case we wanted to build a covariance matrix for the CC H(z) measurements, this could be done following the procedure described in [43]. Once the GA has converged, we identify the global minimum χ2 best-fit solution, 
+
+HGA (z), and then calculate HGAME using the GAME weighted-averaged approach described in Section 2.3.1. Figure 7 presents a comparison of the reconstructed H(z) and H′(z) obtained from the standard minimum best-fit function selection and from the GAME approach. Both methods provide a good reconstruction of H(z), although GAME appears slightly more stable at higher redshifts. For the derivative H′(z), GAME derivation is significantly more consistent with ΛCDM than the standard GA result. Because GA is primarily driven by the χ2 statistic, we also observed that excluding data points with larger uncertainty bands 
+
+σi substantially enhances the reconstruction quality, in particular its constraining ability and the behaviour of δf PI (Appendix A). 
+
+3.2.2 Derivation of w(z)Using Equation (3.2), we derive the evolution of the dark energy equation of state w(z) under the assumptions of GR and a flat FLRW metric. This derivation is particularly challenging – 16 – Figure 7 . Comparison of H(z) reconstruction and derivative estimation between the standard GA and GAME methodologies using CC data. Left: Reconstruction of the Hubble parameter H(z). The solid black line indicates the flat ΛCDM model. The orange dashed line shows the standard best-fit GA result, while the blue dashed line represents the GAME marginalised-ensemble reconstruction. Shaded regions between dotted lines indicate 1 σ confidence intervals. Right: The corresponding reconstruction of the derivative H′(z). While the function reconstructions (left) are largely consistent, the derivative reconstruction highlights the enhanced stability of the GAME method (blue), which provides a smoother evolution compared to the standard GA (orange) that exhibits more pronounced fluctuations, particularly at higher redshifts. 
+
+because it requires not only the function H(z) but also its first derivative H′(z), making it highly sensitive to the smoothness of the reconstruction. We utilise the HGAME and H′
+
+> GAME
+
+profiles obtained from the marginalised ensemble of CC data to compute w(z) assuming the two priors on Ω m, 0 listed in 3.1. The uncertainties on w(z) are computed via standard error propagation, combining the variance from GAME reconstruction ( σH ) with the reported uncertainties on Ω m, 0.Figure 8 shows the estimate evolution of w(z). At low redshifts ( z ≲ 1), where dark en-ergy dominates the total energy budget, the reconstruction is robust and tightly constrained. Regardless of the assumed prior on Ω m, 0, the results are in excellent agreement with the stan-dard ΛCDM expectation ( w = −1). At higher redshifts ( z ≳ 1.5), however, the confidence regions begin to diverge significantly, indicating a loss of constraining power. This behavior is intrinsic to non-parametric derivations of w(z) in a spatially flat universe. In such frame-works, the equation of state is determined by the logarithmic derivative of the dark energy density, d ln Ω de /dz ∝ Ω′
+
+> de
+
+/Ωde . As we approach the matter-dominated era ( z ≳ 1.5), Ω de (z)is obtained as the difference between the total expansion rate and the matter contribution: Ωde (z) ≈ H(z)2/H 20 − Ωm, 0(1 + z)3. In this regime, that difference tends to zero (Ω de → 0), causing the logarithm in the expression for w(z) toward infinity. Consequently, even tiny stochastic fluctuations in the reconstructed H(z) or small deviations in Ω m, 0 can generate apparent singularities, leading to the massive expansion of the confidence intervals at high redshift. Despite the loss of constraining power at high z, GAME methodology produces a robust – 17 – Figure 8 . Optimised estimation of the dark energy equation of state w(z) derived from the GAME -reconstructed H(z) using CC data. The derivation assumes a flat FLRW metric and is performed for two different priors on the matter density parameter Ω m, 0. The solid black line indicates the standard ΛCDM value ( w = −1). The blue dashed line represents the derivation assuming the Planck 2018 CMB prior, while the red dashed line assumes the DESI DR1 BAO prior. Shaded regions indicate the 1 σ uncertainty bands obtained via error propagation. At low redshifts ( z ≲ 1), both derivations produce tight constraints compatible with the cosmological constant. At higher redshifts, the reconstruction becomes highly sensitive to the assumed matter density and the sparsity of the data, leading to a significant widening of the uncertainty bands and a divergence, though remaining statistically consistent with ΛCDM. 
+
+estimate of the present-day equation of state. Adopting the DESI prior on Ω m, 0, which favors a lower matter density, we obtain our tightest constraint: 
+
+w(0) = −0.986 ± 0.132 . (3.3) This measurement confirms that, with current CC data, the local universe remains fully compatible with a cosmological constant. The apparent deviation from ΛCDM observed in the reconstruction at high z is not statistically meaningful given the large uncertainties, but it highlights the critical importance of precise H(z) measurements and accurate local matter density priors for extending dark energy tests into the matter dominated era. 
+
+3.3 Forecasts with future data surveys 
+
+To further validate the GAME methodology, we test its robustness using mock data that em-ulate the characteristics of next generation cosmological surveys. We assume a standard fiducial cosmological model (ΛCDM) and generate a simulated dataset that reflects the data density and precision expected from Stage IV surveys (such as Euclid [44] or high-precision – 18 – releases from DESI [45]). This is the crucial step: if GAME can accurately recover the un-derlying function and its derivative from noisy synthetic data, without generating artificial features, it confirms the method’s reliability for applications in the precision cosmology era. 
+
+3.3.1 Reconstruction of H(z)We generate a mock catalog for H(z) consisting of Ndata = 15 points distributed between redshift 0 to 2. To emulate realistic observational conditions, we adopt a redshift-dependent uncertainty on the measurement given by σH (z) = 2%(1 + z) H(z), using a conservative 2% error factor. This choice captures the typical loss of precision at higher redshifts found in spectroscopic surveys [44]. We examined both uniformly spaced and randomly sampled redshift distributions and obtained comparable results; in what follows, we show the results for the uniform case.                 
+
+> Figure 9 . Comparison of H(z) reconstruction and derivative estimation between the standard GA and GAME methodologies using a synthetic Stage IV-like dataset. Left: Reconstruction of the Hubble parameter H(z) from 15 mock data points generated on a flat ΛCDM fiducial (solid black line). The points include a measurement uncertainty of 2%(1 + z). The orange dashed line shows the standard best-fit GA result, while the blue dashed line represents the GAME averaged reconstruction. Shaded regions indicate 1 σconfidence intervals. Right: The corresponding estimate of the derivative H′(z). As observed with real data (Figure 7), GAME reconstruction maintains the expected smoothness in the derivative H′(z), successfully recovering the ΛCDM fiducial without the high-redshift oscillations present in the single best-fit GA run.
+
+Figure 9 compares the reconstruction of H(z) and its derivative H′(z) using the standard GA best-fit versus the GAME averaged function. Both methods successfully reconstruct the Hubble parameter H(z), closely following the fiducial ΛCDM line. Once again, the strength of the GAME methodology becomes apparent in the derivative. Symbolic regression techniques can be sensitive to local noise, often resulting in oscillations in the derivative H′(z) even when H(z) appears smooth but GAME reconstruction effectively suppresses these oscillations, reproducing the fiducial derivative more faithfully than the single GA best-fit, particularly at the boundaries ( z ≈ 0 and z ≈ 2). – 19 – As for the test function f (x) in Section 2.3.3 we quantify this improvement in stability by computing the cumulative statistic ˜χ2tot . In Figure 10 we show the evolution of the cumulative ˜ χ2tot for both H(z) and H′(z). For H(z) the improvement is visually subtle in 
+
+Figure 10 . Cumulative performance of the reconstruction methodologies against the assumed fiducial model (ΛCDM). The panels show the cumulative ˜ χ2tot as a function of redshift z, calculated between the reconstructed functions and the underlying target model. Left: Cumulative ˜ χ2tot for the Hubble rate H(z). The blue line ( GAME approach) reaches a final value of ˜ χ2tot = 1 .29, representing a ∼ 60% improvement over the orange line (standard GA best-fit, ˜χ2tot = 3 .19). Right: Cumulative ˜χ2tot 
+
+for the derivative H′(z). Here the advantage of the proposed method is more clear: the standard GA accumulates large errors due to instability ( ˜ χ2tot = 233 .54), while GAME maintains robustness ( ˜ χ2tot = 26 .47), resulting in a ∼ 89% improvement in accuracy. 
+
+the reconstruction plot, but the cumulative estimator reveals a quantitative gain of ∼ 60%, with ˜ χ2tot decreasing from ˜ χ2tot ,GA = 3 .19 to ˜ χ2tot ,GAME = 1 .29. For the derivative H′(z) the advantage of the GAME approach is much clearer, achieving an improvement of ∼ 89%, as ˜χ2tot is reduced from ˜ χ2tot ,GA = 233 .54 to ˜ χ2tot ,GA = 26 .47. Besides representing a substantial improvement and notable increase in the reliability of recovering the underlying physical models, this refined stability is essential for deriving the equation of state w(z), which depends directly on the gradient of the expansion history. 
+
+3.3.2 Derivation of w(z)Using the GAME -reconstructed H(z) and H′(z) from the mock dataset, we compute the dark energy equation of state w(z) by applying the same procedure described in Section 3.2.2. Since the mock observations are generated under a ΛCDM model with w = −1, this acts as a null test for our pipeline: we verify whether the algorithm introduces any systematic bias or signatures of dynamical dark energy. Figure 11 shows the resulting w(z) obtained adopting the same priors on Ω m, 0 as those used for the derivation with real data. The reconstruction is fully consistent with the fiducial value w = −1 across the entire redshift range. The uncertainty bands naturally widen at higher redshifts due to the combined effects of the error propagation in Equation (3.2) and the decreasing relative importance of dark energy relative to matter. Most notably, the constraint at z = 0 is significantly improved compared to what is obtainable with current CC measurements. Assuming Planck prior for Ω m, 0, we obtain a precise estimate of the present-day equation of state: 
+
+w(0) = −1.037 ± 0.051 . (3.4) – 20 – Figure 11 . Optimised reconstruction of the dark energy equation of state w(z) derived from the                
+
+> GAME -reconstructed mock H(z). The derivation assumes a flat FLRW metric and is performed for two different priors on the matter density parameter Ω m, 0. The solid black line indicates the input fiducial ΛCDM model ( w=−1). The blue dashed line represents the derivation assuming the Planck prior, while the red dashed line assumes the DESI DR1 BAO prior. Shaded regions indicate the 1σuncertainty bands obtained via error propagation. The reconstruction successfully recovers the fiducial value w=−1 within 1 σover the entire redshift range. Notably, the constraints at z= 0 are significantly tighter than those obtained from current data, demonstrating the potential of GAME to leverage the precision of future surveys.
+
+This result represents a factor of ∼ 2.6 improvement in precision compared to the result obtained from current data in Section 3.2.2. This test confirms that GAME is not only capable of unbiased reconstruction, but it is also ready to exploit the higher statistical power of upcoming Stage IV datasets to place tight, non-parametric constraints on the nature of dark energy, regardless of the prior on Ω m, 0.
+
+4 Conclusions and outlook 
+
+In this paper, we proposed GAME : an update to the standard GA methodology for model-independent reconstructions of cosmological functions. While GA provide a powerful sym-bolic regression framework independent of specific parametrisations, a known weakness is the sensitivity of derived quantities (especially those involving derivatives) to stochasticity and hyperparameter choices. This sensitivity can lead to reconstructions that fit the data equally well but generate noticeably different derivatives, affecting consistency tests based on derived quantities like the dark energy equation of state w(z). To mitigate these issues, we introduced a model-averaging approach over an ensem-ble of GA best-fit reconstructions ( GAME ). We defined weights using a combined estimator – 21 – Sj = χ2 
+
+> j
+
++ λR j (where Rj is a roughness penalty) and selected the regularisation scale λ
+
+via an L-curve method. The final reconstruction is the weighted average of all the analyti-cal GA solutions associated to different hyperparameters configurations, improving stability and reducing overfitting in derivative-dependent observables. Consequently, we updated the uncertainty estimation to match the averaged framework by combining a measurement error component (estimated through a path-integral uncertainty estimation) with an ensemble er-ror contribute (estimated through the weighted variance across configurations), constructing a conservative total uncertainty. This updated methodology also benefits from the significant increase in computational power available since the introduction of GA in cosmology. While early applications were often limited to O(10 3) generations and a single configuration due to CPU constraints, mod-ern resources allow us to routinely exceed this by one or two orders of magnitude and by also exploring many configurations at the same time. This deeper exploration of the functional space, combined with our ensemble averaging, substantially improves the convergence of the algorithm and reduces the risk of settling in local minima. We validated the method on a controlled example function f (x), demonstrating that the marginalised ensemble reconstruction. Using a ˜χ2 statistic against the true fiducial model, we quantified an improvement of ∼ 20% in the reconstruction of the function itself and a substantial ∼ 95% improvement in the accuracy of the derivative, highlighting the ability of GAME to reproduce underlying models. We then applied GAME to current CC data, reconstructing H(z) and its derivative, and derived w(z) under FLRW and GR assumptions for different priors on Ω m, 0. Within uncertainties, the reconstructed w(z) is compatible with ΛCDM at low redshift. The loss of constraining power at higher redshift naturally widens the bands, highlighting the limitations of sparse H(z) measurements, their precision, and the importance of stable derivative reconstruction. Finally, we explored forecasts with Stage IV-like mock datasets. Even with a conserva-tive error factor assumption, and while we keep using the same priors on Ω m, 0, GAME recovers the fiducial ΛCDM behaviour with improved stability and produces a significantly tighter reconstruction of w(z) at low redshift compared to present data. This illustrates the poten-tial of GA reconstructions, when properly marginalised, to become a competitive tool for model-independent consistency tests with upcoming surveys. Several natural extensions of this work are possible. On the data side, a key next step is to incorporate the full covariance structure of CC (and other probes) directly into the GA likelihood, in order to assess and quantify the impact of data correlations. On the theoretical side, one can broaden the consistency analysis by relaxing assumptions such as spatial flatness and by jointly reconstructing multiple background and perturbation observables, enabling more direct tests of gravity and of the associated underlying theories. Taken together, GAME 
+
+offers a practical and adaptable framework for stable, model-independent reconstructions of cosmological functions and their derivatives, making it well suited to the precision era of upcoming large-scale surveys. 
+
+Acknowledgments 
+
+MP acknowledges support from the INFN project “InDark”. MP also acknowledges the participation in the COST Action CA21136 “Addressing observational tensions in cosmol-ogy with systematics and fundamental physics” (CosmoVerse). MM acknowledges fund-ing by the Agenzia Spaziale Italiana ( asi ) under agreement n. 2024-10-HH.0 and support – 22 – from INFN/Euclid Sezione di Roma. SN acknowledges support from the research project PID2024-159420NB-C43 and the Spanish Research Agency (Agencia Estatal de Investi-gaci´ on) through the Grant IFT Centro de Excelencia Severo Ochoa No CEX2020-001007-S, funded by MCIN/AEI/10.13039/501100011033. MP also thanks A. Favale and F. De Luca for the useful discussions. 
+
+References 
+
+[1] P.J.E. Peebles and B. Ratra, The Cosmological Constant and Dark Energy , Rev. Mod. Phys. 75 
+
+(2003) 559 [ astro-ph/0207347 ]. [2] L. Perivolaropoulos and F. Skara, Challenges for ΛCDM: An update , New Astron. Rev. 95 
+
+(2022) 101659 [ 2105.05208 ]. [3] CosmoVerse Network collaboration, The CosmoVerse White Paper: Addressing observational tensions in cosmology with systematics and fundamental physics , Phys. Dark Univ. 49 (2025) 101965 [ 2504.01669 ]. [4] N. Sch¨ oneberg, G.F. Abell´ an, A.P. S´ anchez, S.J. Witte, V. Poulin and J. Lesgourgues, The H 0
+
+Olympics: A fair ranking of proposed models , Phys. Rep. 984 (2022) 1 [ 2107.10291 ]. [5] M. Seikel, C. Clarkson and M. Smith, Reconstruction of dark energy and expansion dynamics using gaussian processes , Journal of Cosmology and Astroparticle Physics 2012 (2012) 036–036. [6] M. Seikel and C. Clarkson, Optimising Gaussian processes for reconstructing dark energy dynamics from supernovae , 1311.6678 .[7] A. Favale, M.G. Dainotti, A. G´ omez-Valent and M. Migliaccio, Towards a new model-independent calibration of Gamma-Ray Bursts , Journal of High Energy Astrophysics 44 
+
+(2024) 323 [ 2402.13115 ]. [8] L. Perenon, M. Martinelli, R. Maartens, S. Camera and C. Clarkson, Measuring dark energy with expansion and growth , Physics of the Dark Universe 37 (2022) 101119. [9] C. Bogdanos and S. Nesseris, Genetic algorithms and supernovae type ia analysis , Journal of Cosmology and Astroparticle Physics 2009 (2009) 006–006. [10] S. Nesseris and J. Garc´ ıa-Bellido, A new perspective on dark energy modeling via genetic algorithms , Journal of Cosmology and Astroparticle Physics 2012 (2012) 033–033. [11] S. Nesseris, D. Sapone, M. Martinelli, D. Camarena, V. Marra, Z. Sakr et al., Euclid: Forecast constraints on consistency tests of the ΛCDM model , Astronomy & Astrophysics 660 (2022) A67 [ 2110.11421 ]. [12] R. Arjona and S. Nesseris, Novel null tests for the spatial curvature and homogeneity of the universe and their machine learning reconstructions , Phys. Rev. D 103 (2021) 103539. [13] S. Nesseris and A. Shafieloo, A model independent null test on the cosmological constant , Mon. Not. Roy. Astron. Soc. 408 (2010) 1879 [ 1004.0960 ]. [14] A. Aizpuru, R. Arjona and S. Nesseris, Machine learning improved fits of the sound horizon at the baryon drag epoch , Phys. Rev. D 104 (2021) 043521 [ 2106.00428 ]. [15] J.B. Orjuela-Quintana, S. Nesseris and W. Cardona, Using machine learning to compress the matter transfer function T(k) , Phys. Rev. D 107 (2023) 083520 [ 2211.06393 ]. [16] J.B. Orjuela-Quintana, S. Nesseris and D. Sapone, Machine learning unveils the linear matter power spectrum of modified gravity , Phys. Rev. D 109 (2024) 063511 [ 2307.03643 ]. [17] J.B. Orjuela-Quintana, D. Sapone and S. Nesseris, Fully Interpretable Emulator for the Linear Matter Power Spectrum from Physics-Informed Machine Learning , 2407.16640 .
+
+– 23 – [18] D.J. Bartlett, L. Kammerer, G. Kronberger, H. Desmond, P.G. Ferreira, B.D. Wandelt et al., Aprecise symbolic emulator of the linear matter power spectrum , Astronomy & Astrophysics 686 
+
+(2024) A209. [19] Y. Akrami, P. Scott, J. Edsjo, J. Conrad and L. Bergstrom, A Profile Likelihood Analysis of the Constrained MSSM with Genetic Algorithms , JHEP 04 (2010) 057 [ 0910.3950 ]. [20] R. Arjona, S. Nesseris and S. Kuroyanagi, Comparative analysis of the NANOgrav Hellings-Downs as a window into new physics , 2412.12975 .[21] R. Arjona and S. Nesseris, Reconstruction of the swampland conjectures with DESI DR1 BAO data , Phys. Rev. D 112 (2025) 063504 [ 2409.14990 ]. [22] R. Arjona and S. Nesseris, Hints of dark energy anisotropic stress using Machine Learning ,
+
+JCAP 11 (2020) 042 [ 2001.11420 ]. [23] M.R. Gangopadhyay, M. Sami and M.K. Sharma, Phantom dark energy as a natural selection of evolutionary processes aˆ la genetic algorithm and cosmological tensions , Phys. Rev. D 108 
+
+(2023) 103526 [ 2303.07301 ]. [24] G. Acampora, A. Chiatto and A. Vitiello, Genetic algorithms as classical optimizer for the Quantum Approximate Optimization Algorithm , Appl. Soft Comput. 142 (2023) 110296. [25] R. Arjona and S. Nesseris, Hints of dark energy anisotropic stress using machine learning ,
+
+Journal of Cosmology and Astroparticle Physics 2020 (2020) 042–042. [26] S. Nesseris and L. Perivolaropoulos, Crossing the phantom divide: theoretical implications and observational status , Journal of Cosmology and Astroparticle Physics 2007 (2007) 018–018. [27] S. Nesseris and L. Perivolaropoulos, Comparison of the legacy and gold type ia supernovae dataset constraints on dark energy models , Physical Review D 72 (2005) . [28] S. Nesseris and L. Perivolaropoulos, Comparison of cosmological models using recent supernova data , Physical Review D 70 (2004) . [29] W.H. Press, B.P. Flannery and S.A. Teukolsky, Numerical recipes. The art of scientific computing (1986). [30] J. Beyhum, E. Lapenta and P. Lavergne, One-step smoothing splines instrumental regression ,
+
+arXiv e-prints (2023) arXiv:2307.14867 [ 2307.14867 ]. [31] P.C. Hansen, The l-curve and its use in the numerical treatment of inverse problems , vol. 4, pp. 119–142 (2001). [32] D. Calvetti, L. Reichel and A. Shuibi, L-curve and curvature bounds for tikhonov regularization: Theory and practice in optimization. guest editors: Jos´ e mario mart´ ınez and jin yun yuan , Numerical Algorithms 35 (2004) . [33] K.P. Burnham and D.R. Anderson, Model selection and multimodel inference: a practical information-theoretic approach , Springer Science & Business Media (2002). [34] D. Huterer and D.L. Shafer, Dark energy two decades after: observables, probes, consistency tests , Reports on Progress in Physics 81 (2017) 016901. [35] E.J. Copeland, M. Sami and S. Tsujikawa, Dynamics of dark energy , International Journal of Modern Physics D 15 (2006) 1753–1935. [36] B. Wang, E. Abdalla, F. Atrio-Barandela and D. Pav´ on, Dark matter and dark energy interactions: theoretical challenges, cosmological implications and observational signatures ,
+
+Reports on Progress in Physics 79 (2016) 096901. [37] V. Sahni, A. Shafieloo and A.A. Starobinsky, Two new diagnostics of dark energy , Phys. Rev. D 78 (2008) 103502. 
+
+– 24 – [38] N. Aghanim, Y. Akrami, M. Ashdown, J. Aumont, C. Baccigalupi, M. Ballardini et al., Planck 2018 results: Vi. cosmological parameters , Astronomy & Astrophysics 641 (2020) A6. [39] A. Adame, J. Aguilar, S. Ahlen, S. Alam, D. Alexander, M. Alvarez et al., Desi 2024 vi: cosmological constraints from the measurements of baryon acoustic oscillations , Journal of Cosmology and Astroparticle Physics 2025 (2025) 021. [40] A. Favale, A. G´ omez-Valent and M. Migliaccio, Cosmic chronometers to calibrate the ladders and measure the curvature of the Universe. A model-independent study , Mon. Not. Roy. Astron. Soc. 523 (2023) 3406 [ 2301.09591 ]. [41] E. Tomasetti, M. Moresco, N. Borghi, K. Jiao, A. Cimatti, L. Pozzetti et al., A new measurement of the expansion history of the universe at z = 1.26 with cosmic chronometers in vandels , Astronomy & Astrophysics 679 (2023) A96. [42] R. Jimenez and A. Loeb, Constraining cosmological parameters based on relative galaxy ages ,
+
+Astrophys. J. 573 (2002) 37 [ astro-ph/0106145 ]. [43] M. Moresco, R. Jimenez, L. Verde, A. Cimatti and L. Pozzetti, Setting the stage for cosmic chronometers. ii. impact of stellar population synthesis models systematics and full covariance matrix , The Astrophysical Journal 898 (2020) 82. [44] Euclid Collaboration, A. Blanchard, S. Camera, C. Carbone, V.F. Cardone, S. Casas et al., 
+
+Euclid preparation. VII. Forecast validation for Euclid cosmological probes , Astronomy & Astrophysics 642 (2020) A191 [ 1910.09273 ]. [45] DESI Collaboration, A. Aghamousa, J. Aguilar, S. Ahlen, S. Alam, L.E. Allen et al., The DESI Experiment Part I: Science,Targeting, and Survey Design , arXiv e-prints (2016) arXiv:1611.00036 [ 1611.00036 ]. 
+
+A Testing ΛCDM with a subset of current data 
+
+In the main analysis (Section 3.2.1), we adopted a conservative approach by utilising the full available dataset of CC up to z ≈ 2, regardless of the precision of individual measurements. However, the CC dataset is heterogeneous, combining measurements from various surveys with different sensitivities and systematics. As GA is driven by the optimisation of the χ2
+
+statistic, data points with large uncertainties contribute less to the fitness of the solution but can still introduce stochastic noise, particularly in the reconstruction of the derivative H′(z). To verify the impact of these lower-precision measurements on our results, we performed an additional run of the GAME pipeline using a quality-cut subset of the data. In this subsample, we excluded data points with value H > H mean + 2 σH . This threshold removes the measure-ments with the lowest constraining power, which are often those most susceptible to large systematic effects or low signal-to-noise ratios. 
+
+A.1 Impact on the reconstruction of H(z)The reconstruction of H(z) and its derivative using this high-quality subset generates results that are fully consistent with the full-dataset analysis but differ enhancing more stability. While the reconstruction of H(z) remains largely unchanged, confirming the robustness of 
+
+GAME averaged reconstructions, the improvement is most notable in the derivative H′(z). In the full analysis (Figure 7), the derivative exhibits fluctuations at high redshifts ( z > 1.2) where the data is sparser and noisier. By removing the points with large error bars, the resulting H′(z) becomes significantly smoother and tracks ΛCDM prediction more closely. This suggests that the slight oscillatory features observed in the main analysis are likely – 25 – artifacts driven by the scatter of low-precision data points rather than physical deviations from the standard model. Furthermore, the exclusion of these outliers decreases the path-integral uncertainty estimation δf PI .                 
+
+> Figure 12 . Comparison of the reconstructed H(z) and H′(z) obtained from the quality-cut CC subset (excluding points with H > H mean + 2 σH). The plotting style matches Figure 7: the solid black curve represents ΛCDM, the orange dashed curve is the standard GA best-fit, and the blue dashed curve is the GAME averaged reconstruction. Left: The H(z) reconstruction remains stable and in excellent agreement with the result from the full dataset, demonstrating that the GAME approach is robust to the exclusion of low-quality measurements. Right: The H′(z) reconstruction becomes noticeably smoother relative to the full-sample case. Eliminating the high-uncertainty outliers mitigates the large fluctuations at high redshift seen in the main analysis, generating a derivative profile closer to the ΛCDM prediction and a lower path-integral uncertainty.
+
+A.2 Impact on the derivation of w(z)The smoothness of H′(z) has a direct consequence on the derivation of the dark energy equation of state w(z). Since w(z) depends on the ratio of terms involving both H(z) and 
+
+H′(z), any unphysical fluctuation in the derivative is amplified in the equation of state. Using the subset, we observe that the divergence of the confidence intervals for w(z) at z > 1.5is slightly mitigated, although the mathematical singularity inherent to the vanishing dark energy density Ω de → 0 remains the dominant factor. More importantly, the constraints at low redshift ( z < 1) remain tight and centered on w = −1. When adopting the DESI prior for Ω m, 0, we find a stronger constrain than that derived using the full sample without excluding the noisiest measurements (Equation (3.3)): 
+
+w(0) = −0.988 ± 0.101 , (A.1) reinforcing the conclusion that the local universe is consistent with a cosmological constant. This test demonstrates that while the inclusion of all available data is statistically complete, the future of model-independent reconstructions lies in the acquisition of high-precision CC measurements rather than simply increasing the data sample. – 26 – Figure 13 . Reconstruction of the dark energy equation of state w(z) obtained from the quality-cut CC subset. As in Figure 8, the blue dashed curve corresponds to imposing the Planck 2018 prior on Ω m, 0, while the red dashed curve adopts the DESI DR1 BAO prior. Removing the noisiest measurements leads to a slightly more stable behavior at intermediate redshifts, while retaining the tight constraints at z < 1, which continue to be centered on the cosmological constant value w = −1(solid black line). At high redshift ( z > 1.5), the confidence regions still broaden because the dark energy density tends to zero (Ω de → 0), reinforcing that the weakening of constraints in this regime is inherent to the chosen parametrisation rather than driven by low-quality data. 
+
+B Hyperparameter configurations setup 
+
+Table 1 summarises the GA hyperparameters used for the two reconstructions discussed in this work: the validation test function f (x) (Section 2.3.3) and the CC reconstruction of the Hubble rate H(z) (Section 3.2.1 and Section 3.3.1). For each target quantity we run the GA over an ensemble of Nconf configurations, which differ by the adopted grammar choice and by stochastic realisations (random seeds). The GA population size ( Npop ), the maximum number of generations ( Ngen ), and the genetic operators rates (selection, crossover, mutation) are fixed within each reconstruction setup. – 27 – Hyperparameter f (x) H(z)Maximum generations Ngen 3000 3000 Population size Npop 100 100 Grammar set 
+
+[poly] [cpl] [poly,cpl] [poly,cpl,exp] + perm. [poly,exp] + perm. [poly], [exp], [cpl] 
+
+Selection rate 0.30 0.30 Crossover rate 0.85 0.85 Mutation rate 0.85 0.85 Number of random seeds Nseeds 33 10 Number of configurations Nconf 99 150 
+
+Table 1 . Hyperparameter setup adopted for the GA reconstructions. Here “perm.” indicates that all orderings (permutations) of the listed building blocks are included. 
+
+– 28 –

@@ -1,0 +1,783 @@
+Title: Think like a Scientist: Physics-guided LLM Agent for Equation Discovery
+
+URL Source: https://arxiv.org/pdf/2602.12259v1
+
+Published Time: Fri, 13 Feb 2026 02:25:08 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# Think like a Scientist: Physics-guided LLM Agent for Equation Discovery 
+
+Jianke Yang 1 Ohm Venkatachalam 1 Mohammad Kianezhad 1 Sharvaree Vadgama 1 Rose Yu 1
+
+## Abstract 
+
+Explaining observed phenomena through sym-bolic, interpretable formulas is a fundamental goal of science. Recently, large language mod-els (LLMs) have emerged as promising tools for symbolic equation discovery, owing to their broad domain knowledge and strong reasoning capabili-ties. However, most existing LLM-based systems try to guess equations directly from data, with-out modeling the multi-step reasoning process that scientists often follow: first inferring phys-ical properties such as symmetries, then using these as priors to restrict the space of candidate equations. We introduce KeplerAgent , an agentic framework that explicitly follows this scientific reasoning process. The agent coordinates physics-based tools to extract intermediate structure and uses these results to configure symbolic regression engines such as PySINDy and PySR, including their function libraries and structural constraints. Across a suite of physical equation benchmarks, KeplerAgent achieves substantially higher sym-bolic accuracy and greater robustness to noisy data than both LLM and traditional baselines. 
+
+## 1. Introduction 
+
+Explaining observed phenomena through symbolic, inter-pretable formulas is a fundamental goal of science. From Kepler’s laws to the Navier–Stokes equations, many major discoveries can be viewed as instances of “equation dis-covery”: given observations of a system, infer a compact mathematical expression that captures its underlying struc-ture and dynamics. Symbolic regression (SR) including evolutionary search (Schmidt & Lipson, 2009) and sparse regression (Brunton et al., 2016) formalizes this problem as a search over symbolic expressions, aiming to find formulas that both fit the data and are interpretable. This makes SR an attractive tool for scientific discovery, where interpretability 
+
+> 1
+
+UCSD. Correspondence to: Firstname1 Last-name1 <first1.last1@xxx.edu >, Firstname2 Lastname2 
+
+<first2.last2@www.uk >.
+
+Preprint. February 13, 2026. v c m m_0                           
+
+> 7.74 8.84 3.01 1.46
+> 3.11 3.79 2.14 1.22
+> …………
+> v=c×1.0 −m2
+> 0/m2
+> ·x1=−0.052 x2
+> 1−0.997 sin (x2)
+> ·x2=x1−cos (x2)/x1
+
+# {                
+
+> ut=1.000 v3+0.095 uxx+...
+> vt=1.000 v+0.096 vyy+...
+
+# {
+
+KeplerAgent 
+
+Figure 1. Our KeplerAgent orchestrates physics-based tools and is capable of discovering different types of equations from data. 
+
+and extrapolation are as important as predictive accuracy. However, algorithmic SR methods place a heavy configura-tion burden on the user. To obtain a correct and interpretable equation, a practitioner must make many intertwined design choices: the function library (polynomial degree, inclusion of rational or transcendental functions), sparsity regulariza-tion and thresholds, allowed mathematical operators, and stopping criteria, etc. If the configuration is too restrictive (e.g., a low-degree polynomial library), the true equation may be outside the hypothesis space and cannot be recov-ered. If it is too expressive (e.g., a very rich function set with a large number of operators), the hypothesis space be-comes enormous, making the equation search intractable. In practice, experts mitigate these issues by injecting prior knowledge: dimensional analysis, symmetries, conserved quantities, or qualitative behaviors such as saturation or periodicity. However, this requires deep domain expertise and many manual iterations from configuring and running to inspecting and refining, limiting the accessibility and scalability of algorithmic SR-based equation discovery. Recent works have shown that Large language models (LLMs) can automate some of this laborious configuration workflow thanks to their broad scientific knowledge and reasoning abilities. This has led to a new wave of LLM-based methods for discovering symbolic equations. For instance, LLM-SR (Shojaee et al., 2025a) represents equa-tions as numerical programs and uses an LLM to synthesize program “skeletons” that define candidate equation struc-tures. These skeletons are then completed and refined via evolutionary search and numerical optimization. By lever-aging LLM’s prior knowledge and code generation ability, 1
+
+> arXiv:2602.12259v1 [cs.AI] 12 Feb 2026 Physics-guided LLM Agent for Equation Discovery
+
+LLM-SR explores promising regions of expression space more efficiently and has achieved strong performance on established SR benchmarks. Despite their advantages over purely algorithmic SR, cur-rent LLM-based equation discovery methods lack explicit reasoning about the structure or additional physical proper-ties of the underlying system. They use brute-force to map data to equations by iteratively scoring the LLM-proposed candidate expressions. Human scientists, on the contrary, rarely jump straight from raw data to a final closed-form equation. They first probe the system to uncover structural properties, such as symmetries, conserved quantities, di-mensional constraints, etc. These properties are then used to reshape the problem. Scientists choose variables, co-ordinates, and candidate function families that respect the identified structural constraints. Only after this process has substantially narrowed the plausible hypothesis space do they search for specific equations and test them through simulation and extrapolation. Unfortunately, none of the existing LLM-based approaches follow the reasoning pro-cess of human scientists and directly operate over these intermediate steps. This makes the discovery process brittle and opaque, and it underutilizes the rich domain knowledge from a pretrained LLM and the wealth of physics-based numerical and algorithmic tools that can uncover structure from data as additional inputs. Moreover, current LLM-based evaluations (Shojaee et al., 2025b) are still narrow in terms of experimental domains. Many benchmarks focus on scalar algebraic relations or one-dimensional ODEs, while comprehensive tests on richer dy-namical systems are rare, e.g., systems governed by coupled ODEs and PDEs. These systems often possess additional physical structure, such as spatial and phase-space sym-metries, conservation laws, etc. These properties provide powerful levers for reducing the search space, and thus cre-ate a natural setting to test whether an LLM behaves more like a human scientist: first inferring and using such struc-ture to constrain hypotheses, rather than directly guessing equations from data. In this work, rather than using LLMs as monolithic equation guessers, we propose to use LLMs as agents that orchestrate physics-based tools to emulate the multi-step workflow used by human scientists. We introduce KeplerAgent , a physics-guided LLM agent framework for equation discovery. Given observational data from a system, an LLM agent can call tools to estimate intermediate structure, such as candidate symmetries, relevant functional terms and operators, among other constraints and patterns derived from data. The agent then translates these structural findings into concrete con-figuration decisions for symbolic regression tools such as PySINDy (de Silva et al., 2020) and PySR (Cranmer, 2023). By interleaving these tool calls, the agent can refine both the hypothesis space and candidate equations iteratively, which can be especially helpful when the naive search space is intractably large. We evaluate our approach across a suite of benchmarks that span algebraic equations, systems of ODEs and PDEs, with a focus on cases where physical structure meaningfully con-strains the space of admissible equations. Empirically, Ke-plerAgent recovers ground-truth equations more frequently than both direct LLM-based baselines and standalone SR tools with standard configurations, and it produces models that better predict the target variables or future states of the underlying physical systems. In summary, our contributions are: • Physics-guided agentic framework . We propose Ke-plerAgent that orchestrates physics-based tools for structure discovery and SR packages to emulate the multi-step reasoning workflow of human scientists. • Automatic configuration of SR backends . We show how intermediate structural information can be translated into concrete configuration decisions for PySINDy and PySR, substantially reducing the effec-tive search space. • Multi-domain evaluation . We provide a systematic evaluation across diverse domains, including dynami-cal systems governed by ODEs and PDEs, demonstrat-ing improved symbolic and numerical accuracies over state-of-the-art classical and LLM-based SR baselines. 
+
+## 2. Related Works 
+
+2.1. Symbolic Regression 
+
+Symbolic regression (SR) seeks to recover an explicit sym-bolic expression that maps inputs to outputs from data, rather than learning a black-box predictor. Early SR sys-tems are largely based on genetic programming (GP), which evolves populations of expression trees under selection pres-sure from a fitness objective (Schmidt & Lipson, 2009; Gau-cel et al., 2014). These GP-based methods, implemented in software such as Eureqa (Dub ˇc ´akov ´a, 2011) and PySR (Cranmer, 2023), are shown to rediscover classical laws from experimental data in areas like physics (Cranmer et al., 2020), materials science (Wang et al., 2019), and bioinfor-matics (Christensen et al., 2022). In parallel, sparse regression methods focus on dynamical systems. SINDy (Brunton et al., 2016) assumes that the right-hand side of an ODE or PDE is sparse in a user-defined library of candidate functions and uses sparsity-promoting regression to select active terms. Neural variants of SR encode equations in differentiable architectures. Equation learner networks replace activations 2Physics-guided LLM Agent for Equation Discovery 
+
+with elementary operators so that the network directly corre-sponds to a symbolic expression (Martius & Lampert, 2016; Sahoo et al., 2018). Other approaches treat expressions as token sequences and train sequence models to generate equations (Petersen et al., 2019; Biggio et al., 2021). A key theme across these methods is the importance of domain knowledge. Physics-inspired systems such as AI Feynman (Udrescu & Tegmark, 2020; Udrescu et al., 2020) use properties like separability, compositionality, and dimen-sional analysis to recursively simplify the search problem. Similar ideas have been applied specifically to discover-ing differential equations, where additional challenges arise because derivatives are not directly observed, and the in-clusion of derivatives increases the feature dimensionality. Weak-form formulations and variational methods are used to bypass numerical differentiation (Rudy et al., 2017; Mes-senger & Bortz, 2021a;b; Qian et al., 2022), and physically motivated priors are used to enforce additional structure and reduce the search space (Bakarji et al., 2022; Lee et al., 2022; Xie et al., 2022; Messenger et al., 2024). However, this reliance on manual configuration creates a substantial practical bottleneck. Users must choose function libraries, regularization strengths, and structural constraints, and they often perform many trial-and-error iterations to tune these choices. Existing software like PySINDy and PySR typically assumes that such configuration decisions are provided a priori, rather than inferred from data. Our work targets this gap by using an LLM agent to automate the process of extracting structural information and translating it into concrete SR configurations. 
+
+2.2. LLM-Based SR 
+
+The rise of LLMs has inspired a growing body of work that uses them to assist symbolic regression. Given numer-ical data and context, the model is prompted to propose candidate formulas, which are then evaluated and refined using external optimizers or numerical libraries (Sharlin & Josephson, 2024). Other frameworks aim to improve LLMs’ performance on this task with in-context information and more structured inputs and outputs. In-context symbolic regression (ICSR) (Merler et al., 2024) iteratively prompts the LLM to generate and refine functional forms while del-egating coefficient fitting to an external optimizer, effec-tively using the LLM as a symbolic search engine guided by data-driven feedback. LLM-SR (Shojaee et al., 2025a) rep-resents equations as programs composed of mathematical operators and uses an LLM to generate program “skeletons”. In addition, it maintains an experience buffer of previously proposed hypotheses as part of the input prompt, enabling iterative refinement with in-context examples. Beyond these, LaSR (Grayeli et al., 2024) represents a dif-ferent attempt to build hybrid systems where LLMs aug-ment evolutionary SR. Specifically, an LLM helps build and evolve a library of abstract textual concepts that are plugged into the initialization and evolution of symbolic programs within genetic programming. To assess progress in this emerging area, LLM-SRBench (Shojaee et al., 2025b) proposes a benchmark across multi-ple scientific domains, explicitly designed to reduce mem-orization and require genuine equation discovery. The benchmark shows that LLM-guided methods can outper-form many classical baselines, but it also reveals that exact recovery rates remain modest, with even the best methods solving only a minority of problems. Moreover, most eval-uations still focus on scalar algebraic equations or single-dimensional ODEs, with limited coverage of coupled ODEs and PDE-governed physical systems. A common limitation across the aforementioned LLM-based SR methods is that they largely treat equation discovery as a relatively direct mapping from data (and possibly a natural language description) to an expression or program, instead of a multi-step reasoning workflow that human scientists follow. Recently, SR-Scientist (Xia et al., 2025) targets this issue with an agentic framework similar to ours. However, the main tool in their framework is a data analyzer that enables the LLM to write code to analyze datasets. While the tool has great potential with a powerful LLM, practical LLM calls can linger in superficial analysis (e.g. computing the basic statistics of data) instead of precisely searching for advanced structural information that effectively reduces the search complexity of SR. Our work differs from existing approaches in two key ways. First, we position the LLM as an agent that orchestrates physics-based tools, rather than as a stand-alone equation generator. Second, we evaluate this framework across mul-tiple domains, including systems of differential equations where useful physical properties are prominent. This set-ting allows us to test whether an LLM can use intermediate physical structure to guide equation discovery. 
+
+## 3. Physics-Aware Equation Discovery Agent 
+
+3.1. Overview 
+
+We consider the problem of equation discovery , or sym-bolic regression (SR): given observations of a system in the form of input and output variables, the goal is to recover an explicit symbolic expression that accurately describes the underlying relationship between variables. We formulate equation discovery as a tool-augmented de-cision process controlled by an LLM. Instead of directly mapping data to a symbolic equation, the model acts as a ReAct-style agent (Yao et al., 2023) that iteratively analyzes the dataset, invokes physics-based tools to infer structural 3Physics-guided LLM Agent for Equation Discovery “tool_call ”: { 
+
+> “tool_name ”: “ pysr ”,
+> “args ”: {
+> “operators”: [‘+’, ‘ -’, ‘/’],
+> “constraints”: …,
+> }
+> “result”: {
+> “tool_name ”: “ PySR ”,
+> “result_type ”: “equation”,
+> “best_equation ”: …
+> }
+
+# Kepler agent 
+
+Visual 
+
+subagent 
+
+Code 
+
+interpreter 
+
+Symmetry 
+
+discovery 
+
+PySR &
+
+PySINDy 
+
+𝑑𝑥 
+
+𝑑𝑡 = 𝐴 cos 𝜔 𝑡               
+
+> System prompt Tool specs
+> User query Workspace
+> Experience log
+> ≫
+> ≫
+> ≫
+> ≫
+> PySR PySINDy
+> ≫
+> ≫
+> ≫
+> ≫
+> ≫
+> ## Step 1: code execution
+> -Result type: text analysis
+> -Output: “Summary
+> statistics: …”
+> ## Step 2:PySR
+> -Result type: equation
+> -Best equation: {
+> “expression ”:“y = x 1/ x 2+…”
+> “MAPE ”:3.78 %
+> }
+> …
+
+Figure 2. The overall design of our KeplerAgent framework. The input to the LLM contains a system prompt explaining the task setup, a list of tool specifications, the user query containing information about the dataset, as well as a workspace summary and an experience log recording previous steps. The agent reasons about the existing findings and decides subsequent tool calls iteratively until obtaining a satisfactory equation discovery result. 
+
+properties, and configures symbolic regression backends to fit candidate equations. Throughout this process, the agent reads and writes to a shared workspace of intermediate ar-tifacts and an experience log of past tool calls, allowing it to progressively narrow the hypothesis space in a way that mirrors the multi-step workflow of human scientists. 
+
+3.2. Agent Architecture 
+
+Figure 2 shows the overall design of our framework. Our system consists of a single language model agent equipped with a suite of tools for data analysis, physics-based struc-ture discovery, and symbolic regression. The agent is in-stantiated with a system prompt that instructs it to prepare structured calls to external tools rather than directly out-putting equations (full prompt in Appendix A.1). At each interaction step, the agent receives four main in-puts in addition to the system prompt: (i) a specification of all available tools and their interface, (ii) the user query describing the symbolic regression goal and the dataset, (iii) a workspace files section listing all files currently available in the workspace directory together with brief de-scriptions, and (iv) an experience log summarizing previous tool calls and their outcomes. Given this context, the agent first inspects the workspace and experience log to understand existing knowledge about the system and to avoid redundant analyses. It then reasons about the next useful action: for example, the agent can use a Python code interpreter tool to compute basic statistics or visualize data trajectories; it may call a physics-based tool to infer properties that can serve as constraints in symbolic re-gression; and once enough knowledge about the dataset has been gathered, it configures a run of a symbolic regression backend. The agent calls tools by outputting a structured JSON object specifying the chosen tool and all necessary arguments, which we will describe in detail in Section 3.3. Each tool executes independently, writes its outputs, such as numerical summaries, discovered equations, error met-rics, and diagnostic plots, into the experience log and the workspace. At the next step, the agent observes this updated state, incorporates the new information into its reasoning, and either proposes another tool call or, if an existing result already meets the stopping criteria, terminates and reports the best discovered equation. 
+
+3.3. Toolset 
+
+A key feature of our framework is the use of physics-based tools that expose the intermediate structure of the data to the agent. Below, we describe the tools we used in our agent. More details can be found in Appendix A.2. 
+
+Python code interpreter. We provide the agent with a Python code evaluator, allowing it to write its own code to freely perform preliminary analysis of the dataset. The agent is instructed to apply this tool in the first step to obtain basic insights into the data, e.g., computing summary statistics, data visualization, and other preliminary analysis to inform symbolic regression strategies. We also explicitly instruct the agent to use this tool for exploratory data analysis only, leaving the actual SR step to other dedicated tools. 
+
+Visual subagent. The exploratory data analysis performed by the agent sometimes produces data plots. To extract information from these data visualizations, we instantiate 4Physics-guided LLM Agent for Equation Discovery 
+
+another LLM subagent prompted to output analysis of the given image in natural language, and wrap the subagent as a tool for the main agent. Once the main agent is aware of a data visualization in the workspace, it can call this subagent and translate the findings into structural constraints for symbolic regression. 
+
+Symmetry discovery. We incorporate the methods in Yang et al. (2023; 2024); Ko et al. (2024) as a single tool for identifying symmetry in differential equation systems. In contrast to the previous tools that involve LLM and out-put findings about the dataset in a natural language form, this tool is purely algorithmic and returns the results in a symbolic format that can be readily fed into symmetry-constrained symbolic regression programs as an input argu-ment. Specifically, this tool trains a tiny neural network as a surrogate model to predict the derivatives (i.e., the target variables in SR for differential equations) from the observed variables in the dataset; then, it fixes the surrogate predictor and optimizes for an infinitesimal generator that generates the symmetry group of the trained predictor. The result is presented as a q × q matrix A, where q is the number of variables in the differential equation system. It indicates that the surrogate predictor is equivariant with respect to the infinitesimal action of the linear vector field vA = ( Ax) · ∇ ,where x denotes the collection of q variables. For exam-ple, A = [[0 , −1]; [1 , 0]] indicates a 2D rotation symmetry; 
+
+A = Iq indicates a uniform scaling symmetry across all di-mensions. Such results lead to constrained equation search spaces in SR methods. The tools above do not directly discover equations them-selves, but rather provide the agent with additional infor-mation before performing SR. On the other hand, we also include the following SR packages as tools to obtain the final equation discovery result. 
+
+PySINDy. The PySINDy package (Kaptanoglu et al., 2022) implements the sparse regression algorithm originally proposed in Brunton et al. (2016). It assumes the target variable in the equation can be written in terms of a linear combination of some predefined functions with learnable coefficients w, i.e. y = f (x) = P 
+
+> i
+
+wixi. Then, equation discovery is formulated as a least-squares problem over the linear combination coefficients w, with an L0 regulariza-tion term ∥w∥0 that promotes sparsity. This optimization problem can be efficiently solved, making PySINDy a great tool for discovering equations in relatively simple forms. In addition to the regular configurations in PySINDy, we incorporate Equivariant SINDy (Yang et al., 2024) as an op-tion, which solves for an equivariant subspace of the SINDy parameter space given the generator of the symmetry group and optimizes within the equivariant subspace. This method has been shown to reduce the hypothesis space and increase the chance of discovering the correct equations effectively when the provided symmetry is accurate. Combined with the previous tool for symmetry discovery, the option to use symmetry in PySINDy enable the agent to translate detected symmetries into concrete constraints on the PySINDy call, improving the accuracy of equation discovery for ODE and PDE systems in particular. However, SINDy’s assumption about the “linear” form is restrictive in practice. For example, it does not consider the possibility of rational functions (e.g. f (x)/g (x)), nested expressions (e.g. (sin( f (x)) , etc. To account for such equa-tions with additional complexity, we include PySR (Cran-mer, 2023), a genetic-programming-based symbolic regres-sion package, as the final tool. 
+
+PySR. PySR represents each symbolic expression as a tree where nodes correspond to mathematical operators, variables, and constants. It uses genetic programming to mutate a population of expressions and search for the best expression that balances data-fitting accuracy and symbolic complexity. The expression tree representation, compared to the linear assumption in SINDy, enables PySR to dis-cover equations in more general forms, albeit at a higher computational cost due to the larger search space. In practice, a PySR regression may take many iterations to converge. To speed up the process, we provide an interface that allows the agent to propose a template expression and pass it to PySR as an argument, thereby constraining PySR to search only for equations with the specified template struc-ture. When calling the PySR tool, the LLM agent recalls possible equation structures from its prior knowledge, and also considers the results from previous tool calls, e.g. visu-alizations and statistical analysis. Based on these, it reasons about what functional forms are plausible for the specific dataset and translates it into the template for PySR. For ex-ample, the agent can specify a template f (x1, x 2) + g(x3)
+
+for an equation of three variables, if it believes that the effect of x3 on the target is additively separable; or sin( f (x)) , if some oscillatory behavior is spotted, but the exact expres-sion inside the trigonometric function remains to be solved by SR. We prompt the agent to prioritize reasoning about the template expression over all other arguments when calling PySR, as we find this crucial for reducing the hypothesis space of PySR and accelerating its convergence. 
+
+3.4. Implementation Details Experience log. We maintain a section in the agent in-put that records each tool invocation, its arguments, and a textual summary of its outcome (e.g., losses, discovered equations/structures). While similar to the design of the experience buffer in LLM-SR (Shojaee et al., 2025a), we include not only the discovered equations and the associated data losses, but also the inputs/outputs of other tools. This is 5Physics-guided LLM Agent for Equation Discovery 
+
+a natural choice in our framework, as the agent is required to explicitly reason on the intermediate results step by step. 
+
+Workspace. The workspace is a shared directory contain-ing the files produced during the agent’s interaction with the dataset and tools. It serves as a complement to the experience log, keeping all non-textual assets, such as con-verted datasets and visualizations produced throughout the reasoning process. A continuously maintained list of all workspace files and their descriptions is inserted into the agent input after the user query at each step, so the agent can pass relevant files to specific tool calls. 
+
+Stopping criteria. Following Shojaee et al. (2025a), we include in the system prompt a primary success criterion: if any SR tool call produces an equation with mean absolute percentage error (MAPE) below 0.1% on the test dataset, the agent must stop exploring and return that equation as the final result. However, we observe that this primary goal may not be achievable for real-world datasets with noise, where even the prediction error of ground truth equations may exceed the specified threshold. In this case, enforcing the hard threshold in the stopping criteria can cause unnecessary waste of compute, as the agent will keep pursuing an impos-sible objective. In our implementation, we set a maximum number of tool calls to prevent such infinite loops. 
+
+## 4. Experiments 
+
+4.1. Datasets 
+
+We use two benchmarks for evaluation: LSR-Transform subset from LLM-SRBench (Shojaee et al., 2025b), and a collection of ODE/PDE systems, which we will refer to as the DiffEq datasets in the following subsections. 
+
+LLM-SRBench. LLM-SRBench is a standard benchmark for evaluating LLM-based symbolic regression methods. We focus on the LSR-Transform subset of the benchmark, which contains transformed versions of equations in AI Feynman (Udrescu & Tegmark, 2020) benchmark. Specif-ically, LSR-Transform selects a previous feature variable and transforms the original equation into an alternative form with the selected variable as the new target for each dataset. This prevents LLMs from solving the symbolic regression problem by memorizing the well-known presentations of these physical equations. 
+
+Differential equations ( DiffEq ). We also create a cus-tom benchmark of 10 systems governed by ordinary and partial differential equations. Each system has two depen-dent variables and two differential equations with the time derivatives of the dependent variables as regression targets. As we have mentioned in Section 1, these datasets are a valuable complement to LLM-SRBench for the following reasons. First, they involve coupled differential equations of dynamical systems, whereas LLM-SRBench mainly fea-tures single scalar equations for all tasks. As a result, this benchmark can measure how LLMs benefit from reasoning about the full system of related equations, rather than just working on isolated equations. Also, differential equation systems considered in this benchmark often possess a rich physical structure, making it a natural testbed for LLMs’ ability to infer the intermediate findings during equation discovery like a human scientist. A complete description of the physical systems and the data generation procedure for this benchmark can be found in Appendix B.2. 
+
+4.2. Evaluation criteria 
+
+Following Shojaee et al. (2025b), we use the symbolic accu-racy (SA) and normalized MSE (NMSE) in our evaluation criteria. The symbolic accuracy is obtained using an LLM evaluator (GPT-4o-mini in our experiments), which is given the ground truth expression and the discovered expression and prompted to decide if they are symbolically equivalent under a tolerance of small numerical mismatches in the co-efficients of the expressions. The (pointwise) NMSE is com-puted on a test dataset by 1
+
+> n
+
+Pni (yi − ˆyi)2/ Pni (yi − ¯yi)2,where yi are the target variables from the dataset and ˆyi are predictions from the discovered equation. In addition, for the DiffEq benchmark, we note that the pointwise NMSE does not always faithfully reflect the nu-merical accuracy of the discovered equations. Specifically, if we have discovered the RHS expression f of an ODE system 
+
+xt = f (x), we can use a numerical solver to predict future states of the system, e.g., x(t + s), from a given state x(t).The error from the numerical simulation can accumulate as the prediction horizon s increases. However, the pointwise NMSE only measures the error of a single-step prediction (x(t + ∆ t) = x(t) + bxt(t)∆ t). The same argument applies to PDE systems. Therefore, we also measure the long-term prediction error from simulating the discovered equations for DiffEq systems, which indicates whether the discover-ies are useful for predicting future states. 
+
+4.3. Baselines 
+
+We compare KeplerAgent with both LLM-based and non-LLM-based methods for SR. The first baseline we consider is LLM-SR (Shojaee et al., 2025a), which has been shown to perform best on LLM-SRBench (Shojaee et al., 2025b) among other recent work on LLM-based SR. Notably, the of-ficial implementation of LLM-SR only supports discovering one equation at a time. To evaluate it on our DiffEq bench-mark, we split each system into its constituent equations and feed the corresponding data to LLM-SR as indepen-dent tasks. For example, a system governed by 2 first-order ODEs, ˙x1 = f1(x), ˙x2 = f2(x), is split into two datasets, each with [x1, x 2] as features and ˙xi, i = 1 , 2 as the target. 6Physics-guided LLM Agent for Equation Discovery 
+
+We also choose PySR (Cranmer, 2023) as a representative baseline for non-LLM-based methods. Similar to LLM-SR, we split systems of multiple equations into several indepen-dent tasks. We use a common PySR configuration for all datasets. Notably, PySR is also included as a tool in our agentic framework. However, instead of using a fixed setup, our agent calls PySR with custom configurations based on its understanding and reasoning about the context of the specific task. Comparison between raw PySR without LLM and our method can reveal the LLM agent’s ability to wield the existing tool for SR effectively. All LLM-based methods use the GPT-4o-mini model. More details about baseline setups can be found in Appendix B.1. 
+
+4.4. LSR-Transform Results 
+
+Table 1. Accuracy and efficiency metrics on LSR-Transform for PySR, LLM-SR, and KeplerAgent, using GPT-4o-mini as the base model. “@ k” means the best result over k runs (sorted by NMSE) on each dataset. We report the averages of NMSEs across all datasets, scaled by ×10 −1. Bold and underlined numbers indicate the best / second best among all methods, respectively.                     
+
+> Method SA (%) NMSE Runtime (s) Tokens used (k) PySR 37.84 2.82 2440 -LLM-SR 31.53 0.09 12118 209 KeplerAgent @1 35.14 1.50 238 42
+> KeplerAgent @3 42.34 1.21 698 125
+
+For the LSR-Transform dataset, we include two entries in tables and figures for our method, corresponding to the result from a single run (KeplerAgent @1) and the best result from 3 random runs for each dataset (KeplerAgent @3). The best result is indicated by the lowest NMSE on the test data instead of the symbolic accuracy, since the knowledge of the ground truth equation should not be assumed. Table 1 shows that KeplerAgent achieves better symbolic accuracy than LLM-SR even with a single attempt. Also, each run of KeplerAgent takes significantly less time and token usage than the baselines. As we increase the computa-tional budget and allow 3 parallel attempts for KeplerAgent, it achieves a symbolic accuracy of 42.34%, outperforming both PySR and LLM-SR with comparable runtime and to-ken efficiency. On the other hand, it is surprising that PySR, under a default configuration with a large number of itera-tions and an extensive list of allowed operators, has a better symbolic accuracy than LLM-SR and KeplerAgent with a single shot. However, it comes at a cost of much longer runtime. In comparison, our method configures PySR flex-ibly and typically requires much fewer iterations than the standalone PySR baseline. In Figure 3, we show the full distributions of NMSEs evalu-
+
+> 1
+
+The SA and NMSE metrics for LLM-SR are referred from LLM-SRBench Shojaee et al. (2025b). 0          
+
+> 1
+> 2.0
+> 1.5
+> PySR KeplerAgent @1 KeplerAgent @3
+> Method
+> 15
+> 14
+> 13
+> median = 4.47×10 5
+> mean = 2.82×10 1
+> median = 1.40×10 4
+> mean = 1.50×10 1
+> median =1.94 × 10 5
+> mean = 1.21×10 1
+> log 10 (Normalized MSE)
+> Normalized MSE on LSR-Transform
+
+Figure 3. Distribution of NMSEs on LSR-Transform equations for PySR, LLM-SR, and KeplerAgent with one/three runs. The horizontal red dashed line annotates the average NMSE = 0 .0091 
+
+of LLM-SR reported in Shojaee et al. (2025b). 
+
+ated over 111 equations in LSR-Transform for PySR and our method. The result for LLM-SR is referred from Shojaee et al. (2025b), where only the average across all datasets is available. We note that LLM-SR has a much lower average NMSE than other approaches. We conjecture that this is because LLM-SR directly uses a similar numerical metric (MAPE) as the reward for their LLM. When the exact sym-bolic formula is challenging to find, LLM-SR will prioritize expressions with relatively low numerical error over better symbolic interpretability. In contrast, PySR optimizes the expressions under a joint objective of data-fitting error and symbolic complexity. As we have observed, when it fails to identify exactly the ground truth (which has an outstand-ingly low data-fitting loss), the best equation selected by the joint objective is not necessarily the one that fits the data best, and may sometimes cause large numerical errors. Since the results of our agent often come from PySR tool calls, we observe a similar level of average NMSE between our method and PySR. Meanwhile, in terms of median NM-SEs, which are relatively insensitive to outliers, both PySR and our agent achieve satisfactory results. We finally argue that the symbolic accuracy should be con-sidered the most important metric for evaluating the perfor-mance of SR methods, since the goal of SR is to discover a precise and interpretable equation form, rather than obtain a complex expression that approximately fits the data. 
+
+4.5. DiffEq Results 
+
+We also evaluate the baselines and KeplerAgent on our 
+
+DiffEq benchmark, including the systems listed in Ap-pendix B.2. There are 10 systems of 2 coupled equations, i.e., 20 equations to be discovered in total. For each system, we also construct a noisy dataset by adding white noise pro-portional to the variance of each phase variable and estimat-ing the time derivatives (regression targets) with the central difference method. The results are available in Table 2. In 7Physics-guided LLM Agent for Equation Discovery 
+
+Table 2. Symbolic accuracy, NMSE, runtime and token usage (if applicable) on differential equation systems with clean/noisy data. We report the averages of NMSEs across all datasets. The NMSE ( tmax ) is computed between the prediction by simulating the discovered equations and the data points at the max timestep of the test set. 
+
+Method SA (%) NMSE (pointwise) NMSE ( tmax ) Runtime (s) Tokens used (k) Clean Noisy Clean Noisy Clean Noisy Clean Noisy Clean Noisy PySR 40 15 0.16 5.89 1.56 2.80 119 120 - -LLM-SR 30 10 0.26 4.80 2.18 2.62 3648 4048 182 184 KeplerAgent 75 45 0.04 0.15 1.65 0.33 120 147 23 30 
+
+particular, we report two sets of NMSE metrics. NMSE (pointwise) is computed the same way as in Section 4.4, where we flatten the trajectory data into one dimension and treat each (spatio-)temporal gridpoint as an individual data sample. To calculate NMSE ( tmax ), we pick a trajectory from the clean test set for each system and solve the ini-tial value problem (with specific boundary conditions for PDE systems) with the discovered equation up to the max timestep of the trajectory, and compute the error between the predicted state and the true state from the dataset. Table 2 shows that KeplerAgent significantly outperforms both baselines in terms of both symbolic and numerical accuracy, particularly on noisy datasets, where it has 45% symbolic accuracy, 3 times more than the best baseline, and achieves order-of-magnitude lower NMSEs (both point-wise and long-term prediction) than baselines. Besides, in terms of efficiency, our agent consumes comparable runtime with PySR, but is much more time- and token-efficient than LLM-SR. We observe that by using tools such as symmetry discovery and image analysis to recover intermediate struc-tures and performing more informed SR calls, our agent can often complete the discovery within a few iterations, compared to hundreds of iterations needed in LLM-SR. Similar to Section 4.4, we observe outlying NMSE values, making the means in Table 2 less statistically meaningful. Therefore, we include Figure 4 to display the full distribu-tions of pointwise NMSEs over 20 equations, where Ke-plerAgent achieves lower error quantiles than baselines in general. In addition to NMSEs at tmax , we also plot the full prediction error curves against time in Appendix C.1. In gen-eral, the discovered equations from KeplerAgent achieves lower prediction errors throughout the simulation timespan. 
+
+## 5. Discussion 
+
+We present a physics-guided LLM agent for equation dis-covery that emulates the multi-step reasoning workflow of human scientists. Instead of directly hypothesizing equa-tions, the agent analyzes datasets, calls tools to infer struc-ture, and then configures and runs SR software for final results. Experiments on transformed equations from classi-cal physics and dynamical systems governed by differential 4            
+
+> 3
+> 2
+> 1
+> 0
+> 1
+> 1.98×10 48.24×10 4
+> PySR LLM-SR KeplerAgent
+> Clean data
+> 14
+> 12 9.81 × 10 14
+> PySR LLM-SR KeplerAgent
+> Noisy data
+> 2.0
+> 1.5
+> 1.0
+> 0.5
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> 3.42×10 1
+> 1.75×10 1
+> 7.41 × 10 2
+> PySR
+> LLM-SR
+> KeplerAgent
+> log 10 (Normalized MSE)
+> Normalized MSE on ODE/PDE Systems
+
+Figure 4. Distribution of NMSEs on DiffEq datasets for PySR, LLM-SR, and KeplerAgent (with a single run). Median values are shown next to the median lines. 
+
+equations show that this approach significantly improves symbolic recovery accuracycompared with both classical SR baselines and recent LLM-based methods. There are several directions to improve the agent design. Our current toolset is intentionally small, but many addi-tional physics tools (e.g., for extended symmetry analysis, dimensional analysis, bifurcation structure) could further constrain the hypothesis space. Scaling up the toolbox raises a practical challenge: the tool specifications inflate the con-text and make it harder for the agent to remember earlier information. The broader LLM-agent literature suggests remedies, such as decomposing the main agent’s planning and executing functionality into subagents or a workflow graph with multiple nodes, or using retrieval-augmented generation (Lewis et al., 2020) to select only a small sub-set of relevant tools at each iteration (Lumer et al., 2025). Adapting these ideas to our toolkits is a natural next step. Another complementary direction is to make the agent’s internal reasoning more explicit by defining a structured state space for symbolic regression. Each state would repre-sent the current hypothesis space of equations with active constraints, and each tool would perform a well-defined transformation of this state. Such a formulation explicitly formalizes the agent’s reasoning process, yielding more controlled behavior and making it easier to systematically analyze its reasoning trajectories across datasets and tasks. 8Physics-guided LLM Agent for Equation Discovery 
+
+## Impact Statement 
+
+Our work can potentially help scientists more efficiently identify interpretable models of complex physical systems. Positive impacts include accelerating scientific modeling, improving transparency relative to black-box predictors, and providing a modular framework that can incorporate domain knowledge in a principled way. Potential negative impacts include over-reliance on automatically discovered equations without adequate human validation, misinterpre-tation of symbolic models as “ground truth” in high-stakes domains, and increased computational cost associated with agentic tool use. We emphasize that our framework is in-tended as a decision-support system for experts rather than a replacement, and responsible deployment requires careful verification, documentation of limitations, and attention to the computational and environmental footprint of large-scale experiments. 
+
+## Acknowledgement 
+
+This work was supported in part by NSF Grants #2205093, #2146343, #2134274, CDC-RFA-FT-23-0069, the U.S. Army Research Office under Army-ECASE award W911NF-07-R-0003-03, the U.S. Department Of Energy, Office of Science, IARPA HAYSTAC Program, DARPA AIE FoundSci and DARPA YFA. 
+
+## References 
+
+Bakarji, J., Callaham, J., Brunton, S. L., and Kutz, J. N. Di-mensionally consistent learning with buckingham pi. Na-ture Computational Science , 2:834–844, 12 2022. ISSN 2662-8457. doi: 10.1038/s43588-022-00355-5. Biggio, L., Bendinelli, T., Neitz, A., Lucchi, A., and Paras-candolo, G. Neural symbolic regression that scales. In Meila, M. and Zhang, T. (eds.), Proceedings of the 38th International Conference on Machine Learning , volume 139 of Proceedings of Machine Learning Research , pp. 936–945. PMLR, 18–24 Jul 2021. Brunton, S. L., Proctor, J. L., and Kutz, J. N. Discovering governing equations from data by sparse identification of nonlinear dynamical systems. Proceedings of the Na-tional Academy of Sciences , 113(15):3932–3937, 2016. doi: 10.1073/pnas.1517384113. Champion, K., Lusch, B., Kutz, J. N., and Brunton, S. L. Data-driven discovery of coordinates and governing equa-tions. Proceedings of the National Academy of Sci-ences , 116(45):22445–22451, 2019. doi: 10.1073/pnas. 1906995116. Christensen, N. J., Demharter, S., Machado, M., Peder-sen, L., Salvatore, M., Stentoft-Hansen, V., and Iglesias, M. T. Identifying interactions in omics data for clinical biomarker discovery using symbolic regression. Bioinfor-matics , 38(15):3749–3758, 2022. Cranmer, M. Interpretable machine learning for science with pysr and symbolicregression. jl. arXiv preprint arXiv:2305.01582 , 2023. Cranmer, M., Sanchez Gonzalez, A., Battaglia, P., Xu, R., Cranmer, K., Spergel, D., and Ho, S. Discovering sym-bolic models from deep learning with inductive biases. In Larochelle, H., Ranzato, M., Hadsell, R., Balcan, M., and Lin, H. (eds.), Advances in Neural Information Pro-cessing Systems , volume 33, pp. 17429–17442. Curran Associates, Inc., 2020. de Silva, B. M., Champion, K., Quade, M., Loiseau, J.-C., Kutz, J. N., and Brunton, S. L. Pysindy: a python package for the sparse identification of nonlinear dynamics from data. arXiv preprint arXiv:2004.08424 , 2020. Dubˇ c´ akov´ a, R. Eureqa: software review, 2011. Gaucel, S., Keijzer, M., Lutton, E., and Tonda, A. Learning dynamical systems using standard symbolic regression. In Nicolau, M., Krawiec, K., Heywood, M. I., Castelli, M., Garc ´ıa-S ´anchez, P., Merelo, J. J., Rivas Santos, V. M., and Sim, K. (eds.), Genetic Programming , pp. 25–36, Berlin, Heidelberg, 2014. Springer Berlin Heidelberg. Grayeli, A., Sehgal, A., Costilla Reyes, O., Cranmer, M., and Chaudhuri, S. Symbolic regression with a learned concept library. Advances in Neural Information Process-ing Systems , 37:44678–44709, 2024. Kaptanoglu, A. A., de Silva, B. M., Fasel, U., Kaheman, K., Goldschmidt, A. J., Callaham, J., Delahunt, C. B., Nicolaou, Z. G., Champion, K., Loiseau, J.-C., Kutz, J. N., and Brunton, S. L. Pysindy: A comprehensive python package for robust sparse system identification. 
+
+Journal of Open Source Software , 7(69):3994, 2022. doi: 10.21105/joss.03994. URL https://doi.org/10. 21105/joss.03994 .Ko, G., Kim, H., and Lee, J. Learning infinitesimal gen-erators of continuous symmetries from data. Advances in Neural Information Processing Systems , 37:85973– 86003, 2024. La Cava, W., Burlacu, B., Virgolin, M., Kommenda, M., Orzechowski, P., de Fran c¸ a, F. O., Jin, Y., and Moore, J. H. Contemporary symbolic regression methods and their relative performance. Advances in neural information processing systems , 2021(DB1):1, 2021. Lee, K., Trask, N., and Stinis, P. Structure-preserving sparse identification of nonlinear dynamics for data-driven mod-eling. In Dong, B., Li, Q., Wang, L., and Xu, Z.-Q. J. 9Physics-guided LLM Agent for Equation Discovery 
+
+(eds.), Proceedings of Mathematical and Scientific Ma-chine Learning , volume 190 of Proceedings of Machine Learning Research , pp. 65–80. PMLR, 15–17 Aug 2022. Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., K ¨uttler, H., Lewis, M., Yih, W.-t., Rockt ¨aschel, T., et al. Retrieval-augmented generation for knowledge-intensive nlp tasks. Advances in neural information pro-cessing systems , 33:9459–9474, 2020. Lumer, E., Nizar, F., Gulati, A., Basavaraju, P. H., and Subbiah, V. K. Tool-to-agent retrieval: Bridging tools and agents for scalable llm multi-agent systems. arXiv preprint arXiv:2511.01854 , 2025. Martius, G. and Lampert, C. H. Extrapolation and learning equations. arXiv preprint arXiv:1610.02995 , 2016. Merler, M., Haitsiukevich, K., Dainese, N., and Martti-nen, P. In-context symbolic regression: Leveraging large language models for function discovery. arXiv preprint arXiv:2404.19094 , 2024. Messenger, D. A. and Bortz, D. M. Weak sindy for partial differential equations. Journal of Computational Physics ,443:110525, 2021a. Messenger, D. A. and Bortz, D. M. Weak sindy: Galerkin-based data-driven model selection. Multiscale Modeling & Simulation , 19(3):1474–1497, 2021b. Messenger, D. A., Burby, J. W., and Bortz, D. M. Coarse-graining hamiltonian systems using wsindy. Scientific Reports , 14(1):14457, 2024. Olson, R. S., La Cava, W., Orzechowski, P., Urbanowicz, R. J., and Moore, J. H. Pmlb: a large benchmark suite for machine learning evaluation and comparison. BioData mining , 10(1):36, 2017. Petersen, B. K., Landajuela, M., Mundhenk, T. N., Santi-ago, C. P., Kim, S. K., and Kim, J. T. Deep symbolic regression: Recovering mathematical expressions from data via risk-seeking policy gradients. arXiv preprint arXiv:1912.04871 , 2019. Qian, Z., Kacprzyk, K., and van der Schaar, M. D-CODE: Discovering closed-form ODEs from observed trajecto-ries. In International Conference on Learning Represen-tations , 2022. Rudy, S. H., Brunton, S. L., Proctor, J. L., and Kutz, J. N. Data-driven discovery of partial differential equations. 
+
+Science advances , 3(4):e1602614, 2017. Sahoo, S., Lampert, C., and Martius, G. Learning equations for extrapolation and control. In International Conference on Machine Learning , pp. 4442–4450. PMLR, 2018. Schmidt, M. and Lipson, H. Distilling free-form natural laws from experimental data. science , 324(5923):81–85, 2009. Sharlin, S. and Josephson, T. R. In context learning and reasoning for symbolic regression with large language models. arXiv preprint arXiv:2410.17448 , 2024. Shojaee, P., Meidani, K., Gupta, S., Farimani, A. B., and Reddy, C. K. Llm-sr: Scientific equation discovery via programming with large language models. ICLR , 2025a. Shojaee, P., Nguyen, N.-H., Meidani, K., Farimani, A. B., Doan, K. D., and Reddy, C. K. Llm-srbench: A new benchmark for scientific equation discovery with large language models. arXiv preprint arXiv:2504.10415 ,2025b. Strogatz, S. H. Nonlinear dynamics and chaos: with appli-cations to physics, biology, chemistry, and engineering (studies in nonlinearity) , volume 1. Westview press, 2001. Udrescu, S.-M. and Tegmark, M. Ai feynman: A physics-inspired method for symbolic regression. Science Ad-vances , 6(16):eaay2631, 2020. Udrescu, S.-M., Tan, A., Feng, J., Neto, O., Wu, T., and Tegmark, M. Ai feynman 2.0: Pareto-optimal symbolic re-gression exploiting graph modularity. Advances in Neural Information Processing Systems , 33:4860–4871, 2020. Wang, Y., Wagner, N., and Rondinelli, J. M. Symbolic regression in materials science. MRS communications , 9 (3):793–805, 2019. Xia, S., Sun, Y., and Liu, P. Sr-scientist: Scientific equation discovery with agentic ai. arXiv preprint arXiv:2510.11661 , 2025. Xie, X., Samaei, A., Guo, J., Liu, W. K., and Gan, Z. Data-driven discovery of dimensionless numbers and governing laws from scarce measurements. Na-ture Communications , 13(1):7562, 2022. doi: 10.1038/ s41467-022-35084-w. Yang, J., Walters, R., Dehmamy, N., and Yu, R. Generative adversarial symmetry discovery. In International con-ference on machine learning , pp. 39488–39508. PMLR, 2023. Yang, J., Rao, W., Dehmamy, N., Walters, R., and Yu, R. Symmetry-informed governing equation discovery. In Advances in Neural Information Processing Systems (NeurIPS) , 2024. URL https://arxiv.org/pdf/ 2405.16756 .Yang, J., Bhat, M., Hu, B., Cao, Y., Dehmamy, N., Wal-ters, R., and Yu, R. Discovering symbolic differen-tial equations with symmetry invariants. arXiv preprint arXiv:2505.12083 , 2025. 10 Physics-guided LLM Agent for Equation Discovery 
+
+Yao, S., Zhao, J., Yu, D., Du, N., Shafran, I., Narasimhan, K., and Cao, Y. ReAct: Synergizing reasoning and act-ing in language models. In International Conference on Learning Representations (ICLR) , 2023. 11 Physics-guided LLM Agent for Equation Discovery 
+
+## A. Implementation Details 
+
+A.1. System Prompt 
+
+The full system prompt of KeplerAgent is shown below. The system prompt is followed by the subsequent sections in order: tool specifications, user query, workspace files, and experience log. 
+
+# Symbolic Regression Data Analyzer You are an expert data analyst and symbolic regression specialist. Your role is to perform preliminary analysis of datasets and determine the appropriate symbolic regression approach, preparing structured tool calls for external symbolic regression tools. You will also be given an experience log containing results from past experiments. ## Workspace Files You have access to a workspace directory where the input data file is stored and tools create additional files (plots, statistics, results, etc.). A section titled "## Workspace Files" will be included in your input, showing all registered files with their descriptions. This helps you: - Understand what analysis has already been performed - Avoid redundant tool calls - Reference existing visualizations or statistics when making decisions - Pass relevant files to tools that need them **Important**: If workspace files are shown in your input, review them carefully before deciding on tool calls. For example, if statistical analysis or plots already exist, you can reference them in your reasoning. ## Your Responsibilities 1. **Review workspace files** - The input data file is always available in the workspace - Review other files if available to see if preliminary analysis has already been done 2. **Inspect the past experience buffer** - Examine what has been done by past tool calls, if there’s any. - If there is no past experience, you should write your own Python code and pass to the ‘python_intepreter‘ tool to obtain basic insight of the dataset. - If there are useful constraints or inductive biases from past tool calls, incorporate them into future symbolic regression calls. - If there are existing results from any symbolic regression algorithm, examine the discovered equations and their data fitting errors. Learn the lessons and failure modes before making new tool calls. However, **DO NOT REPEAT TOOL CALLS WITH EXACTLY THE SAME PARAMETERS.** - **STOPPING CRITERIA**: If the existing results have achieved **MAPE < 0.1%** (Mean Absolute Percentage Error less than 0.1%), you MUST stop and return the final result. Do NOT make any new tool calls. Instead, return the single best equation that describes the dataset with the lowest error. This is your PRIMARY SUCCESS CONDITION. 3. **Select appropriate tool** - If the current information about the dataset is sufficient for trying one of the symbolic regression algorithms, call a tool for symbolic regression. - Identify any special considerations (noise level, data size, feature count, constraints/insights from past tool calls) - Choose the most suitable symbolic regression method with appropriate toolcall arguments based on data characteristics - Otherwise, perform additional data analysis with other tools 4. **Prepare tool call specification** - Generate a structured JSON object specifying the tool and its arguments - Include all necessary arguments for the tool to run 
+
+12 Physics-guided LLM Agent for Equation Discovery 
+
+## Output Format You should analyze the data and provide your reasoning in natural language. Explain what you observe about the data, what patterns you detect, and why you’re selecting particular tools and parameters. **Your response must contain a JSON object** with one of the following structures at the end: ### Single Tool Call ‘‘‘json {"tool_call": {"tool_name": "name of selected tool", "args": {"parameter1": "value1", "parameter2": "value2" }}}‘‘‘ ### Multiple Tool Calls (Maximum: 3) When you need to run multiple independent tool calls based on existing evidence, you can specify them together: ‘‘‘json {"tool_calls": [{"tool_name": "python_interpreter" }, {"tool_name": "pysr", "args": {"input_file": "data.csv", "binary_operators": ["+", "-", "*", "/"] }}]}‘‘‘ **Guidelines for Multiple Tool Calls:** - Maximum of **3 tool calls** per batch - Each tool call must be justified by **existing evidence** in the experience log - Tools are executed **sequentially** in the order specified - Results will be numbered as sub-steps (e.g., Step 2.1, Step 2.2) - If any tool fails, subsequent tools will still execute **IMPORTANT for python_interpreter:** When using ‘python_interpreter‘ in a multiple tool call batch, include **separate Python code blocks** for each interpreter call. The code blocks are matched to tool calls in order of appearance. ### Final Result When no more tool calls are needed: ‘‘‘json {"final_result": "the RHS of the best discovered equation" }‘‘‘ or, for a system of multiple equations: 
+
+13 Physics-guided LLM Agent for Equation Discovery                                                                                                                                 
+
+> ‘‘‘json {"final_result": ["eq1", "eq2", ...] }‘‘‘ **IMPORTANT: DO NOT ADD COMMENTS IN THE JSON OBJECT. DO NOT INCLUDE THE LHS (TARGET VARIABLE) OF EQUATIONS IN THE FINAL RESULT.** ## Important Notes -Provide detailed analysis and reasoning in natural language -The JSON object specifying the tool call must be included at the end, valid and parseable -Choose tools and their parameters based on the specific characteristics of the data -Review the available tools and their specifications below before making your selection -**YOUR PRIMARY GOAL**: Achieve **MAPE <0.1%** (Mean Absolute Percentage Error less than 0.1%). -If the dataset requires multiple equations to describe (e.g., system of 2coupled ODEs ), you need to make sure **all** equations are accurately fitted, not just one of them. -If multiple discovered equations from different tool calls have similar data-fitting errors, choose the candidate with asimpler symbolic form.
+> Listing 1. Full system prompt used for KeplerAgent.
+
+A.2. Tool Implementations and Specifications Python code interpreter. This tool takes the LLM-generated Python code as its single argument. It evaluates the code and returns all the content printed by the code as the tool output. In the tool specification, we specify that (1) this tool is intended specifically for data analysis tasks only, instead of for symbolic regression itself; (2) the agent should write code to load data files and perform exploratory data analysis, such as computing basic statistics and producing data visualizations when applicable; (3) the code generated by the agent shouold print the analysis results using print() statements, which will be captured and returned as the tool result; (4) when the code intends to save any file to the workspace, such as plots, converted data files, and other non-readable results, it must simultaneously call a predefined register file() function to register the file within the workspace, making the file visible to the agent itself at subsequent steps. 
+
+Visual subagent. We instantiate a GPT-4o-mini LLM subagent specialized in analyzing data visualizations. The tool accepts a single required argument, image path , and the following optional arguments: • context (string): Additional context about the data or experiment. Example: "This is a physics experiment measuring spring oscillation." Providing context information helps the vision model provide more relevant insights. • focus areas (list of strings): Specific aspects to focus the analysis on, e.g., periodicity, noise level, asymptotic behavior, etc. The system prompt for the subagent is listed as follows.                                                                
+
+> You are an expert data analyst specializing in visual analysis of scientific plots and data visualizations. Your task is to analyze this plot/visualization and extract insights that would be useful for symbolic regression -the process of discovering mathematical equations that describe the underlying relationship in data. Analyze the image and provide structured insights in the following categories: ## 1. Observed Patterns Identify key patterns visible in the data, e.g.:
+
+14 Physics-guided LLM Agent for Equation Discovery 
+
+- Trend direction (increasing, decreasing, constant regions) - Periodicity or oscillations (estimate frequency/wavelength if visible) - Growth/decay patterns (linear, exponential, polynomial, logarithmic) ## 2. Potential Functional Forms Based on visual evidence, suggest likely mathematical forms, e.g.: - Simple forms: linear (ax+b), polynomial (xˆn), power law (xˆa) - Trigonometric (sin, cos) - Composite forms: products, ratios, nested functions - For each suggestion, explain the visual evidence supporting it ## 3. Noise Characteristics Assess data quality: - Overall noise level - Noise distribution (uniform, increasing with magnitude, etc.) - Outliers or anomalies - Signal-to-noise ratio assessment ## 4. Recommendations for Symbolic Regression Based on your analysis, provide specific recommendations: - Which operators to prioritize (Binary: +, -, *, /; Unary: sin, cos, exp, log, sqrt, etc .) - Template structures to try (e.g., "f(x)*g(y)" for separable effects) Respond with a JSON object containing your analysis. Example format (you may add or remove fields as needed): ‘‘‘json {"observed_patterns": {"trend": "description of trend or null", "periodicity": "description or null", "growth_decay": "description or null", "asymptotic_behavior": "description or null" }, "potential_functional_forms": [{"form": "mathematical expression", "evidence": "visual evidence description" }], "noise_characteristics": "description", "sr_recommendations": {"binary_operators": ["list", "of", "operators"], "unary_operators": ["list", "of", "unary", "ops"], }}‘‘‘ 
+
+Listing 2. System prompt used for the image analysis subagent. 
+
+Symmetry discovery. We incorporate the methods in Yang et al. (2023; 2024); Ko et al. (2024) as a single tool for identifying Lie symmetry in differential equation systems. As we have mentioned in Section 3.3, this tool trains a tiny neural network as a surrogate model to predict the derivatives (i.e., the target variables in symbolic regression for differential equations) from the observed variables in the dataset; then, it fixes the surrogate predictor and optimizes for a q × q matrix 
+
+A that generates the symmetry group of the trained predictor, where q is the number of variables in the differential equation system. A is optimized under the equivariance error 
+
+Ex∥Jfθ (x) · (( Ax) · ∇ )( x) − (( Ax) · ∇ )( fθ (x)) ∥2, (1) where x denotes the column vector of q dependent variables, fθ is the trained predictor, and J· denotes the Jacobian. The loss is minimized to zero when the surrogate predictor is equivariant with respect to the infinitesimal action of the linear vector field vA = ( Ax) · ∇ .15 Physics-guided LLM Agent for Equation Discovery 
+
+We note a few connections and differences between our implementation and other relevant work in symmetry discovery. Yang et al. (2023) first formulated the problem of learning invariance/equivariance of functions and approached it by training a GAN where the generator outputs transformations on function graphs and the discriminator is trained to distinguish between the original and the transformed data points. The problem formulation of our tool is similar to Yang et al. (2023), but we find the GAN-based discovery method is difficult to converge with the relatively small datasets used in this paper. Therefore, we choose an approach akin to Ko et al. (2024), where the role of the discriminator is replaced by a predictor model, and the symmetry generator (in our case, the matrix A) is optimized with a task-specific loss measuring the violation of the symmetry indicated by the generator with respect to the predictor. However, different from the setup in Ko et al. (2024), which assumes the knowledge of the ground truth differential equation and uses the exact equation as a perfect predictor, we have to train a surrogate predictor and insert it into the loss. For the systems considered in this paper, we find that a tiny 2-layer MLP is sufficient for producing accurate predictions. The equivariance error (1) is referred from Proposition 3.3 (more specifically, Eq. (5)) of Yang et al. (2024). It is shown in their proposition that, if the expression inside the norm is zero for all state variables x, then the one-parameter subgroup generated by vA is exactly the symmetry of the predictor. They have used this as a symmetry regularization term with a fixed A to optimize their equation model, whereas we use the same loss term to optimize for an unknown symmetry generated by A.Finally, we note that the equivariance error in (1) is only applicable to linear symmetries acting solely on dependent variables. This is exactly the setup we specify by the vector field in the form vA = ( Ax) · ∇ . More generally, some symmetries of differential equation systems can act with nonlinear functions on the total space containing both independent variables (e.g., the time variable in ODE systems) and dependent variables. We may still use an equivariance error term for discovering those symmetries, but the exact formulation would be different from (1) and likely more complicated, depending on the restrictions we want to place on the allowed symmetries. For a more in-depth discussion of the application of general Lie symmetries in symbolic regression, we refer the readers to Yang et al. (2025). 
+
+PySINDy. This tool builds on the PySINDy software (Kaptanoglu et al., 2022) and the derivative work of EquivSINDy (Yang et al., 2024) with the following arguments exposed to the LLM agent: • data file (required): Path to the data file containing the trajectory data of ODE/PDE systems. • polynomial degree : The maximal degree of polynomials included in the SINDy function library. Default is 3. • derivative order : The maximal order of partial derivatives included in the SINDy feature list. Default is 2. • normalize columns : Boolean value indicating whether to normalize feature columns byy L2 norm before regression. • threshold : The threshold for sequential thresholding, controlling the sparsity regularization strength. • use symmetry : Boolean value indicating whether to use symmetry to constrain the SINDy parameter space following the method in EquivSINDy (Yang et al., 2024). If true, the lie generator argument must also be specified. • lie generator : a list or array-like object specifying the matrix generator of the Lie symmetry. Must have the shape 
+
+q × q where q matches the number of dependent variables in the dataset. 
+
+PySR. The official PySR software (Cranmer, 2023) offers abundant configurable options for genetic-programming-based SR. In practice, we find that including too many configurable parameters disorients the agent, and the agent tends to try out random combinations of parameters without rigorous reasoning. Therefore, in the tool specification, we instruct the agent to prioritize considering the expression spec argument, which allows the agent to propose a template structure of the equation based on its prior knowledge. The expression spec argument shouold be formatted as a dictionary with the following format:      
+
+> {"expressions": [...], "variable_names": [...], "combine": "..."}
+
+The expressions field should contain placeholder function names. These functions represent unknown sub-expressions that will be fitted by PySR. The variable names should contain the feature names from the dataset. The combine 
+
+16 Physics-guided LLM Agent for Equation Discovery 
+
+field should specify a template string indicating how placeholder functions and known parts (variables, known functional expressions) combine, e.g., "F / a + f(F, a)" , "sin(f(x1)) * g(x2, x3)" , "f(x1, x2) + g(x3)" ,etc. Other tool arguments are listed as follows: • input file : path to the data file to perform symbolic regression on. • binary operators : Binary operators allowed in building the equation. Default is ["+", "-", "*", "/"] .• unary operators : Unary operators allowed in building the equation. Common options include 
+
+sin , cos , exp , log , sqrt . Default is an empty list. • niterations : Max number of PySR iterations allowed. • constraints : An optional dictionary specifying complexity constraints for specific operators. For example, 
+
+{"+":(5, 5), "*":(3, 3) } restricts the left and right operands of addition to have expression complexity (subtree size) at most 5, and the operands of multiplication to have complexity at most 3. • nested constraints : An optional dictionary of constraints on operator nesting. For example, {"sin": 
+
+{"cos": 0}} prevents expressions like sin(cos( x)) .Other arguments naturally supported by PySR, such as population size and the number of parallel populations, are not exposed to the agent and set to default to avoid causing distractions for the agent. 
+
+## B. Experiment Details 
+
+B.1. Baselines and Common Setups LLM-SR. We run LLM-SR (Shojaee et al., 2025a) with the following configurations. We use GPT-4o-mini as the language model backbone to iteratively generate candidate equation skeletons. We allow a maximum of 500 sampled equation proposals for the ODE/PDE datasets during the search process, with each equation constrained to at most 10 free parameters. This is different from the default setting of 2500 samples in their original paper. For the LSR-Transform benchmark, we allow a maximum of 200 samples each dataset and record the wall-clock runtime and token usage. For the prompts of LLM-SR, we provide an overall description of the domain of each dataset and a list of descriptions of the physical meanings of each variable. We reuse the LLM-SRBench (Shojaee et al., 2025b) construction of prompts for the LSR-Transform datasets. For the ODE/PDE systems we collect in DiffEq , we specify the name of each variable and derivative and whether it belongs to the input (feature) variables or the output (target) variables for symbolic regression. 
+
+PySR. We follow the setup described in Xia et al. (2025) for evaluating PySR on LLM-SRBench. Specifically, we set the number of iterations to 125 and cycles per iteration to 550 . We also configure populations to 15 with a population size of 33 ,a maximum size of 30 , and a randomization weight of 0.1. The set of binary operators used is {+, −, ×, ÷, pow }, and the set of unary operators is {exp , log , √ , sin , cos }.We use the complete datasets from LSR-Transform and DiffEq equations for both LLM-SR and PySR, except for the reaction-diffusion system. The training dataset for this system contains the solution to a PDE on a 128 × 128 × 160 
+
+spatiotemporal grid, causing significant computational overhead for evaluating expressions on the full dataset. Therefore, we randomly sample 2000 points from the full dataset before running both baselines. We evaluate all discovered equations from different methods (including baselines and our method) using a GPT-4o-mini language model with the following prompt:                                   
+
+> Given the ground truth mathematical expression Aand the hypothesis B, determine if the hypothesis is equivalent to the given ground truth expression up to some error tolerance for the coefficients. Ground Truth Expression (A): {ground_truth} Hypothesis Expression (B): {hypothesis}
+
+17 Physics-guided LLM Agent for Equation Discovery 
+
+Let’s think step by step. Explain your reasoning and then provide the final answer as: ‘‘‘json {{ "reasoning": "brief step-by-step analysis", "answer": "yes/no" }} ‘‘‘ 
+
+Listing 3. Prompt for the LLM-based expression evaluator. 
+
+B.2. Differential Equation Datasets 
+
+Table 3. List of differential equation systems in our DiffEq benchmark. 
+
+System name Equations Bacterial respiration 
+
+
+
+˙x = 20 − x − xy 
+
+1 + 0 .5x2
+
+˙y = 10 − xy 
+
+1 + 0 .5x2
+
+Bar magnets 
+
+( ˙θ = 0 .5 sin( θ − ϕ) − sin( θ)˙ϕ = 0 .5 sin( ϕ − θ) − sin( ϕ)
+
+Glider 
+
+
+
+˙v = −0.05 v2 − sin( θ)˙θ = v − cos( θ)
+
+v
+
+Lotka-Volterra 
+
+( ˙x = −x2 − 2xy + 3 x
+
+˙y = −y2 − xy + 2 y
+
+Predator-prey 
+
+
+
+˙x = x
+
+
+
+4 − x − y
+
+1 + x
+
+
+
+˙y = y
+
+ x
+
+1 + x − 0.075 y
+
+
+
+Shear flow 
+
+( ˙θ = cot( ϕ) cos( θ)˙ϕ = sin( θ)  cos 2(ϕ) + 0 .1 sin 2(ϕ)
+
+van der Pol oscillator 
+
+
+
+˙x = 10 
+
+
+
+y − 13 (x3 − x)
+
+
+
+˙y = − 110 x
+
+Damped oscillator 
+
+( ˙x = −0.1x − y
+
+˙y = x − 0.1y
+
+Growth 
+
+( ˙x = −0.3x + 0 .1y2
+
+˙y = y
+
+Reaction-diffusion 
+
+(ut = u(1 − u2 − v2) + v(u2 + v2) + 0 .1( uxx + uyy )
+
+vt = v(1 − u2 − v2) − u(u2 + v2) + 0 .1( vxx + vyy )
+
+18 Physics-guided LLM Agent for Equation Discovery 
+
+Table 3 lists the 10 differential equation systems we consider for evaluation in this paper. Among them, the first 7 systems come from Strogatz (2001), a textbook for nonlinear dynamical systems. La Cava et al. (2021) proposes to generate data from these systems as a benchmark for SR methods and has incorporated these datasets into the Penn Machine Learning Benchmark (PMLB) (Olson et al., 2017). In our experiments, we use their existing datasets for these systems, each containing 4 solution trajectories of the same ODE system with 100 timesteps. In addition, we include three systems used in the experiments of Yang et al. (2024): damped oscillator, growth, and reaction-diffusion. We follow their data generation procedure to construct our dataset. The damped oscillator dataset contains 50 trajectories, each with 20 timesteps and an interval ∆t = 0 .2. The growth dataset contains 10 trajectories, each with 100 timesteps and an interval ∆t = 0 .02 . For these two datasets, we split them on the trajectory dimension into 80%:20% for training and testing, respectively. The reaction-diffusion system is originally used in Champion et al. (2019) for testing equation discovery methods. It is governed by two PDEs, posing additional challenges as the partial derivatives inflate the feature space for symbolic regression. We reuse the data provided by Champion et al. (2019), which contains one solution trajectory as a 128 × 128 × 200 array ( 128 × 128 spatial grid and 200 timesteps). We split the data along the time dimension, using the first 160 timesteps for training and the remaining 40 steps for testing. To construct the noisy DiffEq datasets, we add white noise to each state variable, whose scale σi depends on the variance of each state variable in the dataset: σi = σR · std( xi). We refer to the coefficient σR as the noise level. Then, the targets (time derivatives) are estimated by applying the central difference method to the noisy trajectories. For all systems except reaction-diffusion, we use a noise level of 0.01 . For reaction-diffusion, we choose a noise level of 0.0001 , as a larger noise level, together with the inclusion of partial derivatives in this problem, makes it challenging for all methods considered in this paper to discover the correct equations. 
+
+## C. Additional Results 
+
+C.1. Long-Term Prediction in DiffEq Systems 0 2 4 6 8 10                                             
+
+> Time
+> 0.000
+> 0.005
+> 0.010
+> 0.015
+> 0.020
+> 0.025
+> Relative MSE
+> bacres
+> PySR
+> LLM-SR
+> KeplerAgent
+> 0246810
+> Time
+> 0.0000
+> 0.0002
+> 0.0004
+> 0.0006
+> 0.0008
+> Relative MSE
+> barmag
+> PySR
+> KeplerAgent
+> 0246810
+> Time
+> 0.00
+> 0.01
+> 0.02
+> 0.03
+> 0.04
+> Relative MSE
+> glider
+> PySR
+> LLM-SR
+> KeplerAgent
+> 0246810
+> Time
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> 2.0
+> 2.5
+> 3.0
+> 3.5
+> 4.0
+> Relative MSE
+> lv
+> PySR
+> LLM-SR
+> KeplerAgent
+> 0246810
+> Time
+> 0
+> 2
+> 4
+> 6
+> 8
+> 10
+> 12
+> Relative MSE
+> predprey
+> PySR
+> LLM-SR
+> KeplerAgent
+> 0246810
+> Time
+> 0.00000
+> 0.00005
+> 0.00010
+> 0.00015
+> 0.00020
+> Relative MSE
+> shearflow
+> PySR
+> KeplerAgent
+> 0246810
+> Time
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> 6
+> Relative MSE
+> vdp
+> PySR
+> LLM-SR
+> 01234
+> Time
+> 0.00000
+> 0.00002
+> 0.00004
+> 0.00006
+> 0.00008
+> 0.00010
+> Relative MSE
+> dosc
+> PySR
+> LLM-SR
+> KeplerAgent
+> 0.0 0.5 1.0 1.5 2.0
+> Time
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Relative MSE
+> 1e 6growth
+> PySR
+> LLM-SR
+> KeplerAgent
+> 0.0 0.5 1.0 1.5 2.0
+> Time
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> 6
+> 7
+> Relative MSE
+> RD
+> PySR
+> LLM-SR
+> KeplerAgent
+
+Normalized MSE vs Time (equations discovered on clean data) 
+
+Figure 5. Plotting normalized MSE against time for equations discovered on clean data from PySR, LLM-SR, and our KeplerAgent. A method is not included in a subplot if its discovered equation causes simulation failure (e.g., state variables going to infinity, or other numerical issues). 
+
+In addition to the results in Table 2, Figure 5 and 6 show the full error growing curves when we use the discovered equations from different methods for long-term prediction. Specifically, in each subplot, we start from an initial point in a trajectory from the test dataset and use a numerical ODE solver to integrate the discovered equations until the maximum time available in the dataset. Then, the simulated trajectories are compared with the true trajectory in the dataset at each available time step. For equation discovery on the clean data, we observe that KeplerAgent maintains relatively low errors throughout the simulation time span in almost all systems (except in the van der Pol oscillator, where the simulation failed). In comparison, PySR and LLM-SR suffer from high prediction errors in systems like glider, Lotka-Volterra, and predator-prey, and LLM-SR causes simulation failure twice on the shear flow system and the bar magnets system. 19 Physics-guided LLM Agent for Equation Discovery 0 2 4 6 8 10                                           
+
+> Time
+> 0.00
+> 0.01
+> 0.02
+> 0.03
+> 0.04
+> 0.05
+> 0.06
+> Relative MSE
+> bacres
+> PySR
+> LLM-SR
+> KeplerAgent
+> 0246810
+> Time
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> 2.0
+> Relative MSE
+> barmag
+> PySR
+> LLM-SR
+> KeplerAgent
+> 0246810
+> Time
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> Relative MSE
+> glider
+> PySR
+> LLM-SR
+> KeplerAgent
+> 0246810
+> Time
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 0.30
+> 0.35
+> Relative MSE
+> lv
+> PySR
+> KeplerAgent
+> 0246810
+> Time
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> Relative MSE
+> predprey
+> PySR
+> KeplerAgent
+> 0246810
+> Time
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> 6
+> 7
+> Relative MSE
+> shearflow
+> PySR
+> LLM-SR
+> KeplerAgent
+> 0246810
+> Time
+> 0.0
+> 2.5
+> 5.0
+> 7.5
+> 10.0
+> 12.5
+> 15.0
+> Relative MSE
+> vdp
+> PySR
+> LLM-SR
+> KeplerAgent
+> 01234
+> Time
+> 0.00
+> 0.01
+> 0.02
+> 0.03
+> 0.04
+> Relative MSE
+> dosc
+> PySR
+> LLM-SR
+> KeplerAgent
+> 0.0 0.5 1.0 1.5 2.0
+> Time
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 1.25
+> 1.50
+> 1.75
+> Relative MSE
+> growth
+> PySR
+> KeplerAgent
+> 0.0 0.5 1.0 1.5 2.0
+> Time
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> 6
+> 7
+> Relative MSE
+> RD
+> PySR
+> KeplerAgent
+
+Normalized MSE vs Time (equations discovered on noisy data) 
+
+Figure 6. Plotting normalized MSE against time for equations discovered on noisy data from PySR, LLM-SR, and our KeplerAgent. 
+
+In the noisy data regime, KeplerAgent remains relatively robust, performing best or close to best among the three methods in 6 of the 10 systems (predator-prey, shear flow, van der Pol oscillator, damped oscillator, growth, and reaction-diffusion). 
+
+C.2. An Instance of KeplerAgent Reasoning Trace 
+
+In this subsection, we inspect a real execution of KeplerAgent on the reaction-diffusion system (described in Table 3) to understand how KeplerAgent reasons and orchestrates different tools to obtain the final equation discovery result. Instead of showing the full outputs of the LLM agent, we provide snapshots of the experience log at each step, interleaved with key parts of the reasoning performed by the agent, which clearly represent the agent’s journey in this discovery problem. In the first step, the agent learns that the dataset contains a solution trajectory to a PDE. Therefore, it needs to run a symbolic regression tool that is suitable for discovering differential equations from data, and it identifies PySINDy as a good choice. The agent has also considered using symmetry constraints if relevant symmetries can be discovered from the dataset. However, since it doesn’t have any prior knowledge about the symmetries, it starts with a straightforward SINDy approach with default parameters. 
+
+## Experience Log ### Step 1: sindy **Arguments:** - data_file: rd_train.h5 **Result:** - Status: success - result_type: equation - equations: [’0.041*u + 0.035*u*u*u + 1.169*v*v*v + 0.007*u*v*v + 0.277*u*u*v + 0.071*u_yy + 0.065* u_xx’, ’0.041*v - 1.169*u*u*u + 0.035*v*v*v - 0.277*u*v*v + 0.007*u*u*v + 0.065*v_yy + 0.071* v_xx’ ]- mape: 70.033% 
+
+Given that the equations from the first PySINDy call have not achieved satisfactory fitting (MAPE = 70% ), the agent decides to proceed with the following steps: (1) Since the system is governed by PDEs, discovering symmetries could provide valuable insights into the governing equations. This might help in constraining the subsequent symbolic regression process. (2) After discovering symmetries, rerun the SINDy algorithm with the symmetry constraints to see if it improves the fitting of the equations. The next tool call for symmetry discovery reflects the first step in this plan. 
+
+### Step 2: symmetry_discovery 
+
+20 Physics-guided LLM Agent for Equation Discovery                
+
+> **Arguments:** -data_file: rd_train.h5 **Result:** -Status: success -result_type: symmetry -lie_generator: [[0.0, -0.678013801574707], [0.680248498916626, 0.0]] -predictor_loss: 0.009965 -symmetry_loss: 0.002001
+
+The agent notices that the symmetry discovery step provided a Lie generator matrix indicating some underlying symmetries in the system. Both the predictor loss and the symmetry loss were low, which suggests that the system has some structured behavior that can be exploited. Given that the SINDy results did not yield satisfactory equations, and a symmetry discovery result is available, which can help refine the equation search, the agent decides to proceed with the SINDy tool again, incorporating the symmetry constraints obtained from the previous step. Notably, the agent notices that the Lie generator result in the last tool call is close to the exact form of a rotation generator 
+
+[[0 , −1]; [1 , 0]] . Given that the direct tool result is obtained from numerical optimization and may have some error, and that it is close to a commonly observed structure (rotation symmetry) in the real world, the agent decides to proceed with the exact rotation generator. We comment that this reasoning step is crucial and fills the gap between existing methods for symmetry discovery and symmetry-constrained equation modeling. Existing symmetry discovery methods often rely on gradient-based optimization, which produces numerical results that slightly deviate from the exact solution. Previously, research in symmetry-constrained equation discovery, such as Yang et al. (2024), often relies on humans in the loop to inspect discovered symmetry manually and translate it into an exact solution that makes sense physically, e.g., the rotation generator above. However, in this reasoning step, we show that KeplerAgent is capable of interpreting the numerical results from these tools and making the most reasonable guess about the true answer based on its prior knowledge, thereby fulfilling the entire pipeline from discovering symmetry, processing and interpreting the result, to using this intermediate finding in the downstream equation discovery task, without requiring any human intervention. While we have only incorporated a few tools in the current agent and observed this ability explicitly only for symmetry discovery, we believe that the agent also has the potential to apply this kind of reasoning ability flexibly with other tools.                                             
+
+> ### Step 3: sindy **Arguments:** -data_file: rd_train.h5 -use_symmetry: True -lie_generator: [[0, -1], [1, 0]] **Result:** -Status: success -result_type: equation -equations: [’1.008*u -1.017*u*u*u +0.999*v*v*v -1.017*u*v*v +0.999*u*u*v +0.094*u_yy +0.094* u_xx’, ’1.008*v -0.999*u*u*u -1.017*v*v*v -0.999*u*v*v -1.017*u*u*v +0.094*v_yy +0.094* v_xx’ ]-mape: 15.584%
+
+In this step, with the symmetry constraint enabled, the agent manages to obtain a list of equations with much lower MAPE. However, it is still much above the specified threshold of 0.1% (because of the noise in the data, which the agent is not aware since it has chosen not to call the code execution tool for data analysis in the beginning). Therefore, for the next step, the agent makes another attempt to call the PySINDy tool, but with a slightly different configuration.                   
+
+> ### Step 4: sindy **Arguments:** -data_file: rd_train.h5 -use_symmetry: True -lie_generator: [[0, -1], [1, 0]] -polynomial_degree: 4**Result:** -Status: success -result_type: equation
+
+21 Physics-guided LLM Agent for Equation Discovery                             
+
+> -equations: [’1.008*u -1.017*u*u*u +0.999*v*v*v -1.017*u*v*v +0.999*u*u*v +0.094*u_yy +0.094* u_xx’, ’1.008*v -0.999*u*u*u -1.017*v*v*v -0.999*u*v*v -1.017*u*u*v +0.094*v_yy +0.094* v_xx’ ]-mape: 15.584%
+
+After step 4, the agent discovers that changing the polynomial degree parameter in SINDy yields the same result. As the error is still above the threshold by a large amount, the agent starts some repetitive attempts to call SINDy with different configurations, e.g., further increasing the polynomial degree, adjusting threshold values, etc, in the hope that the result can be further improved. However, the current MAPE turns out to be the best the agent can obtain from existing tools. In the end, the agent keeps calling tools until the maximum number of iterations (10) is reached, and then returns the discovered equations in step 4 as the final result. We comment that, while the first few reasoning steps are impressive, the later steps with repetitive tool calls (which we omit here) reveal further room for improvement. For example, the agent should learn more from the previous experience: the fact that increasing the polynomial degree leads to the same equations likely means that a low polynomial degree already suffices for this task, and that further increasing the degree is not helpful at all. Also, the agent needs to be better at navigating the entire toolkit, e.g., making use of the code interpreter to perform noise analysis of the data, or using PySR to explore the possibility of more complex equation forms, instead of sticking to the same tool until the maximum computation budget. We identify these issues here as potential directions for future work. 22

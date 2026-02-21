@@ -1,0 +1,872 @@
+Title: In-Context Function Learning in Large Language Models
+
+URL Source: https://arxiv.org/pdf/2602.11863v1
+
+Published Time: Fri, 13 Feb 2026 02:09:32 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# In-Context Function Learning in Large Language Models 
+
+Elif Akata ∗12 Konstantinos Voudouris ∗1 Vincent Fortuin 13 Eric Schulz 11 Helmholtz Munich 2 University of T¨ ubingen 3 University of Technology Nuremberg 
+
+## Abstract 
+
+Large language models (LLMs) can learn from a few demonstrations provided at in-ference time. We study this in-context learn-ing phenomenon through the lens of Gaus-sian Processes (GPs). We build controlled experiments where models observe sequences of multivariate scalar-valued function sam-ples drawn from known GP priors. We eval-uate prediction error in relation to the num-ber of demonstrations and compare against two principled references: (i) an empiri-cal GP-regression learner that gives a lower bound on achievable error, and (ii) the ex-pected error of a 1-nearest-neighbor (1-NN) rule, which gives a data-driven upper bound. Across model sizes, we find that LLM learn-ing curves are strongly influenced by the function-generating kernels and approach the GP lower bound as the number of demon-strations increases. We then study the induc-tive biases of these models using a likelihood-based analysis. We find that LLM predic-tions are most likely under less smooth GP kernels. Finally, we explore whether post-training can shift these inductive biases and improve sample-efficiency on functions sam-pled from GPs with smoother kernels. We find that both reinforcement learning and su-pervised fine-tuning can effectively shift in-ductive biases in the direction of the training data. Together, our framework quantifies the extent to which LLMs behave like GP learn-ers and provides tools for steering their in-ductive biases for continuous function learn-ing tasks. 
+
+> *
+
+Equal contribution. Correspondence: elif.akata@helmholtz-munich.de 
+
+Proceedings of the 29 th International Conference on Arti-ficial Intelligence and Statistics (AISTATS) 2026, Tangier, Morocco. PMLR: Volume 300. Copyright 2026 by the au-thor(s). 
+
+## 1 Introduction 
+
+In-context learning (ICL) enables large language mod-els (LLMs) to “learn” a task at inference time by con-ditioning on a small number of task-relevant input-output pairs (Brown et al., 2020). In-context learn-ing’s mechanisms have been probed empirically (Garg et al., 2022; Si et al., 2023) and theoretically (Xie et al., 2021). It has been shown that, surprisingly, transform-ers can implement linear-regression–style algorithms in context (Aky¨ urek et al., 2022), demonstrations and their labels can be randomized while still achieving im-proved performance (Min et al., 2022), and more gen-erally, ICL mechanistically resembles gradient-descent dynamics and kernel regression (Von Oswald et al., 2023; Requeima et al., 2024). While the power of in-context learning for learn-ing continuous functions has been established (Coda-Forno et al., 2023; Requeima et al., 2024), even out-performing some traditional statistical regression tech-niques (Vacareanu et al., 2024), it remains unclear which functional priors these models have and whether parameter-efficient post-training methods can effec-tively steer them, thus changing their in-context learn-ing capabilities. We take a statistical perspective where we: 
+
+• cast ICL as non-parametric regression under known Gaussian Process (GP) priors, implement-ing principled learning-curve evaluations with a GP regression as an empirical lower bound and a derived 1-NN rule as a data-driven upper bound, 
+
+• introduce a likelihood-based inductive bias anal-ysis that identifies which GP kernels best explain a model’s predictions, 
+
+• test whether parameter-efficient post-training methods with supervision and reinforcement learning can steer these implicit priors and im-prove sample efficiency on deliberately hard ker-nels. Empirically, we observe coherent, GP-like behav-
+
+> arXiv:2602.11863v1 [cs.LG] 12 Feb 2026 In-Context Function Learning in Large Language Models
+
+ior. Larger LLMs learn faster; smoother kernels give steeper learning curves; and with enough demonstra-tions, models often approach the empirical GP base-line. Our analyses provide quantitative, interpretable answers to the question of when LLMs act like non-parametric regressors on multivariate function learn-ing tasks. Our inductive bias analysis reveals that LLM predictions are much more likely under rougher, less predictable kernels (with more local and higher variance), such as the Mat´ ern 1 
+
+> 2
+
+compared to smoother kernels like the Squared Exponential. We find that two parameter-efficient post-training methods are ef-fectively able to shift this inductive bias towards smoother kernels when trained on functions sampled from them, making fine-tuned model predictions much more likely under GPs with the Squared Exponen-tial kernel. Supervised Fine-Tuning (SFT) updates a small fraction of model weights based on labelled data, while reinforcement learning updates these weights by scoring model outputs according to a reward function, here, the error between the LLM’s prediction and the true function output. We find some evidence that GRPO produces models with more generalizable in-context learning capabilities, similar to the results of Chu et al. (2025). Together, these results suggest that even modestly-sized LLMs have impressive in-context learning capa-bilities. Moreover, post-training methods that update only a fraction of total model weights constitute ef-fective ways to steer inductive biases, with evidence that reinforcement learning is the most generalizable approach. Our experiments showcase how Gaussian Processes offer a principled and tightly controllable testbed for studying in-context learning in LLMs. 
+
+## 2 Background 
+
+GPs provide a statistical formalism for reasoning about functions and uncertainty. A GP prior defines a distribution over functions via a kernel that encodes smoothness and characteristic length scales; condition-ing on observations yields a posterior that achieves Bayes-optimal predictions for the chosen prior. Given data D = {(xi, y i)}ni=1 where xi ∈ Rd, prior f : Rd →
+
+R ∼ GP (0 , k ) and noise yi = f (xi) + ϵi, ϵi ∼ N (0 , σ 2 
+
+> ϵ
+
+), we can define a kernel, Kϵ := k(X, X) + σ2 
+
+> ϵ
+
+I and 
+
+k∗ := k(X, x∗). Then                         
+
+> p(f∗|x∗,D) = N
+> (
+> k⊤∗K−1
+> ϵy, k (x∗,x∗)−k⊤∗K−1
+> ϵk∗
+> )
+> ,p(y∗|x∗,D) = N
+> (
+> k⊤∗K−1
+> ϵy, k (x∗,x∗)−k⊤∗K−1
+> ϵk∗+σ2
+> ϵ
+> )
+> .
+
+Using this Bayes-optimal reference, we design con-trolled experiments to test how closely LLMs resemble LLM     
+
+> LLM LLM
+> GRPO
+> SFT
+> Δ Log-Likelihood
+> K1K2K3K4
+
+## a
+
+## b
+
+## c
+
+Figure 1: Overview of our framework. (a) In-context function learning in base models: a large language model (LLM) receives demonstrations from functions sampled from known Gaussian-process (GP) priors and predicts f (X) at a new X. (b) Post-training: the model is fine-tuned (SFT or GRPO) and re-evaluated to measure changes in learning curves. (c) Inductive-bias analysis: a likelihood comparison identifies the GP kernels that best explain model predictions before and after training. GP learners. Models receive a list of demonstrations 
+
+D = {(xi, y i)}ni=1 generated from functions drawn from known GP priors (Mat´ ern and Squared Expo-nential), and must predict y∗ at a new x∗. We quan-tify in-context learning via the absolute-error learning curve 
+
+E(n) = E[ |y∗ − ˆy∗(x∗; Dn)| ]as a function of n. To interpret these curves, we com-pare against two complementary references evaluated on the same data: (i) GP regression, which serves as a practical lower-bound reference under the spec-ified prior, and (ii) the expected error of a 1-nearest-neighbor rule that returns the value at the closest ob-served input, providing a data-driven upper bound for memorisation-based strategies. Beyond aggregate error, our study explores the induc-tive biases that guide a model’s predictions. Thus, we propose a likelihood-based inductive bias analy-sis: given a history of demonstrations, we compute the GP posterior predictive distribution under differ-ent kernel families and record the log-likelihood of the model’s prediction. Aggregating these scores across Elif Akata ∗12 , Konstantinos Voudouris ∗1, Vincent Fortuin 13 , Eric Schulz 1
+
+tasks and number of demonstrations identifies which kernels best explain the model’s behavior, resulting in a data-driven summary of its implicit inductive bias. Finally, we examine whether these inductive biases can be changed through post-training. We study su-pervised fine-tuning (SFT) and reinforcement learning (with group-relative policy optimization, GRPO) with training curricula targeted at the kernels under which the base model is least consistent, and evaluate result-ing changes in both priors and learning curves. 
+
+## 3 Methods 
+
+3.1 Experiment 1: In-Context Learning Curves 
+
+We first study the LLM generalization error as a func-tion of the number of demonstrations, on functions generated from different kernels, comparing them to two reference baselines described below. 
+
+Large Language Models In the main paper, we evaluate models from the Qwen-3 model family (Yang et al., 2025), using the 8-billion, 14-billion, and 32-billion parameter versions with 4-bit bits-and-bytes quantization to increase inference speed (Dettmers et al., 2022a,b, 2023). As comparisons, in Sec-tion 7 of the supplementary material, we also evalu-ate three members of the Llama family (Llama-3.2-3B-Instruct, Llama-3.1-8B-Instruct, Llama-3.1-70B-Instruct; Grattafiori et al., 2024), three members of the Gemma-3 family (4B, 12B, and 27B; Gemma Team et al., 2024), and two members of the Mistral fam-ily (Mistral-7B-Instruct-v0.3 and Mistral-Small-24B-Instruct-2501; Jiang et al., 2023), where B denotes the parameter size in billions and all models are 4-bit quantized. 
+
+Evaluation Data & Procedure We construct functions f : Rd → R for d ∈ { 1, 2, 3, 4}. For each dimensionality, we sample 200 functions from four ker-nels, the Mat´ ern 1 
+
+> 2
+
+, km(δ) and the Squared Exponen-tial, ks(δ), with length scales, ℓ ∈ { 1, 8}:
+
+km(δ) = σ2
+
+> f
+
+21−ν
+
+Γ( ν)
+
+( √2ν δ 
+
+ℓ
+
+)ν
+
+Kα
+
+( √2ν δ 
+
+ℓ
+
+)
+
+ks(δ) = σ2 
+
+> f
+
+exp 
+
+(
+
+− δ2
+
+2ℓ
+
+)
+
+where δ is the Euclidean distance between two val-ues, x, x ′, σ2 
+
+> f
+
+is the output variance, ν is the smooth-ness (set to ν = 1 
+
+> 2
+
+for both Mat´ ern kernels), Γ( ·) is the gamma function, and Kα(·) is the modified Bessel function of the second kind with order α = ν + 1 
+
+> 2
+
+.We use these kernels because they differ maximally in smoothness: the Mat´ ern 1 
+
+> 2
+
+, km(δ) is differentiable nowhere while the Squared Exponential is infinitely differentiable, being lim ν→∞ km(δ). We use two val-ues of ℓ to vary the scale over which the functions are correlated, again varying their predictability and smoothness. We use σ2 
+
+> f
+
+= 0 .001 for all kernels. From each function, we compute outputs, y, for 50 randomly sampled inputs over an arbitrary range, 
+
+x ∼ U [0 , 29]. We add Gaussian distributed noise, ϵ ∼N (0 , σ 2 
+
+> ϵ
+
+) with σ2 
+
+> ϵ
+
+= 0 .001. The LLMs are prompted with the text described in the supplementary material (Section 3), including between 0 and 49 demonstra-tions of ( x, y ) pairs. For a new x, we compute the absolute error between the LLM’s prediction, ˆ y, and the true value (plus noise), ˜ y. For each n demonstra-tions, we compute the mean absolute error across all functions. 
+
+Baselines We use two reference baselines to which we compare the LLM learning curves. The first is the empirical error from a GP regression trained on the same data as the LLMs, generated from functions drawn from its kernel. The second is the expected er-ror for a k-Nearest Neighbor ( k-NN) algorithm, with 
+
+k = 1. The GP baseline produces an empirical lower bound on the error after n samples. The k-NN base-line produces a reasonable expected upper bound on the error for the case where the LLM simply returns the y-value for the numerically closest x-value it has seen so far. To compute the 1-NN expected absolute error, we as-sume n inputs are drawn uniformly as X ∼ U [0 , L ]with some upper bound, L (here, L = 29). We ap-proximate the expected absolute error by numerically evaluating the integral: 
+
+E[|ε|] = 
+
+√ 2
+
+π
+
+∫ L/ 20
+
+V (d) 2( n − 1) 
+
+L
+
+(
+
+1 − 2d
+
+L
+
+)n−2
+
+dd
+
+where 0 ≤ d ≤ L 
+
+> 2
+
+, and V (d) = 2 σ2 
+
+> f
+
++ 2 σ2 
+
+> ϵ
+
+− 2k(d) where 
+
+k(·) is the GP kernel function with output variance 
+
+σ2 
+
+> f
+
+. Further information on deriving this expectation is included in the supplementary material (Section 2). 
+
+3.2 Experiment 2: Inductive Bias Analysis 
+
+To infer the expectations of the LLMs towards learning functions, we borrow a methodology from cognitive science (Griffiths et al., 2008; Li et al., 2023; Lucas et al., 2015; Schulz et al., 2018; Wil-son et al., 2015). For each xn, we infer the poste-rior probability distribution over Y for some GP given In-Context Function Learning in Large Language Models Demonstration 
+
+> Demonstration
+> Demonstration
+> Demonstration Demonstration
+> Demonstration
+> Demonstration
+> Demonstration
+
+Figure 2: Learning curve analysis on 1-dimensional functions. The mean absolute error after n demonstrations by function type. Left Four: Qwen-3-8B learning curves four functions drawn from four kernels, compared to the error of a GP regression and the expected error of a 1-nearest neighbor rule. The LLM learning curves generally approach the GP regression baseline and are well below the 1-NN rule. Right Four: Model size comparisons between the 8B, 14B, and 32B Qwen-3 models, on identical data. The 14B and 32B models show noticeably lower error rates, but do not differ significantly from each other, suggesting a logarithmic scaling law. All LLM and GP learning curves are shown with 95% bootstrapped confidence intervals. 
+
+{(x1, y 1), ..., (xn−1, y n−1)}. We then compute the log-likelihood of the LLM’s point prediction given the same data. Subsequently, we compare the mean likeli-hood over all predictions, under GPs with different ker-nels. This measures how likely the LLM responses are assuming different kernels. We use GPs with fixed ker-nel variances (1), length scales (8), and the same noise variance as σ2 
+
+> ϵ
+
+(0 .001). We compare the Mat´ ern kernels with ν ∈ { 0.5, 1.5, 2.5} with length scales ℓ ∈ { 1, 8}
+
+and the Squared Exponential kernel with length scales 
+
+ℓ ∈ { 1, 2, 3, 4, 5, 6, 7, 8}. We hypothesize that the most likely kernel approximates the inductive bias of the model. 
+
+3.3 Experiment 3: Post-Training 
+
+The inductive bias analysis is used to reveal what priors LLMs have about functions. We can use this information to examine whether common parameter-efficient post-training methods differ in their abil-ity to shift those expectations. We explore two ap-proaches to parameter-efficient fine-tuning with low-rank adapters: supervised fine-tuning and reinforce-ment learning. 
+
+Parameter-efficient fine-tuning with QLoRA 
+
+We use Quantized Low Rank Adaptation (QLoRA) to efficiently and scalably fine-tune large language mod-els by inserting small, low-rank matrices layer-wise and updating only these weights and freezing the rest (Dettmers et al., 2023). This means that gradients are computed and weights are updated for only a fraction of the total parameters in the model. Specifically, for the weight matrix, W , of a transformer layer, we in-ject an adapter matrix, Wa, which is the product of two low-rank matrices, L1 ∈ Rd×r and L2 ∈ Rr×k,where d, k are the input and output dimensionalities respectively and r ≪ d, k . During a forward pass, inputs of length d are passed to W and Wa indepen-dently, and outputs of length k are summed, subject to some scaling factor r 
+
+> α
+
+. We choose standard values of r = α = 16, such that outputs from W and Wa are weighted equally. We inject adapters in all layers. We also make use of quantized models, where model and adapter weights are dynamically set to lower precision, to speed up training. 
+
+Dataset We construct a training dataset informed by the analyses conducted in Experiment 2. We choose a kernel under which the base models’ predictions are least likely, and sample functions and in-context learn-ing data for each, matching the test dataset in struc-ture. 
+
+Supervised Fine-Tuning (SFT) We update the weights of the low-rank adapters using this supervised dataset. We update model weights using batch gradi-ent descent with the token-level cross-entropy loss: 
+
+L(θ) = −
+
+> T
+
+∑
+
+> t=1
+
+log pθ (yt|y<t )Elif Akata ∗12 , Konstantinos Voudouris ∗1, Vincent Fortuin 13 , Eric Schulz 1Demonstration Demonstration Demonstration Demonstration   
+
+> 2D 3D 4D
+
+Figure 3: Qwen-3-14B learning curve comparison for 1-, 2-, 3-, 4-dimensional data drawn from the Squared Exponential with λ = 8. The mean absolute error after n demonstrations by function type. All LLM and GP learning curves are shown with 95% bootstrapped confidence intervals. where θ is the set of adapter weights, T is the size of the ordered set of target completion tokens given a prompt, yt is the target token at step t, and y<t is the set of ordered target completion tokens prior to t.
+
+Reinforcement Learning (RL) We use the on-line RL algorithm Group Relative Policy Optimisa-tion (GRPO) to update the adapter weights. In the RL setting, the set of all model and adapter weights can be considered the policy , πθ , which takes tex-tual inputs (observations) and produces a token (ac-tions). For each batch of M prompts, {q1, ..., q M } in the dataset, the model produces a set of N comple-tions, {o1, ..., o N }. These completions are assigned a reward using a reward model, giving a set of rewards 
+
+{r1, ..., r N }.We compute the loss for some prompt q as follows: 
+
+L(θ) = − 1
+
+∑Ni=1 |oi|
+
+> N
+
+∑
+
+> i=1
+> |oi|
+
+∑
+
+> t=1
+
+[min 
+
+( πθ (oi,t |q, o i,<t )
+
+πθold (oi,t |q, o i,<t )
+
+)
+
+· ˆAi,t ,
+
+clip η
+
+( πθ (oi,t |q, o i,<t )
+
+πθold (oi,t |q, o i,<t )
+
+)
+
+· ˆAi,t )] 
+
+where |oi| is the length, in tokens, of oi, clip( ·) clips its argument between 1 ± η, and ˆAi,t is the advantage —the normalized reward for output oi:ˆAi,t = ri − mean( {r1, ..., r n})
+
+std( {r1, ..., r n})Following common practice, we exclude the usual KL-divergence term when computing the loss (Hu et al., 2025; Liu et al., 2025; Yu et al., 2025). We update the adapter weights using gradient ascent over this loss function. 
+
+Reward Function Models trained with GRPO are rewarded using the negative absolute difference be-tween the last float in their completion and the true ˜y (including additive noise). This reward is capped at a minimum of −10 for parseable responses (10 × the range of possible y-values), and is −11 for any com-pletions that do not contain a parseable float. As an alternative, we also conduct parallel training with a log-likelihood-based reward function. Here, the reward is the log likelihood of the model’s response under the GP identified in Experiment 2. We cap the reward ar-bitrarily at a minimum of −999, and set the reward for unparseable responses at −1000. We find no interpre-tative differences between these two reward functions. An overview of the general, model-agnostic procedure we took for analysing inductive biases in LLMs on con-tinuous function learning tasks can be found in sup-plementary material (Section 1). 
+
+## 4 Results 
+
+4.1 Experiment 1: In-Context Learning Curves 
+
+First, we confirm that LLMs are capable of doing in context regression with novel multivariate scalar-valued functions (Requeima et al., 2024; Si et al., 2023; Vacareanu et al., 2024), with errors that are generally close to empirical GP regression and well below the er-ror of a 1-Nearest Neighbor algorithm (Figures 2 and 3). Indeed, for functions sampled from kernels with low length scales, LLM error is lower than the GP re-gression given a few demonstrations. This suggests that these models are not simply recalling information from earlier in their context window, but that they are able to fit complex functions in their attention matri-ces. It is particularly impressive that these models are able to sample-efficiently and accurately predict scalar outputs given 4-dimensional input. Indeed, we find no noticeable difference between the error rates on lower-dimensional and higher-dimensional function learning tasks. We find an appreciable performance boost between the 8B and larger models, but that difference is not sig-nificant between 14B and 32B models. This is indica-In-Context Function Learning in Large Language Models           
+
+> SE Matern ½ SE Matern ½ SE Matern ½ SE Matern ½ Matern ½ Matern 1½ Matern 2½ SE Functions From: Likelihoods Under:
+> Average Log-Likelihood Per Prediction
+> 0-10 -1
+> -10 0
+> -10 1
+> -10 2
+> -10 3
+> 10 -1
+> 10 0
+> 10 1
+> 10 2
+
+Figure 4: Inductive bias analysis of the base models (8B, 14B, 32B). The average likelihood per prediction is computed under GPs with four different kernels ( ℓ = 8), on 1-dimensional data drawn from either the Squared Exponential or the Mat´ ern 1 
+
+> 2
+
+. These likelihoods are presented on a symmetric log scale. LLM predictions for all model sizes are more likely under kernels with lower ν, i.e., those that describe rougher, less predictable functions. tive of a logarithmic scaling law when it comes to in-context function learning. However, further research with more granular model size differences would be required to confirm this conclusion. 
+
+4.2 Experiment 2: Inductive Bias Analysis 
+
+We then examined how likely the LLMs’ predictions were under GPs with different kernels. Figure 4presents the average likelihood of the LLMs’ predic-tions under four different kernels, on functions sam-pled from either the Squared Exponential (SE; smooth functions) or the Mat´ ern 1 
+
+> 2
+
+. We find that, for all model sizes and function families (SE, Mat´ ern 1 
+
+> 2
+
+), the LLMs’ predictions are most likely under the Mat´ ern 1 
+
+> 2
+
+and least likely under the SE for 1-dimensional functions. Indeed, we see a general trend that as ν → ∞ , LLM predictions become less likely. We found the same pat-tern applies to models from other families, such as Gemma and Llama, as shown in the supplementary material (Section 7). Within each kernel, we also var-ied the length scale. We found that LLM predictions are more likely under lower values of λ compared to higher values, as shown in the supplementary material (Section 5). It is also the case that, in general, predictions are more likely under rougher kernels because the pos-terior over predictions is generally broader. Indeed, we verified this by conducting an identical analysis in which independent GPs are tasked with making pre-dictions given some data, and then examined under which kernels their predictions were most likely. We found the same qualitative trend as with the LLMs— the predictions of an SE GP on SE sampled functions were much more likely under the Mat´ ern 1 
+
+> 2
+
+than un-der the SE. We outline one strategy for adjusting for this variance inflation effect in the supplementary ma-terial (Section 8). Applying this strategy makes the LLM’s predictions more likely under smoother kernels in some cases. Nonetheless, even after this correction, LLM predictions are more likely under shorter length scales (with the Squared Exponential kernel), indicat-ing inductive biases for less predictable functions. In contrast, we found that LLM predictions became more likely under smoother kernels as the dimension-ality of the function input increased. While the kernel with the highest log-likelihood for 1-dimensional func-tions is the Mat´ ern 1 
+
+> 2
+
+(−2.59 × 10 2), it is the Mat´ ern 1 1 
+
+> 2
+
+for 2-dimensional functions ( −2.05 × 10 3), and the Squared Exponential for 3- and 4-dimensional func-tions ( −6.92 × 10 3 and −1.43 × 10 4 respectively). This indicates that the model’s implicit prior adapts to-wards smoother kernels in higher-dimensional spaces and suggests that these these LLMs favour higher global regularity when modelling functions in these spaces. Elif Akata ∗12 , Konstantinos Voudouris ∗1, Vincent Fortuin 13 , Eric Schulz 1          
+
+> SE Matern ½ SE Matern ½ SE Matern ½ SE Matern ½ Matern ½ Matern 1½ Matern 2½ SE Functions From: Likelihoods Under:
+> Δ Average Log-Likelihood Per Prediction (model – base)
+
+Figure 5: Inductive bias analysis compared to the base model for the 8B model for three checkpoints (1k, 2k, 5k, 10k steps). Average likelihood per prediction shown on a symlog scale. 
+
+4.3 Experiment 3: Post-Training 
+
+We fine-tuned models on one-dimensional functions sampled from the squared exponential kernel with 
+
+λ = 8, the kernel under which our LLM predictions were least likely. Figure 5 shows the differences in likelihoods between the base model and the fine-tuned model for four fine-tuning checkpoints (1,000, 2,000, 5,000, 10,000 steps). In general, the likelihood of LLM predictions increases by a greater degree as the ker-nels become less smooth (i.e., ν → ∞ ). However, we see that the SFT-trained model predictions tend to be less likely than the base model’s when the func-tions are drawn from the Mat´ ern 1 
+
+> 2
+
+. This suggests that SFT may be overfitting to the functional form of functions drawn from the Squared Exponential kernel on which they were trained. In contrast, the GRPO-trained models see comparable likelihood boosts for both data regimes. Together, these results cohere with existing findings which suggest that while SFT memo-rizes training data, reinforcement learning-based train-ing can contribute to generalizing over that training data (Chu et al., 2025). Figure 6 shows the learning curves of models on novel held-out test data. We find that both SFT and GRPO push the absolute error for all n down towards the em-pirical GP baseline, indicating that post-training only a fraction of the total model parameters is a power-ful method for altering in-context learning capabili-ties. Further results from training on different data, using different reward functions and data in higher di-mensions are presented in the supplementary material (Sections 4 & 6). 
+
+## 5 Discussion 
+
+Function learning is a powerful test bed for measuring the ability of models to generalize to superficially novel yet functionally equivalent in-context learning prob-lems. By exploiting the principled statistical frame-work of Gaussian Process regression, we can further characterize the priors that LLMs have about continu-ous functions, and the power of post-training methods to steer those inductive biases. Indeed, a key debate in natural language processing is the differential power of token-based reinforcement learning compared to su-pervised fine-tuning (Chu et al., 2025). In this study, we found evidence of strong in-context learning capabilities for novel multivariate function learning problems, confirming existing results (Nafar et al., 2024; Requeima et al., 2024; Vacareanu et al., 2024). The error rates on these problems are surpris-ingly low, competitive with the empirical GP and far outperforming a data-driven 1-nearest-neighbor algo-rithm, even for higher-dimensional problems. This suggests that these models are not simply deriving predictions from previously observed demonstrations (Vacareanu et al., 2024). We also found that LLMs appear to be inductively bi-ased towards rougher continuous functions for lower dimensional problems and smoother continuous func-tions for higher dimensional problems. This is counter-intuitive in the context of function learning in hu-mans, who appear to show a bias towards smoother, more predictable functions in all regimes (Schulz et al., 2015). The exact reason for this phenomenon may ei-ther derive from features of the attention mechanism (Xie et al., 2021) or from properties of the large-scale In-Context Function Learning in Large Language Models SFT    
+
+> GRPO absolute
+> GRPO logprob
+> Demonstration
+> Demonstration
+> Demonstration
+> Demonstration
+> Demonstration
+> Demonstration
+> Demonstration
+> Demonstration
+> Demonstration Demonstration Demonstration Demonstration
+
+Figure 6: Post training learning curves. Top row: Effects of Supervised Fine-Tuning. 8B base model compared to two checkpoints during training (5k, 10k steps). Middle row: GRPO progression. 8B base model compared to two checkpoints (5k, 10k steps). Bottom row: GRPO progression with a log-likelihood-based reward function. All empirical learning curves are shown with 95% bootstrapped confidence intervals. pre-training data used to train these models (Cruz et al., 2023). Both supervised fine-tuning and group-relative pol-icy optimization over a small set of injected low-rank adapter matrices on each layer where able to effectively shift these preferences towards the struc-ture of the training data. Furthermore, we found some evidence pointing in the same direction as Chu et al. (2025), suggesting that reinforcement-based post-training (e.g., GRPO) leads to more generalizable behavior than supervised fine-tuning, which tends to memorize the training data. There are several limitations to this work. First, our inductive bias analysis suffers from a variance infla-tion problem, meaning that model predictions are al-ways as or more likely under rougher kernels due to larger variances. Future work will explore alternative corrections for this beyond the case described in the supplementary material (Section 8). Second, it is not yet clear how our results generalize from the controlled setting of function learning to more ecologically valid in-context learning settings, such as interacting with a user or iterating over a novel coding task. 
+
+## 6 Related Work 
+
+In-Context Learning (ICL) in Large Language Mod-els was most prominently discussed by Brown et al. (2020), who showed that large-scale autoregressive models can learn to solve a wide range of tasks purely from demonstrations at inference time. Subsequent work has sought to reveal the mechanisms underlying this capacity. Xie et al. (2021) interpret ICL as im-plicit Bayesian inference over latent concepts, while Aky¨ urek et al. (2022) formulate it as an approxima-tion of gradient descent performed during the forward pass (Von Oswald et al., 2023). Alternative perspec-tives include structure induction, where transformers recombine latent compositional patterns learned dur-ing pre-training to induce task structure (Hahn and Goyal, 2023). Empirically, larger models appear to display qualitatively different sensitivities to context noise compared to smaller models (Wei et al., 2023), and prior work has examined whether models can learn specific function classes such as linear and sparse re-gressions and how they compare to classical estimators (Bhattamishra et al., 2023; Garg et al., 2022). 
+
+Inductive Biases in ICL Wei et al. (2023) inves-tigated feature biases using underspecified prompts, showing that GPT models systematically prefer cer-Elif Akata ∗12 , Konstantinos Voudouris ∗1, Vincent Fortuin 13 , Eric Schulz 1
+
+tain predictive features (e.g., sentiment over lexical markers). Coda-Forno et al. (2023) find that GPT-3 exhibits biases in favour of positive monotonic func-tions, but that these biases can be shifted through in-context demonstrations. This connects to a long tradi-tion in computational cognitive science, where induc-tive biases are inferred from point estimates in function learning tasks (Griffiths et al., 2008; Li et al., 2023; Lu-cas et al., 2015; Schulz et al., 2018; Wilson et al., 2015). Humans themselves appear to favour smoother, more predictable functions (Schulz et al., 2015). 
+
+Regression and Function Learning with LLMs 
+
+Recent work has examined regression capabilities of LLMs directly. Vacareanu et al. (2024) show that mod-els such as GPT-4 and Claude 3 can outperform clas-sical supervised learners on certain non-linear regres-sion tasks, while Nafar et al. (2024) demonstrate that performance depends strongly on the presentation of in-context demonstrations. To better characterise pre-dictive behaviour, Requeima et al. (2024) introduce LLM Processes, eliciting predictive distributions di-rectly from LLMs and comparing them against regres-sion baselines. Several theoretical studies further sug-gest that transformers may implicitly implement ker-nel or least-squares regression mechanisms (Han et al., 2023; Zhang et al., 2024; Sun et al., 2025; Bai et al., 2023). Our work builds on these insights by evalu-ating LLMs on controlled function learning tasks and testing how well Gaussian Process (GP) models with appropriate kernels can reproduce their in-context pre-dictions. 
+
+Bayesian Perspectives, Calibration, and Un-certainty From a Bayesian viewpoint, Zhang et al. (2023) argue that ICL corresponds to approximate Bayesian model averaging over latent functions imple-mented through attention, while Falck et al. (2024) show that LLMs violate certain Bayesian properties such as the martingale condition. Related work stud-ies reliability and uncertainty estimation: Chen and Li (2023) introduce Sparse Gaussian Process Atten-tion to improve calibration, and Jesson et al. (2024) quantify hallucination rates as low-likelihood outputs under an assumed latent model. Rather than modify-ing model architecture, our approach analyses the nat-ural calibration of LLM outputs on function learning tasks and evaluates how well GP post-hoc modelling captures predictive uncertainty. 
+
+Post-Training and Steering Inductive Biases 
+
+Several studies examine how post-training methods can shift inductive biases. Reinforcement learning from human feedback appears to bias models toward extractable features (Cruz et al., 2023), and reinforce-ment learning-based post-training may improve gen-eralisation compared to supervised fine-tuning (Chu et al., 2025). Our work complements these findings by studying how fine-tuning influences inductive biases in controlled function learning settings. 
+
+## 7 Conclusion 
+
+Any system interacting with an environment in-evitably handles continuous functional relationships, from judging the sentiment of a piece of text to fore-casting the weather. Although LLMs are often evalu-ated on discrete tasks, their routine use often requires learning smooth input-output relationships like map-ping text to scores, rewards, or making continuous pre-dictions from a few examples. Our study casts in-context function learning as a prin-cipled test bed for probing the statistical capabilities and inductive biases of large language models. By grounding our analysis in Gaussian process regres-sion, we demonstrate that LLMs can approximate non-parametric regression learners, with performance scal-ing with model size and approaching the GP lower bound with more demonstrations. However, our in-ductive bias analysis reveals a consistent tendency to-ward rougher functions, pointing to a divergence from human expectations. We further show that post-training with parameter-efficient methods such as supervised fine-tuning and reinforcement learning can shift these biases towards previously unlikely kernels. While supervised fine-tuning exhibits signs of overfitting, reinforcement learning appears to promote more generalizable ad-justments. These findings highlight both the promise and limitations of LLMs as function learners, and point to controlled function learning tasks as a pow-erful framework for dissecting and steering in-context learning mechanisms. 
+
+## Acknowledgements 
+
+This project has received funding from the European Research Council (ERC) under the European Union’s Horizon Europe research and innovation programme (ERC Starting Grant TACOS). We thank the Inter-national Max Planck Research School for Intelligent Systems (IMPRS-IS) for supporting EA. In-Context Function Learning in Large Language Models 
+
+References 
+
+Ekin Aky¨ urek, Dale Schuurmans, Jacob Andreas, Tengyu Ma, and Denny Zhou. What learning algo-rithm is in-context learning? investigations with lin-ear models. arXiv preprint arXiv:2211.15661 , 2022. Yu Bai, Fan Chen, Huan Wang, Caiming Xiong, and Song Mei. Transformers as statisticians: Provable in-context learning with in-context algorithm selec-tion. Advances in neural information processing sys-tems , 36:57125–57211, 2023. Satwik Bhattamishra, Arkil Patel, Phil Blunsom, and Varun Kanade. Understanding in-context learning in transformers and llms by learning to learn discrete functions. arXiv preprint arXiv:2310.03016 , 2023. Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared D Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, et al. Language models are few-shot learners. Advances in neural information processing systems , 33:1877–1901, 2020. Wenlong Chen and Yingzhen Li. Calibrating trans-formers via sparse gaussian processes. arXiv preprint arXiv:2303.02444 , 2023. Tianzhe Chu, Yuexiang Zhai, Jihan Yang, Shengbang Tong, Saining Xie, Dale Schuurmans, Quoc V Le, Sergey Levine, and Yi Ma. Sft memorizes, rl general-izes: A comparative study of foundation model post-training. arXiv preprint arXiv:2501.17161 , 2025. Julian Coda-Forno, Marcel Binz, Zeynep Akata, Matt Botvinick, Jane Wang, and Eric Schulz. Meta-in-context learning in large language models. Ad-vances in Neural Information Processing Systems ,36:65189–65201, 2023. Diogo Cruz, Edoardo Pona, Alex Holness-Tofts, Elias Schmied, V´ ıctor Abia Alonso, Charlie Griffin, and Bogdan-Ionut Cirstea. Reinforcement learn-ing fine-tuning of language models is biased to-wards more extractable features. arXiv preprint arXiv:2311.04046 , 2023. Tim Dettmers, Mike Lewis, Younes Belkada, and Luke Zettlemoyer. Llm.int8(): 8-bit matrix mul-tiplication for transformers at scale. arXiv preprint arXiv:2208.07339 , 2022a. Tim Dettmers, Mike Lewis, Sam Shleifer, and Luke Zettlemoyer. 8-bit optimizers via block-wise quan-tization. 9th International Conference on Learning Representations, ICLR , 2022b. Tim Dettmers, Artidoro Pagnoni, Ari Holtzman, and Luke Zettlemoyer. Qlora: Efficient finetuning of quantized llms. arXiv preprint arXiv:2305.14314 ,2023. Fabian Falck, Ziyu Wang, and Chris Holmes. Is in-context learning in large language models bayesian? a martingale perspective. arXiv preprint arXiv:2406.00793 , 2024. Shivam Garg, Dimitris Tsipras, Percy S Liang, and Gregory Valiant. What can transformers learn in-context? a case study of simple function classes. 
+
+Advances in neural information processing systems ,35:30583–30598, 2022. Gemma Team, Thomas Mesnard, Cassidy Hardin, Robert Dadashi, Surya Bhupatiraju, Shreya Pathak, Laurent Sifre, Morgane Rivi` ere, Mihir Sanjay Kale, Juliette Love, et al. Gemma: Open models based on gemini research and technology. arXiv preprint arXiv:2403.08295 , 2024. Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ah-mad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten, Alex Vaughan, et al. The llama 3 herd of models. arXiv preprint arXiv:2407.21783 , 2024. Thomas L Griffiths, Chris Lucas, Joseph Williams, and Michael Kalish. Modeling human function learning with gaussian processes. Advances in neural information processing systems , 21, 2008. Michael Hahn and Navin Goyal. A theory of emergent in-context learning as implicit structure induction. 
+
+arXiv preprint arXiv:2303.07971 , 2023. Chi Han, Ziqi Wang, Han Zhao, and Heng Ji. Ex-plaining emergent in-context learning as kernel re-gression. arXiv preprint arXiv:2305.12766 , 2023. Jingcheng Hu, Yinmin Zhang, Qi Han, Daxin Jiang, Xiangyu Zhang, and Heung-Yeung Shum. Open-reasoner-zero: An open source approach to scaling up reinforcement learning on the base model. arXiv preprint arXiv:2503.24290 , 2025. Andrew Jesson, Nicolas Beltran-Velez, Quentin Chu, Sweta Karlekar, Jannik Kossen, Yarin Gal, John P Cunningham, and David Blei. Estimating the hal-lucination rate of generative ai. Advances in Neural Information Processing Systems , 37:31154–31201, 2024. Albert Q. Jiang, Alexandre Sablayrolles, Arthur Mensch, Chris Bamford, Devendra Singh Chap-lot, Diego de las Casas, Florian Bressand, Gi-anna Lengyel, Guillaume Lample, Lucile Saulnier, L´ elio Renard Lavaud, Marie-Anne Lachaux, Pierre Stock, Teven Le Scao, Thibaut Lavril, Thomas Wang, Timoth´ ee Lacroix, and William El Sayed. Mistral 7b, 2023. URL https://arxiv.org/abs/ 2310.06825 .Michael Y Li, Fred Callaway, William D Thompson, Ryan P Adams, and Thomas L Griffiths. Learning Elif Akata ∗12 , Konstantinos Voudouris ∗1, Vincent Fortuin 13 , Eric Schulz 1
+
+to learn functions. Cognitive science , 47(4):e13262, 2023. Zichen Liu, Changyu Chen, Wenjun Li, Penghui Qi, Tianyu Pang, Chao Du, Wee Sun Lee, and Min Lin. Understanding r1-zero-like training: A critical per-spective. arXiv preprint arXiv:2503.20783 , 2025. Christopher G Lucas, Thomas L Griffiths, Joseph J Williams, and Michael L Kalish. A rational model of function learning. Psychonomic bulletin & review ,22(5):1193–1215, 2015. Sewon Min, Xinxi Lyu, Ari Holtzman, Mikel Artetxe, Mike Lewis, Hannaneh Hajishirzi, and Luke Zettle-moyer. Rethinking the role of demonstrations: What makes in-context learning work?, 2022. URL 
+
+https://arxiv.org/abs/2202.12837 .Aliakbar Nafar, Kristen Brent Venable, and Parisa Kordjamshidi. Learning vs retrieval: The role of in-context examples in regression with llms. arXiv e-prints , pages arXiv–2409, 2024. James Requeima, John Bronskill, Dami Choi, Richard E Turner, and David Duvenaud. Llm processes: Numerical predictive distributions con-ditioned on natural language. In A. Globerson, L. Mackey, D. Belgrave, A. Fan, U. Paquet, J. Tom-czak, and C. Zhang, editors, Advances in Neural Information Processing Systems , volume 37, pages 109609–109671. Curran Associates, Inc., 2024. Eric Schulz, Joshua B Tenenbaum, David N Reshef, Maarten Speekenbrink, and Samuel J Gershman. Assessing the perceived predictability of functions. In Proceedings of the Annual Meeting of the Cogni-tive Science Society , volume 37, 2015. Eric Schulz, Maarten Speekenbrink, and Andreas Krause. A tutorial on gaussian process regres-sion: Modelling, exploring, and exploiting functions. 
+
+Journal of mathematical psychology , 85:1–16, 2018. Chenglei Si, Dan Friedman, Nitish Joshi, Shi Feng, Danqi Chen, and He He. Measuring inductive biases of in-context learning with underspecified demon-strations. arXiv preprint arXiv:2305.13299 , 2023. Haoyuan Sun, Ali Jadbabaie, and Navid Azizan. In-context learning of polynomial kernel regression in transformers with glu layers. arXiv e-prints , pages arXiv–2501, 2025. Robert Vacareanu, Vlad-Andrei Negru, Vasile Suciu, and Mihai Surdeanu. From words to numbers: Your large language model is secretly a capable regres-sor when given in-context examples. arXiv preprint arXiv:2404.07544 , 2024. Johannes Von Oswald, Eyvind Niklasson, Ettore Ran-dazzo, Jo˜ ao Sacramento, Alexander Mordvintsev, Andrey Zhmoginov, and Max Vladymyrov. Trans-formers learn in-context by gradient descent. In In-ternational Conference on Machine Learning , pages 35151–35174. PMLR, 2023. Jerry Wei, Jason Wei, Yi Tay, Dustin Tran, Albert Webson, Yifeng Lu, Xinyun Chen, Hanxiao Liu, Da Huang, Denny Zhou, et al. Larger language mod-els do in-context learning differently. arXiv preprint arXiv:2303.03846 , 2023. Andrew G Wilson, Christoph Dann, Chris Lucas, and Eric P Xing. The human kernel. Advances in neural information processing systems , 28, 2015. Sang Michael Xie, Aditi Raghunathan, Percy Liang, and Tengyu Ma. An explanation of in-context learn-ing as implicit bayesian inference. arXiv preprint arXiv:2111.02080 , 2021. An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang Gao, Chengen Huang, Chenxu Lv, et al. Qwen3 technical report. arXiv preprint arXiv:2505.09388 , 2025. Qiying Yu, Zheng Zhang, Ruofei Zhu, Yufeng Yuan, Xiaochen Zuo, Yu Yue, Weinan Dai, Tiantian Fan, Gaohong Liu, Lingjun Liu, et al. Dapo: An open-source llm reinforcement learning system at scale. 
+
+arXiv preprint arXiv:2503.14476 , 2025. Ruiqi Zhang, Spencer Frei, and Peter L Bartlett. Trained transformers learn linear models in-context. 
+
+Journal of Machine Learning Research , 25(49):1–55, 2024. Yufeng Zhang, Fengzhuo Zhang, Zhuoran Yang, and Zhaoran Wang. What and how does in-context learning learn? bayesian model averaging, pa-rameterization, and generalization, 2023. URL https://arxiv. org/abs/2305.19420 , 2023. In-Context Function Learning in Large Language Models: Supplementary Materials 
+
+## 1 A Guideline For Studying Inductive Biases in LLMs 
+
+This section summarises the general, model-agnostic procedure we took for analysing inductive biases in LLMs on continuous function learning tasks. It draws directly from classic methods from cognitive science, where inductive biases are inferred from human judgements (Griffiths et al., 2008; Griffiths and Tenenbaum, 2006; Lucas et al., 2015; Schulz et al., 2018). The same framework can be applied to LLMs since they can be understood as conditional predictors receiving structured demonstrations, analogous to the human case. The procedure consists of four components: 1. Construct controlled function-learning tasks by sampling target functions from known generative families, mirroring experimental designs in human function-learning research (Mcdaniel and Busemeyer, 2005; Schulz et al., 2015). In our study, we used functions sampled from Gaussian Processes with Mat´ ern or Squared Exponential kernels. 2. Evaluate in-context learning curves by measuring prediction error as a function of the number of in-context demonstrations. These learning curves should be compared to principled references that implement in-terpretable learning prediction strategies. In our case, we used a simple memorisation baseline (1-nearest neighbour) to serve as an upper bound on non-generalising behaviour, and Gaussian-process regression on the same data, as an empirical lower bound under an assumed prior. This allows us to assess whether the model behaves more like a non-parametric regressor (Coda-Forno et al., 2023; Requeima et al., 2024) or relies primarily on pattern retrieval (Vacareanu et al., 2024). 3. Perform a likelihood-based inductive bias analysis by considering the LLM’s point predictions given some data under the posterior predictive distribution of a Gaussian process with a specific kernel. Aggregation of these likelihoods across all predictions identifies the kernel under which the LLM’s predictions are most likely. This method follows from research on inferring inferring human inductive biases via predictive likelihoods (Griffiths et al., 2008; Lucas et al., 2015; Li et al., 2023) and connects naturally to work on structured statistical inductive reasoning (Tenenbaum et al., 2011; Kemp and Tenenbaum, 2009). Our approach provides a unified testbed for analysing the in-context inductive biases of LLMs, rooted in existing methodologies in computational cognitive science and non-parametric Bayesian statistics. It supports controlled comparisons across model families, training regimes, and post-training interventions, and offers a principled way to interpret in-context learning behavior through the lens of functional priors. 
+
+## 2 Expected 1-Nearest Neighbour Mean Absolute Error 
+
+To compute the 1-NN expected absolute error, we assume n inputs are drawn uniformly as X ∼ U [0 , L ] with some upper bound, L. We fix i ∈ { 1, . . . , n } and let j⋆(i) be the index of xi’s nearest neighbour among {xj }j̸ =i.The 1-NN error is given by: 
+
+εi := yi − yj⋆(i) = ( f (xi) − f (xj⋆(i))) + ( ϵi + ϵj⋆(i))Where ϵ ∼ N (0 , σ 2 
+
+> ϵ
+
+) is the noise added to the outputs of the function f (·) drawn from the GP. The error, εi is conditional on the distance, di, between xi and xj⋆(i) is defined as |xi − xj⋆(i)|. Assuming a Gaussian process In-Context Function Learning in LLMs 
+
+with kernel function k(·), mean 0, and output variance σ2 
+
+> f
+
+(i.e. the value of k(0)), the mean of εi is also 0 and the variance is defined as: 
+
+V (d) = 2 σ2 
+
+> f
+
++ 2 σ2 
+
+> ϵ
+
+− 2k(d)Since ε is normally distributed, the expected absolute error conditional on d is therefore: 
+
+E[|ε| | d] = 
+
+√ 2
+
+π
+
+√V (d)To compute the unconditional absolute error E[|ε|], we first notice that the probability no member of {x1, ..., x n−1}
+
+is within distance d of xn is (1 − 2d
+
+> L
+
+)n−1, for cases where xn is at least d away from 0 or L. The probability that the closest other input to xn is at most d is the complement of this probability, and is given by the cumulative density function: 
+
+FD (d) = Pr( D ≤ d) = 1 −
+
+(
+
+1 − 2d
+
+L
+
+)n−1
+
+where 0 ≤ d ≤ L 
+
+> 2
+
+. The probability density function is derived by differentiation: 
+
+fD (d) = F ′ 
+
+> D
+
+(d) = 2( n − 1) 
+
+L
+
+(
+
+1 − 2d
+
+L
+
+)n−2
+
+with the same support. Therefore, the unconditional expected absolute error is given by: 
+
+E[|ε|] = 
+
+√ 2
+
+π
+
+∫ L/ 20
+
+V (d) 2( n − 1) 
+
+L
+
+(
+
+1 − 2d
+
+L
+
+)n−2
+
+dd
+
+In this work, this integral is evaluated numerically using adaptive Gauss-Kronrod quadrature. 
+
+## 3 Prompting Structure 
+
+We used the following prompt structure for 1-dimensional regression tasks: 
+
+You are a number predictor. I will give you a number, X, and then you need to predict a new number, Y. There may be noise in the true prediction. Your task is to provide your best estimate for Y. Provide that and only that, without any additional text. X: {train input }, Y: {train output } ... X: {test input }, Y: 
+
+where there are between 0 and 49 train input-output pairs as in-context demonstrations. We used the following prompt structure for 2-, 3-, and 4-dimensional regression tasks: 
+
+You are a function approximator. I will give you a set of input variables (X), and then you need to the output value (Y). There may be noise in the true prediction. Your task is to provide your best estimate for Y. Provide that and only that, without any additional text. X0: {train input 1 } ... , Y: {train output } ... X0: {test input 1 } ... , Y: 
+
+where again there are between 0 and 49 train input-output pairs as in-context demonstrations. Note that the model is given the role of a function approximator here, rather than a number predictor. 4 Multi-dimensional Regression Task 
+
+We conducted the inductive bias analysis on the multi-dimensional regression problem. Table 1 below shows the log-likelihoods of the the model predictions under each kernel. For all model sizes, predictions are most likely under the Mat´ ern 1 1 
+
+> 2
+
+kernel for 2-dimensional regression tasks, and under the Squared Exponential for 3- and 4-dimensional tasks. Recall that model predictions are most likely under the Mat´ ern 1 
+
+> 2
+
+kernel for 1-dimensional tasks. This suggests that these models are inductively biased to rougher functions in low-dimensional space and smoother functions in high-dimensional space. Table 1: The total log-likelihood over 19,200 predictions by two Qwen-3 models under different kernels on functions generated either from the Squared Exponential (SE) or the Mat´ ern 1 
+
+> 2
+
+. The highest log-likelihoods for each dimensionality for each model is shown in bold. Parameters Likelihoods Under Functions From 2 3 4
+
+8B Mat´ ern 1 
+
+> 2
+
+SE −9.81 × 10 3 −1.47 × 10 4 −1.69 × 10 4
+
+Mat´ ern 1 
+
+> 2
+
+−9.72 × 10 3 −1.47 × 10 4 −1.69 × 10 4
+
+Mat´ ern 1 1 
+
+> 2
+
+SE −2.05 × 10 3 −1.15 × 10 4 −1.60 × 10 4
+
+Mat´ ern 1 
+
+> 2
+
+−1.65 × 10 3 −1.14 × 10 4 −1.60 × 10 4
+
+Mat´ ern 2 1 
+
+> 2
+
+SE −1.06 × 10 4 −9.90 × 10 3 −1.56 × 10 4
+
+Mat´ ern 1 
+
+> 2
+
+−1.17 × 10 4 −9.81 × 10 3 −1.56 × 10 4
+
+SE SE −8.56 × 10 6 −7.12 × 10 3 −1.44 × 10 4
+
+Mat´ ern 1 
+
+> 2
+
+−9.26 × 10 6 −7.02 × 10 3 −1.44 × 10 4
+
+14B Mat´ ern 1 
+
+> 2
+
+SE −9.68 × 10 3 −1.47 × 10 4 −1.68 × 10 4
+
+Mat´ ern 1 
+
+> 2
+
+−9.63 × 10 3 −1.46 × 10 4 −1.68 × 10 4
+
+Mat´ ern 1 1 
+
+> 2
+
+SE −1.00 × 10 3 −1.15 × 10 4 −1.59 × 10 4
+
+Mat´ ern 1 
+
+> 2
+
+−8.39 × 10 2 −1.14 × 10 4 −1.59 × 10 4
+
+Mat´ ern 2 1 
+
+> 2
+
+SE −6.12 × 10 3 −9.87 × 10 3 −1.55 × 10 4
+
+Mat´ ern 1 
+
+> 2
+
+−7.68 × 10 3 −9.79 × 10 3 −1.55 × 10 4
+
+SE SE −7.65 × 10 6 −6.92 × 10 3 −1.43 × 10 4
+
+Mat´ ern 1 
+
+> 2
+
+−8.45 × 10 6 −7.03 × 10 3 −1.43 × 10 4
+
+## 5 Lengthscale Comparison 
+
+We use the same methodology as in the main paper to determine under which ℓ value for the Squared Exponential (SE) kernel are LLM predictions most likely. Table 2 shows the likelihoods on SE-sampled functions for the 8B and 14B base models before and after post-training with SFT or GRPO. Table 3 shows the same for Mat´ ern 1
+
+> 2
+
+sampled functions. We see that LLM predictions are much more likely under kernels with lower ℓ. After training these models for 2,000 steps on data drawn from the SE with ℓ = 8, we notice that the likelihood of LLM responses increases substantially for both post-training methods on SE-sampled functions, with that difference being greater for SFT-trained models. However, this pattern reverses for Mat´ ern 1 
+
+> 2
+
+-sampled functions. The 8B SFT model’s predictions are less likely under the SE with ls = 6 , 8, and the 14B SFT model’s predictions are less likely under all length scales. Meanwhile, the GRPO models show a comparable likelihood increase across all lengthscales. This result is in favour of the hypothesis that GRPO enables models to learn something generalizable about the functional structure of their training data, while SFT may simply contribute to memorization of those data. In-Context Function Learning in LLMs 
+
+Table 2: The average likelihood per prediction under the Squared Exponential with different length scales, ℓ,on functions drawn from the Squared Exponential, for the 8B and 14B models before and after fine-tuning with either SFT or GRPO. Both models were trained with data drawn from the Squared Exponential with ℓ = 8 for 2,000 steps. ∆ shows the difference (SFT/GRPO - Base). 
+
+Size ℓ Base SFT ∆ GRPO ∆
+
+8B 1 −1.95 × 10 2 −2.76 × 10 1 +1 .67 × 10 2 −6.44 × 10 1 +1 .31 × 10 2
+
+2 −1.28 × 10 3 −3.52 × 10 2 +9 .28 × 10 2 −6.30 × 10 2 +6 .50 × 10 2
+
+4 −3.63 × 10 3 −1.76 × 10 3 +1 .87 × 10 3 −2.21 × 10 3 +1 .42 × 10 3
+
+6 −5.27 × 10 3 −2.95 × 10 3 +2 .32 × 10 3 −3.27 × 10 3 +2 .00 × 10 3
+
+8 −6.39 × 10 3 −3.83 × 10 3 +2 .56 × 10 3 −3.99 × 10 3 +2 .40 × 10 3
+
+14B 1 −3.95 × 10 1 −1.35 × 10 1 +2 .60 × 10 1 −2.32 × 10 1 +1 .63 × 10 1
+
+2 −5.03 × 10 2 −2.24 × 10 2 +2 .79 × 10 2 −3.82 × 10 2 +1 .21 × 10 2
+
+4 −1.91 × 10 3 −1.38 × 10 3 +5 .30 × 10 2 −1.66 × 10 3 +1 .74 × 10 3
+
+6 −2.87 × 10 3 −2.66 × 10 3 +2 .10 × 10 2 −2.64 × 10 3 +2 .30 × 10 2
+
+8 −3.50 × 10 3 −3.69 × 10 3 +1 .90 × 10 2 −3.32 × 10 3 +1 .80 × 10 2
+
+Table 3: The average likelihood per prediction under the Squared Exponential with different length scales, ℓ, on functions drawn from the Mat´ ern 1 
+
+> 2
+
+, for the 8B and 14B models before and after fine-tuning with either SFT or GRPO. Both models were trained with data drawn from the Squared Exponential with ℓ = 8 for 2,000 steps. ∆ shows the difference (SFT/GRPO - Base). 
+
+Size ℓ Base SFT ∆ GRPO ∆
+
+8B 1 −4.25 × 10 2 −3.93 × 10 2 +3 .10 × 10 1 −2.47 × 10 2 +1 .78 × 10 2
+
+2 −2.01 × 10 3 −1.68 × 10 3 +3 .29 × 10 2 −1.26 × 10 3 +7 .50 × 10 2
+
+4 −3.93 × 10 3 −3.62 × 10 3 +3 .10 × 10 2 −2.58 × 10 3 +1 .35 × 10 3
+
+6 −4.69 × 10 3 −4.93 × 10 3 −2.40 × 10 2 −3.31 × 10 3 +1 .38 × 10 3
+
+8 −5.03 × 10 3 −5.98 × 10 3 −9.50 × 10 2 −3.78 × 10 3 +1 .25 × 10 3
+
+14B 1 −2.20 × 10 2 −4.19 × 10 2 −1.99 × 10 2 −1.78 × 10 2 +4 .20 × 10 1
+
+2 −1.14 × 10 3 −1.67 × 10 3 −5.30 × 10 2 −9.85 × 10 2 +1 .55 × 10 2
+
+4 −2.32 × 10 3 −3.43 × 10 3 −1.11 × 10 3 −2.11 × 10 3 +2 .10 × 10 2
+
+6 −2.93 × 10 3 −4.72 × 10 3 −1.79 × 10 3 −2.77 × 10 3 +1 .60 × 10 2
+
+8 −3.31 × 10 3 −5.75 × 10 3 −2.44 × 10 3 −3.22 × 10 3 +9 .00 × 10 1
+
+## 6 Further Experimental Conditions 
+
+6.1 Training On Data With A Different Length-Scale 
+
+We provide an alternative training regime in which the models are trained on data drawn from the Squared Exponential with ℓ = 1 rather than ℓ = 8. We find a broadly similar pattern with respect to learning curves (Figure 1) and inductive bias analyses after post-training as shown in Figure 2. SFT 
+
+> GRPO
+> Demonstration
+> Demonstration
+> Demonstration
+> Demonstration
+> Demonstration
+> Demonstration
+> Demonstration
+> Demonstration
+
+Figure 1: Post training learning curves with ℓ = 1 training regime. Top row: Effects of Supervised Fine-Tuning. 8B base model compared to two checkpoints during training (5k, 10k steps). Bottom row: GRPO progression. 8B base model compared to two checkpoints (5k, 10k steps). All empirical learning curves are shown with 95% bootstrapped confidence intervals. 
+
+6.2 Training GRPO With A Different Reward Function 
+
+Reinforcement learning-based post-training is flexible in that several different reward functions can be specified. We use two: negative absolute error and log-likelihood under the SE ( ℓ = 8). In both cases, the model’s prediction is taken to be the sequentially last float in their completion. For the negative absolute error, reward is capped at a minimum of −10 for parseable responses, and is −11 for any completions that do not contain a parseable float. For the log-likelihood error, we cap the reward at a minimum of −999, and set the reward for unparseable responses at −1000. We find no interpretative differences between these two reward functions. Figure 3 presents the difference between the post-trained models and the base model in terms of the log-likelihood of their predictions under four different kernels for functions sampled from two different kernels. Once again, we find that GRPO robustly shifts model inductive biases towards smoother kernels for all data regimes, while SFT only shifts these biases under identical regimes to the training data (i.e., the Squared Exponential). 
+
+6.3 On The Choice Of Kernel Families 
+
+In this work, we focus on the Mat´ ern and squared-exponential (SE) families with varying length scales. Together, these kernels span a broad and interpretable range of function classes from comparatively rough to very smooth sample paths. They also support a simple, likelihood-based comparison that remains easy to interpret across conditions. Periodic and compositional kernels are also an important and interesting direction. However, we treat them as beyond the scope of the present study for two reasons. First, exactly periodic kernels exhibit qualitatively different behavior from Mat´ ern/SE in which sample paths from a truly periodic kernel lie in a function class that is poorly captured by standard non-periodic kernels. This would make our likelihood comparisons less interpretable in the framework adopted here. Second, compositional kernels substantially expand the model space and introduce many additional hyperparameters, complicating the analysis and its interpretability. For these reasons, we begin with a compact stationary kernel family and leave a systematic investigation of periodic and compositional kernels to future work. In-Context Function Learning in LLMs           
+
+> SE Matern ½ SE Matern ½ SE Matern ½ SE Matern ½ Matern ½ Matern 1½ Matern 2½ SE Functions From: Likelihoods Under:
+> Δ Average Log-Likelihood Per Prediction (model – base)
+
+Figure 2: Inductive bias analysis compared to the base model for Qwen-3-8B for three checkpoints (1k, 2k, 5k, 10k steps), with training data on the squared exponential with ℓ = 1. Average likelihood per prediction shown on a symlog scale. 
+
+## 7 Experiments With Further Models 
+
+Alongside the three Qwen-3 models discussed in the main paper, we also evaluated three members of the Llama family (Llama-3.2-3B-Instruct, Llama-3.1-8B-Instruct, Llama-3.1-70B-Instruct; Grattafiori et al., 2024), three members of the Gemma-3 family (4B, 12B, and 27B; Gemma Team et al., 2024), and two members of the Mistral family (Mistral-7B-Instruct-v0.3 and Mistral-Small-24B-Instruct-2501; Jiang et al., 2023), where B denotes the parameter size in billions and all models are 4-bit quantized. Figure 4 shows the learning curves for all of these models except for Llama-3.2-3B, which had absolute errors well beyond the observed scale of y, suggesting that this model was unable to calibrate to the regression task. Within the Llama family, larger models were better able to perform the task, with only Llama-3.1-70B able to occasionally outperform the 1-NN baseline. The Gemma family were altogether better at the task, with a slight but noticeable effect for model size. The Mistral family performed very poorly, and the larger 24B model appears to be much worse than the smaller 7B model. We then conducted our inductive bias analysis on all these models, as shown in Figure 5. We find that, for all model sizes and function families (SE, Mat´ ern 1 
+
+> 2
+
+), the LLMs’ predictions are most likely under the Mat´ ern 1
+
+> 2
+
+and least likely under the SE for 1-dimensional functions. Indeed, we see a general trend that as ν → ∞ , LLM predictions become less likely. Predictions from the mistral model were so unlikely under all kernels that we have omitted them from Figure 5. We repeated our post-training experiments with Llama-3.1-8B, which had a similar pattern to Qwen-3 insofar as its predictions are most likely under the Mat´ ern 1 
+
+> 2
+
+kernel and least likely under the Squared Exponential. We found that post-training heavily reduces the noise in the learning curves observed in the base model (Figure 6). Both SFT and GRPO lead to model predictions being more likely under all kernels (Figure 7), likely because they both lead to a reduction in prediction noise, i.e., they both improve model calibration. In contrast, Qwen-3 already appears to be well-calibrated before any fine-tuning. 
+
+## 8 Variance Inflation Correction 
+
+We note that our inductive bias analysis is threatened by what we call a variance inflation effect. Mat´ ern 1 
+
+> 2
+
+kernels with lower ν (for which the Squared Exponential is equivalent to ν → ∞ ) have higher posterior predictive variances. Thus, without adjustment, point predictions are as or more log-likely under kernels with lower ν
+
+compared to those with higher ν.To verify this, we repeated our inductive bias analysis but used Gaussian Processes as our point predictors instead SE Matern ½ SE Matern ½ SE Matern ½ SE Matern ½ Matern ½ Matern 1½ Matern 2½ SE Functions From: Likelihoods Under: 
+
+> Δ Average Log-Likelihood Per Prediction (model – base)
+
+Figure 3: Inductive bias analysis compared to the base model for the 8B model for three checkpoints (1k, 2k, 5k, 10k steps), with training data on the squared exponential with ℓ = 8. GRPO was trained directly with a log-likelihood-based reward function. Average likelihood per prediction shown on a symlog scale. 
+
+Llama-3.1-8B Llama-3.1-70B Mistral-7B-v0.3 Mistral-Small-24B 
+
+Gemma-3-4B Gemma-3-12B Gemma-3-27B      
+
+> Demonstration Demonstration Demonstration Demonstration
+> Demonstration Demonstration Demonstration
+
+Figure 4: Learning curve analysis on 1-dimensional functions. The mean absolute error after n demonstrations by function type. Models from the Llama, Mistral, and Gemma families were tested. Llama-3.2-3B is omitted because error rates were consistently well above 1. All LLM and GP learning curves are shown with 95% bootstrapped confidence intervals. of Large Language Models. Figure 8 presents the results of this analysis. As can be seen, the inductive bias analysis does not straightforwardly recover the kernel of the point-predicting GP. All predictions are generally more likely under kernels with lower ν than kernels with higher ν.In an attempt to correct for this, we introduce a variance correction. Rather than assuming that point predictions are true draws from a GP posterior predictive (ˆ y ∼ N (μi, σ 2 
+
+> i
+
+) for GP mean and variance μi, σ 2 
+
+> i
+
+), we instead assume that they are noisy draws with additional variance, τ 2 (i.e., ˆ y ∼ N (μi, σ 2 
+
+> i
+
++ τ 2)). Since we do not know τ 2 a priori , we learn it from the data. For each point prediction under each kernel, we collect all the residuals, r, as the difference between the model’s prediction, ˆ yi, and the posterior predictive mean, 
+
+μi, as well as the posterior predictive variances, v. The total log-likelihood of τ 2 across all prediction-kernel In-Context Function Learning in LLMs 
+
+Figure 5: Inductive bias analysis of the base models from three model families: Gemma, Llama, and Qwen-3. The average log likelihood per prediction is computed under GPs with four different kernels ( ℓ = 8), on 1-dimensional data drawn from either the Squared Exponential or the Mat´ ern 1 
+
+> 2
+
+. These likelihoods are presented on a symmetric log scale. LLM predictions for all model families sizes are more likely under kernels with lower 
+
+ν, i.e., those that describe rougher, less predictable functions. pairs is given by: 
+
+L(τ 2) = ∑
+
+> i
+
+log N (ri|0, v i + τ 2) = − 1
+
+2
+
+∑
+
+> i
+
+[
+
+log(2 π(vi + τ 2)) + r2
+
+> i
+
+vi + τ 2
+
+]
+
+We minimize the negative log-likelihood with respect to log( τ 2) to enforce τ 2 > 0, which is a convex optimization problem. This essentially produces a pooled variance across all kernels which serves to reduce the variance inflation effect. Now, the inductive bias analysis more accurately measures the degree to which LLM predictions match the posterior predictive means of each kernel. We use this τ 2-adjustment for our inductive bias analysis, which is presented in Figure 9. These results show that the base LLM predictions are more likely under smoother kernels, although this partly depends on the structure of the data being administered. SFT 
+
+GRPO       
+
+> Demonstration Demonstration Demonstration Demonstration
+> Demonstration Demonstration Demonstration Demonstration
+
+Figure 6: Post training learning curves with ℓ = 8 training regime on Llama-3.1-8B. Top row: Effects of Supervised Fine-Tuning. 8B base model compared to two checkpoints during training (5k, 10k steps). Bottom row: GRPO progression. 8B base model compared to two checkpoints (5k, 10k steps). All empirical learning curves are shown with 95% bootstrapped confidence intervals. 
+
+SE Matern ½ SE Matern ½ SE Matern ½ SE Matern ½ Matern ½ Matern 1½ Matern 2½ SE Functions From: Likelihoods Under: 
+
+> Δ Average Log-Likelihood Per Prediction (model – base)
+
+Figure 7: Inductive bias analysis compared to the base model for the Llama-3.1-8B for three checkpoints (1k, 2k, 5k, 10k steps) after training on Squared Exponential functions with ℓ = 1. Average likelihood per prediction shown on a symlog scale. In-Context Function Learning in LLMs           
+
+> SE Matern ½ SE Matern ½ SE Matern ½ SE Matern ½ Matern ½ Matern 1½ Matern 2½ SE Functions From: Likelihoods Under:
+> Average Log-Likelihood Per Prediction
+
+Figure 8: Inductive bias analysis on GP predictors on functions generated by two different kernels, under GPs with different kernels. We see that unadjusted likelihoods do not straightforwardly recover the ground truth kernel of the model making the prediction.           
+
+> SE Matern ½ SE Matern ½ SE Matern ½ SE Matern ½ Matern ½ Matern 1½ Matern 2½ SE Functions From: Likelihoods Under:
+> Average Log-Likelihood Per Prediction  0-10 -1
+> -10 0
+
+Figure 9: Inductive bias analysis of the base models (8B, 14B, 32B) with τ 2-adjustment. Average likelihood per prediction shown on a symlog scale. References 
+
+Julian Coda-Forno, Marcel Binz, Zeynep Akata, Matt Botvinick, Jane Wang, and Eric Schulz. Meta-in-context learning in large language models. Advances in Neural Information Processing Systems , 36:65189–65201, 2023. Gemma Team, Thomas Mesnard, Cassidy Hardin, Robert Dadashi, Surya Bhupatiraju, Shreya Pathak, Laurent Sifre, Morgane Rivi` ere, Mihir Sanjay Kale, Juliette Love, et al. Gemma: Open models based on gemini research and technology. arXiv preprint arXiv:2403.08295 , 2024. Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten, Alex Vaughan, et al. The llama 3 herd of models. arXiv preprint arXiv:2407.21783 , 2024. Thomas L Griffiths and Joshua B Tenenbaum. Optimal predictions in everyday cognition. Psychological science ,17(9):767–773, 2006. Thomas L Griffiths, Chris Lucas, Joseph Williams, and Michael Kalish. Modeling human function learning with gaussian processes. Advances in neural information processing systems , 21, 2008. Albert Q. Jiang, Alexandre Sablayrolles, Arthur Mensch, Chris Bamford, Devendra Singh Chaplot, Diego de las Casas, Florian Bressand, Gianna Lengyel, Guillaume Lample, Lucile Saulnier, L´ elio Renard Lavaud, Marie-Anne Lachaux, Pierre Stock, Teven Le Scao, Thibaut Lavril, Thomas Wang, Timoth´ ee Lacroix, and William El Sayed. Mistral 7b, 2023. URL https://arxiv.org/abs/2310.06825 .Charles Kemp and Joshua B Tenenbaum. Structured statistical models of inductive reasoning. Psychological review , 116(1):20, 2009. Christopher G Lucas, Thomas L Griffiths, Joseph J Williams, and Michael L Kalish. A rational model of function learning. Psychonomic bulletin & review , 22(5):1193–1215, 2015. Mark A Mcdaniel and Jerome R Busemeyer. The conceptual basis of function learning and extrapolation: Comparison of rule-based and associative-based models. Psychonomic bulletin & review , 12(1):24–42, 2005. James Requeima, John Bronskill, Dami Choi, Richard E Turner, and David Duvenaud. Llm processes: Numerical predictive distributions conditioned on natural language. In A. Globerson, L. Mackey, D. Belgrave, A. Fan, U. Paquet, J. Tomczak, and C. Zhang, editors, Advances in Neural Information Processing Systems , volume 37, pages 109609–109671. Curran Associates, Inc., 2024. Eric Schulz, Joshua B Tenenbaum, David N Reshef, Maarten Speekenbrink, and Samuel J Gershman. Assessing the perceived predictability of functions. In Proceedings of the Annual Meeting of the Cognitive Science Society ,volume 37, 2015. Eric Schulz, Maarten Speekenbrink, and Andreas Krause. A tutorial on gaussian process regression: Modelling, exploring, and exploiting functions. Journal of mathematical psychology , 85:1–16, 2018. Joshua B Tenenbaum, Charles Kemp, Thomas L Griffiths, and Noah D Goodman. How to grow a mind: Statistics, structure, and abstraction. science , 331(6022):1279–1285, 2011. Robert Vacareanu, Vlad-Andrei Negru, Vasile Suciu, and Mihai Surdeanu. From words to numbers: Your large language model is secretly a capable regressor when given in-context examples. arXiv preprint arXiv:2404.07544 , 2024.

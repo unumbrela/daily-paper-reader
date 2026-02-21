@@ -1,0 +1,1607 @@
+Title: Data-driven discovery of chemical reaction networks
+
+URL Source: https://arxiv.org/pdf/2602.11849v1
+
+Published Time: Fri, 13 Feb 2026 01:54:37 GMT
+
+Number of Pages: 30
+
+Markdown Content:
+# Data-driven discovery of chemical reaction networks 
+
+Abraham Reyes-Velazquez ∗ Stefan G¨ uttel Igor Larrosa Jonas Latz February 2026 
+
+Abstract 
+
+We propose a unified framework that allows for the full mechanistic reconstruction of chemical reaction networks (CRNs) from concentration data. The framework utilizes an in-tegral formulation of the differential equations governing the chemical reactions, followed by an automatic procedure to recover admissible mass-action mechanisms from the equations. We provide theoretical justification for the use of integral formulations using analytical and numerical error bounds. The integral formulation is demonstrated to offer superior robust-ness to noise and improved accuracy in both rate-law and graph recovery when compared to other commonly used formulations. Together, our developments advance the goal of fully automated, data-driven chemical mechanism discovery. 
+
+## 1 Introduction 
+
+The elucidation of chemical mechanisms from data is a central challenge in chemical reaction net-work (CRN) theory. Traditionally, chemists have relied on empirical kinetic analysis to infer rate laws and the ordinary differential equations (ODEs) describing the time evolution of chemical species. The linking of the inferred rate laws to the underlying stoichiometric reaction equations typically involves heuristics and expert reasoning. Among the classical approaches to model identification, some of the most influential include the method of initial rates [8], the delplot technique [2], reaction progress kinetic analysis (RPKA) [3], and variable time normalization analysis (VTNA) [5]. Despite their utility, these methods require prior mechanistic assumptions, substantial expert interpretation, and carefully designed experiments. Moreover, they typically yield only empirical rate laws, leaving the reconstruction of the underlying reaction network as a largely heuristic process. Recent advances in machine learning and numerical linear algebra have led to a variety of computational methods for identifying chemical dynamical systems from time-series concentra-tion data. For example, [6] employs deep neural networks trained to classify mechanisms from kinetic data; however, this approach can only discover CRNs seen during training. Works such as [7, 16] aim to automatically infer ODEs of chemical reaction networks directly from exper-imental data using regression-based optimization. The paper [23] proposes a semi-automatic method for CRN identification by formulating the inference problem as a mixed-integer linear programming (MILP) optimization. This approach requires a predefined set of candidate reac-tions and uses MILP to select the minimal subset that best explains the observed concentration time series, estimating both network structure and rate constants simultaneously. While pow-erful in systematically exploring combinatorial reaction spaces and enforcing stoichiometric and kinetic constraints, its effectiveness depends on the quality of candidate reactions and can be computationally expensive for large or complex networks. Although most of the focus on both  
+
+> ∗Corresponding author. Department of Mathematics, The University of Manchester, Oxford Road, Manchester, M13 9PL, United Kingdom, abraham.reyesvelazquez@manchester.ac.uk
+
+1
+
+> arXiv:2602.11849v1 [math.NA] 12 Feb 2026
+
+modelling and inverse problems has been directed towards the continuous ODE formulation of chemical kinetics, there have also been advancements in the modelling and recovery on the dis-crete setting. In particular, the paper [25] utilises stochastic population data, coming from a Monte Carlo simulation such as Gillespie’s Stochastic Simulation Algorithm (SSA), and realises the recovery in this setting. The sparse identification of nonlinear dynamics (SINDy) framework [4] has emerged as a particularly versatile tool due to its ability to infer parsimonious ODE models for nonlinear sys-tems. Several adaptations of SINDy for chemical kinetics [13, 12, 1] have demonstrated promise for data-driven discovery of rate laws. Obtaining an ODE system using SINDy is generally less computationally expensive than MILP or other regression-based approaches. However, a ma-jor limitation of SINDy, is that it identifies governing ODEs without establishing a systematic correspondence to the underlying chemical mechanism. Consequently, automatic elucidation of CRNs from experimental or simulated data remains an open challenge. Two major difficulties hinder the automation of CRN discovery. First, the problem of dynamical equivalence, where distinct CRNs produce identical ODE systems under mass-action kinetics [19, 20], complicates the recovery of unique reaction structures. Second, conservation laws inherent to many CRNs introduce numerical challenges, such as matrix rank deficiencies in the underlying linear algebra problems. These problems can often be mitigated by fusing data from multiple experiments or initial conditions, but to date there is no analysis to justify this theoretically. The use of integral formulations can significantly improve the recovery of CRNs from (noisy) data. Recently, several authors have explored integral formulations or hybrid approaches com-bining integral constraints with differential forms within the SINDy framework to improve ro-bustness to noise and mitigate numerical differentiation errors. For example, the work [10] augments the classical SINDy objective function with a Runge–Kutta consistency penalty (an integral-like constraint) while learning an implicit neural representation, although this work does not provide formal error bounds or compare purely integral versus purely differential formula-tions. Similarly, [14] directly formulates a sparse regression problem using integral terms rather than derivatives, demonstrating improved noise resilience but without detailed error analysis. A more closely related study is [22], which proposes an integral SINDy (ISINDy) strategy combin-ing penalised spline smoothing with discretised integral regression; however, it also lacks formal error analysis. Addressing these challenges requires integrating data-driven system identification with chem-ical network theory in a principled manner. This will be the subject of this work. We present a unified framework for data-driven discovery of chemical reaction networks that extends the SINDy methodology beyond ODE identification to full mechanistic reconstruction. Specifically, our paper contributes the following. 
+
+• Automated linkage between inferred ODEs and CRNs: We introduce an algorithmic post-processing step that maps a sparse ODE model obtained by SINDy to an admissible chem-ical mechanism consistent with mass-action kinetics via a convex optimisation problem. For closed (reversible or weakly reversible) networks, this procedure is fully automated; for open systems, minimal user input is required to select among alternative filtration schemes prior to the same automated reconstruction. 
+
+• Differential versus integral SINDy formulations: We formulate and compare differential and integral variants of the SINDy regression problem, where concentration data are re-spectively differentiated or integrated after spline interpolation. Through numerical exper-iments, we demonstrate that the integral formulation offers superior robustness to noise and yields more accurate recovery of both rate laws and reaction structures. 
+
+• Error analysis of both formulations: We derive error bounds for each formulation and show, both analytically and empirically, that the integral SINDy approach accumulates 2lower numerical and regression error, supporting its improved performance for chemical kinetics data. Together, these contributions advance the goal of fully automated, data-driven chemical mech-anism discovery by unifying sparse system identification, chemical network reconstruction, and rigorous error analysis within a single framework. The remainder of this paper is structured as follows. Section 2 briefly reviews the formalism of chemical reaction networks (CRNs), mass-action kinetics, and challenges in reconstructing reaction graphs from observed dynamics. Section 3 develops the SINDy-based identification methodology for CRNs, derives differential and integral variants using piecewise cubic-spline interpolation, and presents corresponding error analyses. Section 4 describes our algorithmic scheme for graph recovery, mapping the SINDy-inferred ODE model to a candidate reaction network graph consistent with mass-action kinetics. Section 5 presents numerical experiments on two representative chemical systems under noise-free and noisy data to assess ODE recovery and graph inference performance for both formulations. Finally, Section 6 concludes with a summary of contributions, limitations, and directions for future work. 
+
+## 2 Chemical reaction networks 
+
+A chemical reaction network (CRN) is a many-body dynamical system describing the interactions and time-evolution of multiple chemical species in a well-mixed environment. CRNs are widely used in chemistry, biology, and epidemiology to represent population dynamics driven by discrete events. Formally, a CRN is defined by a triple ( S, Q, R), where S = {Sα}Mα=1 is the set of species, 
+
+Q = {qi}Ni=1 is the set of complexes containing all possible linear combinations qi = PMα=1 Qα,i Sα
+
+with integer weights Qα,i ≥ 0 such that PMα=1 Qα,i ≤ p for some total degree p and with at least one Qα,i nonzero for each i. The degree p corresponds to the highest reaction order in the network and we have the relation 
+
+N =
+
+M + pp
+
+
+
+− 1.
+
+Finally, R is the set of directed reactions ( qi, q j ) where each ordered pair represents the trans-formation of complex qi into complex qj .When the population of a CRN is sufficiently large, the system can be described in terms of continuous time-dependent concentrations xα(t), leading to deterministic mass-action kinetics. Let x(t) = [ x1(t), x 2(t), . . . , x M (t)] T ∈ RM be the species concentrations vector. Under mass-action kinetics, the rate ri,j of a reaction ( qi, q j ) ∈ R is proportional to the product of the reactant concentrations, 
+
+ri,j (x(t)) = ki,j MY
+
+> α=1
+
+xQα,i  
+
+> α
+
+(t) ,
+
+with ki,j ≥ 0 the reaction rate constant, and with Qα,i the stoichiometric coefficient of species 
+
+Sα in complex qi. The contribution of reaction ( qi, q j ) to the time evolution of species β is given by 
+
+κ(i,j ) 
+
+> β
+
+(x(t)) = Qβ,j − Qβ,i 
+
+ri,j (x(t)) = ki,j 
+
+Qβ,j − Qβ,i 
+
+ MY
+
+> α=1
+
+xQα,i  
+
+> α
+
+(t).
+
+Note that the kinetic term κ(i,j ) 
+
+> β
+
+will always be non-negative for every reaction in which species 
+
+β is not included in the reactant complex qi.A CRN is said to be reversible if ( qi, q j ) ∈ R implies ( qj , q i) ∈ R ; it is said to be weakly re-versible if for every reaction ( qi, q j ) ∈ R there exists a path {(qj , q 1), (q1, q 2), . . . , (qℓ−1, q ℓ), (qℓ, q i)}
+
+from qj to qi. In the following, we refer to both reversible and weakly reversible networks as 31 2 reversible 
+
+1 2
+
+3
+
+weakly reversible 
+
+1 2 3 open 
+
+Figure 1: Examples of CRNs being reversible, weakly reversible, and open 
+
+closed . Conversely, a CRN that is neither reversible nor weakly reversible is called open . Exam-ples of these types of networks are illustrated in Figure 1. Let Q = [ Qα,i ] ∈ RM ×N be the complexes stoichiometry matrix and denote by 
+
+d(x(t)) = 
+
+ MY
+
+> α=1
+
+xQα, 1 
+
+> α
+
+(t),
+
+> M
+
+Y
+
+> α=1
+
+xQα, 2 
+
+> α
+
+(t), . . . , 
+
+> M
+
+Y
+
+> α=1
+
+xQα,N  
+
+> α
+
+(t)
+
+T
+
+∈ RN
+
+the mass-action dictionary vector whose entries are the monomial contributions of each complex 
+
+qi. Each entry of d(x(t)) is an element in the set of all possible monomial combinations of the species concentrations x(t) up to total degree p. Further, let 
+
+K =
+
+
+
+− PNi=1 k1,i k1,2 . . . k1,N 
+
+k2,1 − PNi=1 k2,i . . . k2,N 
+
+... ... . . . ...
+
+kN, 1 kN, 2 . . . − PNi=1 kN,i 
+
+
+
+> T
+
+∈ RN ×N
+
+be a Kirchhoff matrix which encodes the graph structure of the CRN. This matrix is such that all its columns sum to zero, all its off-diagonal entries are non-negative, and all its diagonal entries are non-positive. Finally, the dynamical behaviour of a CRN is characterised by the (generally nonlinear) ODE system ˙x(t) = QKd (x(t)) = f (x(t)) , x(0) given, (1) or its equivalent Picard integral formulation 
+
+x(t) − x(0) = 
+
+Z t
+
+> 0
+
+QKd (x(t)) dt =
+
+Z t
+
+> 0
+
+f (x(t)) dt, (2) where x(0) is the initial state of the CRN, and f (x(t)) is a column vector with M entries, each a polynomial function of the variables x(t) with general form ˙xα(t) = fα(x(t)) = X
+
+> all reactions (i,j )
+
+κ(i,j ) 
+
+> α
+
+(x(t)) ,
+
+that is, they are the sum of all the kinetics κ(i,j ) 
+
+> α
+
+(x(t)) that involve species α. Hence, all positive terms of fα(x(t)) correspond to reactions where species α gains mass, and all negative terms of 
+
+fα(x(t)) correspond to reactions where species α loses mass. It can be shown that a polynomial ODE system with general form (1) describes a chemically valid mass-action CRN if and only if, for each species α, every negative monomial in ˙xα(t) = fα(x(t)) 4contains the variable xα(t) raised to a nonzero power [9]. In other words, in a chemically valid mass-action CRN, species only lose mass through reactions ( qi, q j ) where their reactant stoichiometric coefficient Qα,i is greater than their product stoichiometric coefficient Qα,j .The coefficient matrix C = QK ∈ RM ×N relates the time-evolution of concentrations with the complexes in the network, and it is the object we aim to recover from time-series measure-ments of species concentrations; see also (1). Since the dictionary vector d(x(t)) includes all monomial combinations of the species’ concentrations up to total degree p, and most of these combinations do not contribute to the reaction, the matrix C is typically very sparse. Notably, the active (nonzero) columns of C directly reveal all source complexes in the network; this is advantageous for data-driven recovery of closed CRNs where every complex is a source complex. In both open and closed networks, a recurring phenomenon is the presence of conservation laws among species. These conservation laws are linear relations between the time-derivatives of concentrations, X
+
+> α∈Γℓ
+
+˙xα(t) = 0 ,
+
+where the Γ ℓ are index sets of species with conserved mass, known as moieties. Integrating these conservation laws yields constants 
+
+X
+
+> α∈Γℓ
+
+xα(t) = X
+
+> α∈Γℓ
+
+xα(0) fixed by the initial conditions of the system. Conservation laws introduce linear dependencies between the concentrations x(t), which in turn induce polynomial relations among the entries of d(x(t)). This can lead to issues in the recovery of the ODE system (1) or (2) using linear combinations of dictionary elements, as the same equation might have various identical repre-sentations. 
+
+## 3 SINDy for chemical reaction networks 
+
+In this section we introduce and analyse the SINDy framework in the context of the chemical reaction network dynamical problems ˙x(t) = Cd (x(t)) , x(0) given, 
+
+x(t) − x(0) = 
+
+Z t
+
+> 0
+
+Cd (x(t)) dt. 
+
+Consider a CRN with M species whose concentrations xα(t) evolve through time. Assume we have measured the trajectories of every species in the network at time points 0 = t0 < t 1 <. . . < t n and denote the corresponding values as 
+
+xα,i = xα(ti) + ξα,i ,
+
+where ξα,i denotes a (small) measurement noise for species α at timestep ti. We assume the ξα,i 
+
+to be i.i.d. Gaussian. We collect these values in an M × (n + 1) data matrix X = [ xα,i ]. Using this data, we construct an N × (n + 1) dictionary matrix D = D(X) whose rows are entry-wise polynomial combinations of the rows of X (with polynomials of total degree ≤ p). Then we have the relation 
+
+CD = f (X) ∈ RM ×(n+1) ,
+
+where f is applied column-wise to X.The structure of D arises from the law of mass-action which offers a notable advantage when applying the SINDy framework to CRNs: it removes the need to specify an overly redundant dictionary. Furthermore, as in practice reactions with three reactant molecules are extremely 5rare, and most of these complex complex chemical processes can be reduced to systems of monomolecular and bimolecular reactions [17, 21], a quadratic p = 2 dictionary is generally sufficient to capture the system’s dynamics. 
+
+3.1 Numerical differentiation vs integration 
+
+Now, from a numerical perspective, we have two ways of approaching the data-driven discov-ery problem. As we only have access to time series data of the concentrations, we require to either numerically differentiate our data matrix X to approximate the differential dynamical system (1), or to numerically integrate our dictionary matrix D to approximate the integral dynamical system (2). To do this, we introduce time differentiation and integration integration matrices denoted by L ∈ R(n+1) ×(n+1) and J ∈ R(n+1) ×(n+1) , respectively. These operators are constructed using cubic spline interpolation of canonical basis vectors as follows: let {tk}nk=0 be a sequence of knots, and for each i ∈ { 0, . . . , n }, define the not-a-knot scalar-valued interpolant cubic spline si(t) as 
+
+si(t) = min 
+
+> s∈S3
+
+" nX
+
+> k=0
+
+ δi,k − si,k 
+
+2
+
+#
+
+,
+
+where S3 denotes the space of all cubic splines with not-a-knot boundary conditions at t0 and 
+
+tn. We then define the matrices L and J row-wise as: 
+
+Li, : = s′
+
+> i
+
+(t0), s ′
+
+> i
+
+(t1), . . . , s ′
+
+> i
+
+(tn) ,
+
+Ji, : =
+
+Z t0
+
+> t0
+
+si(t) dt, 
+
+Z t1
+
+> t0
+
+si(t) dt, . . . , 
+
+Z tn
+
+> t0
+
+si(t) dt 
+
+
+
+.
+
+Using these matrices, we can approximate 
+
+XL = ddt X + Edif , (3) 
+
+DJ =
+
+Z tn
+
+> t0
+
+D dt + Eint , (4) where Edif ∈ RM ×(n+1) and Eint ∈ RN ×(n+1) are matrices containing the errors incurred by numerical differentiation and integration, respectively. 
+
+3.2 Dealing with rank deficiencies 
+
+We can write the spline-approximated differential and integral dynamical problems as 
+
+XL = Cdif D ,
+
+X − XIVP = Cint DJ ,
+
+where XIVP ∈ RM ×(n+1) is the initial value matrix of the system with each column a copy of 
+
+X[: , t 0]. The unregularised model recovery, for each formulation, consists of solving the respective optimisation problem 
+
+Cdif ,ls = min   
+
+> C∈RM×N
+
+∥XL − CD ∥2 
+
+> F
+
+,
+
+Cint ,ls = min   
+
+> C∈RM×N
+
+∥X − XIVP − CDJ ∥2
+
+> F
+
+in the Frobenius matrix norm ∥ · ∥ F . This corresponds to a maximum likelihood estimate. If the dictionary matrix D were of full row rank N , we could uniquely determine minimising coefficient matrices 
+
+Cdif ,ls = XLD † ,
+
+Cint ,ls = X0
+
+DJ † ,
+
+6where A† = AT (AA T )−1 denotes the Moore–Penrose pseudoinverse of a short and wide ma-trix A. However, as mentioned above, the dictionary D may be rank-defiecient, e.g., due to the presence of conservation laws in CRNs. The rank may be increased by adding measured concentrations for multiple experiments with different initial conditions. To be more precise, we consider a number of w experiments, each performed with distinct initial conditions such that the total mass of each moiety differs across realisations. The data is organised as: 
+
+eX = X(1) , X(2) , . . . , X(w) ,
+
+eXIVP =
+
+h
+
+X(1) IVP , X(2) IVP , . . . , X(w)IVP 
+
+i
+
+,
+
+eX0 = eX − eXIVP ,
+
+and then used to construct a multi-experiment dictionary 
+
+eD = D(1) , D(2) , . . . , D(w) ,
+
+to then obtain 
+
+Cdif ,ls = eXeL eD† ,
+
+Cint ,ls = eX0
+
+ eDeJ† ,
+
+where the multi-experiment integration and differentiation matrices, eJ and eL, are constructed as the Kronecker products 
+
+eJ = Iw ⊗ J ,
+
+eL = Iw ⊗ L ,
+
+with Iw ∈ Rw×w an identity matrix. Necessarily, rank( eD) ≥ rank( D), and one could numerically check if sufficiently many experiments have been performed by verifying if rank( eD) = N .
+
+3.3 Error analysis 
+
+Our error analysis is performed in two parts. First, we quantify the effect of numerical differen-tiation or integration of time discretized data that is perturbed by noise. Then, we study how these errors affect the least squares recovery of the coefficient matrices. Together, the results in this section provide a rigorous characterization of how sampling density, noise amplitude, and dictionary conditioning influence the accuracy of the recovered models, and allows us to prop-erly compare the formulations differential and integral formulations introduced in the previous subsection. The proofs of the results in this section can be found in the Appendix. 
+
+3.3.1 Effect of time discretization and measurement noise 
+
+We first derive entry-wise and matrix-norm bounds for the errors introduced by cubic spline differentiation and integration when applied to noisy time-series data. For this analysis, we assume that the noise is globally bounded. This is a usual assumption in the analysis of linear variational inverse problems; see [15]. 
+
+Theorem 1. Consider M scalar four-times continuously differentiable time series {xα}Mα=1 ⊂
+
+C4([ t0, t n]) . Measurements xα(ti) = xα,i are taken at equispaced times 
+
+ti = t0 + ih, i = 0 , 1, . . . , n, h = tn − t0
+
+n .
+
+These observations are corrupted by i.i.d. bounded additive noise ξα,i ,
+
+¯xα,i = xα,i + ξα,i , |ξα,i | ≤ ε < 1,
+
+7independent across α and i. Let X = [ xα,i ] ∈ RM ×(n+1) denote the data matrix and let ¯X =[¯ xα,i ] ∈ RM ×(n+1) denote the noisy data matrix. From ¯X, construct a polynomial dictionary 
+
+¯D( ¯X) ∈ RN ×(n+1) containing all entry-wise monomials of total degree at most p. The rows of the corresponding noiseless dictionary D are scalar time series {dβ }Nβ=1 ⊂ C4([ t0, t n]) .Let L, J ∈ R(n+1) ×(n+1) be the cubic spline differentiation and integration matrices with not-a-knot boundary conditions and consider the error matrices 
+
+Edif = ˙X − ¯XL , Eint =
+
+Z tt0
+
+D(s) ds − ¯DJ ,
+
+where ˙X ∈ RM ×(n+1) denotes the matrix of exact time derivatives evaluated at the sampling points, with entries 
+
+( ˙X)α,i = ˙ xα(ti),
+
+and R tt0 D(s) ds ∈ RN ×(n+1) denotes the matrix of exact cumulative integrals, with entries 
+
+Z tt0
+
+D(s) ds 
+
+
+
+> β,i
+
+=
+
+Z ti
+
+> t0
+
+dβ (s) ds. 
+
+Then we have the entry-wise bounds 
+
+(Edif )α,i ≤ κdif 
+
+n3 + ε ∥L:,i ∥1, (5) 
+
+(Eint )β,i ≤ κint 
+
+n4 + εC β ∥J:,i ∥1, (6) 
+
+where 
+
+κdif = 9 + √3216 max  
+
+> t∈[t0,t n]
+
+|x(4)  
+
+> α
+
+(t)| (tn − t0)3, α = 1 , . . . , M, κint = 1120 max  
+
+> t∈[t0,t n]
+
+|d(4)  
+
+> β
+
+(t)| (tn − t0)4, β = 1 , . . . , N, 
+
+and Cβ depends on the noiseless data. 
+
+The bounds (5)–(6) still depend on norms involving the numerical differentiation and in-tegration matrices Li, : and Ji, :. The following theorem shows that ∥J:,i ∥1 can be bounded independently of n, the number of time points, whereas ∥L:,i ∥1 cannot. Together with the slower growth of κint  
+
+> n4
+
+over κdif  
+
+> n3
+
+, these results provide theoretical justification for the superiority of the integral formulation. 
+
+Theorem 2. Let {tk}nk=0 be uniformly spaced knots with step size h = tk+1 − tk over [t0, t n]. Let 
+
+J, L ∈ R(n+1) ×(n+1) be the integration and differentiation matrices constructed from not-a-knot cubic splines si as 
+
+Li, : =
+
+h
+
+s′
+
+> i
+
+(t0), . . . , s ′
+
+> i
+
+(tn)
+
+i
+
+, Ji, : =
+
+"Z t0
+
+> t0
+
+si(t) dt, . . . , 
+
+Z tn
+
+> t0
+
+si(t) dt 
+
+#
+
+.
+
+Then there exists a constant C > 0, independent of n and h, such that 
+
+∥L:,i ∥1 ≤ C n, ∥L∥∞ ≤ C n, ∥J:,i ∥1 ≤ C (tn − t0), ∥J∥∞ ≤ C (tn − t0).
+
+8To interpret Theorem 1, we can compare how the resulting bounds (5)–(6) for the differential and integral formulations behave with respect to the number n of spline knots and the noise intensity ε. Using the bounds from Theorem 2, 
+
+|(Edif )α,i | ≤ κdif 
+
+n3 + Cεn, 
+
+|(Eint )β,i | ≤ κint 
+
+n4 + CεC β (tn − t0).
+
+And in the large n limit, n → ∞ , the entrywise error bounds (5)-(6) then behave as 
+
+(Edif )α,i = O(ε n ),
+
+(Eint )β,i = O(ε).
+
+So, for large n, the integration error is uniformly bounded, while the differentiation error grows linearly with n.For non-noisy data ε = 0, the large n behaviour of the entrywise bounds (5)–(6) reduces to 
+
+(Edif )α,i = O(n−3),
+
+(Eint )β,i = O(n−4).
+
+It will be required for the following subsection to extend the above entrywise bounds (7)–(8) to bounds in the matrix 2-norm and Frobenius-norm. 
+
+Corollary 3. Using the pointwise bounds from Theorem 1, 
+
+|(Edif )α,i | ≤ κdif 
+
+n3 + ε ∥L:,i ∥1,
+
+|(Eint )β,i | ≤ κint 
+
+n4 + εC β ∥J:,i ∥1,
+
+we then have the spectral norm bounds 
+
+∥Edif ∥2 ≤ ∥ Edif ∥F ≤ pM (n + 1) 
+
+ κdif 
+
+n3 + ε ∥L∥∞
+
+
+
+, (7) 
+
+∥Eint ∥2 ≤ ∥ Eint ∥F ≤ pN (n + 1) 
+
+ κint 
+
+n4 + ε max  
+
+> β
+
+Cβ ∥J∥∞
+
+
+
+. (8) Using the estimates ∥L∥∞ ≤ C n and ∥J∥∞ ≤ C (tn − t0) from Theorem 2, then for large n
+
+the asymptotic behaviour becomes 
+
+∥Edif ∥F = O
+
+ 1
+
+n5/2 + ε n 3/2
+
+
+
+,
+
+∥Eint ∥F = O
+
+ 1
+
+n7/2 + ε n 1/2
+
+
+
+.
+
+Thus, in the absence of noise ( ε = 0), the Frobenius-norm error of the integral formulation decays faster than that of the differential formulation. In the presence of noise, the differential errors grow with n3/2, and the integration error remains less sensitive to the number of knots than the differentiation error, growing as n1/2, reflecting the smoothing effect of integration. 93.3.2 Error bounds on the recovery 
+
+We now study the effect of the errors characterized in the previous subsection on the recovery of the associated least-squares problems. This will lead to explicit estimates on the resulting coefficient errors and residuals. Let X, D be the data and dictionary matrix with noisy versions ¯X, ¯D as in Theorem 1. Consider the linear systems ˙X = Cdif D, Cdif ∈ RM ×N ,
+
+X = Cint Dint , Dint =
+
+Z tt0
+
+D(s) ds, Cint ∈ RM ×N .
+
+with least-squares solutions 
+
+Cdif = ˙XD +,
+
+Cint = XD +int 
+
+where D+, D+int denote the Moore–Penrose pseudoinverse of D, Dint , respectively. In practice, we only have access to the noisy spline-approximated data ¯X and the noisy dictionary ¯D( ¯X), giving the estimates ¯Cdif = ( ¯XL ) ¯D+,
+
+¯Cint = ¯X( ¯DJ )+.
+
+Then, the coefficient errors ∆Cdif = Cdif − ¯Cdif = ˙XD + − ( ¯XL ) ¯D+,
+
+∆Cint = Cint − ¯Cint = XD +int − ¯X( ¯DJ )+,
+
+satisfy the decomposition ∆Cdif = ˙X (D+ − ¯D+)
+
+| {z }
+
+> data error
+
++ ( ˙X − ¯XL )
+
+| {z }
+
+> differentiation error
+
+¯D+,
+
+∆Cint = ( X − ¯X)
+
+| {z }
+
+> data error
+
+D+int + ¯X (D+int − ( ¯DJ )+)
+
+| {z }
+
+> integration error
+
+.
+
+Consequently, the differential and integral error matrices spectral norm are bounded as 
+
+∥∆Cdif ∥2 ≤ ∥ ˙X∥2 ∥D+ − ¯D+∥2 + ∥ ˙X − ¯XL ∥2 ∥ ¯D+∥2,
+
+∥∆Cint ∥2 ≤ ∥ X − ¯X∥2 ∥D+int ∥2 + ∥ ¯X∥2 ∥D+int − ( ¯DJ )+∥2.
+
+Theorem 3 .4 in [18] tells us that for any matrices A, B such that B = A + E with E a small perturbation matrix and with rank( A) = rank( B), 
+
+∥A+ − B+∥2 ≤ 1 + √52 ∥A+∥2∥B+∥2∥E∥2 = 1 + √52
+
+∥E∥2
+
+σmin (A)σmin (B) .
+
+This result immediately leads to bounds on ∆ Cdif and ∆ Cint , respectively, which we summarize in the following theorem. 
+
+Theorem 4. Using the notation introduced above, we have 
+
+∥∆Cdif ∥2 ≤ 1 + √52 ∥∆ξ∥2
+
+σmax ( ˙X)
+
+σmin (D)σmin ( ¯D) + ∥Edif ∥2
+
+σmin ( ¯D) ,
+
+∥∆Cint ∥2 ≤ 1 + √52
+
+∥Eint ∥2
+
+σmin (Dint )σmin ( ¯DJ ) + ∥Ξ∥2
+
+σmin (Dint ) ,
+
+where ∆ξ = ¯D − D.
+
+10 Using the bounds in Theorem 4, we can derive leading-order estimates for the coefficient errors in the differential and integral formulations. First, note that the noise matrices satisfy 
+
+|(∆ξ)β,i | ≤ ε C β , =⇒ ∥∆ξ∥2 ≤ ∥ ∆ξ∥F ≤ ε √N n C max , Cmax = max  
+
+> β
+
+Cβ
+
+|(Ξ)α,i | ≤ ε, =⇒ ∥Ξ∥2 ≤ ∥ Ξ∥F ≤ ε √M n. 
+
+Combining these with the Frobenius-norm bounds for the differential and integral errors (7)–(8), we obtain 
+
+∥∆Cdif ∥2 = O ε√N n C max σmax ( ˙X)
+
+σmin (D)σmin ( ¯D) + n−5/2 + εn 3/2
+
+σmin ( ¯D)
+
+!
+
+, (9) 
+
+∥∆Cint ∥2 = O n−7/2 + ε√nσmin (Dint )σmin ( ¯DJ ) + ε√M n σmin (Dint )
+
+!
+
+. (10) Hence, for large n and in the presence of noise, and assuming that the singular values 
+
+σmin (D), σmin ( ¯D), σmin (Dint ), σmin ( ¯DJ ), σmax ( ˙X),
+
+are independent of n and ε, the coefficient error grows like 
+
+∥∆Cdif ∥2 = O(εn 3/2), ∥∆Cint ∥2 = O(ε√n), (11) showing that the recovery with the integral formulation is significantly less sensitive to noise than the differential formulation. In the absence of noise ( ε = 0), the decay rates are O(n−5/2)for differentiation and O(n−7/2) for integration. 
+
+3.4 Regularisation 
+
+While the exact coefficient matrix C underlying the reaction system may be sparse, rank de-ficiencies in the dictionary, measurement noise, or numerical instabilities may pollute the zero entries in the recovery significantly, leading to a dense estimate. In the chemical reaction net-work setting, a dense coefficient matrix is typically not interpretable or chemically meaningful, so sparsity is preferred. Thus we seek to solve the following regularised optimisation problems 
+
+Cdif ,reg = min 
+
+> C
+
+eXeL − C eD 2 
+
+> F
+
++ regularisation ,
+
+Cint ,reg = min 
+
+> C
+
+eX0 − C eDeJ 2 
+
+> F
+
++ regularisation .
+
+In practice, we solve for C row-wise using a sequentially thresholded least squares (STLS) method [4], which can be regarded as a simple form of ℓ0 regularisation [24]. This algorithm proceeds by alternating between standard least squares estimation and coefficient thresholding to enforce sparsity. Specifically, for each row Cα, : of the coefficient matrix C ∈ RM ×N , the following steps are performed: 1. Initialise the support set S = {1, . . . , N }, corresponding to all candidate dictionary terms. 2. Solve the least-squares problem restricted to the current support: 
+
+C(S) 
+
+> α
+
+= arg min 
+
+> c∈R|S|
+
+∥exi − cD S ∥22 ,
+
+where exi is the ith row of eXeL (differential formulation) or eX0 (integral formulation), and DS denotes the columns of the dictionary matrix eD (differential formulation) or eDeJ
+
+(integral formulation) indexed by the support set S.11 3. Threshold coefficients to promote sparsity by updating the support with the remaining indices that satisfy 
+
+S ← { j ∈ S : |ci,j | > τ } ,
+
+where τ > 0 is a user-defined sparsity threshold. 4. Repeat steps 2 and 3 until the support set S stabilizes (i.e., does not change between iterations) or a maximum number of iterations is reached. This procedure effectively eliminates terms with small coefficients and promotes sparse solu-tions. This is computationally efficient and often sufficient in practice for identifying parsimo-nious models [4]. The result is a sparse estimate Cstls , which can then be interpreted in terms of active reaction terms or polynomial interactions. While an error analysis along the lines of Section 3.3 for the STLS regularised problem is outside the scope of this work, particularly due to the heuristic nature of the STLS method that we use to enforce sparsity, the unregularised analysis remains informative. The obtained error estimates provide a useful benchmark for evaluating the performance of regularised approaches and for understanding how noise and model complexity (via the number of knots) interact. The favourable properties of the integral formulation suggest that this approach may retain its advantages in regularised settings. 
+
+## 4 Graph recovery from SINDy-inferred dynamics 
+
+We now build on the results of the previous section to demonstrate how the reaction graph of a chemical reaction network can be reconstructed from the sparse coefficient matrix Cstls obtained via sequential thresholded least squares. Given a sparse dynamical model of the form ˙x(t) = Cstls d(t),
+
+we define its effective dense representation as ˙x(t) = Ceff deff (t),
+
+where Ceff ∈ RM ×r is obtained from Cstls by discarding all columns whose ℓ∞-norm is below 
+
+τ , and deff (t) ∈ Rr contains the corresponding active components of the dictionary vector d(t). Here, r ≤ N denotes the number of active terms retained after this post-processing step. This column-based filtering acts as an additional sparsity-enforcing mechanism that isolates the most significant terms which are presumed to correspond to genuine reaction pathways in the underlying CRN. The support Qsource of deff (t) within the full complexes set Q identifies the indices of the active monomials, each corresponding to a source complex in the reaction network. Consequently, the support Qsource defines an effective source-complex stoichiometric matrix Qeff ∈ RM ×r.Graph recovery then reduces to solving the convex optimisation problem min  
+
+> K
+
+∥Ceff − Qeff K∥2 
+
+> F
+
+, (12) subject to the requirement that K ∈ Rr×r be a Kirchhoff matrix , satisfying 
+
+> r
+
+X
+
+> k=1
+
+Kk,i = 0 for all i, 
+
+Ki,i < 0 for all i, 
+
+Ki,j > 0 for all i̸ = j. 
+
+12 This optimisation enforces mass-balance constraints and yields an admissible reaction-graph structure consistent with the inferred dynamics. For closed CRMs, the above approach to graph recovery is entirely automated. In this case, the nonzero columns of Ceff directly identify all participating complexes, so that Qeff contains a complete representation of the network. Solving problem (12) therefore recovers the true reaction graph without additional user intervention. By contrast, open CRNs pose additional challenges because Qsource ⊂ Q typically omits some participating complexes. Nevertheless, recovery remains feasible for a broad and practically relevant class of open systems, namely those composed of a closed subgraph coupled to one or more peripheral source or sink complexes, which we term peripheral-source/sink CRNs . An illustrative example is shown in Figure 2. In such systems, the source complexes appear explicitly in Ceff , so recovery proceeds identically to the closed-network case when the network is open only through sources. Source 2 Source 1 Source 3 
+
+Closed subgraph 
+
+Sink 1 Sink 2 Figure 2: Example of an open chemical reaction network composed of a closed subgraph con-nected to multiple peripheral source and sink complexes. Each source feeds into, and each sink receives output from, the closed portion of the network. A subtlety arises with sink complexes , which leave no direct signature in Ceff . To address this, we introduce a synthetic zero-complex serving as a placeholder node that represents a general sink. Operationally, this amounts to appending a zero column to Qeff before solving problem (12). This modification enables recovery of outflows from the closed subgraph without explicit identification of each sink complex. A practical alternative filtering strategy that often yields improved results constructs Ceff 
+
+and Qeff by retaining the M × M block of Cstls corresponding to individual species, while applying the ℓ∞-based thresholding only to columns representing nonlinear complexes. More generally, other filtering strategies, possibly incorporating expert knowledge or heuristic criteria, can be developed to tailor the construction of Ceff and Qeff for the optimisation problem (12). In general, this graph-recovery framework enables flexible yet minimally supervised recon-struction of open chemical reaction graphs, while preserving the fully automated mechanism discovery achievable for closed networks. In the following section, we evaluate the performance of the proposed framework through numerical experiments on representative chemical systems, designed to assess its ability to recover both kinetic laws and reaction-graph structures from concentration time-series data under noise-free and noisy conditions. 13 Algorithm 1: Data-driven recovery of chemical reaction networks 
+
+Input: Multi-experiment concentrations time-series matrix X ∈ RM ×w(n+1) 
+
+Output: Coefficient matrix C ∈ RM ×N , Kirchhoff matrix K ∈ Rr×r 
+
+> 1
+
+Compute dictionary matrix D = D(X) using polynomial combinations of rows of X; 
+
+> 2
+
+Construct XIVP ∈ RM ×(n+1) , the initial value matrix of the system ;  
+
+> 3
+
+Construct integration and differentiation operator matrices L, J ∈ R(n+1) ×(n+1) via cubic spline interpolation of canonical basis ;  
+
+> 4
+
+Solve the optimisation problems: 
+
+Cdif ,stls = arg min 
+
+> C
+
+eXeL − C eD 2 
+
+> F
+
++ regularisation ,
+
+Cint ,stls = arg min 
+
+> C
+
+eX0 − C eDeJ 2 
+
+> F
+
++ regularisation ,
+
+using sequentially thresholded least squares (STLS) with threshold parameter τ ; 
+
+> 5
+
+Construct effective coefficient matrix Ceff ∈ RM ×r by removing columns of Cstls whose 
+
+ℓ∞-norm is less than τ ; 
+
+> 6
+
+Construct effective complexes stoichiometry matrix Qeff ∈ Rr×r using the column support of Ceff in Cstls ; 
+
+> 7
+
+Solve the constrained optimisation problem: min  
+
+> K
+
+∥Ceff − Qeff K∥2
+
+> F
+
+subject to: 
+
+> r
+
+X
+
+> k=1
+
+Kk,i = 0 for all i, 
+
+Ki,i < 0 for all i, 
+
+Ki,j > 0 for all i̸ = j. 
+
+## 5 Numerical experiments 
+
+To evaluate the performance of the proposed CRN recovery framework, we apply it to four benchmark chemical reaction network systems drawn from the literature. The objectives of this section are twofold: (i) to demonstrate the accuracy of the inferred network structures, and (ii) to identify practical considerations relevant to the implementation of the procedure. The Python code and data for reproducing all experiments can be found on 
+
+https://github.com/nla-group/ChemSINDy/ .Two of the selected CRNs model organic catalytic processes and are taken from the catalogue in [6]. To broaden the evaluation, we additionally include the Van de Vusse system from [7] and a gene transcription network from [20], thereby covering a diverse range of kinetic regimes and network topologies. We refer to each model using the naming conventions adopted in the corresponding references. We implemented the data-driven differentiation and integration procedures described in the previous sections in Python. The general outline of our algorithm is presented in Algorithm 1. In our implementation, the data matrix X is synthetically constructed. For every realisation of Algorithm 1 this is done as follows: we generate a random set of kinetic constants {kl :
+
+kmin ≤ kl ≤ kmax }, drawn from a uniform distribution in the interval [ kmin , k max ], and then we 14 numerically integrate the corresponding ODE system ˙x(t) = F(x(t)) over the interval [0 , t n] for a set of w distinct, randomly generated, initial conditions. 
+
+5.1 Mechanism M1 
+
+We begin by analysing the M1 mechanism [6], also known as the reversible Michaelis–Menten reaction. The graph of this CRN is shown in Figure 3. 
+
+SA + Scat ScatA SP + Scat 
+
+k1
+
+k−1
+
+k2
+
+k−2
+
+Figure 3: Graph of the M1 mechanism The M1 mechanism comprises a set of 4 chemical species, {SA, S P, S cat , S catA }, whose in-teractions form a closed graph. As discussed previously, the graph recovery process for closed networks is straightforward, with the primary challenge being to ensure that the data collected across experiments leads to a dictionary matrix with full row rank. Numerically, we found this to be achieved by stacking 6 or more experiments with different initial conditions. In all the numerical experiments of Model M1 that follow, the training data matrix X used for each realisation of our procedure, Algorithm 1, is obtained as follows. We first set the kinetic constants {k1, k 2, k −1, k −2} by sampling each uniformly from the interval [5 × 10 −2, 1.0]. This fixes a coefficient matrix Cex . Next, we generate w = 6 initial condition vectors 
+
+x(i)(0) = 
+
+
+
+xA(i)(0) , x P(i)(0) , x cat (i)(0) , x catA (i)(0) 
+
+
+
+,
+
+for i = 1 , 2, . . . , w , with each component drawn independently from a uniform distribution on [0 , 1]. Finally, we numerically integrate the dynamical system defined by Cex over the time interval [0 , 20], discretised into uniformly spaced time points, for each configuration of initial conditions x(i)(0). 
+
+5.1.1 Model recovery analysis 
+
+We begin by analysing how the errors 
+
+∥∆Cint ,stls ∥2 = ∥Cint ,stls − Cex ∥2 , ∥∆Cint ,ls ∥2 = ∥Cint ,ls − Cex ∥2,
+
+∥∆Cdif ,stls ∥2 = ∥Cdif ,stls − Cex ∥2 , ∥∆Cdif ,ls ∥2 = ∥Cdif ,ls − Cex ∥2
+
+of the integral and differential formulations behave as we vary the the number of sample points of the fixed simulation interval [0 , 20] from 50 to 1000 in increments of 50. This entire procedure is repeated 100 times, each with independently sampled kinetic constants and initial conditions. The reconstruction errors from all 100 trials are shown in Figure 4, where faint lines represent individual trials and bold lines indicate the average error across repetitions. We compare the observed average errors with the theoretical decay rates established in Theorem 4. In our experiments, the errors from both formulations decay faster with respect to the number of time points than the rate predicted by theory. Nevertheless, the observation that the integration-based formulation achieves lower error and faster convergence is consistently confirmed by the numerical results. 15 10 2 10 3              
+
+> Number of points (log scale)
+> 10 10
+> 10 8
+> 10 6
+> 10 4
+> 10 2
+> 10 0
+> Absolute error (log scale)
+> Integral formulation
+> Cint, stls 2
+> Cint, ls 2
+> (n3.5 )
+> (n4.5 )
+> 10 210 3
+> Number of points (log scale)
+> Differential formulation
+> Cdif, stls 2
+> Cdif, ls 2
+> (n2.5 )
+> (n4.0 )
+
+Figure 4: M1 reconstruction error for integration-based and differentiation-based recovery meth-ods across increasing number of time points. Each faint line corresponds to one of 100 indepen-dent trials; bold lines represent the geometric mean of all realisations. In each subplot, we also include two dashed reference lines to assess the decay rate with respect to the number of time points. One line follows the theoretical error bound from Theorem 4 and the other was fitted to the observed numerical decay rate. In Figure 5 we assess the structural accuracy of the recovered coefficient matrices by quanti-fying their support mismatch. This metric is defined as the number of entries that differ between the recovered matrix and its ground truth, specifically, the sum of missing true nonzero entries and falsely added ones, and provides a direct measure of structural recovery performance. To estimate this metric statistically, we conduct 1000 independent trials in four temporal resolutions, 25, 50, 75, and 100 uniformly spaced time-points. For each trial, the synthetic data is constructed as before, at the corresponding temporal resolution, and this is used to compute matrices Cint ,stls , Cdif ,stls . We then measure the support mismatch between each of these and the ground truth coefficient matrix Cex .The results of these experiments are presented in Figure 5, which compares the distribution of support mismatches across all 1000 trials for both formulations and each resolution level. In the presented plots, we restrict the histogram bins to a maximum of 10 to emphasize the more informative low-error region. We find that the integral-based algorithm identifies the correct nonzero coefficients more often than the differential-based version. This is particularly true when the number of time points is small. We also show in Figure 5 the support mismatch in the identified Kirchhoff matrices Kint ,stls 
+
+and Kdif ,stls . Since the size of these matrices varies depend on which columns are selected by Algorithm 1, we can only include those trials that produced Kirchhoff matrices of the same size as the ground truth. Nevertheless, the bar chart indicates that a good recovery of the coefficient matrices generally leads to a good recovery of the reduced Kirchhoff matrices. 16 0 1 2 3 4 5 6 7 8 9 10 11            
+
+> Support Mismatch
+> 25
+> 50
+> 75
+> 100
+> Time points
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> Frequency
+> Cint
+> Cdif
+> 012345678910 11
+> Support Mismatch
+> 25
+> 50
+> 75
+> 100
+> Time points
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> Frequency
+> Kint
+> Kdif
+
+Figure 5: Left: M1 support mismatch between the ground-truth matrix Cex and recovered coefficient matrices over 1000 trials, for both differentiation and integration-based formulations, with varying number of time points. Right: Quality of the recovered Kirchhoff matrices. 
+
+5.1.2 Graph recovery analysis 
+
+To illustrate the overall performance of our graph-recovery formalism, we present the discovered graph for a single instance of the algorithm. We fix a set of kinetic constants {k1, k 2, k −1, k −2},sampled uniformly from the interval [5 × 10 −2, 1.0], and a collection S0 of six initial conditions. Each initial condition corresponds to the concentrations of the four species SA, S P, S cat , and 
+
+ScatA , at time t0 = 0 with each value drawn independently from a uniform distribution on [0 , 1]. Using this fixed system, we generate synthetic data by integrating the associated ODE system over the time interval [0 , 20], discretised into 30 uniformly spaced time points. We then apply the integration-based recovery procedure to the resulting data, and compare the recovered network to the ground-truth network that generated the dynamics. This comparison is shown in Figure 6. We find that we recover the structure of our ground-truth reaction network. 0.6643 ( xcatA xcat xA ) 0.6704 ( xcatA xcat xP )0.0571 ( xcat xA xcatA ) 0.1969 ( xcat xP xcatA )xcatA xcat xA xcat xP               
+
+> M1_true-graph 0.6641 ( xcatA xcat xA)0.6705 ( xcatA xcat xP)0.057 ( xcat xAxcatA )0.1969 ( xcat xPxcatA )xcatA xcat xAxcat xP
+> M1_discovered-graph
+
+Figure 6: Top: Ground-truth CRN graph corresponding to the fixed ODE system. Bottom: Recovered CRN graph using the integration-based formulation with 30 time points. 
+
+5.1.3 Noisy measurements of the M1 mechanism 
+
+To evaluate the robustness of the recovery procedure in the presence of noise, we investigated the behaviour of the errors 
+
+∥∆Cint ,stls ∥2, ∥∆Cdif ,stls ∥2
+
+when the data matrix X is subjected to additive noise. Specifically, each entry of X was independently perturbed by zero-mean Gaussian noise with variance 10 −4. The effect of noise on the recovery errors is shown in Figure 7. Again, the integral formulations leads to recoveries with smaller error, about one order of magnitude better. 17 10 2 10 3         
+
+> Number of points (log scale)
+> 10 4
+> 10 3
+> 10 2
+> 10 1
+> 10 0
+> Absolute error (log scale)
+> Integral formulation
+> Cint, stls 2
+> Cint, ls 2
+> 10 210 3
+> Number of points (log scale)
+> Differential formulation
+> Cdif, stls 2
+> Cdif, ls 2
+
+Figure 7: Noisy M1 reconstruction error for integration-based and differentiation-based recovery methods across increasing number of time points. Each faint line corresponds to one of 100 independent trials; bold lines represent the geometric mean of all realisations. Taken together, these results demonstrate that the integral formulation yields superior per-formance compared to the differential approach, achieving lower reconstruction errors and more accurate support recovery. 
+
+5.2 Mechanism M20 
+
+We now turn to the analysis of Mechanism M20, which extends the M1 reversible Michaelis– Menten mechanism by incorporating irreversible inhibition reactions acting on both the free catalyst and the catalyst-substrate complex. The M20 mechanism consists of 6 chemical species, 
+
+{SA, S P, S cat , S catA , S catI , S catAI },
+
+and includes both reversible and irreversible reactions. As in M1, the reactions 
+
+SA + Scat ⇄ ScatA and ScatA ⇄ SP + Scat 
+
+form a closed subnetwork, while the additional reactions 
+
+Scat 
+
+> kI
+
+−→ ScatI , ScatA 
+
+> kAI
+
+−−→ ScatAI 
+
+introduce irreversible loss channels for the catalyst. This structure results in a partially open network, increasing the dimensionality of the coefficient matrix and posing a more challenging recovery problem. The graph of M20 is shown in Figure 8. 
+
+SA + Scat ScatA SP + Scat 
+
+k1
+
+k−1
+
+k2
+
+k−2
+
+Scat ScatI 
+
+ScatA ScatAI 
+
+kI
+
+kAI 
+
+Figure 8: Graph of the M20 Model 18 As before, accurate recovery requires the dictionary matrix formed from multiple experiments to have full row rank. Due to the increased number of reactions and species, we found numerically that stacking w = 8 experiments with distinct initial conditions was sufficient to reliably satisfy this condition. 
+
+5.2.1 Model recovery analysis 
+
+For the numerical experiments associated with Mechanism M20, the training data matrix X is constructed as follows. The kinetic constants 
+
+{k1, k 2, k −1, k −2, k I , k AI }
+
+are sampled independently and uniformly from the interval [5 × 10 −2, 1.0], defining the ground-truth coefficient matrix Cex . We then generate w = 8 initial condition vectors 
+
+x(i)(0) = 
+
+
+
+xA(i)(0) , x P(i)(0) , x cat (i)(0) , x catA (i)(0) , x catI (i)(0) , x catAI (i)(0) 
+
+
+
+,
+
+for i = 1 , . . . , w , with each component drawn independently from a uniform distribution on [0 , 1]. Using these initial conditions, the ODE system defined by Cex is integrated over the interval [0 , 20], discretised into uniformly spaced time points. We examine the behaviour of the reconstruction errors 
+
+∥∆Cint ,stls ∥2, ∥∆Cint ,ls ∥2, ∥∆Cdif ,stls ∥2, ∥∆Cdif ,ls ∥2,
+
+as the number of time points used in the simulation increases from 50 to 1000, in increments of 50. 10 2 10 3              
+
+> Number of points (log scale)
+> 10 9
+> 10 7
+> 10 5
+> 10 3
+> 10 1
+> 10 1
+> 10 3
+> Absolute error (log scale)
+> Integral formulation
+> Cint, stls 2
+> Cint, ls 2
+> (n3.5 )
+> (n4.5 )
+> 10 210 3
+> Number of points (log scale)
+> Differential formulation
+> Cdif, stls 2
+> Cdif, ls 2
+> (n2.5 )
+> (n4.0 )
+
+Figure 9: M20 reconstruction error for integration-based and differentiation-based recovery methods across increasing numbers of time points. Each faint line corresponds to one of 100 independent trials; bold lines represent the geometric mean of all realisations. In each subplot, we also include two dashed reference lines to assess the decay rate with respect to the number of time points. One line follows the theoretical error bound from Theorem 4 and the other was fitted to the observed numerical decay rate. This experiment is repeated for 100 independent realisations, each with newly sampled kinetic constants and initial conditions. Figure 9 summarises the resulting reconstruction errors. As in the M1 case, the integration-based formulation consistently achieves lower reconstruction error than the differential formulation. While the increased complexity of the M20 network leads to larger absolute errors overall, the observed decay rates remain comparable to, and in some cases exceed, the theoretical predictions. 19 We further evaluate the structural accuracy of the recovered coefficient matrices using the support mismatch metric, defined as the total number of false positives and false negatives relative to the ground-truth support of Cex . To estimate this metric statistically, we perform 1000 independent trials at four temporal resolutions: 25, 50, 75, and 100 uniformly spaced time points. For each trial, synthetic data is generated using the procedure described above, and the matrices Cint ,stls and Cdif ,stls are recovered. The support mismatch relative to Cex is then computed. The distributions of support mismatches are shown in Figure 10. As expected, the more complex structure of M20 leads to broader distributions than in M1, particularly for the differentiation-based formulation. Nevertheless, the integration-based approach continues to demonstrate superior structural recovery, with a substantial fraction of trials achieving near-perfect support identification even at relatively coarse temporal resolutions. 0 1 2 3 4 5 6 7 8 9 10 11            
+
+> Support Mismatch
+> 25
+> 50
+> 75
+> 100
+> Time points
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> Frequency
+> Cint
+> Cdif
+> 012345678910 11
+> Support Mismatch
+> 25
+> 50
+> 75
+> 100
+> Time points
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> Frequency
+> Kint
+> Kdif
+
+Figure 10: Left: M20 support mismatch between the ground-truth coefficient matrix and recov-ered matrices over 1000 trials, shown for multiple temporal resolutions and for both integration-and differentiation-based formulations. Right: Quality of the recovered Kirchhoff matrices. 
+
+5.2.2 Graph recovery analysis 
+
+To illustrate graph recovery for Model M20, we consider a single representative instance of the algorithm. We fix a set of kinetic constants sampled uniformly from [5 × 10 −2, 1.0] and generate a collection of w = 8 initial conditions as described above. Using this fixed system, we integrate the ODEs over the interval [0 , 20] with 50 uniformly spaced time points. Applying the integration-based recovery procedure to the resulting data yields the recovered CRN graph shown in Figure 11, alongside the ground-truth network. We observe that the recovery procedure yields an incorrect graph. This behaviour stems from the open nature of the M20 model: the ground-truth coefficient matrix C contains inactive columns corresponding to the complexes ScatI and ScatAI . As a result, regardless of the accuracy of the recovered matrix 
+
+Crec , these complexes cannot be identified as active using SINDy-based recovery alone. 20 0.0393 ( xcat xcatA )0.2937 ( xcatA xcat )              
+
+> 0.9631 ( xcatA xcat xA)0.2602 ( xcatA xcat xP)0.907 ( xcat xAxcatA )0.9463 ( xcat xPxcatA )
+
+xcat 
+
+xcatA xcat xA xcat xP
+
+M20_discovered-graph_r1 0.0783 ( xcat xcatI )                 
+
+> 0.6017 ( xcatA xcatAI )
+> 0.9625 ( xcatA xcat xA)0.2611 ( xcatA xcat xP)0.9106 ( xcat xAxcatA )0.9537 ( xcat xPxcatA )
+
+xcat xcatI 
+
+xcatA 
+
+xcatAI 
+
+xcat xA xcat xP
+
+M20_true-graph Figure 11: Top: Incorrectly recovered CRN graph for M20 obtained using the integration-based formulation with 50 time points. Bottom: Ground-truth CRN graph for the M20 system. This limitation can be mitigated by explicitly accounting for mass loss through the intro-duction of a synthetic zero-complex, which aggregates all irreversible outflows from the system. In practice, this is achieved by appending an additional zero column to the matrix Q obtained during the reduction of Crec . The resulting recovered graph, incorporating the zero-complex, is shown in Figure 12, where we can see that the zero-complex effectively captures the reactions ending at ScatI and ScatAI , thus showing that recovery is possible for open systems by adding this zero-complex. 21 0.0786 ( xcat x0 )                   
+
+> 0.9611 ( xcatA xcat xA)0.2583 ( xcatA xcat xP)
+> 0.5971 ( xcatA x0)
+> 0.9065 ( xcat xAxcatA )0.9454 ( xcat xPxcatA )
+> xcat x0
+> xcatA xcat xAxcat xP
+> M20_discovered-graph_r1-0
+
+Figure 12: Correctly recovered CRN graph for M20 obtained using the integration-based for-mulation with 50 time points, after adding a zero-complex Q.For small networks, a different approach to constructing the Q matrix for graph recovery is to assume that every species we know of acts as a single-order reactant complex, and just eliminate the rows associated to second-order inactive rows of Crec . In this setting, the recovery algorithm correctly reconstructs the full M20 reaction graph, including the irreversible loss pathways. The resulting graph is shown in Figure 13, and confirms that the observed structural discrepancy arises solely from the unidentifiability of inactive complexes in the data-driven setting, rather than from a failure of the graph recovery procedure itself. 0.0784 ( xcat xcatI )                   
+
+> 0.5995 ( xcatA xcatAI )
+> 0.9602 ( xcatA xcat xA)0.2573 ( xcatA xcat xP)0.9065 ( xcat xAxcatA )0.9454 ( xcat xPxcatA )
+> xcat xcatI
+> xcatA
+> xcatAI
+> xcat xAxcat xP
+> M20_discovered-graph_r2
+
+Figure 13: Recovered CRN graph for M20 obtained using the integration-based formulation with 50 time points, treating all species as single-order active complexes. 
+
+5.2.3 Noisy measurements of the M20 mechanism 
+
+Finally, we assess the robustness of the recovery procedure for Mechanism M20 in the presence of measurement noise. As in the M1 experiments, each entry of the data matrix X is independently perturbed by zero-mean Gaussian noise with variance 10 −4. We then examine the resulting reconstruction errors 
+
+∥∆Cint ,stls ∥2, ∥∆Cdif ,stls ∥2.
+
+The results, shown in Figure 14, confirm that the integration-based formulation remains markedly more robust to noise than the differential approach. Despite the higher dimensionality and par-tial openness of the M20 network, the integration-based method consistently achieves lower 22 reconstruction error and improved stability, reinforcing the conclusions drawn from the M1 experiments. We note that some of the STLS curves in Figure 14 show a zig-zag type behaviour. This seems to appear in cases where STLS stops too early, leaving two many nonzero coefficients in the least squares problem, and thereby reducing the recovery performance close to that of the unregularized (full) least squares algorithm. This is testament to the inherent difficulty of sparse recovery and it is possible that other algorithms for sparse recovery (like LASSO, OMP) might perform better. Overall, however, STLS is doing a good job given its simplicity, with the correct coefficient matrices recovered in a majority of trials, and on average better than unregularized least squares (as indicated by the lower geometric mean curves in the plots). 10 2 10 3         
+
+> Number of points (log scale)
+> 10 4
+> 10 3
+> 10 2
+> 10 1
+> 10 0
+> 10 1
+> 10 2
+> Absolute error (log scale)
+> Integral formulation
+> Cint, stls 2
+> Cint, ls 2
+> 10 210 3
+> Number of points (log scale)
+> Differential formulation
+> Cdif, stls 2
+> Cdif, ls 2
+
+Figure 14: Noisy M20 reconstruction error for integration-based and differentiation-based re-covery methods across increasing numbers of time points. Each faint line corresponds to one of 100 independent trials; bold lines represent the geometric mean of all realisations. 
+
+5.3 Van de Vusse reaction 
+
+We conclude our numerical study with the Van de Vusse reaction, a classical benchmark model in chemical reaction engineering featuring both linear and nonlinear reaction pathways. The reaction mechanism involves 4 chemical species {x1, x 2, x 3, x 4} participating in a sequential conversion and a parallel bimolecular side reaction given by 2x1 k1
+
+−→ x2, x1 k2
+
+−→ x3 k3
+
+−→ x4.
+
+This defines an open reaction network due to the irreversible conversion of reactants into final products. 
+
+5.3.1 Model recovery analysis 
+
+For the numerical experiments associated with the Van de Vusse reaction, the training data matrix X is generated as follows. The kinetic constants are picked from [7] as 
+
+k1 = 10 −3, k2 = 6 .85 × 10 −3, k3 = 2 .48 × 10 −3, (13) defining the ground-truth coefficient matrix Cex . We generate w = 4 initial condition vectors 
+
+x(i)(0) = 
+
+
+
+x(i)1 (0) , x (i)2 (0) , x (i)3 (0) , x (i)4 (0) 
+
+
+
+, i = 1 , . . . , w, 
+
+with each component drawn independently from a uniform distribution on [0 , 1]. For each initial condition, the resulting ODE system is integrated over the time interval [0 , 20], discretised into 23 uniformly spaced time points. We analyse the reconstruction errors 
+
+∥∆Cint ,stls ∥2, ∥∆Cint ,ls ∥2, ∥∆Cdif ,stls ∥2, ∥∆Cdif ,ls ∥2,
+
+as the number of time points used in the simulation is increased from 50 to 1000, in increments of 50. The experiment is repeated for 100 independent trials, each with newly sampled kinetic constants and initial conditions. Figure 15 summarises the resulting reconstruction errors. As observed for Models M1 and M20, the integration-based formulation consistently achieves lower reconstruction error and faster decay rate than the differentiation-based approach. The presence of nonlinear reaction terms leads to moderately increased reconstruction error, particularly for coarse temporal resolutions. 10 2 10 3              
+
+> Number of points (log scale)
+> 10 10
+> 10 8
+> 10 6
+> 10 4
+> 10 2
+> 10 0
+> 10 2
+> Absolute error (log scale)
+> Integral formulation
+> Cint, stls 2
+> Cint, ls 2
+> (n3.5 )
+> (n4.5 )
+> 10 210 3
+> Number of points (log scale)
+> Differential formulation
+> Cdif, stls 2
+> Cdif, ls 2
+> (n2.5 )
+> (n4.0 )
+
+Figure 15: Van de Vusse reconstruction error for integration-based and differentiation-based recovery methods across increasing numbers of time points. Each faint line corresponds to one of 100 independent trials; bold lines represent the geometric mean of all realisations. In each subplot, we also include two dashed reference lines to assess the decay rate with respect to the number of time points. One line follows the theoretical error bound from Theorem 4 and the other was fitted to the observed numerical decay rate. We next evaluate the structural accuracy of the recovered coefficient matrices by measuring their support mismatch with respect to the ground-truth matrix Cex . We perform 1000 indepen-dent trials at four temporal resolutions: 25, 50, 75, and 100 uniformly spaced time points. For each trial, synthetic data is generated as described above, and the matrices Cint ,stls and Cdif ,stls 
+
+are computed. The resulting support mismatches are shown in Figure 16. As expected, the integration-based formulation yields significantly more accurate support recovery, particularly at lower temporal resolutions. 24 0 1 2 3 4 5 6 7 8 9 10 11            
+
+> Support Mismatch
+> 25
+> 50
+> 75
+> 100
+> Time points
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> Frequency
+> Cint
+> Cdif
+> 012345678910 11
+> Support Mismatch
+> 25
+> 50
+> 75
+> 100
+> Time points
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> Frequency
+> Kint
+> Kdif
+
+Figure 16: Left: Support mismatch between the ground-truth coefficient matrix and recovered matrices for the Van de Vusse reaction over 1000 independent trials, shown for multiple temporal resolutions and both integration- and differentiation-based formulations. Right: Quality of the recovered Kirchhoff matrices. 
+
+5.3.2 Graph recovery analysis 
+
+We illustrate the graph recovery performance of our method on a representative instance of the Van de Vusse reaction. We use our fixed set of kinetic constants Eq.(13) and w = 4 initial conditions are generated as described above. The system is integrated over the interval [0 , 20] using 50 uniformly spaced time points. We first attempt the recovery using the complex stochiometry matrix Q constructed by removing all columns corresponding to inactive columns of the recovered coefficient matrix. The result is shown on Figure 17. As was the case for the M20 model, for open networks this produces an incorrect graph. 0.0069 ( x1 x3 ) 0.0012 ( x3 x1 ) 0.002 ( x1x1 x1 )x1x3 x1x1             
+
+> VdV_discovered-graph_r1 0.0068 ( x1x3)0.0025 ( x3x4)
+> 0.001 ( x1x1x2)
+> x1x3x4
+> x1x1x2
+> VdV_true-graph
+
+Figure 17: Top: Incorrectly recovered CRN graph obtained using the integration-based formu-lation with 50 time points. Bottom: Ground-truth CRN graph for the Van de Vusse reaction. We next perform graph recovery by introducing a zero-complex in addition to the active complexes. The resulting recovered network is shown in Figure 18. This reconstruction illus-trates the phenomenon of chemical equivalence [20], as the recovered network reproduces the same equations of motion for the complexes x1 and x3 as in the original Van de Vusse system, but the overall recovered structure is different to the original Van de Vusse reaction graph. For 25 this model, we require alternative filtration schemes in constructing the matrices Ceff and Qeff 
+
+for the graph recovery problem. In Figure 18, we show the recovered structure when we reduce 
+
+Ceff by removing only inactive columns corresponding to quadratic complexes. In this case, we recover the correct structure of the Van de Vusse model. 0.0069 ( x1 x3 ) 0.0928 ( x1 x1x1 )                 
+
+> 0.0928 (  x1 x0 )
+> 0.0025 (  x3 x0 )
+> 0.0012 ( x1x1x1)x1x3x1x1
+> x0
+> VdV_discovered-graph_r1-0 0.0069 ( x1x3)0.0025 ( x3x4)
+> 0.001 ( x1x1x2)
+> x1x3x4
+> x1x1x2
+> VdV_discovered-graph_r2
+
+Figure 18: Top: Incorrectly recovered CRN graph obtained using the integration-based formula-tion with 50 time points after adding a zero-complex. Bottom: Correctly recovered CRN graph obtained using the integration-based formulation with 50 time points and assuming all species as reactant complexes. 
+
+5.3.3 Noisy Van de Vusse reaction 
+
+Finally, we assess the robustness of the recovery procedure in the presence of measurement noise. Each entry of the data matrix X is independently perturbed by additive Gaussian noise with zero mean and variance 10 −4. In Figure 19 we plot the resulting reconstruction errors 
+
+∥∆Cint ,stls ∥2, ∥∆Cdif ,stls ∥2.
+
+As before, these results demonstrate that the integration-based formulation remains robust and accurate for reaction networks involving nonlinear interactions, such as the Van de Vusse reaction, and further highlight its advantages over differentiation-based approaches in both noise-free and noisy settings. 
+
+## 6 Conclusions 
+
+We have proposed a new framework for the full mechanistic reconstruction of chemical reac-tion networks (CRNs) from concentration data. Theoretical analysis and numerical evidence 26 10 2 10 3         
+
+> Number of points (log scale)
+> 10 4
+> 10 3
+> 10 2
+> 10 1
+> 10 0
+> 10 1
+> Absolute error (log scale)
+> Integral formulation
+> Cint, stls 2
+> Cint, ls 2
+> 10 210 3
+> Number of points (log scale)
+> Differential formulation
+> Cdif, stls 2
+> Cdif, ls 2
+
+Figure 19: Noisy Van de Vusse reconstruction error for integration-based and differentiation-based recovery methods across increasing numbers of time points. Each faint line corresponds to one of 100 independent trials; bold lines represent the geometric mean of all realisations. suggests that recovering differential equations in integral form is superior to using numerical dif-ferentiation in terms of accuracy and robustness to noise. We have also introduced a automatic procedure to recover admissible mass-action mechanisms from the equations. In future work we hope to extend our framework to the case of incomplete measurements, where concentrations of only a subset of the species are available. This is particularly challenging in cases where not even the number of hidden species is known. Also, in our current implemen-tation we assume that all experiments happen on similar time-scales as we keep the simulation time window and the integration matrix fixed across simulations. There is no intrinsic reason our framework could not be adapted to the case of varying time-scales. It would mainly require the use of scale-adapted integration matrices. 
+
+Acknowledgments. S. G. acknowledges funding from the UK’s Engineering and Physical Sci-ences Research Council (EPSRC grant EP/Z533786/1) and the Royal Society (RS Industry Fellowship IF/R1/231032). I. L. acknowledges funding from the European Research Council (Advanced Grant RuCat 833337). We are grateful to Matthew Colbrook and Stefan Klus for useful discussions on the topic of this paper. 
+
+## References 
+
+[1] N. Bhatt, B. Jayawardhana, and S. S.-E. Plaza , SINDy-CRN: Sparse Identification of Chemical Reaction Networks from Data , in 2023 62nd IEEE Conference on Decision and Control (CDC), IEEE, 2023, pp. 3512–3518. [2] N. A. Bhore, M. T. Klein, and K. B. Bischoff , The delplot technique: a new method for reaction pathway analysis , Industrial & Engineering Chemistry Research, 29 (1990), pp. 313–316. [3] D. G. Blackmond , Reaction progress kinetic analysis: a powerful methodology for mecha-nistic studies of complex catalytic reactions , Angewandte Chemie International Edition, 44 (2005), pp. 4302–4320. [4] S. L. Brunton, J. L. Proctor, and J. N. Kutz , Discovering governing equations from data by sparse identification of nonlinear dynamical systems , Proceedings of the National Academy of Sciences, 113 (2016), pp. 3932–3937. 27 [5] J. Bur´ es , Variable time normalization analysis: general graphical elucidation of reaction orders from concentration profiles , Angewandte Chemie, 128 (2016), pp. 16318–16321. [6] J. Bur´ es and I. Larrosa , Organic reaction mechanism classification using machine learn-ing , Nature, 613 (2023), pp. 689–695. [7] S. Burnham, M. Willis, and A. Wright , Identifying chemical reaction network models ,IFAC Proceedings Volumes, 40 (2007), pp. 225–230. [8] J. H. Espenson , Chemical Kinetics and Reaction Mechanisms , McGraw–Hill, 2nd ed., 1995. [9] M. Feinberg , Foundations of Chemical Reaction Network Theory , Springer, 2019. [10] A. Forootani, P. Goyal, and P. Benner , A robust SINDy approach by combining neural networks and an integral form , arXiv preprint arXiv:2309.07193, (2023). [11] C. A. Hall and W. Meyer , Optimal error bounds for cubic spline interpolation , Journal of Approximation Theory, 16 (1976), pp. 105–122. [12] M. Hoffmann, C. Fr¨ ohner, and F. No´ e, Reactive SINDy: Discovering governing reactions from concentration data , Journal of Chemical Physics, 150 (2019). [13] N. M. Mangan, S. L. Brunton, J. L. Proctor, and J. N. Kutz , Inferring biological networks by sparse identification of nonlinear dynamics , IEEE Transactions on Molecular, Biological, and Multi-Scale Communications, 2 (2016), pp. 52–63. [14] H. Schaeffer and S. G. McCalla , Sparse model selection via integral terms , Physical Review E, 96 (2017), p. 023302. [15] O. Scherzer, M. Grasmair, H. Grossauer, M. Haltmeier, and F. Lenzen , Vari-ational Methods in Imaging , vol. 167, Springer, 2009. [16] D. P. Searson, M. J. Willis, S. J. Horne, and A. R. Wright , Inference of chemical reaction networks using hybrid s-system models , Chemical Product and Process Modeling, 2 (2007). [17] J. I. Steinfeld, J. S. Francisco, and W. L. Hase , Chemical Kinetics and Dynamics ,vol. 2, Prentice Hall Upper Saddle River, NJ, 1999. [18] G. W. Stewart , On the perturbation of pseudo-inverses, projections and linear least squares problems , SIAM Review, 19 (1977), pp. 634–662. [19] G. Szederk´ enyi , Computing sparse and dense realizations of reaction kinetic systems ,Journal of Mathematical Chemistry, 47 (2010), pp. 551–568. [20] G. Szederk´ enyi, J. R. Banga, and A. A. Alonso , Inference of complex biological networks: distinguishability issues and optimization-based solutions , BMC Systems Biology, 5 (2011), pp. 1–15. [21] S. K. Upadhyay , Chemical Kinetics and Reaction Dynamics , Springer, 2006. [22] B. Wei , Sparse dynamical system identification with simultaneous structural parameters and initial condition estimation , Chaos, Solitons & Fractals, 165 (2022), p. 112866. [23] M. J. Willis and M. von Stosch , Inference of chemical reaction networks using mixed integer linear programming , Computers & Chemical Engineering, 90 (2016), pp. 31–43. 28 [24] L. Zhang and H. Schaeffer , On the convergence of the SINDy algorithm , Multiscale Modeling & Simulation, 17 (2019), pp. 948–972. [25] W. Zhang, S. Klus, T. Conrad, and C. Sch¨ utte , Learning chemical reaction networks from trajectory data , SIAM Journal on Applied Dynamical Systems, 18 (2019), pp. 2000– 2046. 
+
+## Appendix 
+
+Proof of Theorem 1. Differentiation error. Let Ξ = [ ξα,i ] be the noise matrix, then ¯X = X + Ξ,
+
+and 
+
+Edif = ˙X − ¯XL = ˙X − XL | {z }
+
+> spline interpolation error
+
+− ΞL |{z} 
+
+> noise propagation
+
+The first term is bounded using classical cubic spline approximation theory [11]: 
+
+( ˙X − XL )α,i ≤ 9 + √3216 max  
+
+> t∈[t0,t n]
+
+x(4)  
+
+> α
+
+(t) h3 = κdif 
+
+n3 .
+
+For the noise propagation term, we have 
+
+|(ΞL )α,i | =
+
+> n
+
+X
+
+> j=0
+
+ξα,j Lj,i ≤ ε
+
+> n
+
+X
+
+> j=0
+
+|Lj,i | = ε∥L:,i ∥1.
+
+Combining both bounds yields 
+
+|(Edif )α,i | ≤ κdif 
+
+n3 + ε∥L:,i ∥1.
+
+Integration error. Let ∆ξ = ¯D−D denote the noise perturbation of the polynomial dictionary. For a degree-p monomial dβ,i = Q 
+
+> α∈Sβ
+
+xmα 
+
+> α,i
+
+, its noisy version is ¯dβ,i = Y
+
+> α∈Sβ
+
+(xα,i + ξα,i )mα .
+
+A first-order Taylor expansion in the ξα,i gives ¯dβ,i = dβ,i + X
+
+> α∈Sβ
+
+cβ,α,i ξα,i + O(ε2),
+
+where the coefficients cβ,α,i depend on the noiseless data, and are themselves polynomials of degree at most p − 1 in the features xα,i . Hence, each entry of the dictionary perturbation satisfies 
+
+|(∆ξ)β,i | ≤ ε X
+
+> α∈Sβ
+
+|cβ,α,i | = ε C β ,
+
+where Cβ depends on the noiseless data. Then, decomposing the integration error 
+
+Eint =
+
+Z tt0
+
+D(s) ds − ¯DJ =
+
+Z tt0
+
+D(s) ds − DJ 
+
+| {z }
+
+> spline integration error
+
+− ∆ξJ
+
+|{z} 
+
+> noise propagation
+
+,
+
+and using classical cubic spline approximation theory [11], we obtain the entry-wise bound 
+
+|(Eint )β,i | ≤ κint 
+
+n4 + εC β ∥J:,i ∥1.
+
+29 Proof of Theorem 2. For uniformly spaced knots, each not-a-knot cubic spline si satisfies: 
+
+• si is supported on at most 4 consecutive intervals [ ti−2, t i+2 ], 
+
+• ∥si∥∞ = O(1) uniformly in i,
+
+• R tn 
+
+> t0
+
+|si(t)|dt = O(h), 
+
+• ∥s′
+
+> i
+
+∥∞ = O(h−1). 
+
+Differentiation matrix L. Row norms: Li, : = [ s′
+
+> i
+
+(t0), . . . , s ′
+
+> i
+
+(tn)]. Each spline is nonzero at at most 4 knots, each derivative contributes O(h−1), so 
+
+∥Li, :∥1 =
+
+> n
+
+X
+
+> k=0
+
+|s′
+
+> i
+
+(tk)| = O(4 h−1) = O(h−1) = O(n).
+
+Column norms: L:,k = [ s′
+
+> 0
+
+(tk), . . . , s ′
+
+> n
+
+(tk)] T . Only 4 splines are nonzero at a given knot, each one contributes O(h−1) to the sum, so 
+
+∥L:,k ∥1 = O(h−1) = O(n).
+
+Integration matrix J. Row norms: Ji, : =
+
+h R t0 
+
+> t0
+
+si, . . . , R tn 
+
+> t0
+
+si
+
+i
+
+. The integral grows only over the support of si, which has total length O(h), then remains constant. Summing over n + 1 knots gives 
+
+∥Ji, :∥1 =
+
+> n
+
+X
+
+> k=0
+
+Z tk
+
+> t0
+
+si(t)dt = O(nh ) = O(tn − t0).
+
+Column norms: J:,k =
+
+h R tk 
+
+> t0
+
+s0, . . . , R tk 
+
+> t0
+
+sn
+
+iT
+
+. At a given tk, roughly k splines contribute, each 
+
+O(h), so 
+
+∥J:,k ∥1 = O(kh ) ≤ O(nh ) = O(tn − t0).
+
+All bounds are uniform in i, which completes the proof. 30
