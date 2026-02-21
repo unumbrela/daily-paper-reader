@@ -64,13 +64,13 @@ declare
   q tsquery;
 begin
   safe_match_count := greatest(coalesce(match_count, 0), 1);
-  -- REST 参数在某些环境里可能会带入单引号，先做一次轻量清洗，避免 tsquery 语法错误。
+  -- 统一清洗文本，避免单引号、双引号、标点等进入 tsquery 解析，减少语法错误。
   q_raw := coalesce(query_text, '');
+  q_raw := lower(q_raw);
+  q_raw := regexp_replace(q_raw, E'[^a-z0-9\\s]', ' ', 'g');
   q_raw := regexp_replace(q_raw, E'\\s+', ' ', 'g');
   q_raw := trim(q_raw);
-  q_raw := btrim(q_raw, E'''\"');
-  q_raw := trim(regexp_replace(q_raw, E'[\'\"]', ' ', 'g'));
-  q := websearch_to_tsquery('english', q_raw);
+  q := plainto_tsquery('english', q_raw);
 
   if q_raw = '' or q = ''''::tsquery then
     return;
