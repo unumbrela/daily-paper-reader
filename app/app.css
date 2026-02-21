@@ -507,8 +507,8 @@ body.close #paper-chat-container::after {
   /* 强制限制：左边界不能小于侧边栏右边界 */
   min-width: 300px;
   bottom: 24px;
-  max-width: min(820px, calc(100% - var(--sidebar-width, 260px) - 40px));
-  width: calc(100% - 120px);
+  max-width: min(640px, calc(100% - var(--sidebar-width, 260px) - 40px));
+  width: min(640px, calc(100% - 120px));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -908,8 +908,8 @@ body.sidebar-resizing .sidebar::after {
   );
   transform: translateX(-50%);
   bottom: 76px; /* 在 input-area（bottom:24px）之上 */
-  max-width: min(820px, calc(100% - var(--sidebar-width, 260px) - 40px));
-  width: calc(100% - 120px);
+  max-width: min(640px, calc(100% - var(--sidebar-width, 260px) - 40px));
+  width: min(640px, calc(100% - 120px));
   max-height: 46vh;
   overflow: auto;
   background: rgba(255, 255, 255, 0.98);
@@ -1044,8 +1044,8 @@ body.close #paper-chat-container .chat-questions-panel {
   );
   bottom: 36px;
   transform: translateX(calc(-50% + 5px));
-  max-width: min(820px, calc(100% - var(--sidebar-width, 260px) - 40px));
-  width: calc(100% - 120px);
+  max-width: min(640px, calc(100% - var(--sidebar-width, 260px) - 40px));
+  width: min(640px, calc(100% - 120px));
   display: flex;
   align-items: center;
   justify-content: space-between;
