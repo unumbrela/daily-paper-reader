@@ -3380,8 +3380,18 @@ article.markdown-section {
   box-shadow: 0 0 0 1px rgba(87, 168, 106, 0.2);
 }
 
+.dpr-cloud-item.selected .dpr-cloud-item-title,
+.dpr-cloud-item.selected .dpr-cloud-item-desc {
+  color: #1f5f2f;
+}
+
 .dpr-cloud-item input[type='checkbox'] {
   margin-top: 1px;
+  accent-color: #2e7d32;
+}
+
+.dpr-cloud-item input[type='checkbox']:checked {
+  transform: scale(1.05);
 }
 
 .dpr-cloud-item-body {
