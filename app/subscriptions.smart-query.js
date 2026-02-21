@@ -878,32 +878,32 @@ window.SubscriptionsSmartQuery = (function () {
         <div class="dpr-cloud-scroll">${mixedHtml || emptyBlock}</div>
       </div>
       <div class="dpr-modal-actions dpr-chat-action-area">
-        <div class="dpr-chat-input-group">
-          <div class="dpr-chat-inline-row">
-            <label class="dpr-chat-label dpr-chat-inline-tag">
-              <span class="dpr-chat-label-text">标签</span>
-              <input id="dpr-chat-tag-input" type="text" placeholder="例如：SR" value="${escapeHtml(modalState.inputTag || '')}" />
-            </label>
-            <label class="dpr-chat-label dpr-chat-inline-desc">
-              <span class="dpr-chat-label-text">检索需求</span>
-              <textarea id="dpr-chat-desc-input" rows="2" placeholder="请帮我去查找强化学习和diffusion model相关的论文">${escapeHtml(
-                modalState.inputDesc || '',
-              )}</textarea>
-            </label>
-            <button
-              class="arxiv-tool-btn dpr-chat-send-btn"
-              data-action="chat-send"
-              ${modalState.pending ? 'disabled' : ''}
-            >
-              <span class="dpr-chat-send-label">${actionLabel}</span>
-              <span class="dpr-mini-spinner" aria-hidden="true"></span>
-            </button>
-          </div>
-          <div id="dpr-chat-inline-status" class="dpr-chat-inline-status">${escapeHtml(modalState.chatStatus || '')}</div>
+        <div class="dpr-chat-row">
+          <label class="dpr-chat-label dpr-chat-inline-desc">
+            <span class="dpr-chat-label-text">检索需求</span>
+            <textarea id="dpr-chat-desc-input" rows="2" placeholder="请帮我去查找强化学习和diffusion model相关的论文">${escapeHtml(
+              modalState.inputDesc || '',
+            )}</textarea>
+          </label>
+          <button
+            class="arxiv-tool-btn dpr-chat-send-btn"
+            data-action="chat-send"
+            ${modalState.pending ? 'disabled' : ''}
+          >
+            <span class="dpr-chat-send-label">${actionLabel}</span>
+            <span class="dpr-mini-spinner" aria-hidden="true"></span>
+          </button>
         </div>
-        <button class="arxiv-tool-btn" data-action="apply-chat" style="background:#2e7d32;color:#fff;" ${hasCandidates ? '' : 'disabled'}>
-          应用勾选结果
-        </button>
+        <div class="dpr-chat-row">
+          <label class="dpr-chat-label dpr-chat-inline-tag">
+            <span class="dpr-chat-label-text">标签</span>
+            <input id="dpr-chat-tag-input" type="text" placeholder="例如：SR" value="${escapeHtml(modalState.inputTag || '')}" />
+          </label>
+          <button class="arxiv-tool-btn" data-action="apply-chat" style="background:#2e7d32;color:#fff;" ${hasCandidates ? '' : 'disabled'}>
+            应用勾选结果
+          </button>
+        </div>
+        <div id="dpr-chat-inline-status" class="dpr-chat-inline-status">${escapeHtml(modalState.chatStatus || '')}</div>
       </div>
     `;
   };

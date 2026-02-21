@@ -3233,11 +3233,11 @@ article.markdown-section {
   display: block;
 }
 
-.dpr-chat-inline-row {
+.dpr-chat-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 
 .dpr-chat-inline-tag {
