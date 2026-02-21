@@ -1124,12 +1124,13 @@ body.close .chat-footer {
   background: rgba(0, 0, 0, 0.35);
   z-index: 2100;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.16s ease;
 }
 
 .chat-quick-run-modal.is-open {
-  display: flex;
   opacity: 1;
+  pointer-events: auto;
 }
 
 .chat-quick-run-modal-panel {

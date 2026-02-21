@@ -1431,13 +1431,23 @@ window.PrivateDiscussionChat = (function () {
       if (!modal) return;
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
+
+      setTimeout(() => {
+        if (modal.classList.contains('is-open')) return;
+        modal.style.display = 'none';
+      }, 300);
     };
 
     const openQuickRunPopover = () => {
       const modal = getQuickRunModal();
       if (!modal) return;
-      modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
+      modal.style.display = 'flex';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          modal.classList.add('is-open');
+        });
+      });
     };
 
     const openQuickRunPanelInner = () => {
