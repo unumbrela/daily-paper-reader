@@ -1443,9 +1443,10 @@ window.PrivateDiscussionChat = (function () {
           chatQuickRunConferenceMsg.textContent = '当前页面未完成快速抓取入口初始化。';
           chatQuickRunConferenceMsg.style.color = '#c90';
         }
-        return;
+        return false;
       }
       toggleQuickRunPopover();
+      return true;
     };
 
     const toggleQuickRunPopover = () => {
@@ -1547,8 +1548,8 @@ window.PrivateDiscussionChat = (function () {
     initForPage,
     openQuickRunPanel: () => {
       if (typeof quickRunPanelController === 'function') {
-        quickRunPanelController();
-        return;
+        const ok = quickRunPanelController();
+        if (ok) return;
       }
       if (
         window.DPRWorkflowRunner &&
