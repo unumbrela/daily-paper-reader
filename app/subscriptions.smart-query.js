@@ -581,34 +581,46 @@ window.SubscriptionsSmartQuery = (function () {
 
   const mergeCloudSelections = (existingItems, incomingItems, keyField) => {
     const normalizeCloudKey = (item, field) => normalizeText(item && item[field]).toLowerCase();
-    const selectedMap = new Map();
-    (Array.isArray(existingItems) ? existingItems : [])
-      .forEach((item) => {
-        const k = normalizeCloudKey(item, keyField);
-        if (!k || !item._selected) return;
-        selectedMap.set(k, { ...item });
-      });
-
+    const existingList = Array.isArray(existingItems) ? existingItems : [];
+    const incomingList = Array.isArray(incomingItems) ? incomingItems : [];
+    const existingMap = new Map();
     const merged = [];
     const seen = new Set();
-    (Array.isArray(incomingItems) ? incomingItems : []).forEach((item) => {
+
+    existingList.forEach((item) => {
       const k = normalizeCloudKey(item, keyField);
-      if (!k || seen.has(k)) return;
-      const kept = selectedMap.get(k);
-      merged.push({
-        ...(kept ? { ...item, ...kept } : item),
-        _selected: !!kept,
-      });
-      seen.add(k);
-      if (kept) {
-        selectedMap.delete(k);
+      if (!k || existingMap.has(k)) return;
+      existingMap.set(k, { ...item });
+    });
+
+    existingList.forEach((item) => {
+      const k = normalizeCloudKey(item, keyField);
+      if (!k) return;
+      const kept = existingMap.get(k);
+      if (!kept || seen.has(k)) return;
+      if (kept._selected) {
+        merged.push({ ...kept, _selected: true });
+        seen.add(k);
       }
     });
 
-    selectedMap.forEach((item) => {
-      const k = normalizeText(item.expr || item.text).toLowerCase();
+    existingList.forEach((item) => {
+      const k = normalizeCloudKey(item, keyField);
       if (!k || seen.has(k)) return;
-      merged.push({ ...item, _selected: true });
+      const kept = existingMap.get(k);
+      if (!kept) return;
+      if (!kept._selected) {
+        merged.push({ ...kept, _selected: false });
+        seen.add(k);
+      }
+    });
+
+    incomingList.forEach((item) => {
+      const k = normalizeCloudKey(item, keyField);
+      if (!k || seen.has(k)) return;
+      const kept = existingMap.get(k);
+      const mergedItem = kept ? { ...kept, ...item, _selected: !!kept._selected } : { ...item, _selected: false };
+      merged.push(mergedItem);
       seen.add(k);
     });
 
