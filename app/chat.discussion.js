@@ -718,8 +718,25 @@ window.PrivateDiscussionChat = (function () {
     const input = document.getElementById('user-input');
     const btn = document.getElementById('send-btn');
     const statusEl = document.getElementById('chat-status');
+
+    if (!input || !btn) {
+      if (statusEl) {
+        statusEl.textContent = '聊天输入框未就绪，请刷新页面重试。';
+        statusEl.style.color = '#c00';
+      }
+      return;
+    }
+
     const question = input.value.trim();
     let paperContent = '';
+
+    if (!question) {
+      if (statusEl) {
+        statusEl.textContent = '请输入问题后再发送。';
+        statusEl.style.color = '#c00';
+      }
+      return;
+    }
 
     // 优先使用与后端一致的 .txt 抽取全文作为上下文（不截断）
     if (paperId) {
