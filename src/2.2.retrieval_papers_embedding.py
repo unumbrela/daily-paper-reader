@@ -497,13 +497,19 @@ def main() -> None:
     return
 
   # 使用 EmbeddingCoarseFilter 类进行粗筛（模型只加载一次）
-  coarse_filter = EmbeddingCoarseFilter(
-    model_name=args.model,
-    top_k=50,  # 实际 top_k 会在每个文件内根据数据量动态调整
-    device=args.device,
-    batch_size=args.batch_size,
-    max_length=args.max_length,
-  )
+  coarse_filter = None
+
+  def get_filter() -> EmbeddingCoarseFilter:
+    nonlocal coarse_filter
+    if coarse_filter is None:
+      coarse_filter = EmbeddingCoarseFilter(
+        model_name=args.model,
+        top_k=50,  # 实际 top_k 会在每个文件内根据数据量动态调整
+        device=args.device,
+        batch_size=args.batch_size,
+        max_length=args.max_length,
+      )
+    return coarse_filter
 
   def process_single_file(input_path: str, output_path: str) -> None:
     papers = load_paper_pool(input_path)
@@ -532,7 +538,8 @@ def main() -> None:
       )
 
     # 更新粗筛器的 top_k
-    coarse_filter.top_k = dynamic_top_k
+    filter_inst = get_filter()
+    filter_inst.top_k = dynamic_top_k
 
     result: Optional[dict] = None
     supabase_enabled = (
@@ -546,7 +553,7 @@ def main() -> None:
       group_start(f"Step 2.2 - supabase vector recall ({os.path.basename(input_path)})")
       try:
         result_sb = rank_papers_for_queries_via_supabase(
-          model=coarse_filter.model,
+          model=filter_inst.model,
           queries=queries,
           top_k=dynamic_top_k,
           supabase_conf=supabase_conf,
@@ -574,13 +581,13 @@ def main() -> None:
         group_end()
       else:
         group_start(f"Step 2.2 - compute embeddings ({os.path.basename(input_path)})")
-        coarse_result = coarse_filter.filter(items=papers, queries=queries)
+        coarse_result = filter_inst.filter(items=papers, queries=queries)
         group_end()
         paper_embeddings = coarse_result["embeddings"]
 
       group_start(f"Step 2.2 - rank queries ({os.path.basename(input_path)})")
       result = rank_papers_for_queries(
-        model=coarse_filter.model,
+        model=filter_inst.model,
         papers=papers,
         paper_embeddings=paper_embeddings,
         queries=queries,

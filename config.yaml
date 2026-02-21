@@ -11,6 +11,8 @@ supabase:
   url: https://lyucdwgefyfbmaiopjbk.supabase.co
   anon_key: sb_publishable_lX-oi64Uxyd7SIVv3_w2Uw_MTOojeKq
   papers_table: arxiv_papers
+  use_vector_rpc: true
+  vector_rpc: match_arxiv_papers
   sync_table: arxiv_sync_status
   sync_success_value: success
   schema: public
