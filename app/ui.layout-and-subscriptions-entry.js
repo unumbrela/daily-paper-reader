@@ -174,6 +174,27 @@
   function createQuickRunButton() {
     if (document.getElementById('custom-quick-run-btn')) return;
 
+    function requestQuickRunPanel() {
+      window.__dprQuickRunOpenRequested = true;
+
+      if (window.PrivateDiscussionChat && typeof window.PrivateDiscussionChat.openQuickRunPanel === 'function') {
+        const opened = window.PrivateDiscussionChat.openQuickRunPanel();
+        if (opened) {
+          window.__dprQuickRunOpenRequested = false;
+          return;
+        }
+      }
+
+      if (window.DPRWorkflowRunner && typeof window.DPRWorkflowRunner.open === 'function') {
+        window.__dprQuickRunOpenRequested = false;
+        window.DPRWorkflowRunner.open();
+        return;
+      }
+
+      var event = new CustomEvent('dpr-open-quick-run');
+      document.dispatchEvent(event);
+    }
+
     var quickBtn = document.createElement('button');
     quickBtn.id = 'custom-quick-run-btn';
     quickBtn.className = 'custom-toggle-btn custom-quick-run-btn';
@@ -184,17 +205,7 @@
     quickBtn.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
-
-      if (window.PrivateDiscussionChat && typeof window.PrivateDiscussionChat.openQuickRunPanel === 'function') {
-        const opened = window.PrivateDiscussionChat.openQuickRunPanel();
-        if (opened) return;
-      }
-      if (window.DPRWorkflowRunner && typeof window.DPRWorkflowRunner.open === 'function') {
-        window.DPRWorkflowRunner.open();
-        return;
-      }
-      var event = new CustomEvent('dpr-open-quick-run');
-      document.dispatchEvent(event);
+      requestQuickRunPanel();
     });
 
     document.body.appendChild(quickBtn);

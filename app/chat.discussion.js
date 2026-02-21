@@ -1453,6 +1453,13 @@ window.PrivateDiscussionChat = (function () {
       return true;
     };
 
+    const flushQuickRunOpenRequest = () => {
+      if (window.__dprQuickRunOpenRequested) {
+        window.__dprQuickRunOpenRequested = false;
+        openQuickRunPanelInner();
+      }
+    };
+
     const toggleQuickRunPopover = () => {
       const modal = getQuickRunModal();
       if (!modal) return;
@@ -1530,9 +1537,12 @@ window.PrivateDiscussionChat = (function () {
     if (!document._dprQuickRunOpenEventBound) {
       document._dprQuickRunOpenEventBound = true;
       document.addEventListener('dpr-open-quick-run', () => {
+        window.__dprQuickRunOpenRequested = false;
         openQuickRunPanelInner();
       });
     }
+
+    flushQuickRunOpenRequest();
 
     if (!document._dprQuickRunEscBound) {
       document._dprQuickRunEscBound = true;
