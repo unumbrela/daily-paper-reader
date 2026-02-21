@@ -886,7 +886,7 @@ window.SubscriptionsSmartQuery = (function () {
             </label>
             <label class="dpr-chat-label dpr-chat-inline-desc">
               <span class="dpr-chat-label-text">检索需求</span>
-              <textarea id="dpr-chat-desc-input" rows="2" placeholder="示例：我想检索近2年在符号回归方向的论文，重点关注跨学科应用场景，优先查找有可解释性、可迁移性实验的工作。请尽量覆盖不同研究团体、方法细节与任务场景，并忽略综述/重复投稿。可补充关键词偏好：物理建模、时间序列、金融预测、自动控制。">${escapeHtml(
+              <textarea id="dpr-chat-desc-input" rows="2" placeholder="请帮我去查找强化学习和diffusion model相关的论文">${escapeHtml(
                 modalState.inputDesc || '',
               )}</textarea>
             </label>
