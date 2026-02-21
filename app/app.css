@@ -366,6 +366,9 @@ html {
   word-wrap: break-word;
   white-space: pre-wrap;
 }
+.msg-content-user p {
+  margin: 0;
+}
 
 /* 大模型回答：左侧直接按正文展示，不加气泡背景 */
 .msg-content-ai {

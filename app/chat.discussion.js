@@ -622,7 +622,10 @@ window.PrivateDiscussionChat = (function () {
         contentDiv.className =
           'msg-content ' + (isAi ? 'msg-content-ai' : 'msg-content-user');
         const markdown = msg.content || '';
-        if (renderMarkdownWithTables) {
+
+        if (isUser) {
+          contentDiv.textContent = markdown;
+        } else if (renderMarkdownWithTables) {
           contentDiv.innerHTML = renderMarkdownWithTables(markdown);
         } else {
           contentDiv.textContent = markdown;
