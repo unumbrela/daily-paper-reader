@@ -185,12 +185,132 @@ window.PrivateDiscussionChat = (function () {
           <div class="chat-footer-controls">
             <button id="chat-sidebar-toggle-btn" class="chat-footer-icon-btn" type="button">☰</button>
             <button id="chat-settings-toggle-btn" class="chat-footer-icon-btn" type="button">⚙️</button>
+            <button id="chat-quick-run-btn" class="chat-footer-icon-btn" type="button" title="快速抓取">🚀</button>
+            <div id="chat-quick-run-popover" class="chat-quick-run-popover" aria-hidden="true">
+              <div class="chat-quick-run-title">快速抓取</div>
+              <button id="chat-quick-run-7d-btn" class="chat-quick-run-item" type="button">立即搜寻七天内论文</button>
+              <button id="chat-quick-run-30d-btn" class="chat-quick-run-item" type="button">立即搜寻三十天内论文</button>
+              <div class="chat-quick-run-divider" aria-hidden="true"></div>
+              <div class="chat-quick-run-title">会议论文（先保留）</div>
+              <div class="chat-quick-run-row">
+                <label for="chat-quick-run-year-select">年份</label>
+                <select id="chat-quick-run-year-select">
+                  <option value="">选择年份</option>
+                </select>
+              </div>
+              <div class="chat-quick-run-row">
+                <label for="chat-quick-run-conference-select">会议名</label>
+                <select id="chat-quick-run-conference-select">
+                  <option value="">选择会议名</option>
+                </select>
+              </div>
+              <button id="chat-quick-run-conference-run-btn" class="chat-quick-run-run-btn" type="button">运行</button>
+              <div id="chat-quick-run-conference-msg" class="chat-quick-run-msg"></div>
+            </div>
           </div>
           <select id="chat-llm-model-select" class="chat-model-select"></select>
           <span id="chat-status" class="chat-status"></span>
         </div>
       </div>
     `;
+  };
+
+  const QUICK_RUN_CONFERENCES = [
+    'ACL',
+    'AAAI',
+    'COLING',
+    'EMNLP',
+    'ICCV',
+    'ICLR',
+    'ICML',
+    'IJCAI',
+    'NeurIPS',
+    'SIGIR',
+  ];
+
+  const fillQuickRunOptions = (yearSelectEl, confSelectEl) => {
+    if (yearSelectEl && !yearSelectEl._dprQuickRunOptionsFilled) {
+      yearSelectEl._dprQuickRunOptionsFilled = true;
+      const currentYear = new Date().getFullYear();
+      for (let y = currentYear; y >= currentYear - 8; y -= 1) {
+        const opt = document.createElement('option');
+        opt.value = String(y);
+        opt.textContent = String(y);
+        yearSelectEl.appendChild(opt);
+      }
+    }
+
+    if (confSelectEl && !confSelectEl._dprQuickRunOptionsFilled) {
+      confSelectEl._dprQuickRunOptionsFilled = true;
+      QUICK_RUN_CONFERENCES.forEach((name) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        confSelectEl.appendChild(opt);
+      });
+    }
+  };
+
+  const resolveQuickRunYear = (value) => {
+    const y = parseInt(value, 10);
+    if (!Number.isFinite(y) || y <= 0) {
+      return '';
+    }
+    return String(y);
+  };
+
+  const runQuickFetch = (days, statusEl, showToast = () => {}) => {
+    if (!window.DPRWorkflowRunner || typeof window.DPRWorkflowRunner.runQuickFetchByDays !== 'function') {
+      if (statusEl) {
+        statusEl.textContent = '工作流触发器未加载到当前页面。';
+        statusEl.style.color = '#c00';
+      }
+      return;
+    }
+    window.DPRWorkflowRunner.runQuickFetchByDays(days);
+    showToast();
+  };
+
+  const runQuickConferencePlaceholder = (yearSelectEl, confSelectEl, msgEl, statusEl) => {
+    const year = resolveQuickRunYear(yearSelectEl ? yearSelectEl.value : '');
+    const conf = confSelectEl ? String(confSelectEl.value || '').trim() : '';
+    if (!year || !conf) {
+      if (msgEl) {
+        msgEl.textContent = '请先选择年份和会议名。';
+        msgEl.style.color = '#c00';
+      }
+      return;
+    }
+    if (msgEl) {
+      msgEl.textContent = `${year} ${conf} 的会议论文抓取功能暂未接入。`;
+      msgEl.style.color = '#c90';
+    }
+    if (statusEl) {
+      statusEl.textContent = `${year} ${conf} 的会议论文抓取入口先保留。`;
+      statusEl.style.color = '#c90';
+    }
+  };
+
+  const isCompactWindow = () => window.innerWidth <= 1023;
+
+  const getActiveQuickRunTrigger = () => {
+    if (isCompactWindow()) return document.getElementById('chat-quick-run-btn');
+    return document.getElementById('custom-quick-run-btn');
+  };
+
+  const positionQuickRunPopover = (triggerBtn) => {
+    const popover = document.getElementById('chat-quick-run-popover');
+    if (!popover || !triggerBtn) return;
+    const rect = triggerBtn.getBoundingClientRect();
+    const width = 250;
+    const offsetY = 6;
+    let left = Math.max(8, rect.left + rect.width / 2 - width / 2);
+    let top = Math.round(rect.bottom + offsetY);
+    left = Math.min(left, window.innerWidth - width - 8);
+    popover.style.position = 'fixed';
+    popover.style.left = `${left}px`;
+    popover.style.right = 'auto';
+    popover.style.top = `${top}px`;
   };
 
   const safeLoadList = (key) => {
@@ -231,6 +351,8 @@ window.PrivateDiscussionChat = (function () {
   const getRecentQuestions = () => safeLoadList(QUESTION_RECENT_KEY);
   const setRecentQuestions = (list) =>
     safeSaveList(QUESTION_RECENT_KEY, (list || []).slice(0, MAX_RECENT_QUESTIONS));
+
+  let quickRunPanelController = null;
 
   const recordRecentQuestion = (question) => {
     const q = normalizeQuestion(question);
@@ -1146,6 +1268,21 @@ window.PrivateDiscussionChat = (function () {
     const modelSelect = document.getElementById('chat-llm-model-select');
     const chatSidebarBtn = document.getElementById('chat-sidebar-toggle-btn');
     const chatSettingsBtn = document.getElementById('chat-settings-toggle-btn');
+    const chatQuickRunBtn = document.getElementById('chat-quick-run-btn');
+    const chatQuickRunPopover = document.getElementById('chat-quick-run-popover');
+    const chatQuickRun7dBtn = document.getElementById('chat-quick-run-7d-btn');
+    const chatQuickRun30dBtn = document.getElementById('chat-quick-run-30d-btn');
+    const chatQuickRunConferenceBtn = document.getElementById(
+      'chat-quick-run-conference-run-btn',
+    );
+    const chatQuickRunYearSelect = document.getElementById('chat-quick-run-year-select');
+    const chatQuickRunConferenceSelect = document.getElementById(
+      'chat-quick-run-conference-select',
+    );
+    const chatQuickRunConferenceMsg = document.getElementById(
+      'chat-quick-run-conference-msg',
+    );
+    fillQuickRunOptions(chatQuickRunYearSelect, chatQuickRunConferenceSelect);
 
     const inGuestMode =
       window.DPR_ACCESS_MODE === 'guest' || window.DPR_ACCESS_MODE === 'locked';
@@ -1300,10 +1437,124 @@ window.PrivateDiscussionChat = (function () {
       });
     }
 
+    const closeQuickRunPopover = () => {
+      if (!chatQuickRunPopover) return;
+      chatQuickRunPopover.classList.remove('is-open');
+      chatQuickRunPopover.setAttribute('aria-hidden', 'true');
+    };
+
+  const openQuickRunPopover = (triggerBtn) => {
+      if (!chatQuickRunPopover) return;
+      positionQuickRunPopover(triggerBtn);
+      chatQuickRunPopover.classList.add('is-open');
+      chatQuickRunPopover.setAttribute('aria-hidden', 'false');
+  };
+
+  const openQuickRunPanelInner = () => {
+    const triggerBtn = getActiveQuickRunTrigger();
+    if (!chatQuickRunPopover) {
+      if (chatQuickRunPopoverMsg) {
+        chatQuickRunPopoverMsg.textContent = '当前页面未完成快速抓取入口初始化。';
+        chatQuickRunPopoverMsg.style.color = '#c90';
+      }
+      return;
+    }
+    toggleQuickRunPopover(triggerBtn);
+  };
+
+  const toggleQuickRunPopover = (triggerBtn) => {
+    if (!chatQuickRunPopover) return;
+    if (chatQuickRunPopover.classList.contains('is-open')) {
+      closeQuickRunPopover();
+      return;
+    }
+    if (chatQuickRunConferenceMsg) {
+      chatQuickRunConferenceMsg.textContent = '';
+      chatQuickRunConferenceMsg.style.color = '#999';
+    }
+    openQuickRunPopover(triggerBtn);
+  };
+
+    if (chatQuickRunBtn && !chatQuickRunBtn._bound) {
+      chatQuickRunBtn._bound = true;
+      chatQuickRunBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleQuickRunPopover(chatQuickRunBtn);
+      });
+    }
+
+    if (chatQuickRun7dBtn && !chatQuickRun7dBtn._bound) {
+      chatQuickRun7dBtn._bound = true;
+      chatQuickRun7dBtn.addEventListener('click', () => {
+        runQuickFetch(7, statusEl, closeQuickRunPopover);
+      });
+    }
+
+    if (chatQuickRun30dBtn && !chatQuickRun30dBtn._bound) {
+      chatQuickRun30dBtn._bound = true;
+      chatQuickRun30dBtn.addEventListener('click', () => {
+        runQuickFetch(30, statusEl, closeQuickRunPopover);
+      });
+    }
+
+    if (chatQuickRunConferenceBtn && !chatQuickRunConferenceBtn._bound) {
+      chatQuickRunConferenceBtn._bound = true;
+      chatQuickRunConferenceBtn.addEventListener('click', () => {
+        runQuickConferencePlaceholder(
+          chatQuickRunYearSelect,
+          chatQuickRunConferenceSelect,
+          chatQuickRunConferenceMsg,
+          statusEl,
+        );
+      });
+    }
+
+    if (!document._dprQuickRunPopoverBound) {
+      document._dprQuickRunPopoverBound = true;
+      document.addEventListener('click', (e) => {
+        const popoverEl = document.getElementById('chat-quick-run-popover');
+        const triggerBtn = getActiveQuickRunTrigger();
+        const desktopTrigger = document.getElementById('custom-quick-run-btn');
+        const mobileTrigger = document.getElementById('chat-quick-run-btn');
+        if (!popoverEl || !popoverEl.classList.contains('is-open')) return;
+        const inside =
+          popoverEl.contains(e.target) ||
+          (triggerBtn && triggerBtn.contains(e.target)) ||
+          (desktopTrigger && desktopTrigger.contains(e.target)) ||
+          (mobileTrigger && mobileTrigger.contains(e.target));
+        if (!inside) {
+          popoverEl.classList.remove('is-open');
+          popoverEl.setAttribute('aria-hidden', 'true');
+        }
+      });
+    }
+
+    if (!document._dprQuickRunOpenEventBound) {
+      document._dprQuickRunOpenEventBound = true;
+      document.addEventListener('dpr-open-quick-run', () => {
+        openQuickRunPanelInner();
+      });
+    }
+
     renderHistory(paperId).catch(() => {});
+
+    quickRunPanelController = openQuickRunPanelInner;
   };
 
   return {
     initForPage,
+    openQuickRunPanel: () => {
+      if (typeof quickRunPanelController === 'function') {
+        quickRunPanelController();
+        return;
+      }
+      if (
+        window.DPRWorkflowRunner &&
+        typeof window.DPRWorkflowRunner.open === 'function'
+      ) {
+        window.DPRWorkflowRunner.open();
+      }
+    },
   };
 })();
