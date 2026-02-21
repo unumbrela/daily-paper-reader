@@ -361,36 +361,62 @@ window.SubscriptionsSmartQuery = (function () {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
-    let res;
-    try {
-      res = await fetch(endpoint, {
+    const requestPayload = (useResponseFormat) => {
+      const payload = {
+        model: llm.model,
+        messages: [
+          { role: 'system', content: '你是检索规划助手，只能返回合法 JSON。' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+      };
+      if (useResponseFormat) {
+        payload.response_format = { type: 'json_object' };
+      }
+      return payload;
+    };
+
+    const doFetch = async (useResponseFormat) => {
+      return fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${llm.apiKey}`,
         },
-        body: JSON.stringify({
-          model: llm.model,
-          messages: [
-            { role: 'system', content: '你是检索规划助手，只能返回合法 JSON。' },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.1,
-          response_format: { type: 'json_object' },
-        }),
+        body: JSON.stringify(requestPayload(useResponseFormat)),
         signal: controller.signal,
       });
+    };
+
+    let res;
+    let errorText = '';
+    try {
+      res = await doFetch(true);
+      if (!res.ok) {
+        errorText = await res.text().catch(() => '');
+        if (res.status === 400 && /response[_\\s-]*format|json_object/i.test(errorText)) {
+          res = await doFetch(false);
+          if (!res.ok) {
+            const fallbackText = await res.text().catch(() => '');
+            throw new Error(`HTTP ${res.status} ${fallbackText || res.statusText}`);
+          }
+        } else {
+          throw new Error(`HTTP ${res.status} ${errorText || res.statusText}`);
+        }
+      }
     } catch (e) {
       clearTimeout(timeout);
       if (e && e.name === 'AbortError') {
         throw new Error('生成超时，请稍后重试。');
       }
+      if (e && errorText) {
+        throw e;
+      }
       throw e;
     }
     clearTimeout(timeout);
-    if (!res.ok) {
-      const t = await res.text().catch(() => '');
-      throw new Error(`HTTP ${res.status} ${t || res.statusText}`);
+    if (!res || !res.ok) {
+      throw new Error(errorText || 'LLM 响应异常，请检查模型配置。');
     }
     const data = await res.json();
     const content = extractLlmJsonText(data);
