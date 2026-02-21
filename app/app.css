@@ -3249,7 +3249,7 @@ article.markdown-section {
   display: flex;
   flex-wrap: nowrap;
   gap: 8px;
-  align-items: flex-end;
+  align-items: stretch;
 }
 
 .dpr-chat-inline-tag {
@@ -3267,7 +3267,7 @@ article.markdown-section {
 }
 
 .dpr-chat-inline-desc textarea {
-  min-height: 42px;
+  min-height: 56px;
 }
 
 .dpr-chat-send-btn {
@@ -3275,11 +3275,14 @@ article.markdown-section {
   background: #5dcf85 !important;
   color: #fff !important;
   padding: 6px 10px !important;
-  height: 32px;
+  min-height: 56px;
   border-radius: 6px;
   white-space: nowrap;
-  margin: 0 0 2px;
+  margin: 0;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (max-width: 700px) {
