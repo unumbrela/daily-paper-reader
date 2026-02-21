@@ -6,6 +6,14 @@ on:
     - cron: "30 18 * * *" # user 时段（北京时间次日 02:30，UTC 18:30，延后 2 小时）
   workflow_dispatch:
     inputs:
+      mode:
+        description: "运行入口（user: 仅本地流程，maintainer: 抓取并同步 Supabase）"
+        required: false
+        default: "user"
+        type: choice
+        options:
+          - user
+          - maintainer
       run_enrich:
         description: "Run 0.enrich_config_queries.py (smart check, skips if complete)"
         required: false
@@ -24,6 +32,7 @@ concurrency:
 
 jobs:
   run:
+    if: github.repository == 'ziwen/daily-paper-reader'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -53,12 +62,25 @@ jobs:
             HAS_KEY="true"
           fi
 
+          INPUT_MODE="${{ github.event.inputs.mode || 'user' }}"
+
+          if [ -z "$INPUT_MODE" ]; then
+            INPUT_MODE="user"
+          fi
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            SHOULD_RUN="true"
-            if [ "$HAS_KEY" = "true" ]; then
+            if [ "$INPUT_MODE" = "maintainer" ]; then
               MODE="maintainer"
+              if [ "$HAS_KEY" = "true" ]; then
+                SHOULD_RUN="true"
+              else
+                SHOULD_RUN="false"
+                MODE="skip"
+                echo "[WARN] workflow_dispatch 选择 maintainer，但未配置 SUPABASE_URL/SUPABASE_SERVICE_KEY，已跳过。"
+              fi
             else
               MODE="user"
+              SHOULD_RUN="true"
             fi
           else
             SCHEDULE="${{ github.event.schedule }}"
