@@ -400,18 +400,41 @@ window.SubscriptionsSmartQuery = (function () {
       return '';
     };
 
-    const doFetch = async (endpoint, useResponseFormat) => {
+    const isFetchFailure = (e) => {
+      if (!e) return false;
+      if (e.name === 'AbortError') return false;
+      if (e.name === 'TypeError') return true;
+      const msg = (e.message || '').toLowerCase();
+      return msg.includes('failed to fetch') || msg.includes('network') || msg.includes('ERR_NETWORK');
+    };
+
+    const buildHeaders = (withApiKeyHeader) => {
       const headers = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${llm.apiKey}`,
       };
-      headers['x-api-key'] = llm.apiKey;
+      if (withApiKeyHeader) {
+        headers['x-api-key'] = llm.apiKey;
+      }
+      return headers;
+    };
+
+    const doFetch = async (endpoint, useResponseFormat, withApiKeyHeader = true) => {
       return fetch(endpoint, {
         method: 'POST',
-        headers,
+        headers: buildHeaders(withApiKeyHeader),
         body: JSON.stringify(requestPayload(useResponseFormat)),
         signal: controller.signal,
       });
+    };
+
+    const doFetchWithFallbackHeader = async (endpoint, useResponseFormat) => {
+      try {
+        return await doFetch(endpoint, useResponseFormat, true);
+      } catch (e) {
+        if (!isFetchFailure(e)) throw e;
+        return doFetch(endpoint, useResponseFormat, false);
+      }
     };
 
     let res = null;
@@ -421,11 +444,11 @@ window.SubscriptionsSmartQuery = (function () {
       for (let i = 0; i < endpoints.length; i++) {
         const endpoint = endpoints[i];
         try {
-          let current = await doFetch(endpoint, true);
+          let current = await doFetchWithFallbackHeader(endpoint, true);
           if (!current.ok) {
             const txt = await current.text().catch(() => '');
             if (current.status === 400 && /response[\s-]*format|json_object/i.test(txt)) {
-              current = await doFetch(endpoint, false);
+              current = await doFetchWithFallbackHeader(endpoint, false);
             }
           }
 
