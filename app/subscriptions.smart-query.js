@@ -588,8 +588,9 @@ window.SubscriptionsSmartQuery = (function () {
     const existingList = Array.isArray(existingItems) ? existingItems : [];
     const incomingList = Array.isArray(incomingItems) ? incomingItems : [];
     const existingMap = new Map();
-    const merged = [];
+    const retainedSelected = [];
     const seen = new Set();
+    const merged = [];
 
     existingList.forEach((item) => {
       const k = normalizeCloudKey(item, keyField);
@@ -600,23 +601,11 @@ window.SubscriptionsSmartQuery = (function () {
     existingList.forEach((item) => {
       const k = normalizeCloudKey(item, keyField);
       if (!k) return;
+      if (seen.has(k)) return;
       const kept = existingMap.get(k);
-      if (!kept || seen.has(k)) return;
-      if (kept._selected) {
-        merged.push({ ...kept, _selected: true });
-        seen.add(k);
-      }
-    });
-
-    existingList.forEach((item) => {
-      const k = normalizeCloudKey(item, keyField);
-      if (!k || seen.has(k)) return;
-      const kept = existingMap.get(k);
-      if (!kept) return;
-      if (!kept._selected) {
-        merged.push({ ...kept, _selected: false });
-        seen.add(k);
-      }
+      if (!kept || !kept._selected) return;
+      retainedSelected.push({ ...kept, _selected: true });
+      seen.add(k);
     });
 
     incomingList.forEach((item) => {
@@ -628,6 +617,7 @@ window.SubscriptionsSmartQuery = (function () {
       seen.add(k);
     });
 
+    merged.unshift(...retainedSelected);
     return merged;
   };
 
