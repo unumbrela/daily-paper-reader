@@ -3305,6 +3305,14 @@ article.markdown-section {
   transition: color 0.12s ease;
 }
 
+.dpr-chat-result-module {
+  margin: 0 0 8px;
+}
+
+.dpr-chat-result-module .dpr-modal-sub {
+  margin-bottom: 6px;
+}
+
 .dpr-chat-list {
   margin: 5px 0 8px;
 }

@@ -856,10 +856,12 @@ window.SubscriptionsSmartQuery = (function () {
         <div class="dpr-modal-title">新增查询</div>
         <button class="arxiv-tool-btn" data-action="close">关闭</button>
       </div>
-      <div class="dpr-modal-list">
-        <div class="dpr-modal-sub" style="margin-bottom: 8px;">大模型 Query（语义重写）</div>
+      <div class="dpr-chat-result-module">
+        <div class="dpr-modal-sub">大模型 Query（语义重写）</div>
         <div class="dpr-cloud-scroll">${qHtml ? `<div class="dpr-cloud-grid">${qHtml}</div>` : '<div style="color:#999;">暂无 Query 候选。</div>'}</div>
-        <div class="dpr-modal-sub" style="margin: 10px 0 8px;">关键词（检索召回）</div>
+      </div>
+      <div class="dpr-chat-result-module">
+        <div class="dpr-modal-sub">关键词（检索召回）</div>
         <div class="dpr-cloud-scroll">${kwHtml ? `<div class="dpr-cloud-grid">${kwHtml}</div>` : '<div style="color:#999;">暂无关键词候选。</div>'}</div>
       </div>
       <div class="dpr-modal-actions dpr-chat-action-area">
