@@ -347,20 +347,35 @@ window.SubscriptionsSmartQuery = (function () {
     const subs = (cfg && cfg.subscriptions) || {};
     const template = normalizeText(subs.smart_query_prompt_template || '') || defaultPromptTemplate;
     const prompt = buildPromptFromTemplate(tag, desc, template);
-    const endpoint = (() => {
+    const buildEndpoints = () => {
       const raw = normalizeText(llm.baseUrl);
-      if (!raw) return '';
-      if (raw.includes('/chat/completions')) return raw;
+      if (!raw) return [];
+      const out = [];
+      const pushUnique = (u) => {
+        if (u && !out.includes(u)) out.push(u);
+      };
       const normalized = raw.replace(/\/+$/, '');
-      if (/\/v\d+$/i.test(normalized)) return `${normalized}/chat/completions`;
-      return `${normalized}/v1/chat/completions`;
-    })();
-    if (!endpoint) {
+      if (raw.includes('/chat/completions')) {
+        pushUnique(raw);
+        pushUnique(raw.replace(/\/chat\/completions$/, '/v1/chat/completions'));
+        return out;
+      }
+      if (/\/v\d+$/i.test(normalized)) {
+        pushUnique(`${normalized}/chat/completions`);
+        pushUnique(`${normalized}/v1/chat/completions`);
+        return out;
+      }
+      pushUnique(`${normalized}/v1/chat/completions`);
+      pushUnique(`${normalized}/chat/completions`);
+      return out;
+    };
+    const endpoints = buildEndpoints();
+    if (!endpoints.length) {
       throw new Error('LLM 配置缺少 baseUrl。');
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000);
+    const timeout = setTimeout(() => controller.abort(), 120000);
     const requestPayload = (useResponseFormat) => {
       const payload = {
         model: llm.model,
@@ -376,7 +391,13 @@ window.SubscriptionsSmartQuery = (function () {
       return payload;
     };
 
-    const doFetch = async (useResponseFormat) => {
+    const textSafeFromError = (e) => {
+      if (!e) return '';
+      if (typeof e.message === 'string' && e.message) return e.message;
+      return '';
+    };
+
+    const doFetch = async (endpoint, useResponseFormat) => {
       return fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -388,35 +409,57 @@ window.SubscriptionsSmartQuery = (function () {
       });
     };
 
-    let res;
+    let res = null;
     let errorText = '';
+    let fetchError = '';
     try {
-      res = await doFetch(true);
-      if (!res.ok) {
-        errorText = await res.text().catch(() => '');
-        if (res.status === 400 && /response[_\\s-]*format|json_object/i.test(errorText)) {
-          res = await doFetch(false);
-          if (!res.ok) {
-            const fallbackText = await res.text().catch(() => '');
-            throw new Error(`HTTP ${res.status} ${fallbackText || res.statusText}`);
+      for (let i = 0; i < endpoints.length; i++) {
+        const endpoint = endpoints[i];
+        try {
+          let current = await doFetch(endpoint, true);
+          if (!current.ok) {
+            const txt = await current.text().catch(() => '');
+            if (current.status === 400 && /response[\s-]*format|json_object/i.test(txt)) {
+              current = await doFetch(endpoint, false);
+            }
           }
-        } else {
-          throw new Error(`HTTP ${res.status} ${errorText || res.statusText}`);
+
+          if (!current.ok) {
+            const txt = await current.text().catch(() => '');
+            if (current.status === 400 || current.status === 401 || current.status === 403) {
+              throw new Error(`HTTP ${current.status} ${txt || current.statusText}`);
+            }
+            if (current.status === 429 || current.status >= 500) {
+              errorText = txt;
+              continue;
+            }
+            errorText = txt;
+            break;
+          }
+
+          res = current;
+          break;
+        } catch (e) {
+          fetchError = textSafeFromError(e);
+          if (e && e.name === 'AbortError') {
+            throw new Error('生成超时，请稍后重试。');
+          }
+          if (i < endpoints.length - 1) {
+            // 网络类错误尝试下一个端点
+            continue;
+          }
         }
       }
     } catch (e) {
       clearTimeout(timeout);
-      if (e && e.name === 'AbortError') {
-        throw new Error('生成超时，请稍后重试。');
-      }
-      if (e && errorText) {
-        throw e;
-      }
       throw e;
     }
     clearTimeout(timeout);
-    if (!res || !res.ok) {
-      throw new Error(errorText || 'LLM 响应异常，请检查模型配置。');
+    if (!res) {
+      if (fetchError) {
+        throw new Error(`模型服务请求失败：${fetchError}`);
+      }
+      throw new Error(errorText || '模型服务请求失败，请检查网络与密钥配置。');
     }
     const data = await res.json();
     const content = extractLlmJsonText(data);
@@ -863,7 +906,13 @@ window.SubscriptionsSmartQuery = (function () {
       setChatStatus(modalState.chatStatus, '#666');
     } catch (e) {
       console.error(e);
-      const msg = `生成失败：${e && e.message ? e.message : '未知错误'}`;
+      const rawMsg = e && e.message ? String(e.message) : '未知错误';
+      const hint =
+        /Failed to fetch|NETWORK|network|ERR_TIMED_OUT|timed out/i.test(rawMsg) ||
+        /模型服务请求失败/.test(rawMsg)
+          ? '请检查当前网络是否能访问模型网关，或稍后重试（可先切换/重选模型）。'
+          : '';
+      const msg = `生成失败：${rawMsg}${hint ? `（${hint}）` : ''}`;
       setMessage(msg, '#c00');
       setChatStatus(msg, '#c00');
     } finally {

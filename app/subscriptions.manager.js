@@ -1,4 +1,4 @@
-// 订阅管理总模块（统一智能 Query + 禁用引用模块）
+// 订阅管理总模块（智能 Query）
 // 负责：
 // 1) 维护本地草稿配置
 // 2) 统一渲染 intent_profiles
@@ -346,36 +346,14 @@ window.SubscriptionsManager = (function () {
         </div>
 
         <div id="dpr-smart-query-section" class="arxiv-pane dpr-smart-pane">
-          <div class="dpr-smart-head">统一智能 Query 决策</div>
-
           <div class="dpr-display-card">
             <div id="dpr-sq-display" class="dpr-sq-display"></div>
           </div>
 
           <div class="dpr-input-card">
-            <div class="dpr-input-layout">
-              <textarea id="dpr-sq-desc" class="dpr-desc-compact" rows="1" placeholder="用户描述（示例见右侧 ! ）"></textarea>
-              <div class="dpr-inline-row dpr-side-row">
-                <input id="dpr-sq-tag" type="text" placeholder="标签（必填）" />
-                <button id="dpr-sq-create-btn" class="arxiv-tool-btn" style="background:#2e7d32; color:#fff;">新增</button>
-                <span class="dpr-help-tip" tabindex="0">!
-                  <span class="dpr-help-pop">
-                    示例：帮我关注符号回归与科学发现交叉领域，偏向近期可复现实证研究。<br/>
-                    建议：标签尽量使用英文，且小于等于 6 个字母，体验更好。
-                  </span>
-                </span>
-              </div>
+            <div class="dpr-inline-row">
+              <button id="dpr-sq-open-chat-btn" class="arxiv-tool-btn" style="background:#2e7d32; color:#fff;">新增</button>
             </div>
-          </div>
-        </div>
-
-        <div class="dpr-section-divider"></div>
-
-        <div id="dpr-tracked-disabled" class="arxiv-pane dpr-disabled-pane">
-          <div style="font-weight:600; margin-bottom:6px;">新增论文引用（暂未实现）</div>
-          <div style="font-size:12px; color:#666; line-height:1.6;">
-            该模块已按当前改造方案禁用为只读提示，不再提供搜索与写入操作。
-            历史 tracked_papers 数据会保留在配置中，不会被自动删除。
           </div>
         </div>
 
@@ -397,9 +375,7 @@ window.SubscriptionsManager = (function () {
     if (window.SubscriptionsSmartQuery) {
       window.SubscriptionsSmartQuery.attach({
         displayListEl: document.getElementById('dpr-sq-display'),
-        createBtn: document.getElementById('dpr-sq-create-btn'),
-        tagInputEl: document.getElementById('dpr-sq-tag'),
-        descInputEl: document.getElementById('dpr-sq-desc'),
+        openChatBtn: document.getElementById('dpr-sq-open-chat-btn'),
         msgEl,
         reloadAll,
       });
