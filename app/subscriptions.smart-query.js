@@ -848,8 +848,11 @@ window.SubscriptionsSmartQuery = (function () {
       descField: 'logic_cn',
       defaultDesc: '（与原始 query 保持同主题）',
     });
-    const hasCandidates = (modalState.keywords || []).length + (modalState.queries || []).length > 0;
-    const actionLabel = requestHistoryLength(modalState) === '首次生成' ? '生成候选' : '新增候选';
+    const hasKeywords = Array.isArray(modalState.keywords) && modalState.keywords.length > 0;
+    const hasQueries = Array.isArray(modalState.queries) && modalState.queries.length > 0;
+    const hasCandidates = hasKeywords || hasQueries;
+    const isFirstRound = !(Array.isArray(modalState.requestHistory) && modalState.requestHistory.length);
+    const actionLabel = isFirstRound ? '生成候选' : '新增候选';
 
     modalPanel.innerHTML = `
       <div class="dpr-modal-head">
@@ -858,11 +861,11 @@ window.SubscriptionsSmartQuery = (function () {
       </div>
       <div class="dpr-chat-result-module">
         <div class="dpr-modal-sub">大模型 Query（语义重写）</div>
-        <div class="dpr-cloud-scroll">${qHtml ? `<div class="dpr-cloud-grid">${qHtml}</div>` : '<div style="color:#999;">暂无 Query 候选。</div>'}</div>
+        <div class="dpr-cloud-scroll">${qHtml ? `<div class="dpr-cloud-grid">${qHtml}</div>` : '<div class="dpr-cloud-empty"></div>'}</div>
       </div>
       <div class="dpr-chat-result-module">
         <div class="dpr-modal-sub">关键词（检索召回）</div>
-        <div class="dpr-cloud-scroll">${kwHtml ? `<div class="dpr-cloud-grid dpr-cloud-grid-keywords">${kwHtml}</div>` : '<div style="color:#999;">暂无关键词候选。</div>'}</div>
+        <div class="dpr-cloud-scroll">${kwHtml ? `<div class="dpr-cloud-grid dpr-cloud-grid-keywords">${kwHtml}</div>` : '<div class="dpr-cloud-empty"></div>'}</div>
       </div>
       <div class="dpr-modal-actions dpr-chat-action-area">
         <div class="dpr-chat-input-group">
