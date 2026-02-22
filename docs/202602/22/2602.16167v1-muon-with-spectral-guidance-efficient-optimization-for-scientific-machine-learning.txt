@@ -1,0 +1,1453 @@
+Title: Muon with Spectral Guidance: Efficient Optimization for Scientific Machine Learning
+
+URL Source: https://arxiv.org/pdf/2602.16167v1
+
+Published Time: Thu, 19 Feb 2026 01:24:27 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# MUON WITH SPECTRAL GUIDANCE : E FFICIENT OPTIMIZATION FOR SCIENTIFIC MACHINE LEARNING 
+
+Binghang Lu ∗
+
+Elmore Family School of Electrical and Computer Engineering Purdue University West Lafayette, IN 47907, USA 
+
+Jiahao Zhang ∗
+
+Department of Mathematics Purdue University West Lafayette, IN 47907, USA 
+
+Guang Lin †
+
+Department of Mathematics & School of Mechanical Engineering Purdue University West Lafayette, IN 47907, USA February 19, 2026 
+
+# ABSTRACT 
+
+Physics-informed neural networks and neural operators often suffer from severe optimization diffi-culties caused by ill-conditioned gradients, multi-scale spectral behavior, and stiffness induced by physical constraints. Recently, the Muon optimizer has shown promise by performing orthogonalized updates in the singular-vector basis of the gradient, thereby improving geometric conditioning. How-ever, its unit–singular-value updates may lead to overly aggressive steps and lack explicit stability guarantees when applied to physics-informed learning. In this work, we propose SpecMuon , a spectral-aware optimizer that integrates Muon’s orthogonalized geometry with a mode-wise relaxed scalar auxiliary variable (RSAV) mechanism. By decomposing matrix-valued gradients into singu-lar modes and applying RSAV updates individually along dominant spectral directions, SpecMuon adaptively regulates step sizes according to the global loss energy while preserving Muon’s scale-balancing properties. This formulation interprets optimization as a multi-mode gradient flow and enables principled control of stiff spectral components. We establish rigorous theoretical properties of SpecMuon, including a modified energy dissipation law, positivity and boundedness of auxiliary variables, and global convergence with a linear rate under the Polyak–Łojasiewicz condition. Numeri-cal experiments on physics-informed neural networks, DeepONets, and fractional PINN–DeepONets demonstrate that SpecMuon achieves faster convergence and improved stability compared with Adam, AdamW, and the original Muon optimizer on benchmark problems such as the one-dimensional Burgers’ equation and fractional partial differential equations. 
+
+K eywords Scientific Machine Learning · Physics-Informed Neural Networks · Neural Operators · Spectral Optimization · Scalar Auxiliary Variable · Parametric PDEs 
+
+# 1 Introduction 
+
+The rapid development of deep learning has profoundly influenced scientific computing, offering new paradigms for modeling, simulation, and inverse problems governed by partial differential equations (PDEs). In particular, physics-informed neural networks (PINNs) [ 1, 2, 3] and neural operators, such as DeepONets [ 4 , 5 ] and Fourier Neural Operators [ 6 , 7], provide flexible frameworks for embedding physical laws into learning architectures or approximating solution operators between infinite-dimensional function spaces. These approaches have demonstrated considerable 
+
+> ∗
+
+Equal contribution. 
+
+> †
+
+Corresponding author: guanglin@purdue.edu 
+
+> arXiv:2602.16167v1 [cs.LG] 18 Feb 2026
+
+A PREPRINT - F EBRUARY 19, 2026 promise in accelerating simulations, enabling data-efficient learning, and handling high-dimensional problems that are challenging for traditional numerical solvers. Despite these successes, optimization remains a central bottleneck in physics-informed machine learning [ 8, 9]. Unlike standard supervised learning tasks in computer vision or natural language processing, the loss landscapes arising from physics constraints are often highly ill-conditioned, characterized by stiff gradients, strong anisotropy, and pronounced multi-scale spectral structure. The simultaneous presence of data-fitting terms, PDE residuals, and boundary or initial conditions can induce severe curvature imbalance across parameter directions, frequently leading to slow convergence, instability, or sensitivity to hyperparameter choices when using standard first-order optimizers such as stochastic gradient descent or Adam [ 10 ]. These difficulties become even more pronounced in operator learning settings, where matrix-valued parameters and coupled subnetworks further complicate the optimization geometry [11, 12, 13]. To mitigate these challenges, recent research has explored optimization methods that incorporate geometric or spectral information beyond simple coordinate-wise scaling [ 14 , 15 , 16 ]. Among these, the Muon optimizer [ 17 ] has attracted attention for its distinctive update strategy, which operates in the singular-vector basis of gradient matrices rather than the ambient parameter coordinates [ 17 ]. By orthogonalizing updates and equalizing singular values, Muon effectively reshapes the optimization geometry and reduces interference between directions with disparate curvature [ 18 ]. Although originally developed for large-scale language and vision models, Muon’s geometric perspective is particularly appealing for scientific machine learning, where matrix-valued parameters and spectral imbalance are ubiquitous. However, the standard Muon update deliberately discards singular value magnitudes, prioritizing geometric displacement over energy control. While this normalization stabilizes the spectrum of the update, it may also produce overly aggressive steps along dominant modes and lacks explicit mechanisms to ensure stability or monotonic decrease of the training loss. In contrast, the scalar auxiliary variable (SAV) methodology, originally developed for gradient flows in computational physics, offers a complementary perspective [ 19 , 20 , 21 ]. By augmenting the system with an auxiliary scalar tied to the energy, SAV-based schemes guarantee unconditional stability and modified energy dissipation. Recent adaptations of SAV ideas to neural network optimization [ 22 , 23 ] have demonstrated that energy-based mechanisms can improve robustness and convergence behavior [24, 25, 26], yet these approaches typically operate on aggregated gradients and do not explicitly address the spectral structure inherent in physics-informed models. This observation reveals a fundamental gap in current optimization strategies: geometric conditioning and energy stability are often treated separately, despite both being critical for efficient training in stiff, physics-constrained settings. In this work, we seek to bridge this gap by introducing a spectral-aware optimization framework that unifies orthogonalized geometry with principled energy control. Our central idea is to view optimization as a multi-mode gradient flow, where different spectral components of the gradient evolve under distinct stability constraints. Motivated by this perspective, we propose SpecMuon, a novel optimizer that integrates Muon’s singular-vector-based updates with a mode-wise relaxed scalar auxiliary variable (RSAV) mechanism [ 27 ]. By decomposing matrix-valued gradients into their dominant singular directions and applying RSAV updates individually to these modes, SpecMuon adaptively regulates step sizes according to the global loss energy while preserving Muon’s scale-balancing properties. This design enables selective damping of stiff spectral components without sacrificing rapid progress along well-conditioned directions. The main contributions of this paper are summarized as follows: • Algorithm Design: We introduce SpecMuon, a spectral-aware optimizer that combines orthogonalized gradient updates with a mode-wise RSAV mechanism, providing a unified treatment of geometric conditioning and energy stability. • Theoretical Analysis: We establish rigorous theoretical guarantees for the proposed method, including a modified energy dissipation law, positivity and boundedness of auxiliary variables, and global convergence with a linear rate under the Polyak–Łojasiewicz condition. • Numerical Validation: We demonstrate the effectiveness of SpecMuon through extensive numerical experi-ments on physics-informed neural networks, DeepONets, and fractional PINN–DeepONets, showing improved convergence speed and stability compared with Adam, AdamW, and the original Muon optimizer. The remainder of this paper is organized as follows. Section 2 reviews the Muon optimizer and the scalar auxiliary variable framework. Section 3 presents the SpecMuon methodology and its theoretical analysis. Numerical experiments are reported in Section 4, and concluding remarks and future directions are given in Section 5. 2A PREPRINT - F EBRUARY 19, 2026 
+
+# 2 Background and Related Work 
+
+We consider the unconstrained optimization problem 
+
+min  
+
+> Θ
+
+f (Θ) , Θ = {W (ℓ) ∈ Rmℓ×nℓ }Lℓ=1 ,
+
+where f denotes the neural-network training loss. Although our numerical studies come from scientific computing (e.g., PDE-driven models), the method operates directly on any matrix-valued parameters optimization problem. 
+
+2.1 Muon 
+
+Let G(ℓ) := ∇W (ℓ) f (Θ) ∈ Rmℓ×nℓ be the block gradient. Its thin singular value decomposition (SVD) is 
+
+G(ℓ) = U (ℓ)Σ(ℓ) V (ℓ)⊤,
+
+and we define the Frobenius-orthonormal rank-one directions 
+
+Q(ℓ) 
+
+> i
+
+:= u(ℓ)
+
+> i
+
+ v(ℓ)
+
+> i
+
+⊤, ⟨Q(ℓ) 
+
+> i
+
+, Q (ℓ) 
+
+> j
+
+⟩F = δij , ∥Q(ℓ) 
+
+> i
+
+∥F = 1 .
+
+The original Muon step replaces the singular values by ones and moves in the orthogonalized direction spanned by the singular vectors. With stepsize η > 0 and, in practice, a rank budget kℓ ≤ rank( G(ℓ)), the update reads 
+
+∆W (ℓ) 
+
+> Muon
+
+= − η
+
+> kℓ
+
+X
+
+> i=1
+
+Q(ℓ) 
+
+> i
+
+= − η U (ℓ) V (ℓ)⊤.
+
+This “unit-SV” update preserves the singular vectors and discards the magnitudes, which stabilizes the spectrum of the step and reduces interference between directions with disparate curvature. In practice, Muon implements the unit-SV transformation without an explicit SVD. It approximates the polar factor of a normalized update matrix via a few iterations of the Newton–Schulz method, e.g., 
+
+Xt+1 = 32 Xt − 12 XtX⊤ 
+
+> t
+
+Xt,
+
+which drives the singular values of Xt toward 1 while preserving the singular vectors. This yields an efficient orthogonalized direction on modern hardware. 
+
+2.2 Scalar auxiliary variable (SAV) and the relaxed variant (RSAV) 
+
+Consider the gradient flow for the loss 
+
+˙Θ( t) = − ∇ f  Θ( t),
+
+and introduce a fixed shift κ > 0 so that f (Θ) + κ > 0. Define the scalar auxiliary variable: 
+
+r(t) := 
+
+q
+
+f  Θ( t) + κ . 
+
+The SAV idea couples Θ and r through the extended system 
+
+˙Θ( t) + r(t)
+
+p f (Θ( t)) + κ ∇f  Θ( t) = 0 , ˙r(t) = 12p f (Θ( t)) + κ ∇f  Θ( t)⊤ ˙Θ( t). (2.1) The pair (2.1) is equivalent to the original gradient flow when r(t) = pf (Θ( t)) + κ holds exactly, yet it exposes a simple Lyapunov structure. 
+
+Theorem 2.1 (Modified energy law) . Let (Θ( t), r (t)) satisfy (2.1) . Then the modified energy r(t)2 dissipates: 
+
+ddt r(t)2 = − r(t)2
+
+f (Θ( t)) + κ ∇f  Θ( t) 2 
+
+> F
+
+≤ 0.
+
+Proof. Multiply the second equation in (2.1) by 2r(t) to get 
+
+2r ˙r = r
+
+√f + κ ∇f ⊤ ˙Θ.
+
+3A PREPRINT - F EBRUARY 19, 2026 Combine it with the first equation, ˙Θ = − r√f +κ ∇f , to obtain: 
+
+2r ˙r = − r2
+
+f + κ ∥∇ f ∥2 
+
+> F
+
+,ddt r2 ≤ 0.
+
+Now let h > 0 be a time step and denote G(Θ) := ∇f (Θ) and E(Θ) := pf (Θ) + κ. A first-order explicit SAV step is obtained by evaluating G at Θk and by predicting r with a scalar decoupling: 
+
+˜r k+1 = rk
+
+1 + h
+
+2
+
+∥G(Θ k)∥2
+
+> F
+
+ E(Θ k)2
+
+, (2.2) 
+
+Θk+1 = Θ k − h ˜r k+1 
+
+E(Θ k) G(Θ k). (2.3) Formula (2.2) comes from discretizing the second equation in (2.1) and substituting the discrete version of (2.3) to eliminate Θk+1 , which yields a scalar correction for r. The pair (2.2) –(2.3) decreases the discrete modified energy r2
+
+for any h > 0.In [ 27 ], the SAV predictor ˜r k+1 can also be directly connected to the current loss value E(Θ k+1 ). RSAV enforces alignment by a convex relaxation: 
+
+˜r k+1 = rk
+
+1 + h
+
+2
+
+∥G(Θ k)∥2
+
+> F
+
+ E(Θ k)2
+
+, (2.4) 
+
+Θk+1 = Θ k − h ˜r k+1 
+
+E(Θ k) G(Θ k), (2.5) 
+
+rk+1 = ξk ˜r k+1 +  1 − ξk E(Θ k+1 ), ξk ∈ [0 , 1] . (2.6) The relaxation parameter ξk is chosen to guarantee a discrete dissipation law. Let 
+
+Dk+1 := 1
+
+h Θk+1 − Θk 2 
+
+> F
+
+.
+
+Fix a tolerance ψ ∈ (0 , 1) (e.g., ψ = 0 .95 ). Select ξ as the smallest root in [0 , 1] of the quadratic inequality 
+
+ ξ ˜r k+1 + (1 − ξ)E(Θ k+1 )2 −  ˜r k+1 2 −  ˜r k+1 − r k2 ≤ ψ D k+1 , (2.7) which has the explicit solution 
+
+ξk = max 
+
+(
+
+0, − b − √ b2 − 4ac 
+
+2a
+
+)
+
+,
+
+with explicit coefficients a, b, c defined by 
+
+a =  ˜r k+1 − E(Θ k+1 )2,b = 2 E(Θ k+1 ) ˜r k+1 − E(Θ k+1 ),c = f (Θ k+1 ) + κ −  ˜r k+1 2 − ψ D k+1 .
+
+Theorem 2.2 (Discrete energy dissipation for RSAV predictor and RSAV) . Fix h > 0 and κ > 0. Let 
+
+Ek := 
+
+q
+
+f (Θ k) + κ, Gk := ∇f (Θ k).
+
+Assume the RSAV predictor updates following (2.4) and (2.5) . Define the discrete dissipation term 
+
+Dk+1 := 1
+
+h Θk+1 − Θk 2 
+
+> F
+
+.
+
+4A PREPRINT - F EBRUARY 19, 2026 
+
+Then the predictor satisfies  ˜r k+1 2 −  rk2 ≤ − Dk+1 ≤ 0. (2.8) 
+
+Moreover, if the relaxation is chosen so that for some ψ ∈ [0 , 1) satisfying (2.6) and (2.7) , then 
+
+ rk+1 2 −  rk2 ≤ − (1 − ψ) Dk+1 ≤ 0. (2.9) 
+
+Proof. From (2.5), 
+
+Θk+1 − Θk = − h ˜r k+1 
+
+Ek
+
+Gk, =⇒ Dk+1 = 1
+
+h − h ˜r k+1  
+
+> Ek
+
+Gk 
+
+> 2
+> F
+
+= h  ˜r k+1 2 ∥Gk∥2
+
+> F
+
+E2
+
+> k
+
+.
+
+On the other hand, the first predictor formula in (2.4) implies 
+
+˜r k+1 − rk = − h
+
+2
+
+∥Gk∥2
+
+> F
+
+E2
+
+> k
+
+˜r k+1 .
+
+Multiply both sides by −2˜ r k+1 to get the identity 
+
+− 2 ˜r k+1 − rk ˜r k+1 = h  ˜r k+1 2 ∥Gk∥2
+
+> F
+
+E2
+
+> k
+
+= Dk+1 . (2.10) Note that ˜r k+1 < r k because the denominator in (2.4) exceeds 1. Hence 
+
+ ˜r k+1 2 −  rk2 =  ˜r k+1 − rk  ˜r k+1 + rk ≤  ˜r k+1 − rk   2˜ r k+1  = − Dk+1 ,
+
+where the last equality uses (2.10). This proves (2.8). By assumption (2.7), we have 
+
+ rk+1 2 −  ˜r k+1 2 ≤ ψ D k+1 +  ˜r k+1 − rk2.
+
+Add this inequality to the exact identity  ˜r k+1 2 −  rk2 = − Dk+1 −  ˜r k+1 − rk2 (from (2.10)) to obtain 
+
+ rk+1 2 −  rk2 ≤ − (1 − ψ) Dk+1 ,
+
+which is (2.9). Because ψ ∈ [0 , 1) and Dk+1 ≥ 0, this yields monotone decay of the modified energy r2.
+
+# 3 Methodology 
+
+The core idea of the proposed method is to decompose each matrix gradient into its singular directions and update mode by mode. Let 
+
+G = U ΣV ⊤ = X
+
+> i
+
+σi uiv⊤ 
+
+> i
+
+, Qi := uiv⊤ 
+
+> i
+
+.
+
+A standard Muon step replaces the singular values by ones and moves in the orthogonalized direction: 
+
+− η X
+
+> i
+
+Qi.
+
+Equivalently, since G = P 
+
+> i
+
+σiQi, we can write 
+
+− η X
+
+> i
+
+Qi = − X
+
+> i
+
+ ησi
+
+
+
+σiQi,
+
+which is a projected gradient step in the original spectral basis with per-mode learning rate 
+
+hi = ησi
+
+.
+
+Thus a single Muon update can be viewed as a coordinated collection of independent micro-steps along the decoupled singular directions. 5A PREPRINT - F EBRUARY 19, 2026 
+
+3.1 SpecMuon Algorithm 
+
+We now present the proposed update in a form parallel to Section 2.2 and consistent with the notation of Section 2. Fix a matrix block W and an iteration index k. Define 
+
+Ek := 
+
+q
+
+f (Θ k) + κ , Gk := ∇W f (Θ k).
+
+Following Section 2.1, decompose the block gradient by a (truncated) SVD, 
+
+Gk = U kΣk(V k)⊤ =
+
+> kr
+
+X
+
+> i=1
+
+σ ki Q ki , Q ki := u ki (v ki )⊤,
+
+where the rank-one matrices {Q ki } are Frobenius-orthonormal: ⟨Q ki , Q kj ⟩F = δij and ∥Q ki ∥F = 1 . This orthonormal-ity allows us to treat each singular direction as a scalar mode at the current iterate. A Muon step sets singular values to one and updates as −η P 
+
+> i
+
+Q ki . A projected-gradient step in the original spectral basis reads − P 
+
+> i
+
+h ki σ ki Q ki . Matching coefficients mode by mode gives h ki σ ki = η, i.e., h ki = η/σ ki . Large singular values therefore receive smaller effective steps, while small singular values receive larger ones, reproducing Muon’s scale balancing in the spectral basis. We therefore set 
+
+h ki := ησ ki
+
+, η > 0, g ki := σ ki
+
+Ek .
+
+To each singular direction Q ki we attach a scalar auxiliary variable r ki , initialized by r 0 
+
+> i
+
+= E0. This is the per-mode analogue of the single rk in Section 2.2, now aligned with the singular basis. Before moving the parameter, we form the RSAV predictor in each singular direction. Specializing the SAV decoupling of Section 2.2 to step h ki and direction Q ki
+
+gives 
+
+˜r k+1  
+
+> i
+
+= r ki
+
+1 + h ki
+
+2 (g ki )2
+
+= r ki
+
+1 + η
+
+2
+
+σ ki
+
+(Ek)2
+
+.
+
+Note that there is no matrix norm appears because ∥Q ki ∥F = 1 . The denominator depends only on σ ki and Ek.Once ˜r k+1  
+
+> i
+
+is computed, we advance the parameter along the singular directions: 
+
+W k+1 = W k − ηEkkrX
+
+> i=1
+
+˜r k+1  
+
+> i
+
+Q ki .
+
+Equivalently, in each mode the projected increment satisfies 
+
+W k+1 − W k, Q ki F = − h ki ˜r k+1  
+
+> i
+
+g ki ,
+
+and orthonormality ensures that contributions from different modes add without cross terms. After computing W k+1 , we evaluate the new energy root Ek+1 := p f (Θ k+1 ) + κ and align each auxiliary variable with the current loss level through the RSAV relaxation: 
+
+r k+1  
+
+> i
+
+= ξ ki ˜r k+1  
+
+> i
+
++  1 − ξ ki
+
+ Ek+1 , ξ ki ∈ [0 , 1] .
+
+The coefficient ξ ki is chosen by the same short quadratic rule as in equation (2.7) , applied per mode with the quantities 
+
+(˜ r k+1  
+
+> i
+
+, E k+1 , h ki , g ki ). The predictor provides a stable provisional magnitude and the relaxation uses information at the updated iterate to keep r k+1  
+
+> i
+
+tied to the current loss scale. At iteration k+1 the SVD is recomputed on the fresh gradient 
+
+Gk+1 , yielding {Q k+1  
+
+> i
+
+, σ k+1  
+
+> i
+
+}; the relaxed values {r k+1  
+
+> i
+
+} serve as inputs to the new predictors, and the cycle repeats. The proposed algorithm is summarized in Algorithm 1 for implementation purpose. Note that the theoretical analysis in Sections 3.1–3.3 focuses on the core Muon-RSAV update without momentum, gradient normalization, or heuristic stabilizers. Algorithm 1 includes these additional components for practical performance and numerical robustness. As is standard in optimization analysis, the theoretical results describe the underlying update mechanism, while the full algorithm reflects implementation-level enhancements. 6A PREPRINT - F EBRUARY 19, 2026 
+
+Algorithm 1 SpecMuon 
+
+Require: Learning rate η, momentum μ, top singular directions k, SAV smoothing factor ξ, epsilon ϵ 
+
+> 1:
+
+Initialize momentum buffer B0 ← 0 
+
+> 2:
+
+Initialize SAV state vector r0 ← √L0 · 1 
+
+> 3:
+
+for t = 1 , . . . do  
+
+> 4:
+
+Compute gradient Gt ← ∇ θ Lt(θt−1) 
+
+> 5:
+
+Normalize gradient ˆGt ← Gt/(∥Gt∥F + ϵ) 
+
+> 6:
+
+Compute SVD: U, S, V T ← SVD( ˆGt) 
+
+> 7:
+
+Initialize update direction Ot ← 0 
+
+> 8:
+
+// SAV update for top-k directions  
+
+> 9:
+
+for j = 1 , . . . , k do  
+
+> 10:
+
+uj , s j , v Tj ← j-th singular components from U, S, V T 
+
+> 11:
+
+Compute SAV learning rate η′ 
+
+> j
+
+← η/ (sj + ϵ) 
+
+> 12:
+
+dg ← (sj · uj vTj )/(√Lt + ϵ) 
+
+> 13:
+
+rnew  
+
+> j
+
+← rt−1,j /(1 + 0 .5 · η′ 
+
+> j
+
+· ∥ dg ∥F ) 
+
+> 14:
+
+Ot ← Ot + ( rnew  
+
+> j
+
+/(√Lt + ϵ)) · uj vTj 
+
+> 15:
+
+// Update r for next step  
+
+> 16:
+
+T ← (1 − ξ)( rnew  
+
+> j
+
+)2 + ξ(rt−1,j )2 + (1 − ξ)( rnew  
+
+> j
+
+− rt−1,j )2 
+
+> 17:
+
+χ ← (√Lt − √T )/(√Lt − rnew  
+
+> j
+
++ ϵ) 
+
+> 18:
+
+rt,j ← clamp( χ, 0, 1) · rnew  
+
+> j
+
++ (1 − clamp( χ, 0, 1)) · √Lt 
+
+> 19:
+
+end for  
+
+> 20:
+
+// Muon update for remaining directions  
+
+> 21:
+
+Uk:, S k:, V Tk: ← remaining singular components  
+
+> 22:
+
+Ot ← Ot + Uk: diag( Sk:) V Tk: 
+
+> 23:
+
+// Apply momentum and update parameters  
+
+> 24:
+
+Bt ← μB t−1 + Ot 
+
+> 25:
+
+Update parameters θt ← θt−1 − ηB t 
+
+> 26:
+
+end for  
+
+> 27:
+
+return θt
+
+3.2 Computational efficiency 
+
+The update in Section 3.1 is defined mode by mode in the singular basis. In practice, we keep only a small number of dominant modes. We therefore adopt a truncated spectral budget kr (“top-k” singular directions and implemented as 
+
+rtop in Algorithem 1) and a matching truncation of auxiliary variables r ki . This preserves Muon’s geometric benefits while keeping the additional RSAV overhead negligible. For a block W ∈ Rm×n the dominant costs are: • Top-kr SVD / orthogonalization. A randomized range finder followed by a small SVD has complexity 
+
+O(mn k r + ( m+n)k2 
+
+> r
+
+). When Muon uses a polar (Newton–Schulz) iteration, we still require only a thin orthonormal basis. The cost is linear in kr once that basis is formed. • Per-mode RSAV algebra. The predictor ˜r k+1  
+
+> i
+
+and the relaxation for each retained mode are scalar operations, for a total of O(kr ) time and memory. • Aggregated parameter update. Forming Pkr 
+
+> i=1
+
+˜r k+1  
+
+> i
+
+Q ki is a linear combination and is typically dominated by backprop to obtain Gk.Hence, relative to Muon, the incremental work of RSAV is O(kr ) scalars plus one evaluation of Ek+1 =pf (Θ k+1 ) + κ. Note that two structural properties justify this truncation. Firstly, in many scientific-computing models the gradient spectrum is skewed, that is, a few singular directions carry most of the energy. Secondly, the RSAV equations are independent per mode. Each update uses only (σ ki , E k, r ki ) and the orthonormal direction Q ki . Dropping the tail therefore removes small-magnitude contributions without introducing cross-mode errors at the current iterate (orthonormality eliminates cross terms). If neglected directions later become important, they automatically re-enter when their singular values appear in the top-kr .7A PREPRINT - F EBRUARY 19, 2026 Truncating both the spectral basis (to kr modes) and the auxiliaries (to {ri}kr
+
+> i=1
+
+) yields an update whose cost is essentially that of Muon plus O(kr ) scalar work. The method captures the dominant geometry, adapts per-mode magnitudes via RSAV with negligible overhead, and scales gracefully with model size. 
+
+3.3 Analysis of the Algorithm 
+
+At each iterate k, the gradient of a matrix block admits the orthonormal singular basis Gk = Pkr 
+
+> i=1
+
+σ ki Q ki with 
+
+⟨Q ki , Q kj ⟩F = δij , and our update in Section 3.1 applies the RSAV predictor and relaxation per mode using the Muon-induced steps h ki = η/σ ki . Because these directions are Frobenius-orthonormal, all inner products that enter the discrete identities (e.g., the projected increments ⟨W k+1 − W k, Q ki ⟩F ) decouple across i. That is, there are no cross terms at the current iterate. Thus, every structural property introduced in Section 2, Section 3.1 and Section 3.2 can be proved for a single singular direction and then summed over i = 1 , . . . , k r to obtain the block-level statement. Although the SVD (and hence {Q ki }) is recomputed at each step, our estimates are established within iteration k and extend to the full update by simple summation. We therefore present the analysis in a single mode setting and the extension to the total Gk is immediate. 
+
+Theorem 3.1 (Modified-energy dissipation (mode-wise and global)) . Suppose the Muon–RSAV update of Section 3.1 with per-mode step sizes h ki = η/σ ki and predictors ˜r k+1  
+
+> i
+
+= r ki
+
+  1 + h ki 
+
+> 2
+
+(g ki )2, where g ki = σ ki /E k and 
+
+Ek = pf (Θ k) + κ. After the parameter update W k+1 , let Ek+1 = pf (Θ k+1 ) + κ and define the per-mode relaxation 
+
+r k+1  
+
+> i
+
+= ξ ki ˜r k+1  
+
+> i
+
++ (1 − ξ ki ) Ek+1 , ξ ki ∈ [0 , 1] ,
+
+with ξ ki chosen by the quadratic rule of (2.7) using a fixed ψ ∈ (0 , 1) . Then, for each retained singular mode i,
+
+ r k+1 
+
+> i
+
+2 −  r ki
+
+2 ≤ − (1 − ψ) D k+1  
+
+> i
+
+≤ 0, D k+1  
+
+> i
+
+:= 1
+
+h ki
+
+W k+1 − W k, Q ki 
+
+> 2
+> F
+
+.
+
+Summing over the kr retained modes yields the global dissipation of the modified energy M k := Pkr
+
+> i=1
+
+ r ki
+
+2:
+
+M k+1 − M k ≤ − (1 − ψ)
+
+> kr
+
+X
+
+> i=1
+
+D k+1  
+
+> i
+
+≤ 0.
+
+Proof. Fix an iteration k and a single singular direction Q ki . The update in one sigular direction in Section 3.1 is exactly the RSAV predictor with step h = h ki in Section 2.2: 
+
+˜r k+1  
+
+> i
+
+= r ki
+
+1 + h ki 
+
+> 2
+
+(g ki )2
+
+, W k+1 − W k, Q ki F = −h ki ˜r k+1  
+
+> i
+
+g ki .
+
+Therefore the standard identity from Section 2.2 holds per mode: 
+
+D k+1  
+
+> i
+
+= 1
+
+h ki
+
+W k+1 − W k, Q ki 
+
+> 2
+> F
+
+= − 2 ˜r k+1  
+
+> i
+
+− r ki
+
+˜r k+1  
+
+> i
+
+.
+
+With the RSAV relaxation r k+1  
+
+> i
+
+= ξ ki ˜r k+1  
+
+> i
+
++ (1 − ξ ki )Ek+1 and the same quadratic choice of ξ ki as in Section 2.2, the single-mode inequality  r k+1 
+
+> i
+
+2 −  r ki
+
+2 ≤ − (1 − ψ) D k+1 
+
+> i
+
+follows verbatim from the proof in Section 2.2 by replacing h 7 → h ki and g 7 → g ki . Finally, the Frobenius-orthonormality 
+
+⟨Q ki , Q kj ⟩F = δij ensures that D k+1  
+
+> i
+
+is additive across i (no cross terms at iteration k), so summing the single-mode inequalities yields the final statement: 
+
+M k+1 − M k ≤ − (1 − ψ)
+
+> kr
+
+X
+
+> i=1
+
+D k+1  
+
+> i
+
+≤ 0.
+
+Theorem 3.2 (Positivity and uniform lower bound for r ki ). Assume κ > 0 and that the objective is bounded below: 
+
+f∗ := inf  
+
+> Θ
+
+f (Θ) > −∞ .
+
+8A PREPRINT - F EBRUARY 19, 2026 
+
+Initialize r 0 
+
+> i
+
+= E0 = pf (Θ 0) + κ. Consider the per–mode Muon–RSAV update 
+
+˜r k+1  
+
+> i
+
+= r ki
+
+1 + h ki
+
+2 (g ki )2
+
+, r k+1  
+
+> i
+
+= ξ ki ˜r k+1  
+
+> i
+
++ (1 − ξ ki ) Ek+1 ,
+
+with g ki = σ ki /E k, Ek = pf (Θ k) + κ, and ξ ki ∈ [0 , 1] . Then for all k ≥ 0,
+
+r ki > 0 and ˜r k+1  
+
+> i
+
+> 0
+
+Proof. By assumption f∗ > −∞ , hence f (Θ k) + κ ≥ κ + f∗ > 0 for all k, so Ek = pf (Θ k) + κ ≥ √κ + f∗ > 0.
+
+Induction: r 0 
+
+> i
+
+= E0 > 0. If r ki > 0, then ˜r k+1  
+
+> i
+
+= r ki
+
+1 + h ki 
+
+> 2
+
+(g ki )2
+
+∈ (0 , r ki ], and the relaxation is a convex combination of positive terms: 
+
+r k+1  
+
+> i
+
+= ξ ki ˜r k+1  
+
+> i
+
++ (1 − ξ ki ) Ek+1 ≥ (1 − ξ ki ) Ek+1 ≥ 0.
+
+Hence r k+1  
+
+> i
+
+> 0.
+
+Remark 3.3 . The assumption f∗ > −∞ , is mild and holds for standard losses (e.g., MSE, cross-entropy), where typically f∗ = 0 . If only a known bound f (Θ) ≥ − B is available, choosing κ > B guarantees the same uniform positivity via √κ − B.Now we move to the dissipation of the original energy for sufficiently small step size (one singular direction). We first list the standing assumptions used in this theorem, then prove a one–mode descent result. The extension to the block level follows by summation across modes, as explained at the beginning of Section 3.3. (A1) L–smoothness: The loss function f : Rm×n → R has L–Lipschitz continuous gradient with respect to the Frobenius norm, i.e. 
+
+∥∇ f (X) − ∇ f (Y )∥F ≤ L ∥X − Y ∥F for all X, Y. 
+
+Equivalently, f satisfies the standard descent inequality 
+
+f (Y ) ≤ f (X) + ⟨∇ f (X), Y − X⟩F + L
+
+2 ∥Y − X∥2 
+
+> F
+
+,
+
+which will be used in the analysis below. (A2) Lower-bounded loss and shift. f∗ := inf Θ f (Θ) > −∞ and κ > 0, so that Ek = pf (Θ k) + κ ≥√κ + f∗ > 0.
+
+Theorem 3.4 (One–mode dissipation of the original energy for a sufficiently small step) . Under assumptions (A1) and (A2), the one–step decrease f (Θ k+1 ) ≤ f (Θ k) holds in the singular direction Q ki provided the stepsize parameter η
+
+satisfies (3.2) , i.e. 
+
+η ≤ 2 σ ki Ek
+
+L ˜r k+1 
+
+> i
+
+.
+
+Proof. Fix an iteration k and a retained singular direction Q ki with ⟨Q ki , Q ki ⟩F = 1 and coefficient σ ki = ⟨Gk, Q ki ⟩F ,where Gk = ∇W f (Θ k). With h ki = η/σ ki and g ki = σ ki /E k, define 
+
+˜r k+1  
+
+> i
+
+= r ki
+
+1 + h ki 
+
+> 2
+
+(g ki )2
+
+, W k+1 = W k − ηEk ˜r k+1  
+
+> i
+
+Q ki .
+
+As in Section 3.1, the relaxation that produces r k+1  
+
+> i
+
+is performed after updating W and is not needed here. By (A1) with Y := W k+1 − W k = −(η/E k)˜ r k+1  
+
+> i
+
+Q ki and ∥Q ki ∥F = 1 ,
+
+f (Θ k+1 ) ≤ f (Θ k) + 
+
+D
+
+Gk, − ηEk ˜r k+1  
+
+> i
+
+Q ki
+
+E
+
+> F
+
++ L
+
+2
+
+ηEk ˜r k+1  
+
+> i
+
+Q ki
+
+> 2
+> F
+
+= f (Θ k) − ηEk ˜r k+1  
+
+> i
+
+σ ki + L
+
+2
+
+η2
+
+(Ek)2 (˜ r k+1  
+
+> i
+
+)2. (3.1) 9A PREPRINT - F EBRUARY 19, 2026 Thus, a sufficient local condition for f (Θ k+1 ) ≤ f (Θ k) in this mode is 
+
+ηEk ˜r k+1  
+
+> i
+
+≤ 2 σ ki
+
+L ⇐⇒ η ≤ 2 σ ki Ek
+
+L ˜r k+1 
+
+> i
+
+. (3.2) Note that the local condition (3.2) is verifiable at runtime because it uses current quantities (σ ki , E k, ˜r k+1  
+
+> i
+
+). For a uniform (iterate–independent) choice of η, one may use the truncation of the singular values. If we retain only modes with σ ki ≥ σmin > 0 and enforce a predictor cap ˜r k+1  
+
+> i
+
+≤ Cr Ek with some Cr ≥ 1 (e.g., by clipping the ratio 
+
+˜r k+1  
+
+> i
+
+/E k), then a single, iterate–independent stepsize 
+
+η ≤ 2 σmin 
+
+L C r
+
+(3.3) guarantees f (Θ k+1 ) ≤ f (Θ k) in every retained mode and hence in total. 
+
+Remark 3.5 . Summing (3.1) across the kr modes, Frobenius–orthonormal directions yields f (Θ k+1 ) ≤ f (Θ k) −
+
+> ηEk
+
+P 
+
+> i
+
+˜r k+1  
+
+> i
+
+σ ki + L 
+
+> 2
+> η2
+> (Ek)2
+
+P
+
+> i
+
+(˜ r k+1  
+
+> i
+
+)2. Thus, if (3.2) holds for all retained i, the total energy decreases. This is the precise sense in which proving the one–mode inequality suffices at iteration k.We now analyze the convergence behavior of the proposed Muon–RSAV algorithm under the same conditions (A1)–(A2) introduced previously, together with an additional regularity assumption stated below. (A3) ( the Polyak–Łojasiewicz (PL) condition :) There exists μ > 0 such that  
+
+> 12
+
+∥∇ f (Θ) ∥2 
+
+> F
+
+≥ μ f (Θ) − f∗
+
+, ∀ Θ.
+
+where f∗ = inf Θ f (Θ) > −∞ . This condition generalizes strong convexity and is commonly satisfied by many overparameterized neural networks and PDE-constrained learning problems. 
+
+Theorem 3.6 (Convergence and linear rate) . Let assumptions (A1)–(A3) hold. Then the sequence {f (Θ k)} generated by the proposed Muon–RSAV method is nonincreasing and convergent. Moreover, 
+
+lim  
+
+> k→∞
+
+∥∇ f (Θ k)∥F = 0 .
+
+If, in addition, the PL condition (A3) holds, the method converges linearly to the optimal value f∗, i.e., 
+
+f (Θ k+1 ) − f∗ ≤ (1 − ρ)  f (Θ k) − f∗
+
+, ρ = 2τ (2 − τ )
+
+L E c 0 μ ∈ (0 , 1] ,
+
+where τ ∈ (0 , 2] is the step–scaling parameter, E = √f∗ + κ > 0, and c0 = cos 2∠(˜ r k+1 , σ k) ∈ (0 , 1] quantifies the alignment between ˜r k+1 and the gradient singular spectrum. Proof. The one–mode descent inequality has been established in (3.1) . Summing it over all retained spectral directions yields 
+
+f (Θ k+1 ) ≤ f (Θ k) − ηEk
+
+X
+
+> i
+
+˜rk+1  
+
+> i
+
+σki + L
+
+2
+
+ ηEk
+
+2 X
+
+> i
+
+(˜ rk+1  
+
+> i
+
+)2. (3.4) Define Sk 
+
+> 1
+
+= P 
+
+> i
+
+˜rk+1  
+
+> i
+
+σki and Sk 
+
+> 2
+
+= P
+
+> i
+
+(˜ rk+1  
+
+> i
+
+)2. For fixed Θk, the right-hand side of (3.4) is a convex quadratic function of η. Its minimizer is 
+
+η∗ 
+
+> k
+
+= Ek
+
+LSk
+
+> 1
+
+Sk
+
+> 2
+
+.
+
+Setting ηk = τ η ∗ 
+
+> k
+
+with τ ∈ (0 , 2] yields 
+
+f (Θ k+1 ) − f (Θ k) ≤ − τ (2 − τ )2
+
+Ek
+
+L
+
+(Sk 
+
+> 1
+
+)2
+
+Sk
+
+> 2
+
+. (3.5) Since Ek ≥ E > 0 by (A2), the right-hand side of (3.5) is nonpositive, so {f (Θ k)} is monotonically decreasing and bounded below by f∗. Therefore f (Θ k) converges. 10 A PREPRINT - F EBRUARY 19, 2026 Next, by the Cauchy–Schwarz inequality, 
+
+Sk 
+
+> 1
+
+= X
+
+> i
+
+˜rk+1  
+
+> i
+
+σki ≤
+
+q
+
+Sk 
+
+> 2
+
+∥∇ W f (Θ k)∥F .
+
+Summing (3.5) over k gives ∞X
+
+> k=0
+
+∥∇ f (Θ k)∥2 
+
+> F
+
+< ∞,
+
+which implies lim k→∞ ∥∇ f (Θ k)∥F = 0 . Hence, every limit point of {Θk} is a stationary point. Finally, if (A3) holds, we apply the PL inequality: 
+
+(Sk 
+
+> 1
+
+)2
+
+Sk
+
+> 2
+
+=
+
+D ˜r k+1 
+
+∥˜r k+1 ∥2
+
+, σ kE2
+
+≥ c0 ∥σk∥22 = c0 ∥∇ W f (Θ k)∥2 
+
+> F
+
+.
+
+Substituting into (3.5) gives 
+
+f (Θ k+1 ) − f (Θ k) ≤ − 2τ (2 − τ )
+
+L E c 0 μ  f (Θ k) − f∗
+
+,
+
+which leads to 
+
+f (Θ k+1 ) − f∗ ≤ (1 − ρ) ( f (Θ k) − f∗),
+
+where ρ = 2τ (2 −τ ) 
+
+> L
+
+E c 0 μ ∈ (0 , 1] . Therefore, the sequence {f (Θ k)} converges to f∗ at a linear rate. 
+
+Remark 3.7 . The factor c0 = cos 2∠(˜ r k+1 , σ k) measures the correlation between the auxiliary predictors and the gradient spectrum. Empirically, both vectors are nonnegative and dominated by the top singular modes, so c0 remains positive in practice. Even if c0 becomes small, (3.5) still guarantees monotone convergence, while the PL condition ensures asymptotic linear convergence when c0 > 0.
+
+# 4 Numerical Results 
+
+4.1 Toy example: linear regression 
+
+We begin with a linear regression problem to illustrate the behavior of the proposed SpecMuon optimizer in a controlled convex setting. Although linear regression is well understood, it provides a transparent testbed for examining optimization dynamics and spectral effects without the additional complexities introduced by nonlinear architectures. Specifically, we consider the least-squares problem 
+
+min  
+
+> W∈Rm×n
+
+f (W ) := 12 ∥W X − Y ∥2 
+
+> F
+
+,
+
+where X ∈ Rn×N denotes the input data matrix and Y ∈ Rm×N the corresponding targets. The gradient takes the closed form 
+
+∇f (W ) = ( W X − Y )X⊤,
+
+which is matrix-valued and whose singular spectrum reflects correlations present in the data. Consequently, the problem exhibits anisotropic curvature and serves as a minimal example in which spectral imbalance can influence optimization behavior. We compare standard gradient-based optimizers, including Adam, AdamW, and the original Muon, with the proposed SpecMuon method. All methods are initialized identically and tuned to their best-performing learning rates. For SpecMuon, we retain only the dominant two singular directions of the gradient and apply the mode-wise RSAV mechanism described in Section 3. Figure 1 reports the training loss trajectories. While all methods eventually converge to the global minimizer, clear differences emerge in the transient regime. Standard first-order methods exhibit slow initial progress due to curvature imbalance. SpecMuon improves convergence speed by adaptively regulating the magnitude of each spectral update through its energy-based auxiliary variables. This toy example highlights two key aspects of the proposed method. First, even in a convex setting, spectral geometry plays a decisive role in optimization efficiency. Second, incorporating an energy-aware mechanism into spectral updates provides additional robustness without sacrificing convergence speed. These observations motivate the application of SpecMuon to more challenging physics-informed learning problems, which we investigate next. 11 A PREPRINT - F EBRUARY 19, 2026 
+
+Figure 1: Training loss (log scale) for the linear regression problem. SpecMuon (red) is compared with Muon, Adam, and AdamW. SpecMuon achieves faster convergence by combining spectral orthogonalization with mode-wise energy regulation. 
+
+4.2 Physics-Informed Neural Network 
+
+We next consider the one-dimensional viscous Burgers’ equation, a nonlinear partial differential equation frequently used as a benchmark problem in scientific machine learning. The equation with Dirichlet boundary conditions is defined on the spatial domain Ω = [ −1, 1] and temporal domain [0 , T ] as follows: 
+
+∂u ∂t − ν ∂2u∂x 2 + u ∂u ∂x = 0 , x ∈ Ω, t ∈ [0 , T ], (4.1) 
+
+u(x, t ) = 0 , ∀x ∈ ∂Ω, (4.2) 
+
+u(x, 0) = − sin( πx ). (4.3) Here, u(x, t ) represents the solution over space and time, and ν is the viscosity chosen to be 0.01 /π .To ensure a fair evaluation of optimizer performance, we conducted a systematic hyperparameter tuning procedure for all compared methods: Adam, AdamW, Muon, and the proposed SpecMuon. As summarized in Table 1, a grid search was performed over the learning rates to determine the optimal configuration for each optimizer, while other parameters were either set to established default values or tuned within a limited range. For the baseline optimizers, both Adam and AdamW achieved their best performance with a learning rate of 5 × 10 −3.The Muon optimizer performed best with a learning rate of 0.02 and momentum 0.02 . For the proposed SpecMuon method, the grid search identified a learning rate of 3 × 10 −3 and momentum 0.9 as optimal. In addition, SpecMuon introduces two hyperparameters related to spectral aggregation: rtop = 6 and ηsav = 0 .2.Figure 2a presents the training loss trajectories for the PINN applied to Burgers’ equation. The proposed SpecMuon optimizer (solid red curve) is compared with Adam, AdamW, and the original Muon optimizer. As shown in the figure, SpecMuon demonstrates improved convergence behavior relative to all baseline methods. In particular, it achieves faster initial descent and consistently maintains a lower loss throughout the full training duration of 10 , 000 epochs. Figure 2b reports an ablation study on the hyperparmeter rtop , which contros the number of dominant singular values retained in the spectral aggregation step. The results indicate that incorporating multiple leading spectral directions improves convergence performance, with rtop = 6 providing a favorable balance between stability and efficiency. The quantitative results are summarized in Table 2. The proposed SpecMuon optimizer achieves the lowest final training loss and the smallest mean squared error (MSE) among all compared methods. Although SpecMuon incurs slightly higher computational cost due to spectral decomposition and auxiliary-variable updates, it delivers improved solution accuracy and more stable convergence behavior. 12 A PREPRINT - F EBRUARY 19, 2026 Table 1: Hyperparameter configurations for the PINN experiment on Burgers’ equation. Learning rates were selected via grid search. Other parameters were set to standard defaults unless otherwise specified. 
+
+Optimizer Hyperparameter Values Searched Best Value Used 
+
+Adam 
+
+Learning Rate (lr) {0.01, 5e-3, 1e-3, 5e-4} 5e-3 Betas ( β1, β 2) – (0.9, 0.999) Weight Decay ( λ) – 0
+
+AdamW 
+
+Learning Rate (lr) {0.01, 5e-3, 1e-3, 5e-4} 5e-3 Betas ( β1, β 2) – (0.9, 0.999) Weight Decay ( λ) {0.0, 0.01, 1e-3, 5e-4, 1e-4 } 5e-4 
+
+Muon Learning Rate (lr) {0.1, 0.05, 0.02, 5e-3} 0.02 Momentum ( β) {0.0, 0.02, 1e-3, 1e-4, 5e-4} 0.02 
+
+SpecMuon Learning Rate (lr) {0.1, 0.05, 0.01, 3e-3} 3e-3 Momentum ( β) {0.9, 0.01, 0.02, 1e-3, 1e-4, 5e-4} 0.9 rtop {2 - 8} 6SAV Eta ( ηsav ) {0.2 - 0.8} 0.2    
+
+> (a) Training loss (log scale) comparison among Adam, AdamW, Muon, and SpecMuon.
+> (b) Ablation study on the spectral rank parameter rtop in Spec-Muon. Retaining multiple dominant singular directions im-proves convergence stability and speed.
+
+Figure 2: PINN training on the one-dimensional Burgers’ equation. 
+
+Figure 3: Spatiotemporal solution u(x, t ) of the Burgers’ equation obtained by PINNs trained with Adam(left), Muon(middle), and SpecMuon(right). SpecMuon produces a more accurate and smoother approximation of the reference solution. 13 A PREPRINT - F EBRUARY 19, 2026 Table 2: Quantitative comparison for the Burgers’ PINN experiment. Reported metrics include final training loss, mean squared error (MSE), and total training time on an NVIDIA H100 80GB GPU. Best results are shown in bold. 
+
+Optimizer Final Training Loss MSE Training Time (s) 
+
+Adam (5 .88 ± 0.12) × 10 −4 1.42 × 10 −3 120 ± 12 
+
+AdamW (7 .46 ± 0.15) × 10 −4 1.50 × 10 −3 117 ± 11 
+
+Muon (3 .39 ± 0.05) × 10 −4 1.25 × 10 −3 149 ± 15 
+
+SpecMuon (1 .55 ± 0.04) × 10 −4 5.06 × 10 −4 180 ± 18 
+
+Figure 4: Spatial distribution of the L1 error for the Burgers’ PINN trained with Adam(left), Muon(middle), and SpecMuon(right). SpecMuon exhibits reduced error magnitude. 
+
+4.3 DeepONet 
+
+To further evaluate the performance of the proposed optimizer in an operator-learning setting, we apply it to a DeepONet model trained on Burgers’ equation 4.1. This experiment assesses whether the spectral–energy coupling mechanism remains effective in architectures with coupled branch and trunk networks. The hyperparameter configurations obtained through grid search are summarized in Table 3. For Adam and AdamW, the optimal learning rate was 5 × 10 −3. For the proposed SpecMuon method, the grid search identified an optimal learning rate of 1 × 10 −3 and momentum 0.9. Notebly, the optimal spectral rank parameter was slightly higher for the DeepONet architecture, with rtop = 8 , reflecting the richer gradient structure induced by operator learning. Figure 5a presents the training loss trajectories for the DeepONet model applied to Burgers’ equation. The proposed SpecMuon optimizer (solid red curve) is compared with Adam, AdamW, and the original Muon optimizer. As illustrated in the figure, SpecMuon exhibits faster convergence and achieves lower training loss throughout the training process. Figure 5b shows the ablation study with respect to the spectral rank parameter rtop . The results indicate that retaining a moderate number of dominant singular directions improves convergence behavior, with rtop = 8 yielding the best empirical performance in this setting. The quantitative comparison is reported in Table 4. The SpecMuon attains the lowest final training loss and mean squared error (MSE) among all compared optimizers. Although the additional spectral computations introduce moderate computational overhead, the improved accuracy and stability demonstrate the effectiveness of integrating mode-wise energy regulation into Muon’s orthogonalized update framework. 14 A PREPRINT - F EBRUARY 19, 2026 Table 3: Hyperparameter configurations for the DeepONet experiment on Burgers’ equation. Learning rates were selected via grid search. The optimal spectral rank rtop increases compared with the PINN setting due to richer gradient structure. 
+
+Optimizer Hyperparameter Values Searched Best Value Used 
+
+Adam 
+
+Learning Rate (lr) {0.01, 5e-3, 1e-3, 5e-4} 5e-3 Betas ( β1, β 2) – (0.9, 0.999) Weight Decay ( λ) – 0
+
+AdamW 
+
+Learning Rate (lr) {0.01, 5e-3, 1e-3, 5e-4} 5e-3 Betas ( β1, β 2) – (0.9, 0.999) Weight Decay ( λ) {0.0, 0.01, 1e-3, 5e-4, 1e-4} 1e-2 
+
+Muon Learning Rate (lr) {0.1, 0.05, 5e-3, 1e-3} 1e-3 Momentum ( β) {0.0, 0.02, 1e-3, 1e-4, 5e-4} 1e-4 
+
+SpecMuon Learning Rate (lr) {0.1, 0.05, 0.01, 1e-3, 1e-4} 1e-3 Momentum ( β) {0.9, 0.01, 0.02, 1e-3, 1e-4, 5e-4} 0.9 rtop {2 - 8} 8SAV Eta ( ηsav ) {0.2 - 0.8} 0.2  
+
+> (a) Training loss(log scale) comparison among Adam, AdamW, Muon, and SpecMuon.
+> (b) Ablation study on the spectral rank parameter rtop . Increas-ing the number of retained singular modes improves conver-gence up to an optimal range.
+
+Figure 5: DeepONet training on the Burgers’ equation. 
+
+4.4 fPINN-DeepONet 
+
+We next consider the classical two-dimensional heat equation on the unit square with homogeneous Dirichlet boundaries: 
+
+∂tu(x, y, t ) − κ ∆u(x, y, t ) = f (x, y, t ), (x, y ) ∈ Ω ≡ [0 , 1] 2, t ∈ [0 , 1] , (4.4) 
+
+u|∂Ω = 0 , (4.5) 
+
+u(x, y, 0) = u0(x, y ). (4.6) To enable quantitative comparison, we consider the analytical solution 
+
+u(x, y, t ) = sin( πx ) sin( πy ) e −2π2κt , (4.7) which corresponds to the homogeneous case with zero forcing, i.e., f ≡ 0 and initial condition u0(x, y ) =sin( πx ) sin( πy ).To ensure a fair comparison among optimizers, a grid search was conducted over the learning rate for each method. For the baseline optimizers (Adam and AdamW), standard values for the momentum coefficients and weight decay were considered. For Muon and the proposed SpecMuon, we additionally explored the influence of the spectral rank parameter rtop . The final hyperparameter configurations used in the comparative study are summarized in Table 5. 15 A PREPRINT - F EBRUARY 19, 2026 Table 4: Quantitative comparison for the Burgers’ DeepONet experiment. Metrics include final training loss, MSE, and training time on an NVIDIA H100 80GB GPU. Best results are highlighted in bold. 
+
+Optimizer Final Training Loss MSE Training Time (s) 
+
+Adam (1 .89 ± 0.03) × 10 −3 0.0014 113 ± 12 
+
+AdamW (4 .71 ± 0.05) × 10 −3 0.0013 114 ± 10 
+
+Muon (6 .38 ± 0.12) × 10 −4 0.0011 204 ± 13 
+
+SpecMuon (4 .82 ± 0.07) × 10 −4 0.0010 259 ± 10 
+
+Table 5: Hyperparameter configurations for the fPINN–DeepONet experiment on the two-dimensional heat equation. Learning rates were selected via grid search, and spectral rank rtop was tuned for stability and accuracy. 
+
+Optimizer Hyperparameter Values Searched Best Value Used 
+
+Adam 
+
+Learning Rate (lr) {0.01, 5e-3, 1e-3, 5e-4} 5e-3 Betas ( β1, β 2) – (0.9, 0.999) Weight Decay ( λ) – 0
+
+AdamW 
+
+Learning Rate (lr) {0.01, 5e-3, 1e-3, 5e-4} 5e-3 Betas ( β1, β 2) – (0.9, 0.999) Weight Decay ( λ) {0.0, 0.01, 1e-3, 5e-4, 1e-4} 1e-2 
+
+Muon Learning Rate (lr) {0.1, 0.05, 5e-3, 1e-3} 1e-3 Momentum ( β) {0.0, 0.02, 1e-3, 1e-4, 5e-4} 1e-4 
+
+SpecMuon Learning Rate (lr) {0.1, 0.05, 0.01, 1e-3, 1e-4} 1e-3 Momentum ( β) {0.9, 0.01, 0.02, 1e-3, 1e-4, 5e-4} 0.9 rtop {2 - 10} 8SAV Eta ( ηsav ) {0.2 - 0.8} 0.2 The performance of each optimizer was evaluated using three metrics: the final training loss, the mean squared error (MSE) computed over the full space–time grid, and the relative L2 error. The proposed SpecMuon optimizer achieves the lowest training loss and the smallest relative L2 error among the compared methods, demonstrating improved accuracy in approximating the analytical solution. The quantitative results are presented in Table 6. Although the additional spectral computations introduce moderate computational overhead, the results indicate that integrating spectral decomposition with energy-based regulation enhances convergence robustness and solution quality in the fractional PINN–DeepONet framework.  
+
+> (a) Training loss (log scale) comparison among Adam, AdamW, Muon, and SpecMuon.
+> (b) Ablation study on the spectral rank parameter rtop . Moderate spectral truncation provides the best balance between stability and efficiency.
+
+Figure 6: fPINN–DeepONet training on the fractional PDE problem. 16 A PREPRINT - F EBRUARY 19, 2026 Table 6: Quantitative comparison for the fPINN–DeepONet experiment. Training loss is reported at 500 epochs. Training time was measured on an NVIDIA H100 80GB GPU. Best results are highlighted in bold. 
+
+Optimizer Training Loss MSE Training Time (s) 
+
+Adam (3 .72 ± 0.04) × 10 −2 0.0268 19 .41 
+
+AdamW (3 .64 ± 0.04) × 10 −2 0.0275 13 .37 
+
+Muon (3 .52 ± 0.06) × 10 −2 0.0272 18 .24 
+
+SpecMuon (2 .31 ± 0.05) × 10 −2 0.0262 30 .74 
+
+# 5 Conclusion and Future Work 
+
+In this work, we introduced SpecMuon, a spectral-aware optimization framework designed for physics-informed machine learning. By integrating orthogonalized gradient updates in the singular-vector basis with a mode-wise relaxed scalar auxiliary variable (RSAV) mechanism, SpecMuon unifies geometric conditioning and energy-based stabilization within a single optimizer. This formulation interprets optimization as a multi-mode gradient flow and enables adaptive control of stiff spectral components that commonly arise in physics-informed neural networks and neural operators. We established rigorous theoretical properties of the proposed method, including positivity of the auxiliary variables, a modified energy dissipation law, and global convergence guarantees. Under standard smoothness assumptions and the Polyak–Łojasiewicz condition, we further proved linear convergence to the global optimum. These results provide a solid mathematical foundation for the proposed algorithm and clarify the role of spectral decomposition and energy regulation in shaping stable optimization dynamics. Extensive numerical experiments demonstrated the effectiveness of SpecMuon across a hierarchy of problems. Starting from a simple linear regression model, we showed that spectral geometry and energy-aware updates can improve optimization behavior even in convex settings. We then validated the method on increasingly challenging physics-informed learning tasks, including PINNs, DeepONets, and fractional PINN–DeepONets, where SpecMuon consistently achieved faster convergence and improved stability compared with Adam, AdamW, and the original Muon optimizer. These results confirm that incorporating spectral and energy information is particularly beneficial in stiff, multi-scale learning problems driven by physical constraints. Several directions for future research are worth exploring. From an algorithmic perspective, extending SpecMuon to stochastic or mini-batch settings and studying its interaction with variance reduction techniques would be valuable for large-scale applications. Incorporating adaptive strategies for selecting the number of retained spectral modes may further improve efficiency and robustness. From a theoretical standpoint, sharper convergence rates under weaker assumptions and a deeper analysis of spectral evolution across iterations remain open questions. Finally, applying the proposed framework to broader classes of operator learning problems, inverse problems, and multi-physics systems may reveal additional advantages of spectral energy–aware optimization in scientific machine learning. 
+
+# Acknowledgment 
+
+We would like to thank the support of National Science Foundation (DMS-2533878, DMS-2053746, DMS-2134209, ECCS-2328241, CBET-2347401 and OAC-2311848), and U.S. Department of Energy (DOE) Office of Science Advanced Scientific Computing Research program DE-SC0023161, the SciDAC LEADS Institute, and DOE–Fusion Energy Science, under grant number: DE-SC0024583. 
+
+# References 
+
+[1] M. Raissi, P. Perdikaris, and G.E. Karniadakis. Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations. Journal of Computational Physics, 378:686–707, 2019. [2] George Em Karniadakis, Ioannis G. Kevrekidis, Lu Lu, Paris Perdikaris, Sifan Wang, and Liu Yang. Physics-informed machine learning. Nature Reviews Physics, 3(6), 05 2021. [3] B. Lu, C. Mou, and G. Lin. ipinner: An iterative physics-informed neural network with ensemble kalman filter. Journal of Computational Physics, page 114592, 2025. 17 A PREPRINT - F EBRUARY 19, 2026 [4] Lu Lu, Pengzhan Jin, Guofei Pang, Zhongqiang Zhang, and George Em Karniadakis. Learning nonlinear operators via deeponet based on the universal approximation theorem of operators. Nature Machine Intelligence, 3(3), 03 2021. [5] B. Lu, Z. Hao, C. Moya, and G. Lin. Fpinn-deeponet: A physics-informed operator learning framework for multi-term time-fractional mixed diffusion-wave equations. Journal of Computational Physics, 538:114184, 2025. [6] Zongyi Li, Nikola Kovachki, Kamyar Azizzadenesheli, Burigede Liu, Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar. Fourier neural operator for parametric partial differential equations, 2021. [7] Nikola Kovachki, Zongyi Li, Burigede Liu, Kamyar Azizzadenesheli, Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar. Neural operator: Learning maps between function spaces with applications to pdes. Journal of Machine Learning Research, 24(89):1–97, 2023. [8] Tao Wang, Bo Zhao, Sicun Gao, and Rose Yu. Understanding the difficulty of solving cauchy problems with pinns, 2024. [9] Siddhartha Mishra and Roberto Molinaro. Estimates on the generalization error of physics-informed neural networks for approximating a class of inverse problems for pdes. IMA Journal of Numerical Analysis, 42(2):981– 1022, 06 2021. [10] Diederik P. Kingma and Jimmy Ba. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980, 2014. [11] Weijie Su, Stephen Boyd, and Emmanuel J. Candès. A differential equation for modeling nesterov’s accelerated gradient method: Theory and insights. In Z. Ghahramani, M. Welling, C. Cortes, N. Lawrence, and K.Q. Weinberger, editors, Advances in Neural Information Processing Systems, volume 27. Curran Associates, Inc., 2014. [12] Andre Wibisono, Ashia C. Wilson, and Michael I. Jordan. A variational perspective on accelerated methods in optimization. Proceedings of the National Academy of Sciences, 113(47), November 2016. [13] Guilherme França, Michael I Jordan, and René Vidal. On dissipative symplectic integration with applications to gradient-based optimization. Journal of Statistical Mechanics: Theory and Experiment, 2021(4):043402, April 2021. [14] James Martens and Roger Grosse. Optimizing neural networks with kronecker-factored approximate curvature. In Francis Bach and David Blei, editors, Proceedings of the 32nd International Conference on Machine Learning, volume 37 of Proceedings of Machine Learning Research, pages 2408–2417, Lille, France, 07–09 Jul 2015. PMLR. [15] Nasim Rahaman, Aristide Baratin, Devansh Arpit, Felix Draxler, Min Lin, Fred A. Hamprecht, Yoshua Bengio, and Aaron Courville. On the spectral bias of neural networks, 2019. [16] Gauthier Gidel, Francis Bach, and Simon Lacoste-Julien. Implicit regularization of discrete gradient dynamics in linear neural networks. In H. Wallach, H. Larochelle, A. Beygelzimer, F. d'Alché-Buc, E. Fox, and R. Garnett, editors, Advances in Neural Information Processing Systems, volume 32. Curran Associates, Inc., 2019. [17] Keller Jordan et al. Muon: An optimizer for hidden layers in neural networks. Keller Jordan Blog, 2024. [18] Jeremy Bernstein and Laker Newhouse. Old optimizer, new norm: An anthology. arXiv preprint arXiv:2409.20325, 2024. [19] Jie Shen and Jie Xu. Convergence and error analysis for the scalar auxiliary variable (sav) schemes to gradient flows. SIAM Journal on Numerical Analysis, 56(5):2895–2912, 2018. [20] Jie Shen, Jie Xu, and Jiang Yang. The scalar auxiliary variable (sav) approach for gradient flows. Journal of Computational Physics, 353:407–416, 2018. [21] Jie Shen, Jie Xu, and Jiang Yang. A new class of efficient and robust energy stable schemes for gradient flows. SIAM Review, 61(3):474–506, 2019. [22] Shiheng Zhang, Jiahao Zhang, Jie Shen, and Guang Lin. A relaxed vector auxiliary variable algorithm for unconstrained optimization problems. SIAM Journal on Scientific Computing, 47(1):C126–C150, 2025. [23] Jiahao Zhang, Christian Moya, and Guang Lin. A self-adaptive energy-based learning rate for stochastic gradient descent via vector auxiliary variable method. Engineering Applications of Artificial Intelligence, 160:111731, 2025. [24] Jiahao Zhang, Shiheng Zhang, Jie Shen, and Guang Lin. Energy-dissipative evolutionary deep operator neural networks. Journal of Computational Physics, 498:112638, 2024. 18 A PREPRINT - F EBRUARY 19, 2026 [25] Hailiang Liu and Xuping Tian. Aegd: Adaptive gradient descent with energy. Numerical Algebra, Control and Optimization, 2023. [26] Xinyu Liu, Jie Shen, and Xiangxiong Zhang. An efficient and robust scalar auxialiary variable based algorithm for discrete gradient systems arising from optimizations. SIAM Journal on Scientific Computing, 45(5):A2304– A2324, 2023. [27] Maosheng Jiang, Zengyan Zhang, and Jia Zhao. Improving the accuracy and consistency of the scalar auxiliary variable (sav) method with relaxation. Journal of Computational Physics, 456:110954, 2022. 19

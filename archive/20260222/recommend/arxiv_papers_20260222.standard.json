@@ -1,0 +1,448 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-02-22T19:09:28.589603+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 1,
+    "deep_cap": 6,
+    "deep_selected": 1,
+    "quick_candidates": 14,
+    "quick_skim_target": 11,
+    "quick_selected": 11
+  },
+  "deep_dive": [
+    {
+      "id": "2601.12442v1",
+      "title": "Constraint-Aware Neurosymbolic Uncertainty Quantification with Bayesian Deep Learning for Scientific Discovery",
+      "abstract": "Scientific Artificial Intelligence (AI) applications require models that deliver trustworthy uncertainty estimates while respecting domain constraints. Existing uncertainty quantification methods lack mechanisms to incorporate symbolic scientific knowledge, while neurosymbolic approaches operate deterministically without principled uncertainty modeling. We introduce the Constraint-Aware Neurosymbolic Uncertainty Framework (CANUF), unifying Bayesian deep learning with differentiable symbolic reasoning. The architecture comprises three components: automated constraint extraction from scientific literature, probabilistic neural backbone with variational inference, and differentiable constraint satisfaction layer ensuring physical consistency. Experiments on Materials Project (140,000+ materials), QM9 molecular properties, and climate benchmarks show CANUF reduces Expected Calibration Error by 34.7% versus Bayesian neural networks while maintaining 99.2% constraint satisfaction. Ablations reveal constraint-guided recalibration contributes 18.3% performance gain, with constraint extraction achieving 91.4% precision. CANUF provides the first end-to-end differentiable pipeline simultaneously addressing uncertainty quantification, constraint satisfaction, and interpretable explanations for scientific predictions.",
+      "authors": [
+        "Shahnawaz Alam",
+        "Mohammed Mudassir Uddin",
+        "Mohammed Kaif Pasha"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI",
+        "cs.CV"
+      ],
+      "published": "2026-01-18T14:57:35+00:00",
+      "link": "https://arxiv.org/pdf/2601.12442v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "neurosymbolic reasoning for scientific discovery",
+      "llm_evidence_cn": "用于科学发现的神经符号推理",
+      "llm_evidence": "用于科学发现的神经符号推理",
+      "llm_tldr_en": "Introduces a neurosymbolic framework for scientific discovery that integrates symbolic knowledge with deep learning.",
+      "llm_tldr_cn": "引入一种将符号知识与深度学习结合的神经符号框架，用于科学发现。",
+      "llm_tldr": "引入一种将符号知识与深度学习结合的神经符号框架，用于科学发现。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2601.06535v1",
+      "title": "Automated dimensional analysis for PDEs",
+      "abstract": "Physical units are fundamental to scientific computing. However, many finite element frameworks lack built-in support for dimensional analysis. In this work, we present a systematic framework for integrating physical units into the Unified Form Language (UFL). We implement a symbolic Quantity class to track units within variational forms. The implementation exploits the abelian group structure of physical dimensions. We represent them as vectors in $\\mathbb{Q}^n$ to simplify operations and improve performance. A graph-based visitor pattern traverses the expression tree to automate consistency checks and factorization. We demonstrate that this automated nondimensionalization functions as the simplest form of Full Operator Preconditioning. It acts as a physics-aware diagonal preconditioner that equilibrates linear systems prior to assembly. Numerical experiments with the Navier--Stokes equations show that this improves the condition number of the saddle-point matrix. Analysis of Neo-Hooke hyperelasticity highlights the detection of floating-point cancellation errors in small deformation regimes. Finally, the Poisson--Nernst--Planck system example illustrates the handling of coupled multiphysics problems with derived scaling parameters. Although the implementation targets the FEniCSx framework, the concepts are general and easily adaptable to other finite element libraries using UFL, such as Firedrake or DUNE.",
+      "authors": [
+        "Michal Habera",
+        "Andreas Zilian"
+      ],
+      "primary_category": "cs.MS",
+      "categories": [
+        "cs.MS",
+        "math.NA"
+      ],
+      "published": "2026-01-10T11:32:30+00:00",
+      "link": "https://arxiv.org/pdf/2601.06535v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "symbolic quantity class for scientific computing",
+      "llm_evidence_cn": "用于科学计算的符号量类",
+      "llm_evidence": "用于科学计算的符号量类",
+      "llm_tldr_en": "Integrates symbolic dimensional analysis into PDE frameworks to automate physical consistency checks.",
+      "llm_tldr_cn": "将符号量纲分析集成到偏微分方程框架中，实现物理一致性自动检查。",
+      "llm_tldr": "将符号量纲分析集成到偏微分方程框架中，实现物理一致性自动检查。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2601.07311v1",
+      "title": "Physics-embedded neural computational electron microscopy for quantitative 4D nanometrology",
+      "abstract": "The fusion of rigorous physical laws with flexible data-driven learning represents a new frontier in scientific simulation, yet bridging the gap between physical interpretability and computational efficiency remains a grand challenge. In electron microscopy, this divide limits the ability to quantify three-dimensional topography from two-dimensional projections, fundamentally constraining our understanding of nanoscale structure-function relationships. Here, we present a physics-embedded neural computational microscopy framework that achieves metrological three-dimensional reconstruction by deeply coupling a differentiable electron-optical forward model with deep learning. By introducing a Vision Field Transformer as a high-speed, differentiable surrogate for physical process analysis simulations, we establish an end-to-end, self-supervised optimization loop that enforces strict physical consistency with hardware geometry. This synergy enables single-shot, quantitative three-dimensional nanometrology with precision comparable to atomic force microscopy but at orders of magnitude higher throughput. Furthermore, we demonstrate the capability for four-dimensional (3D real space plus time) in situ characterization by tracking the dynamic evolution of surface nanostructure during copper redox, revealing hidden crystallographic kinetics invisible to conventional imaging. Our work not only redefines the limits of scanning electron microscopy but also establishes a generalizable archetype for solving ill-posed inverse problems across physical sciences, unlocking the full potential of simulation as a third pillar of discovery.",
+      "authors": [
+        "Hao-Jin Wang",
+        "Liqun Shen",
+        "Xin-Ning Tian",
+        "Lei Lei",
+        "Kexin Wang",
+        "Grigore Moldovan",
+        "Marc-Georg Willinger",
+        "Zhu-Jun Wang"
+      ],
+      "primary_category": "physics.optics",
+      "categories": [
+        "physics.optics"
+      ],
+      "published": "2026-01-12T08:32:57+00:00",
+      "link": "https://arxiv.org/pdf/2601.07311v1",
+      "tags": [
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Fusion of physical laws with data-driven learning for scientific discovery",
+      "llm_evidence_cn": "物理定律与数据驱动学习的融合用于科学发现",
+      "llm_evidence": "物理定律与数据驱动学习的融合用于科学发现",
+      "llm_tldr_en": "Couples differentiable physical models with deep learning for quantitative 3D nanoscale reconstruction.",
+      "llm_tldr_cn": "将可微物理模型与深度学习结合，用于定量的纳米级三维重建。",
+      "llm_tldr": "将可微物理模型与深度学习结合，用于定量的纳米级三维重建。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2601.17188v1",
+      "title": "Implementing Tensor Logic: Unifying Datalog and Neural Reasoning via Tensor Contraction",
+      "abstract": "The unification of symbolic reasoning and neural networks remains a central challenge in artificial intelligence. Symbolic systems offer reliability and interpretability but lack scalability, while neural networks provide learning capabilities but sacrifice transparency. Tensor Logic, proposed by Domingos, suggests that logical rules and Einstein summation are mathematically equivalent, offering a principled path toward unification. This paper provides empirical validation of this framework through three experiments. First, we demonstrate the equivalence between recursive Datalog rules and iterative tensor contractions by computing the transitive closure of a biblical genealogy graph containing 1,972 individuals and 1,727 parent-child relationships, converging in 74 iterations to discover 33,945 ancestor relationships. Second, we implement reasoning in embedding space by training a neural network with learnable transformation matrices, demonstrating successful zero-shot compositional inference on held-out queries. Third, we validate the Tensor Logic superposition construction on FB15k-237, a large-scale knowledge graph with 14,541 entities and 237 relations. Using Domingos's relation matrix formulation $R_r = E^\\top A_r E$, we achieve MRR of 0.3068 on standard link prediction and MRR of 0.3346 on a compositional reasoning benchmark where direct edges are removed during training, demonstrating that matrix composition enables multi-hop inference without direct training examples.",
+      "authors": [
+        "Swapn Shah",
+        "Wlodek Zadrozny"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-01-23T21:38:19+00:00",
+      "link": "https://arxiv.org/pdf/2601.17188v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "unifying symbolic reasoning and neural networks",
+      "llm_evidence_cn": "统一符号推理与神经网络",
+      "llm_evidence": "统一符号推理与神经网络",
+      "llm_tldr_en": "Validates Tensor Logic as a bridge between symbolic Datalog rules and neural tensor contractions.",
+      "llm_tldr_cn": "验证了张量逻辑作为符号化Datalog规则与神经张量收缩之间桥梁的可行性。",
+      "llm_tldr": "验证了张量逻辑作为符号化Datalog规则与神经张量收缩之间桥梁的可行性。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Comparison of genetic programming and neural symbolic regression techniques",
+      "matched_requirement_id": "req-4",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2601.07436v1",
+      "title": "PIDT: Physics-Informed Digital Twin for Optical Fiber Parameter Estimation",
+      "abstract": "We propose physics-informed digital twin (PIDT): a fiber parameter estimation approach that combines a parameterized split-step method with a physics-informed loss. PIDT improves accuracy and convergence speed with lower complexity compared to previous neural operators.",
+      "authors": [
+        "Zicong Jiang",
+        "Magnus Karlsson",
+        "Erik Agrell",
+        "Christian Häger"
+      ],
+      "primary_category": "eess.SP",
+      "categories": [
+        "eess.SP",
+        "cs.LG",
+        "physics.optics"
+      ],
+      "published": "2026-01-12T11:25:31+00:00",
+      "link": "https://arxiv.org/pdf/2601.07436v1",
+      "tags": [
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Physics-informed parameter estimation for scientific discovery",
+      "llm_evidence_cn": "用于科学发现的物理信息参数估计",
+      "llm_evidence": "用于科学发现的物理信息参数估计",
+      "llm_tldr_en": "Proposes a physics-informed digital twin for estimating optical fiber parameters accurately.",
+      "llm_tldr_cn": "提出了一种物理信息数字孪生方法，用于精确估计光纤物理参数。",
+      "llm_tldr": "提出了一种物理信息数字孪生方法，用于精确估计光纤物理参数。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2601.17084v1",
+      "title": "ChemNavigator: Agentic AI Discovery of Design Rules for Organic Photocatalysts",
+      "abstract": "The discovery of high-performance organic photocatalysts for hydrogen evolution remains limited by the vastness of chemical space and the reliance on human intuition for molecular design. Here we present ChemNavigator, an agentic AI system that autonomously derives structure-property relationships through hypothesis-driven exploration of organic photocatalyst candidates. The system integrates large language model reasoning with density functional tight binding calculations in a multi-agent architecture that mirrors the scientific method: formulating hypotheses, designing experiments, executing calculations, and validating findings through rigorous statistical analysis. Through iterative discovery cycles encompassing 200 molecules, ChemNavigator autonomously identified six statistically significant design rules governing frontier orbital energies, including the effects of ether linkages, carbonyl groups, extended conjugation, cyano groups, halogen substituents, and amine groups. Importantly, these rules correspond to established principles of organic electronic structure (resonance donation, inductive withdrawal, $π$-delocalization), demonstrating that the system can independently derive chemical knowledge without explicit programming. Notably, autonomous agentic reasoning extracted these six validated rules from a molecular library where previous ML approaches identified only carbonyl effects. Furthermore, the quantified effect sizes provide a prioritized ranking for synthetic chemists, while feature interaction analysis revealed diminishing returns when combining strategies, challenging additive assumptions in molecular design. This work demonstrates that agentic AI systems can autonomously derive interpretable, chemically grounded design principles, establishing a framework for AI-assisted materials discovery that complements rather than replaces chemical intuition.",
+      "authors": [
+        "Iman Peivaste",
+        "Ahmed Makradi",
+        "Salim Belouettar"
+      ],
+      "primary_category": "physics.chem-ph",
+      "categories": [
+        "physics.chem-ph",
+        "cs.AI",
+        "physics.comp-ph"
+      ],
+      "published": "2026-01-23T07:44:28+00:00",
+      "link": "https://arxiv.org/pdf/2601.17084v1",
+      "tags": [
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "agentic AI for scientific discovery and structure-property relationships",
+      "llm_evidence_cn": "用于科学发现和结构-性质关系的智能体AI",
+      "llm_evidence": "用于科学发现和结构-性质关系的智能体AI",
+      "llm_tldr_en": "An agentic AI system that autonomously discovers design rules for organic photocatalysts using scientific methods.",
+      "llm_tldr_cn": "一种利用科学方法自主发现有机光催化剂设计规则的智能体AI系统。",
+      "llm_tldr": "一种利用科学方法自主发现有机光催化剂设计规则的智能体AI系统。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.00266v1",
+      "title": "Complete Identification of Deep ReLU Neural Networks by Many-Valued Logic",
+      "abstract": "Deep ReLU neural networks admit nontrivial functional symmetries: vastly different architectures and parameters (weights and biases) can realize the same function. We address the complete identification problem -- given a function f, deriving the architecture and parameters of all feedforward ReLU networks giving rise to f. We translate ReLU networks into Lukasiewicz logic formulae, and effect functional equivalent network transformations through algebraic rewrites governed by the logic axioms. A compositional norm form is proposed to facilitate the mapping from Lukasiewicz logic formulae back to ReLU networks. Using Chang's completeness theorem, we show that for every functional equivalence class, all ReLU networks in that class are connected by a finite set of symmetries corresponding to the finite set of axioms of Lukasiewicz logic. This idea is reminiscent of Shannon's seminal work on switching circuit design, where the circuits are translated into Boolean formulae, and synthesis is effected by algebraic rewriting governed by Boolean logic axioms.",
+      "authors": [
+        "Yani Zhang",
+        "Helmut Bölcskei"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-01-30T19:39:55+00:00",
+      "link": "https://arxiv.org/pdf/2602.00266v1",
+      "tags": [
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "symbolic logic representation of neural networks",
+      "llm_evidence_cn": "神经网络的符号逻辑表示",
+      "llm_evidence": "神经网络的符号逻辑表示",
+      "llm_tldr_en": "Uses Lukasiewicz logic to identify and transform functionally equivalent ReLU neural networks.",
+      "llm_tldr_cn": "利用 Lukasiewicz 逻辑来识别和转换功能等效的 ReLU 神经网络。",
+      "llm_tldr": "利用 Lukasiewicz 逻辑来识别和转换功能等效的 ReLU 神经网络。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Comparison of genetic programming and neural symbolic regression techniques",
+      "matched_requirement_id": "req-4",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.14456v1",
+      "title": "Traceable Latent Variable Discovery Based on Multi-Agent Collaboration",
+      "abstract": "Revealing the underlying causal mechanisms in the real world is crucial for scientific and technological progress. Despite notable advances in recent decades, the lack of high-quality data and the reliance of traditional causal discovery algorithms (TCDA) on the assumption of no latent confounders, as well as their tendency to overlook the precise semantics of latent variables, have long been major obstacles to the broader application of causal discovery. To address this issue, we propose a novel causal modeling framework, TLVD, which integrates the metadata-based reasoning capabilities of large language models (LLMs) with the data-driven modeling capabilities of TCDA for inferring latent variables and their semantics. Specifically, we first employ a data-driven approach to construct a causal graph that incorporates latent variables. Then, we employ multi-LLM collaboration for latent variable inference, modeling this process as a game with incomplete information and seeking its Bayesian Nash Equilibrium (BNE) to infer the possible specific latent variables. Finally, to validate the inferred latent variables across multiple real-world web-based data sources, we leverage LLMs for evidence exploration to ensure traceability. We comprehensively evaluate TLVD on three de-identified real patient datasets provided by a hospital and two benchmark datasets. Extensive experimental results confirm the effectiveness and reliability of TLVD, with average improvements of 32.67% in Acc, 62.21% in CAcc, and 26.72% in ECit across the five datasets.",
+      "authors": [
+        "Huaming Du",
+        "Tao Hu",
+        "Yijie Huang",
+        "Yu Zhao",
+        "Guisong Liu",
+        "Tao Gu",
+        "Gang Kou",
+        "Carl Yang"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-16T04:29:32+00:00",
+      "link": "https://arxiv.org/pdf/2602.14456v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "causal modeling and latent variable discovery",
+      "llm_evidence_cn": "因果建模与潜变量发现",
+      "llm_evidence": "因果建模与潜变量发现",
+      "llm_tldr_en": "Combines LLMs with causal discovery to infer latent variables and their semantics for scientific progress.",
+      "llm_tldr_cn": "结合大模型与因果发现，推断潜变量及其语义以促进科学进步。",
+      "llm_tldr": "结合大模型与因果发现，推断潜变量及其语义以促进科学进步。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.15353v1",
+      "title": "NeuroSymActive: Differentiable Neural-Symbolic Reasoning with Active Exploration for Knowledge Graph Question Answering",
+      "abstract": "Large pretrained language models and neural reasoning systems have advanced many natural language tasks, yet they remain challenged by knowledge-intensive queries that require precise, structured multi-hop inference. Knowledge graphs provide a compact symbolic substrate for factual grounding, but integrating graph structure with neural models is nontrivial: naively embedding graph facts into prompts leads to inefficiency and fragility, while purely symbolic or search-heavy approaches can be costly in retrievals and lack gradient-based refinement. We introduce NeuroSymActive, a modular framework that combines a differentiable neural-symbolic reasoning layer with an active, value-guided exploration controller for Knowledge Graph Question Answering. The method couples soft-unification style symbolic modules with a neural path evaluator and a Monte-Carlo style exploration policy that prioritizes high-value path expansions. Empirical results on standard KGQA benchmarks show that NeuroSymActive attains strong answer accuracy while reducing the number of expensive graph lookups and model calls compared to common retrieval-augmented baselines.",
+      "authors": [
+        "Rong Fu",
+        "Yang Li",
+        "Zeyu Zhang",
+        "Jiekai Wu",
+        "Yaohua Liu",
+        "Shuaishuai Cao",
+        "Yangchen Zeng",
+        "Yuhang Zhang",
+        "Xiaojing Du",
+        "Chuang Zhao",
+        "Kangning Cui",
+        "Simon Fong"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.AI"
+      ],
+      "published": "2026-02-17T04:47:29+00:00",
+      "link": "https://arxiv.org/pdf/2602.15353v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "differentiable neural-symbolic reasoning framework",
+      "llm_evidence_cn": "可微神经符号推理框架",
+      "llm_evidence": "可微神经符号推理框架",
+      "llm_tldr_en": "Combines differentiable neural-symbolic reasoning with active exploration for knowledge graph tasks.",
+      "llm_tldr_cn": "结合了可微神经符号推理与主动探索，用于知识图谱问答任务。",
+      "llm_tldr": "结合了可微神经符号推理与主动探索，用于知识图谱问答任务。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Comparison of genetic programming and neural symbolic regression techniques",
+      "matched_requirement_id": "req-4",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.15595v1",
+      "title": "Multi-Objective Coverage via Constraint Active Search",
+      "abstract": "In this paper, we formulate the new multi-objective coverage (MOC) problem where our goal is to identify a small set of representative samples whose predicted outcomes broadly cover the feasible multi-objective space. This problem is of great importance in many critical real-world applications, e.g., drug discovery and materials design, as this representative set can be evaluated much faster than the whole feasible set, thus significantly accelerating the scientific discovery process. Existing works cannot be directly applied as they either focus on sample space coverage or multi-objective optimization that targets the Pareto front. However, chemically diverse samples often yield identical objective profiles, and safety constraints are usually defined on the objectives. To solve this MOC problem, we propose a novel search algorithm, MOC-CAS, which employs an upper confidence bound-based acquisition function to select optimistic samples guided by Gaussian process posterior predictions. For enabling efficient optimization, we develop a smoothed relaxation of the hard feasibility test and derive an approximate optimizer. Compared to the competitive baselines, we show that our MOC-CAS empirically achieves superior performances across large-scale protein-target datasets for SARS-CoV-2 and cancer, each assessed on five objectives derived from SMILES-based features.",
+      "authors": [
+        "Zakaria Shams Siam",
+        "Xuefeng Liu",
+        "Chong Liu"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-17T14:07:16+00:00",
+      "link": "https://arxiv.org/pdf/2602.15595v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "accelerating scientific discovery in drug and materials design",
+      "llm_evidence_cn": "加速药物和材料设计中的科学发现",
+      "llm_evidence": "加速药物和材料设计中的科学发现",
+      "llm_tldr_en": "Formulates a multi-objective coverage problem to identify representative samples for faster scientific discovery.",
+      "llm_tldr_cn": "制定了多目标覆盖问题，通过识别代表性样本来加速科学发现过程。",
+      "llm_tldr": "制定了多目标覆盖问题，通过识别代表性样本来加速科学发现过程。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.15632v1",
+      "title": "Neural-POD: A Plug-and-Play Neural Operator Framework for Infinite-Dimensional Functional Nonlinear Proper Orthogonal Decomposition",
+      "abstract": "The rapid development of AI for Science is often hindered by the \"discretization\", where learned representations remain restricted to the specific grids or resolutions used during training. We propose the Neural Proper Orthogonal Decomposition (Neural-POD), a plug-and-play neural operator framework that constructs nonlinear, orthogonal basis functions in infinite-dimensional space using neural networks. Unlike the classical Proper Orthogonal Decomposition (POD), which is limited to linear subspace approximations obtained through singular value decomposition (SVD), Neural-POD formulates basis construction as a sequence of residual minimization problems solved through neural network training. Each basis function is obtained by learning to represent the remaining structure in the data, following a process analogous to Gram--Schmidt orthogonalization. This neural formulation introduces several key advantages over classical POD: it enables optimization in arbitrary norms (e.g., $L^2$, $L^1$), learns mappings between infinite-dimensional function spaces that is resolution-invariant, generalizes effectively to unseen parameter regimes, and inherently captures nonlinear structures in complex spatiotemporal systems. The resulting basis functions are interpretable, reusable, and enabling integration into both reduced order modeling (ROM) and operator learning frameworks such as deep operator learning (DeepONet). We demonstrate the robustness of Neural-POD with different complex spatiotemporal systems, including the Burgers' and Navier-Stokes equations. We further show that Neural-POD serves as a high performance, plug-and-play bridge between classical Galerkin projection and operator learning that enables consistent integration with both projection-based reduced order models and DeepONet frameworks.",
+      "authors": [
+        "Changhong Mou",
+        "Binghang Lu",
+        "Guang Lin"
+      ],
+      "primary_category": "physics.comp-ph",
+      "categories": [
+        "physics.comp-ph",
+        "cs.LG",
+        "math.NA"
+      ],
+      "published": "2026-02-17T15:01:40+00:00",
+      "link": "https://arxiv.org/pdf/2602.15632v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "neural operator framework for scientific discovery and functional approximation",
+      "llm_evidence_cn": "用于科学发现和函数逼近的神经算子框架",
+      "llm_evidence": "用于科学发现和函数逼近的神经算子框架",
+      "llm_tldr_en": "Introduces Neural-POD, a neural operator framework for nonlinear basis construction in scientific ML.",
+      "llm_tldr_cn": "引入Neural-POD，一种用于科学机器学习中非线性基函数构建的神经算子框架。",
+      "llm_tldr": "引入Neural-POD，一种用于科学机器学习中非线性基函数构建的神经算子框架。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.16167v1",
+      "title": "Muon with Spectral Guidance: Efficient Optimization for Scientific Machine Learning",
+      "abstract": "Physics-informed neural networks and neural operators often suffer from severe optimization difficulties caused by ill-conditioned gradients, multi-scale spectral behavior, and stiffness induced by physical constraints. Recently, the Muon optimizer has shown promise by performing orthogonalized updates in the singular-vector basis of the gradient, thereby improving geometric conditioning. However, its unit-singular-value updates may lead to overly aggressive steps and lack explicit stability guarantees when applied to physics-informed learning. In this work, we propose SpecMuon, a spectral-aware optimizer that integrates Muon's orthogonalized geometry with a mode-wise relaxed scalar auxiliary variable (RSAV) mechanism. By decomposing matrix-valued gradients into singular modes and applying RSAV updates individually along dominant spectral directions, SpecMuon adaptively regulates step sizes according to the global loss energy while preserving Muon's scale-balancing properties. This formulation interprets optimization as a multi-mode gradient flow and enables principled control of stiff spectral components. We establish rigorous theoretical properties of SpecMuon, including a modified energy dissipation law, positivity and boundedness of auxiliary variables, and global convergence with a linear rate under the Polyak-Lojasiewicz condition. Numerical experiments on physics-informed neural networks, DeepONets, and fractional PINN-DeepONets demonstrate that SpecMuon achieves faster convergence and improved stability compared with Adam, AdamW, and the original Muon optimizer on benchmark problems such as the one-dimensional Burgers equation and fractional partial differential equations.",
+      "authors": [
+        "Binghang Lu",
+        "Jiahao Zhang",
+        "Guang Lin"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-18T03:56:20+00:00",
+      "link": "https://arxiv.org/pdf/2602.16167v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "optimization for scientific machine learning and physics-informed models",
+      "llm_evidence_cn": "科学机器学习和物理信息模型的优化",
+      "llm_evidence": "科学机器学习和物理信息模型的优化",
+      "llm_tldr_en": "Proposes SpecMuon to improve optimization in physics-informed neural networks for scientific discovery.",
+      "llm_tldr_cn": "提出SpecMuon优化器，改进物理信息神经网络在科学发现中的优化效率。",
+      "llm_tldr": "提出SpecMuon优化器，改进物理信息神经网络在科学发现中的优化效率。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    }
+  ]
+}
