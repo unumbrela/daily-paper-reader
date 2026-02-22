@@ -995,6 +995,10 @@ window.SubscriptionsSmartQuery = (function () {
           <label class="dpr-chat-label dpr-chat-inline-tag">
             <input id="dpr-chat-tag-input" type="text" placeholder="必填，标签，如SR" value="${escapeHtml(modalState.inputTag || '')}" />
           </label>
+          <label class="dpr-chat-label dpr-chat-inline-desc">
+            <span class="dpr-chat-label-text">描述（必填）</span>
+            <input id="dpr-chat-required-desc" type="text" placeholder="请填写描述" value="${escapeHtml(modalState.inputDesc || '')}" />
+          </label>
           <button class="arxiv-tool-btn" data-action="apply-chat" style="background:#2e7d32;color:#fff;" ${hasCandidates ? '' : 'disabled'}>
             应用勾选结果
           </button>
@@ -1031,10 +1035,20 @@ window.SubscriptionsSmartQuery = (function () {
     const selectedKeywords = (modalState.keywords || []).filter((x) => x._selected);
     const selectedQueries = (modalState.queries || []).filter((x) => x._selected);
     const hasItems = selectedKeywords.length || selectedQueries.length;
+    const desc = normalizeText(document.getElementById('dpr-chat-required-desc')?.value || '');
+    const tag = normalizeText(document.getElementById('dpr-chat-tag-input')?.value || modalState.inputTag || '');
+
+    if (!tag) {
+      setMessage('请先填写标签（必填）。', '#c00');
+      return;
+    }
+    if (!desc) {
+      setMessage('请先填写描述（必填）。', '#c00');
+      return;
+    }
+    modalState.inputTag = tag;
 
     if (hasItems) {
-      const tag = normalizeText(modalState.inputTag || '');
-      const desc = normalizeText(modalState.lastDesc || modalState.inputDesc || '');
       const ok = applyCandidateToProfile(tag || `SR-${new Date().toISOString().slice(0, 10)}`, desc, {
         ...modalState,
         keywords: selectedKeywords,
@@ -1056,12 +1070,18 @@ window.SubscriptionsSmartQuery = (function () {
     if (!modalState || modalState.type !== 'chat') return;
     if (modalState.pending) return;
     const tag = normalizeText(document.getElementById('dpr-chat-tag-input')?.value || '');
-    const desc = normalizeText(document.getElementById('dpr-chat-desc-input')?.value || '');
+    const topDesc = normalizeText(document.getElementById('dpr-chat-required-desc')?.value || '');
+    const bottomDesc = normalizeText(document.getElementById('dpr-chat-desc-input')?.value || '');
+    const desc = topDesc || bottomDesc;
     const finalTag = tag || `SR-${new Date().toISOString().slice(0, 10)}`;
     const finalDesc = desc;
 
+    if (!tag) {
+      setChatStatus('请先填写标签（必填）。', '#c00');
+      return;
+    }
     if (!finalDesc) {
-      setChatStatus('请先填写检索需求（描述）', '#c00');
+      setChatStatus('请先填写描述（必填）。', '#c00');
       return;
     }
 
@@ -1090,8 +1110,8 @@ window.SubscriptionsSmartQuery = (function () {
       modalState.inputTag = finalTag;
       modalState.lastTag = finalTag;
       modalState.lastDesc = finalDesc;
+      modalState.inputDesc = finalDesc;
       modalState.requestHistory = history;
-      modalState.inputDesc = '';
       modalState.chatStatus = `已生成候选（关键词 ${nextCandidates.keywords.length} 条新增、共 ${nextKeywords.length} 条；Query ${nextCandidates.queries.length} 条新增、共 ${nextQueries.length} 条）。`;
       if (document.getElementById('dpr-chat-desc-input')) {
         document.getElementById('dpr-chat-desc-input').value = '';
