@@ -4,6 +4,5 @@
     <li>欢迎 Star / Fork 本项目。</li>
     <li>欢迎提交 Issue 与 PR。</li>
     <li>QQ群：583867967（欢迎交流）</li>
-    <li>QQ：244824379（个人联系）</li>
   </ul>
 </div>
