@@ -1114,12 +1114,14 @@ window.$docsify = {
         };
 
         const getDate8FromDayLi = (li, dayKeyOrLabel) => {
-          // 优先从 HTML comment marker 读取：<!--dpr-date:YYYYMMDD-->
+          // 优先从 HTML comment marker 读取：<!--dpr-date:YYYYMMDD> / <!--dpr-date:YYYYMMDD-YYYYMMDD-->
           try {
             const nodes = Array.from(li.childNodes || []);
             for (const n of nodes) {
               if (n && n.nodeType === Node.COMMENT_NODE) {
-                const m = String(n.textContent || '').match(/dpr-date:(\d{8})/);
+                const m = String(n.textContent || '').match(
+                  /dpr-date:(\d{8}(?:-\d{8})?)/,
+                );
                 if (m) return m[1];
               }
             }
@@ -1127,22 +1129,28 @@ window.$docsify = {
             // ignore
           }
 
-          // 兜底：从 dayKey / label 解析（区间取结束日）
+          // 兜底：从 dayKey / label 解析（区间返回 rangeKey）
           const s = String(dayKeyOrLabel || '').trim();
           const m = s.match(
             /(\d{4})-(\d{2})-(\d{2})(?:\s*~\s*(\d{4})-(\d{2})-(\d{2}))?$/,
           );
           if (!m) return null;
-          if (m[4]) return `${m[4]}${m[5]}${m[6]}`;
+          if (m[4]) return `${m[1]}${m[2]}${m[3]}-${m[4]}${m[5]}${m[6]}`;
           return `${m[1]}${m[2]}${m[3]}`;
         };
 
         const buildDayIndexJsonUrl = (date8) => {
           const s = String(date8 || '');
-          if (!/^\d{8}$/.test(s)) return null;
-          const ym = s.slice(0, 6);
-          const day = s.slice(6);
-          const rel = `${ym}/${day}/papers.meta.json`;
+          let rel = '';
+          if (/^\d{8}-\d{8}$/.test(s)) {
+            rel = `${s}/papers.meta.json`;
+          } else if (/^\d{8}$/.test(s)) {
+            const ym = s.slice(0, 6);
+            const day = s.slice(6);
+            rel = `${ym}/${day}/papers.meta.json`;
+          } else {
+            return null;
+          }
           const baseHref = window.location.href.split('#')[0];
           const fullRel = joinUrlPath(getDocsifyBasePath(), rel);
           try {
