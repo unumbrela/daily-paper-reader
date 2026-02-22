@@ -997,7 +997,7 @@ window.SubscriptionsSmartQuery = (function () {
             <input id="dpr-chat-tag-input" type="text" placeholder="必填，标签，如SR" value="${escapeHtml(modalState.inputTag || '')}" />
           </label>
           <label class="dpr-chat-label dpr-chat-inline-desc">
-            <span class="dpr-chat-label-text">描述（必填）</span>
+            <span class="dpr-chat-label-text">中文描述（必填）</span>
             <input id="dpr-chat-required-desc" type="text" placeholder="请填写描述" value="${escapeHtml(modalState.inputDesc || '')}" />
           </label>
           <button class="arxiv-tool-btn" data-action="apply-chat" style="background:#2e7d32;color:#fff;" ${hasCandidates ? '' : 'disabled'}>
