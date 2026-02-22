@@ -993,6 +993,7 @@ window.SubscriptionsSmartQuery = (function () {
         <div class="dpr-modal-title">新增查询（请勾选你想要了解的关键词）</div>
         <div class="dpr-chat-head-actions">
           <label class="dpr-chat-label dpr-chat-inline-tag">
+            <span class="dpr-chat-label-text">标签（必填）</span>
             <input id="dpr-chat-tag-input" type="text" placeholder="必填，标签，如SR" value="${escapeHtml(modalState.inputTag || '')}" />
           </label>
           <label class="dpr-chat-label dpr-chat-inline-desc">
