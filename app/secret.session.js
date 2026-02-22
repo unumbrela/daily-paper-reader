@@ -3,6 +3,34 @@
   const STORAGE_KEY_MODE = 'dpr_secret_access_mode_v1'; // 已不再使用，仅保留兼容
   const STORAGE_KEY_PASS = 'dpr_secret_password_v1';
   const SECRET_FILE_URL = 'secret.private';
+  const SECRET_OVERLAY_ANIMATION_MS = 280;
+  let secretOverlayHideTimer = null;
+
+  const openSecretOverlay = (overlayEl) => {
+    if (!overlayEl) return;
+    if (secretOverlayHideTimer) {
+      clearTimeout(secretOverlayHideTimer);
+      secretOverlayHideTimer = null;
+    }
+    overlayEl.classList.remove('secret-gate-hidden');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        overlayEl.classList.add('show');
+      });
+    });
+  };
+
+  const closeSecretOverlay = (overlayEl) => {
+    if (!overlayEl) return;
+    overlayEl.classList.remove('show');
+    if (secretOverlayHideTimer) {
+      clearTimeout(secretOverlayHideTimer);
+    }
+    secretOverlayHideTimer = setTimeout(() => {
+      overlayEl.classList.add('secret-gate-hidden');
+      secretOverlayHideTimer = null;
+    }, SECRET_OVERLAY_ANIMATION_MS);
+  };
 
   // 简单的密码强度校验：至少 8 位，包含数字、小写字母、大写字母和特殊符号
   function validatePassword(pwd) {
@@ -487,8 +515,17 @@
     };
 
     const hide = () => {
-      overlay.classList.add('secret-gate-hidden');
+      closeSecretOverlay(overlay);
     };
+
+    if (overlay && !overlay._secretBound) {
+      overlay._secretBound = true;
+      overlay.addEventListener('mousedown', (e) => {
+        if (e.target === overlay) {
+          hide();
+        }
+      });
+    }
 
     // 已有 secret.private 时的解锁界面渲染逻辑
     const renderUnlockUI = () => {
@@ -1080,8 +1117,8 @@
       window.DPRSecretSetup = window.DPRSecretSetup || {};
       window.DPRSecretSetup.openStep2 = function () {
         const savedPwd = loadSavedPassword();
+        openSecretOverlay(overlay);
         // 确保浮层可见
-        overlay.classList.remove('secret-gate-hidden');
         if (!savedPwd) {
           // 没有保存密码：从第 1 步开始完整向导
           renderInitStep1();
@@ -1164,7 +1201,7 @@
               } catch {
                 // ignore
               }
-              overlay.classList.add('secret-gate-hidden');
+              closeSecretOverlay(overlay);
               return;
             } catch (e) {
               console.error(
@@ -1175,18 +1212,18 @@
             }
           }
           // 没有保存的密码或自动解锁失败：展示解锁/游客界面
-          overlay.classList.remove('secret-gate-hidden');
           setupOverlay(true);
+          openSecretOverlay(overlay);
         } else {
           // 不存在 secret.private：始终展示初始化向导
-          overlay.classList.remove('secret-gate-hidden');
           setupOverlay(false);
+          openSecretOverlay(overlay);
         }
       } catch {
         // 请求失败时按“文件不存在”处理：始终进入初始化向导
         window.DPR_ACCESS_MODE = 'locked';
-        overlay.classList.remove('secret-gate-hidden');
         setupOverlay(false);
+        openSecretOverlay(overlay);
       }
     })();
   }
