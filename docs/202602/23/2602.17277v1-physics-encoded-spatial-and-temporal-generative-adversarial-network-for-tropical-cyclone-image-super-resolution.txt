@@ -1,0 +1,267 @@
+Title: Physics Encoded Spatial and Temporal Generative Adversarial Network for Tropical Cyclone Image Super-resolution
+
+URL Source: https://arxiv.org/pdf/2602.17277v1
+
+Published Time: Fri, 20 Feb 2026 01:41:59 GMT
+
+Number of Pages: 6
+
+Markdown Content:
+## PHYSICS ENCODED SPATIAL AND TEMPORAL GENERATIVE ADVERSARIAL NETWORK FOR TROPICAL CYCLONE IMAGE SUPER-RESOLUTION 
+
+## Ruoyi Zhang 1 , Jiawei Yuan 1, Lujia Ye 1,2, Runling Yu 3, Liling Zhao 1,†
+
+> 1
+
+## Nanjing University of Information Science and Technology. 
+
+> 2
+
+## University of Reading. 
+
+> 3
+
+## Shanghai Typhoon Institute, China Meteorological Administration. 
+
+ABSTRACT 
+
+High-resolution satellite imagery is indispensable for tracking the genesis, intensification, and trajectory of tropical cyclones (TCs). However, existing deep learning-based super-resolution (SR) meth-ods often treat satellite image sequences as generic videos, neglect-ing the underlying atmospheric physical laws governing cloud mo-tion. To address this, we propose a Physics Encoded Spatial and Temporal Generative Adversarial Network (PESTGAN) for TC im-age super-resolution. Specifically, we design a disentangled gen-erator architecture incorporating a PhyCell module, which approx-imates the vorticity equation via constrained convolutions and en-codes the resulting approximate physical dynamics as implicit latent representations to separate physical dynamics from visual textures. Furthermore, a dual-discriminator framework is introduced, employ-ing a temporal discriminator to enforce motion consistency along-side spatial realism. Experiments on the Digital Typhoon dataset for 4× upscaling demonstrate that PESTGAN establishes a better per-formance in structural fidelity and perceptual quality. While main-taining competitive pixel-wise accuracy compared to existing ap-proaches, our method significantly excels in reconstructing meteo-rologically plausible cloud structures with superior physical fidelity. 
+
+Index Terms — Deep learning, physical network, generative ad-versial network 
+
+1. INTRODUCTION 
+
+Tropical cyclones (TCs) are among the most destructive natural disasters globally[1], characterized by intense low-pressure vortices and complex convective systems. Accurate monitoring of their fine-grained structures—such as the eye wall and spiral rainbands—is critical for disaster mitigation and meteorological analysis. While geostationary satellites provide continuous observation, hardware constraints often limit the spatial and temporal resolution of the acquired imagery, hindering the precise analysis of rapid TC evo-lution. Consequently, enhancing the resolution of satellite cloud images via software algorithms, specifically Super-Resolution (SR), has become a pivotal research direction[2]. In recent years, deep learning has revolutionized image SR. Gen-erative Adversarial Networks (GANs), such as SRGAN[3], have es-tablished new benchmarks in recovering realistic textures. However, applying these generic SR methods directly to TC imagery presents significant challenges. Unlike static scenes or rigid body motions in standard video datasets, TC cloud systems exhibit fluid properties governed by complex atmospheric dynamics, including rotation, di-vergence, and deformation[4]. Purely data-driven approaches tend to 
+
+> †Corresponding author.
+
+generate several bad cases such as artifacts that look visually plausi-ble but violate physical laws (discontinuous cloud flow or physically impossible deformation), thereby reducing their reference value for meteorologists. To bridge the gap between data-driven learning and physical principles, Physics-Informed Neural Networks (PINNs)[5] have emerged as a promising paradigm. This trend has rapidly evolved from Physics-Guided Neural Networks (PGNNs)[6], which typ-ically impose physical consistency via soft constraints from loss functions, to the deeper integration found in Physics-Encoded Neu-ral Networks (PENNs)[7, 8], where physical principles are explicitly or implicitly embedded into the network architecture itself. These methods have been proved useful in the past years. In this paper, we propose the Physics Encoded Spatial and Tem-poral Generative Adversarial Network (PESTGAN). This frame-work is designed to address the challenges of physical inconsistency and temporal flickering in satellite imagery. Adopting the PENN philosophy, we construct a Physics Encoded Generator (PEG) with a disentangled architecture[9]. This generator separates the modeling of physical dynamics from visual texture synthesis. At its core, we introduce the PhyCell module[8], which mathematically approxi-mates the atmospheric vorticity equation by mapping partial dif-ferential operators to constrained convolution kernels. This guides the network to predict cloud movements that align with fluid dy-namics. Furthermore, to ensure temporal coherence, we incorporate a dual-discriminator framework featuring a temporal discriminator that penalizes motion inconsistencies between consecutive frames. The main contributions of this work can be summarized as fol-lows: • Physics-Encoded architecture: We propose a disentan-gled generator that integrates a PhyCell module, where con-strained convolutional kernels simulate differential operators and the resulting approximate physical dynamics are encoded as implicit latent representations to guide super-resolution with atmospheric physical priors. • Spatio-Temporal adversarial learning: Follow previous works[10, 11], we design a dual-discriminator framework (spatial discriminator and temporal discriminator), enabling the model to generate high-resolution images that are both spatially sharp and temporally coherent. • Hybrid objective function: We formulate a composite loss function that synergizes adversarial loss, reconstruction loss, and physical related loss. This hybrid objective guides net-work optimization to achieve a balance between perceptual realism, pixel-wise fidelity, and meteorological validity.                                                                                               
+
+> arXiv:2602.17277v1 [cs.CV] 19 Feb 2026 Generator architecture
+> Discriminator architecture
+> Spatial Discriminator Temporal Discriminator
+> (2,512 ,512 )
+> Conv 1(SN,K=4×4,S=2,P=1)
+> Conv 2(SN,K=4×4,S=2,P=1)
+> Conv 3(SN,K=4×4,S=2,P=1)
+> Conv 4(SN,K=4×4,S=2,P=1)
+> Average Pooling
+> Linear Layer
+> (32 ,256 ,256 )
+> (64 ,128 ,128 )
+> (128 ,64 ,64 )
+> (256 ,32 ,32 )
+> (2,512 ,512 )
+> (32 ,256 ,256 )
+> (64 ,128 ,128 )
+> (128 ,64 ,64 )
+> T,HR T,SR
+> Scalar Output Score
+> real pair or fake pair
+> Feature Matching Loss
+> (F1,F2,F3,F4)
+> (5,512 ,512 )
+> Conv 1(SN,K=4×4,S=2,P=1)
+> Conv 2(SN,K=4×4,S=2,P=1)
+> Conv 3(SN,K=4×4,S=2,P=1)
+> Conv 4(SN,K=4×4,S=2,P=1)
+> Average Pooling
+> Linear Layer
+> (32 ,256 ,256 )
+> (64 ,128 ,128 )
+> (128 ,64 ,64 )
+> (256 ,32 ,32 )
+> (5,512 ,512 )
+> (32 ,256 ,256 )
+> (64 ,128 ,128 )
+> (128 ,64 ,64 )
+> T-1,HR T,SR T+1,HR Diff Diff T,HR
+> or ()
+> Scalar Output Score
+> real or fake
+> Branch A :Phycell
+> Branch B :ConvLSTM
+> Physical Features
+> Upsample  1
+> Upsample  2
+> Refinement Block
+> Conv  4 Kernel  3×3
+> Tanh activations
+> Extract Physical Features
+> (Movement ,Rotation )
+> Extract Image
+> Features
+> Texture Features
+> Feature Fusion
+> Conv 1 kernel  5×5
+> Conv 2 kernel  3×3
+> Conv 3 kernel  3×3
+> T-1,LR
+> T,LR
+> T+1,LR
+> Predict Result
+> T,SR
+
+Fig. 1 . Overall architecture of PESTGAN, the LR pictures are first upsampled and then sent into the physics-encoded generator. After generation, the SR pictures will be sent into a dual-discriminator framework, which is designed for spatial fidelity and temporal coherence. 
+
+2. METHODOLOGY 2.1. Overall architecture 
+
+The proposed PESTGAN aims to super-resolve a low-resolution (LR) satellite image sequence ILR = {ILR t−1, I LR t , I LR t+1 } into a high-resolution (HR) image ISR t . As shown in Figure 1, the model consists of a Physics Encoded Generator (PEG) and a Dual-Discriminator system. The generator employs a disentangled learn-ing strategy to separate physical flow from visual textures. The training is supervised by a Spatial Discriminator ( DS ) ensuring perceptual quality and a Temporal Discriminator ( DT ) enforcing motion consistency. Unlike other models that require pre-computed 3D fluid velocities, our method intrinsically learns 2D latent physi-cal dynamics via the PhyCell module, significantly reducing the cost of training and inference. 
+
+2.2. Physics encoded generator 
+
+As is known, a promising research direction is to leverage physical knowledge to improve deep learning models. In order to better su-pervise the generator to produce more realistic and meteorologically-application-friendly typhoon super-resolution results, the core inno-vation of PEG is the Disentangled Dual-Branch Architecture. We assume the latent representation of a TC cloud system H can be de-coupled into physical dynamics hphy and residual textures hres .First, the input low-resolution (LR) frames are explicitly upsam-pled to the target resolution via nearest-neighbor interpolation before being sent into the first convolutional layer. This step establishes a high-dimensional spatial grid, providing a dense structural prior for the subsequent network. These upsampled frames are then processed by a shared encoder, which progressively maps the visual data into a compact latent feature space through a series of strided convolutions. This encodes the high-dimensional inputs into manageable feature representations that are subsequently fed into two parallel branches. 
+
+2.2.1. Disentangled architecture 
+
+Branch A (Physical dynamics): This branch is responsible for cap-turing the macro-scale motion and deformation of the cloud sys-tem, which follows atmospheric laws. We employ the PhyCell mod-ule, a recurrent unit designed to model partial differential equations (PDEs) in the latent space. The module utilizes larger kernels ( 7×7)to capture long-range spatial dependencies inherent in fluid dynam-ics. It outputs the physical state hphy at the center frame. 
+
+Branch B (Residual texture): This branch focuses on generat-ing high-frequency local details and correcting non-physical visual artifacts. We utilize a convolutional LSTMCell[12] with smaller ker-nels ( 3 × 3) to capture local pixel variations. Unlike the physical branch, the residual branch is unconstrained, allowing it to learn the complex, chaotic texture patterns of TCs that are difficult to model with simplified PDEs. Finally, the outputs from both branches at the target time step t
+
+are fused. We concatenate hphy,t and hres,t and pass them through a fusion convolution layer. A decoder consisting of transposed con-volution layers and residual blocks then reconstructs the final super-resolved image ISR t , ensuring the result possesses both physically correct motion trends and realistic cloud textures. 
+
+2.2.2. Phycell injection 
+
+To inject physical inductive bias into Branch A without relying on explicit physical-field inputs, we integrate the PhyCell module orig-inally proposed in PhyDNet[8]. Unlike standard recurrent units that learn black-box temporal transitions, PhyCell performs prediction– correction in the latent space using convolutional operators that are constrained to behave like partial differential operators (PDE operators)[13]. In our PESTGAN, PhyCell should be viewed as an operator-learning module rather than a simulator that requires observed phys-ical quantities. Specifically, we impose moment constraints on its in-ternal convolutional kernels so that each kernel approximates a target derivative operator ( ∂∂x , ∂2
+
+∂x 2 , ...) under the well-known correspon-dence between differentiation and convolution[14, 15]. By compos-ing these constrained kernels, PhyCell can represent a rich family of dynamical operators and learn their linear combinations directly from image sequences. In particular, we leverage the tropical-cyclone vorticity equation as the physical prototype to be approximated in latent space: 
+
+Dζ Dt = −(ζ + f )∇ · v + 1
+
+ρ2 (∇ρ × ∇ p) · k + ν∇2ζ (1) where v, ρ, p, f, ν , and k denote velocity vector, density, pressure, Coriolis parameter, kinematic viscosity, and vertical unit vector, re-spectively. Importantly, our implementation does not require explicit phys-ical variables as inputs, nor does it compute each term in Eq. (1) from such measurements. Instead, by regularizing the kernels with 
+
+Lker , PhyCell learns a set of composable differential operators in latent space, and applies them recurrently to produce an approxi-mate physical prediction ( ˜ht+1 ) that serves as an implicit physical latent encoding. This encoded approximation then guides the gener-ator toward dynamics-aware reconstruction rather than pure texture hallucination. 
+
+Fig. 2 . The structure of PhyCell In Figure 2, ht denotes the latent state at time t, and xt denotes the current input feature (encoded from the upsampled LR frame). PhyCell follows a prediction–correction mechanism. In the prediction step, the physics-encoded operators produce an intermediate state ˜ht+1 by applying constrained convolutions that approximate partial derivatives and their compositions. This pre-dicted state can be interpreted as the encoded result of the approxi-mated physical dynamics. In the correction step, the predicted state is adjusted using the current observation xt via a learnable gain K:
+
+ht+1 = ˜ht+1 + K (xt − ˜ht+1 ). (2) During training, Lker regularizes the convolutional filter coefficients so that they implement the intended operator-like behavior. 
+
+2.3. Dual discriminators 
+
+To ensure that the generated super-resolved sequences are not only realistically textured but also temporally consistent with atmospheric fluid dynamics, we employ a dual-discriminator framework. This framework consists of a Spatial Discriminator ( DS ) and a Temporal Discriminator ( DT ), both optimized using the Hinge loss to stabilize adversarial training[16]. 
+
+2.3.1. Spatial discriminator 
+
+The Spatial Discriminator DS is designed to distinguish between real high-resolution satellite images and the generated frames, focus-ing on recovering high-frequency spatial details. As Figure 1 shown, 
+
+DS adopts a fully convolutional architecture. It takes the concate-nation of the upsampled LR frame and the candidate HR frame (real or generated) as input. To stabilize the training process and satisfy the Lipschitz continuity constraint, we apply spectral normalization (SN)[17] to the convolutional layers, except for the final layer. The network consists of a series of strided convolution blocks that pro-gressively downsample the feature maps, followed by a final linear layer to output a scalar realism score. We empirically find that, under the Hinge loss, removing SN from the last layer yields better perfor-mance. Furthermore, DS is also tasked with extracting intermedi-ate feature maps to compute the Feature Matching Loss[18], which forces the generator to align with the perceptual representation of real TC imagery. 
+
+2.3.2. Temporal discriminator 
+
+A critical challenge in video super-resolution is preventing tempo-ral flickering and ensuring that cloud movements adhere to physical continuity. Standard video discriminators often rely on 3D convo-lutions to implicitly learn motion patterns, which can be computa-tionally expensive and difficult to converge. Instead, we design a lightweight yet effective Temporal Discriminator DT that explicitly leverages motion cues. Specifically, for a sequence of three consec-utive frames {IHR t−1 , I SR t , I HR t+1 } where It can be either real or fake, we explicitly calculate the temporal finite differences to capture in-stantaneous motion dynamics: 
+
+∆SR prev = ISR t − IHR t−1 , ∆SR next = IHR t+1 − ISR t
+
+The input to DT is constructed by concatenating the raw frames and their corresponding difference maps along the channel dimension, resulting in a 5-channel tensor {IHR t−1 , I SR t , I HR t+1 , ∆SR prev , ∆SR next }
+
+(since the Digital Typhoon Dataset’s images are single channel). This design forces the discriminator to scrutinize both the visual content and the frame-to-frame residuals. If the generated sequence exhibits unnatural jittering or discontinuous flow that violates the continuity equation, the difference maps will amplify these artifacts, allowing DT to effectively penalize physically inconsistent motion. Similar to DS , Spectral Normalization is applied to ensure training stability. 
+
+2.4. Loss Function 
+
+The network is optimized via a hybrid objective function composed of three categories: reconstruction constraints, adversarial learning, and physics-encoded regularization. This composite ensures a bal-ance between pixel-wise fidelity, perceptual realism, and meteoro-logical validity. The total loss Ltotal is formulated as: 
+
+Ltotal = λ1L1 + λf eat Lf eat + λadv Ladv 
+
++ λstat Lstat + λker Lker 
+
+(3) where λ terms are hyperparameters balancing the contribution of each component. 
+
+Reconstruction Constraints. To ensure basic structural consis-tency, we employ the pixel-wise L1 loss, denoted as L1 = || ISR −
+
+IHR || 1. However, relying solely on pixel distance often leads to overly smooth textures. To mitigate this, we incorporate a Feature Matching Loss ( Lf eat )[18], which minimizes the Euclidean distance between the intermediate feature maps of the discriminator for real and generated sequences. This forces the generator to capture high-level structural patterns that are perceptually significant. 
+
+Adversarial Learning. To recover realistic cloud textures and coherent motion, we adopt a dual-discriminator scheme. The ad-versarial loss Ladv is the sum of spatial and temporal components based on the Hinge loss variant. The spatial discriminator DS pe-nalizes unrealistic static textures, while the temporal discriminator 
+
+DT takes consecutive frames (and their differences) as input to de-tect motion inconsistencies. The generator minimizes: Ladv = −E[DS (ISR )] −E[DT ({IHR t−1 , I SR t , I HR t+1 , ∆SR prev , ∆SR next })] 
+
+(4) This drives the model to generate sharp details and smooth tran-sitions indistinguishable from real satellite observations. 
+
+Physics-Encoded Constraints. A core contribution of PEST-GAN is explicit physical regularization, consisting of two terms in-spired by previous works[8, 13]: 
+
+[1] Kernel Moment Loss ( Lker ): To let PhyCell learn physics-inspired latent dynamics from image sequences, we constrain its convolutional kernels to behave as a basis of partial differential op-erators, thereby explicitly embedding physical priors into PhyCell. With these operator-like kernels, the recurrent transition can express (and thus approximate) the operator composition implied by Eq. (1) in latent space, without requiring explicit physical-variable inputs. Following the Moment Analysis theory, a convolution kernel W
+
+approximates a differential operator if its moment matrix M (W )
+
+matches a target geometric moment pattern. We impose: 
+
+Lker = X
+
+> k
+
+|| M (Wk ) − Mtarget || 2 
+
+> F
+
+(5) where Wk represents the filters in the PhyCell, and Mtarget defines the ideal derivative coefficients derived from the finite difference method. This ensures the learned latent dynamics adhere to fluid mechanics. 
+
+[2] Statistical Consistency Loss ( Lstat ): To ensure meteorolog-ical validity, we impose statistical constraints on both texture distri-bution and motion smoothness: 
+
+Lstat = ∥σ2(ISR t ) − σ2(IHR t )∥22
+
+| {z }
+
+> Spatial Energy Matching
+
++λt σ2(ISR t − ISR t−1)
+
+| {z }
+
+> Temporal Continuity
+
+(6) where σ2(·) denotes the variance computed over spatial dimensions. The first term enforces the generator to match the spectral energy of real TC cloud systems, preventing overly smooth textures. The second term penalizes the spatial variance of temporal differences, effectively suppressing non-physical high-frequency flickering while preserving coherent cloud motion. 
+
+3. EXPERIMENTS 3.1. Dataset and implementation details 
+
+All models are trained on the Digital Typhoon dataset[19] samples from the Western North Pacific. Samples with missing timestamps or too short durations were removed during preprocessing. In to-tal, 15000 infrared cloud images with 512×512 size were selected covering the period from 2018 to 2022. To strictly evaluate gener-alization capabilities on unseen meteorological events, we reserve the 1st and 14th typhoons of 2022 as the test set, while the remain-ing sequences are used for training. For quantitative evaluation, we employ Peak Signal-to-Noise Ratio (PSNR) and Structural Similar-ity Index (SSIM)[20] to measure pixel-wise reconstruction fidelity. Additionally, we provide qualitative comparisons to visually demon-strate the model’s performance in reconstructing realistic cloud tex-tures and maintaining temporal coherence. 
+
+3.2. Comparison study 
+
+To evaluate the effectiveness of PESTGAN, we compare it against five state-of-the-art video super-resolution methods: TDAN[21], EDVR[22], BasicVSR[23], RealBasicVSR[24], and RealViformer[25]. The quantitative results on the test set are summarized in Table 1. As illustrated in the table, PESTGAN achieves the highest SSIM (0.8656), outperforming the second-best method by a notable mar-gin. This performance gain demonstrates that our physics-encoded architecture excels at preserving the complex structural integrity of tropical cyclones. Moreover, PESTGAN also achieves the best PSNR (30.31 dB) among all compared methods, indicating that introducing physics-encoded and perceptual constraints does not sacrifice pixel-wise fidelity on this dataset. Overall, PESTGAN pro-vides a strong balance between pixel-level accuracy and structural realism. 
+
+Table 1 . Evaluation metrics of all methods on test set, higher is better for each metric. 
+
+Model PSNR (dB) ↑ SSIM ↑
+
+TDAN 29.59 0.8386 EDVR 29.65 0.8391 BasicVSR 30.12 0.8401 RealBasicVSR 30.03 0.8565 RealViformer 30.10 0.8572 
+
+PESTGAN (Ours) 30.31 0.8656 
+
+Beyond quantitative metrics, we provide a detailed visual com-parison in Figure 3 to assess perceptual quality. As observed in the zoomed-in patches, earlier methods like TDAN and EDVR gener-ate severe mosaic-like patterns. This limitation likely stems from a lack of physical awareness, rendering the networks unable to effec-tively characterize the complex fluid dynamics in TC imagery. While recent models like RealViformer avoid such artifacts, they exhibit noticeable blurring in high-frequency regions. In contrast, PEST-GAN produces significantly clearer results with refined details. This comparison suggests that the high PSNR scores of competing meth-ods may be driven by MSE-dominated optimization, which tends to over-smooth textures rather than truly ”understanding” and recover-ing structural details. These visual results align with our superior SSIM scores, confirming that incorporating physical priors enables PESTGAN to handle these complex meteorological scenarios more effectively. 
+
+3.3. Ablation Study 
+
+To measure the contribution of each component to the overall per-formance, we conducted a series of ablation studies. We also intro-duced the Relative Average Spectral Error (RASE)[26] to evaluate the global reconstruction fidelity, which is an important metric for measuring whether the model preserves meteorologically meaning-ful structures. The specific metrics for different strategies are pre-sented in Table 2. 
+
+Table 2 . Metrics of every model structure, while lower is better for RASE. 
+
+Model PSNR (dB) ↑ SSIM ↑ RASE (%) ↓
+
+Baseline 29.1662 0.8480 4.8320 Model-I 28.3924 0.8111 5.2813 Model-II 29.6262 0.8442 4.3900 Model-III 28.9266 0.8548 5.3054 
+
+PESTGAN (Ours) 30.3191 0.8656 3.9898 Baseline: We established a baseline using a dual-discriminator GAN similar to TempoGAN[10]. It employs a standard ResNet-based generator without internal physical modules. Crucially, it re-HR TDAN EDVR BasicVSR RealBasicVSR RealViformer Ours LR (×4)Fig. 3 . Visual comparison of the super-resolution results of different models on the 4× super-resolution task across various test sequences. LR Baseline Ours HR 
+
+Fig. 4 . Visual comparison of the super-resolution results of ablation study on the 4× super-resolution. lies on pre-computed physical fields as conditional inputs to guide generation, which incurs high computational costs during inference. 
+
+Model-I: We introduced the PhyCell module connected serially with residual blocks. This architecture failed to balance the trade-off between strict physical constraints and visual texture generation, resulting in the worst performance (PSNR=28.39) across all metrics. 
+
+Model-II: This variant adopts a physics-guided strategy where a parallel low-resolution PhyCell branch injects dynamic features into the main texture branch. While it improves upon the baseline by incorporating internal physical priors, the lack of explicit disentan-glement limits its ability to recover fine details. 
+
+Model-III: In this variant, we advanced beyond Model-II by in-troducing the disentangled dual-branch generator to better separate dynamics from texture. Furthermore, to enforce strict physical con-sistency, we also integrated the PhyCell module into the discrimi-nator. However, contrary to expectations, performance deteriorated (4.6% drop in PSNR) compared to PESTGAN. We hypothesize that the high complexity of a physics-encoded discriminator made the op-timization landscape overly difficult, preventing the generator from reaching convergence during adversarial training. 
+
+PESTGAN (Ours): Derived from the lessons of Model-III, we retained the superior disentangled generator architecture but re-moved the physical constraints from the discriminator. By pairing the physics-encoded generator with a standard dual-discriminator, PESTGAN achieves the best performance. This confirms that while decoupling physical laws in the generator is crucial for recon-struction quality, enforcing explicit PDEs in the discriminator is unnecessary and potentially destabilizing. Figure 4 highlights the significant improvement of PESTGAN over the baseline. While the baseline suffers from blurred, blocky artifacts when reconstructing spiral rainbands, our method gener-ates distinct striped structures with varying grayscale intensities that accurately reflect rainband intensity. This superior perceptual and physical fidelity validates the effectiveness of incorporating the pro-posed physical modules and the hybrid objective function. 
+
+4. CONCLUSION 
+
+In this paper, we proposed PESTGAN, a physics-encoded frame-work for tropical cyclone image super-resolution. Our core inno-vation is a disentangled generator that approximates the vorticity equation via latent-space constrained convolutions, injecting phys-ical inductive bias without requiring explicit meteorological inputs. By synergizing this architecture with a spatio-temporal adversarial strategy, PESTGAN achieves an impressive performance on the Dig-ital Typhoon dataset. The results demonstrate a superior balance between pixel-wise fidelity and meteorological plausibility, success-fully recovering complex cloud structures that adhere to underlying fluid dynamics. 
+
+5. ACKNOWLEDGEMENTS 
+
+This work was supported in part by the Shanghai Typhoon Research Foundation from Shanghai Typhoon Institute of China Meteorolog-ical Administration under Grant TFJJ202208, in part by the Inno-vation andDevelopment Special Program of China Meteorological Administration under Grant CXFZ2024J006. 
+
+6. REFERENCES 
+
+[1] Knapp, R. Kenneth, Kruk, C. Michael, Levinson, H. David, Diamond, J. Howard, Neumann, and J. Charles, “The inter-national best track archive for climate stewardship (ibtracs).,” 
+
+Bulletin of the American Meteorological Society , 2010. [2] Juan Mario Haut, Ruben Fernandez-Beltran, Mercedes E. Pao-letti, Javier Plaza, and Antonio Plaza, “Remote sensing image superresolution using deep residual channel attention,” IEEE Transactions on Geoscience and Remote Sensing , vol. 57, no. 11, pp. 9277–9289, 2019. [3] Christian Ledig, Lucas Theis, Ferenc Huszar, Jose Caballero, Andrew Cunningham, Alejandro Acosta, Andrew Aitken, Alykhan Tejani, Johannes Totz, Zehan Wang, and Wenzhe Shi, “Photo-realistic single image super-resolution using a genera-tive adversarial network,” in Proceedings of the IEEE Con-ference on Computer Vision and Pattern Recognition (CVPR) ,2017. [4] Zhen Wang, Xiang He, Bin Luo, and Wen Yang, “Physics-aware super-resolution of cloud image sequences via fluid mo-tion constraints,” IEEE TGRS , vol. 58, no. 8, pp. 5564–5577, 2020. [5] Maziar Raissi, Paris Perdikaris, and George E Karniadakis, “Physics-informed neural networks: A deep learning frame-work for solving forward and inverse problems involving non-linear partial differential equations,” Journal of Computational Physics , vol. 378, pp. 686–707, 2019. [6] Arka Daw, Anuj Karpatne, William Watkins, Jordan Read, and Vipin Kumar, “Physics-guided neural networks (pgnn): An application in lake temperature modeling,” in Book Chapter .2022. [7] Emmanuel de Bezenac, Arthur Pajot, and Patrick Gallinari, “Deep learning for physical processes: Incorporating prior sci-entific knowledge,” in International Conference on Learning Representations (ICLR) , 2018. [8] Vincent Le Guen and Nicolas Thome, “Disentangling phys-ical dynamics from unknown factors for unsupervised video prediction,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2020. [9] Emily L Denton et al., “Unsupervised learning of disentangled representations from video,” in NeurIPS , 2017, pp. 4414–4423. [10] Mengyu Chu and Nils Thuerey, “Data-driven synthesis of smoke flows with cnn-based feature descriptors,” ACM Trans-actions on Graphics , vol. 36, no. 4, pp. 1–14, July 2017. [11] Mengyu Chu, You Xie, Jonas Mayer, Laura Leal-Taix´ e, and Nils Thuerey, “Learning temporal coherence via self-supervision for gan-based video generation,” ACM Transac-tions on Graphics , vol. 39, no. 4, Aug. 2020. [12] Xingjian Shi, Zhourong Chen, Hao Wang, Dit-Yan Yeung, Wai-Kin Wong, and Wang-Chun Woo, “Convolutional lstm network: A machine learning approach for precipitation now-casting,” in Advances in Neural Information Processing Sys-tems (NIPS) , 2015. [13] Zichao Long, Yiping Lu, Xianzhong Ma, and Bin Dong, “Pde-net: Learning pdes from data,” in International Conference on Machine Learning (ICML) , 2018. [14] Bin Dong, Qianying Jiang, and Zuowei Shen, “Image restora-tion: Wavelet frame shrinkage, nonlinear evolution pdes, and beyond,” Multiscale Modeling & Simulation , vol. 15, no. 1, pp. 606–660, 2017. [15] Jian-Feng Cai, Bin Dong, Stanley Osher, and Zuowei Shen, “Image restoration: total variation, wavelet frames, and be-yond,” Journal of the American Mathematical Society , vol. 25, no. 4, pp. 1033–1089, 2012. [16] Andrew Brock, Jeff Donahue, and Karen Simonyan, “Large scale gan training for high fidelity natural image synthesis,” in 
+
+International Conference on Learning Representations (ICLR) ,2019. [17] Takeru Miyato, Toshiki Kataoka, Masanori Koyama, and Yuichi Yoshida, “Spectral normalization for generative ad-versarial networks,” in International Conference on Learning Representations (ICLR) , 2018. [18] Ting-Chun Wang, Ming-Yu Liu, Jun-Yan Zhu, Andrew Tao, Jan Kautz, and Bryan Catanzaro, “High-resolution image syn-thesis and semantic manipulation with conditional gans,” 2018. [19] Asanobu Kitamoto, Jared Hwang, Bastien Vuillod, Lucas Gau-tier, Yingtao Tian, and Tarin Clanuwat, “Digital typhoon: Long-term satellite image dataset for the spatio-temporal mod-eling of tropical cyclones,” in Advances in Neural Information Processing Systems (NeurIPS) , 2023. [20] Zhou Wang, A.C. Bovik, H.R. Sheikh, and E.P. Simoncelli, “Image quality assessment: from error visibility to structural similarity,” IEEE Transactions on Image Processing , vol. 13, no. 4, pp. 600–612, 2004. [21] Yapeng Tian, Yulun Zhang, Yun Fu, and Chenliang Xu, “Tdan: Temporally deformable alignment network for video super-resolution,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2020. [22] Xintao Wang, Kelvin C. K. Chan, Ke Yu, Chao Dong, and Chen Change Loy, “Edvr: Video restoration with enhanced deformable convolutional networks,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recog-nition (CVPR) Workshops , 2019. [23] Kelvin C. K. Chan, Xintao Wang, Ke Yu, Chao Dong, and Chen Change Loy, “Basicvsr: The search for essential com-ponents in video super-resolution and beyond,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2021. [24] Kelvin C. K. Chan, Shangchen Zhou, Xiangyu Xu, and Chen Change Loy, “Investigating tradeoffs in real-world video super-resolution,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2022. [25] Yuehan Zhang and Angela Yao, “Realviformer: Investigating attention for real-world video super-resolution,” in European Conference on Computer Vision (ECCV) , 2024. [26] Myungjin Choi, “A new intensity-hue-saturation fusion ap-proach to image fusion with a tradeoff parameter,” IEEE Trans-actions on Geoscience and Remote Sensing , vol. 44, no. 6, pp. 1672–1682, 2006.
