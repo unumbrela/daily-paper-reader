@@ -1160,6 +1160,24 @@ window.$docsify = {
           }
         };
 
+        const closeAllDayMenus = () => {
+          const openedMenus = nav.querySelectorAll('.sidebar-day-menu.is-open');
+          openedMenus.forEach((m) => {
+            m.classList.remove('is-open');
+          });
+        };
+
+        if (!nav.dataset.dprDayMenuBound) {
+          nav.dataset.dprDayMenuBound = '1';
+          document.addEventListener('click', (e) => {
+            const target = e && e.target ? e.target : null;
+            if (!target || !target.closest) return;
+            if (!target.closest('.sidebar-day-toggle-actions')) {
+              closeAllDayMenus();
+            }
+          });
+        }
+
         const downloadJson = (filename, data) => {
           const blob = new Blob([JSON.stringify(data, null, 2)], {
             type: 'application/json;charset=utf-8',
@@ -1175,16 +1193,27 @@ window.$docsify = {
         };
 
         const STORAGE_KEY = 'dpr_sidebar_day_state_v1';
+        const HIDDEN_DAYS_KEY = '__hiddenDays';
         let state = {};
+        let hiddenDays = new Set();
         try {
           const raw = window.localStorage
             ? window.localStorage.getItem(STORAGE_KEY)
             : null;
           if (raw) {
             state = JSON.parse(raw) || {};
+            const savedHidden = state[HIDDEN_DAYS_KEY];
+            if (Array.isArray(savedHidden)) {
+              hiddenDays = new Set(
+                savedHidden
+                  .map((x) => (typeof x === 'string' ? x : ''))
+                  .filter(Boolean),
+              );
+            }
           }
         } catch {
           state = {};
+          hiddenDays = new Set();
         }
         // 先扫描一遍，找出所有日期和最新一天
         const items = nav.querySelectorAll('li');
@@ -1219,6 +1248,7 @@ window.$docsify = {
           if (!isSingleDay && !rangeMatch) return;
 
           const dayKey = rangeMatch ? rangeMatch[2] : rawText; // 用区间“结束日”参与最新日判断
+          if (hiddenDays.has(dayKey)) return;
 
           dayItems.push({ li, text: rawText, firstTextNode, dayKey });
           if (!latestDay || dayKey > latestDay) {
@@ -1237,23 +1267,99 @@ window.$docsify = {
 
         // 如果出现了新的一天：清空历史状态，只保留最新一天的信息
         if (isNewDay) {
+          const prevHidden = hiddenDays;
           state = { __latestDay: latestDay };
+          if (prevHidden.size) {
+            state[HIDDEN_DAYS_KEY] = Array.from(prevHidden);
+          }
         } else if (!prevLatest && latestDay) {
           // 第一次使用，没有历史记录但也不算“新一天触发重置”的场景：记录当前最新日期
           state.__latestDay = latestDay;
         }
 
         const hasAnyState =
-          !isNewDay && Object.keys(state).some((k) => k !== '__latestDay');
+          !isNewDay &&
+          Object.keys(state).some((k) => k && !k.startsWith('__'));
 
         const ensureStateSaved = () => {
           try {
             if (window.localStorage) {
+              state[HIDDEN_DAYS_KEY] = Array.from(hiddenDays);
               window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
             }
           } catch {
             // ignore
           }
+        };
+
+        const downloadDayMeta = async (opts) => {
+          const { li: rowLi, rawText: rowText, dateKey } = opts || {};
+          const date8 = getDate8FromDayLi(rowLi, dateKey || rowText);
+          const indexUrl = buildDayIndexJsonUrl(date8);
+          if (!indexUrl) {
+            console.warn('[DPR Export] 无法解析索引 JSON 路径：', {
+              rawText: rowText,
+              dayKey: dateKey,
+              date8,
+            });
+            return;
+          }
+
+          const menuDownload = rowLi
+            ? rowLi.querySelector('.sidebar-day-menu-item-download')
+            : null;
+          const oldText = menuDownload ? menuDownload.textContent : null;
+          if (menuDownload) {
+            menuDownload.disabled = true;
+            menuDownload.textContent = '下载中...';
+          }
+          try {
+            const resp = await fetch(indexUrl, { cache: 'no-store' });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const payload = await resp.json();
+            window.DPRLastDayExport = payload;
+
+            const safeLabel = String(rowText || payload.label || 'daily-papers')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .replace(/[^\d\-~_ ]/g, '')
+              .replace(/\s+/g, '_');
+            const filename = `${safeLabel || 'daily-papers'}.json`;
+            downloadJson(filename, payload);
+
+            if (rowLi) {
+              const trigger = rowLi.querySelector('.sidebar-day-menu-trigger');
+              if (trigger) {
+                trigger.title = `已下载：${payload && payload.count ? payload.count : 0} 篇`;
+              }
+            }
+          } catch (err) {
+            if (rowLi) {
+              const trigger = rowLi.querySelector('.sidebar-day-menu-trigger');
+              if (trigger) {
+                trigger.title = `下载失败（见控制台）：${String(
+                  err && err.message ? err.message : err,
+                )}`;
+              }
+            }
+            console.warn('[DPR Export] 下载失败：', err);
+            throw err;
+          } finally {
+            if (menuDownload) {
+              menuDownload.disabled = false;
+              menuDownload.textContent = oldText || '下载 JSON';
+            }
+          }
+        };
+
+        const deleteDaySection = ({ rowLi, rowText, dayKey }) => {
+          if (!rowLi) return;
+          if (dayKey) hiddenDays.add(dayKey);
+          if (rowText) delete state[rowText];
+          closeAllDayMenus();
+          ensureStateSaved();
+          rowLi.remove();
+          syncSidebarActiveIndicator({ animate: false });
         };
 
         const DAY_ANIM_MS = 240;
@@ -1316,12 +1422,27 @@ window.$docsify = {
             labelSpan.className = 'sidebar-day-toggle-label';
             labelSpan.textContent = rawText;
 
+            const menuTrigger = document.createElement('button');
+            menuTrigger.type = 'button';
+            menuTrigger.className = 'sidebar-day-menu-trigger';
+            menuTrigger.title = '更多操作';
+            menuTrigger.setAttribute('aria-label', '更多操作');
+            menuTrigger.textContent = '⋮';
+
+            const menu = document.createElement('span');
+            menu.className = 'sidebar-day-menu';
+
             const downloadBtn = document.createElement('button');
             downloadBtn.type = 'button';
-            downloadBtn.className = 'sidebar-day-download-btn';
-            downloadBtn.title = '下载该日期分组下所有论文的元数据（JSON）';
+            downloadBtn.className = 'sidebar-day-menu-item sidebar-day-menu-item-download';
+            downloadBtn.textContent = '下载 JSON';
             downloadBtn.setAttribute('aria-label', '下载论文元数据 JSON');
-            downloadBtn.textContent = 'JSON';
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'sidebar-day-menu-item sidebar-day-menu-item-delete';
+            deleteBtn.textContent = '删除这一栏';
+            deleteBtn.setAttribute('aria-label', '删除该日期分组');
 
             const arrowSpan = document.createElement('span');
             arrowSpan.className = 'sidebar-day-toggle-arrow';
@@ -1329,7 +1450,10 @@ window.$docsify = {
 
             const actions = document.createElement('span');
             actions.className = 'sidebar-day-toggle-actions';
-            actions.appendChild(downloadBtn);
+            actions.appendChild(menuTrigger);
+            menu.appendChild(downloadBtn);
+            menu.appendChild(deleteBtn);
+            actions.appendChild(menu);
             actions.appendChild(arrowSpan);
 
             wrapper.appendChild(labelSpan);
@@ -1344,57 +1468,62 @@ window.$docsify = {
           const labelSpan = wrapper.querySelector('.sidebar-day-toggle-label');
           if (labelSpan) labelSpan.textContent = rawText;
           const arrowSpan = wrapper.querySelector('.sidebar-day-toggle-arrow');
-          const downloadBtn = wrapper.querySelector('.sidebar-day-download-btn');
+          const menuTrigger = wrapper.querySelector('.sidebar-day-menu-trigger');
+          const menu = wrapper.querySelector('.sidebar-day-menu');
+          const downloadBtn = wrapper.querySelector('.sidebar-day-menu-item-download');
+          const deleteBtn = wrapper.querySelector('.sidebar-day-menu-item-delete');
+
+          if (menuTrigger && !menuTrigger.dataset.dprDayMenuTriggerBound) {
+            menuTrigger.dataset.dprDayMenuTriggerBound = '1';
+            menuTrigger.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+              if (!menu) return;
+              const nowOpen = !menu.classList.contains('is-open');
+              if (nowOpen) {
+                closeAllDayMenus();
+                menu.classList.add('is-open');
+              } else {
+                menu.classList.remove('is-open');
+              }
+            });
+          }
 
           if (downloadBtn && !downloadBtn.dataset.dprDownloadBound) {
             downloadBtn.dataset.dprDownloadBound = '1';
-            downloadBtn.addEventListener(
-              'click',
-              async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-                if (downloadBtn.disabled) return;
+            downloadBtn.addEventListener('click', async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+              if (downloadBtn.disabled) return;
+              try {
+                await downloadDayMeta({
+                  li,
+                  rawText,
+                  dateKey: dayKey || rawText,
+                });
+              } catch {
+                // ignore
+              }
+              if (menu) {
+                menu.classList.remove('is-open');
+              }
+            });
+          }
 
-                const date8 = getDate8FromDayLi(li, dayKey || rawText);
-                const indexUrl = buildDayIndexJsonUrl(date8);
-                if (!indexUrl) {
-                  console.warn('[DPR Export] 无法解析索引 JSON 路径：', {
-                    rawText,
-                    dayKey,
-                    date8,
-                  });
-                  return;
-                }
-
-                downloadBtn.disabled = true;
-                const oldText = downloadBtn.textContent;
-                downloadBtn.textContent = '...';
-                try {
-                  const resp = await fetch(indexUrl, { cache: 'no-store' });
-                  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                  const payload = await resp.json();
-                  window.DPRLastDayExport = payload;
-
-                  const safeLabel = String(rawText || payload.label || 'daily-papers')
-                    .replace(/\s+/g, ' ')
-                    .trim()
-                    .replace(/[^\d\-~_ ]/g, '')
-                    .replace(/\s+/g, '_');
-                  const filename = `${safeLabel || 'daily-papers'}.json`;
-                  downloadJson(filename, payload);
-
-                  downloadBtn.title = `已下载：${payload && payload.count ? payload.count : 0} 篇`;
-                } catch (err) {
-                  downloadBtn.title = `下载失败（见控制台）：${String(err && err.message ? err.message : err)}`;
-                  console.warn('[DPR Export] 下载失败：', err);
-                } finally {
-                  downloadBtn.disabled = false;
-                  downloadBtn.textContent = oldText || 'JSON';
-                }
-              },
-              true,
-            );
+          if (deleteBtn && !deleteBtn.dataset.dprDeleteBound) {
+            deleteBtn.dataset.dprDeleteBound = '1';
+            deleteBtn.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+              deleteDaySection({
+                rowLi: li,
+                rowText: rawText,
+                dayKey,
+              });
+            });
           }
 
           // 决定默认展开 / 收起：
@@ -1435,15 +1564,18 @@ window.$docsify = {
             wrapper.addEventListener(
               'click',
               (e) => {
-                // 点击“下载 JSON”按钮时，不触发日期折叠（否则 capture 阶段会先被 wrapper 拦截，导致按钮无响应）
+                // 点击菜单控件时，不触发日期折叠（否则 capture 阶段会先被 wrapper 拦截，导致菜单无响应）
                 try {
                   const target = e && e.target && e.target.closest
-                    ? e.target.closest('.sidebar-day-download-btn')
+                    ? e.target.closest(
+                        '.sidebar-day-menu-trigger,.sidebar-day-menu,.sidebar-day-menu-item',
+                      )
                     : null;
                   if (target) return;
                 } catch {
                   // ignore
                 }
+                closeAllDayMenus();
                 e.preventDefault();
                 e.stopPropagation();
                 if (e.stopImmediatePropagation) e.stopImmediatePropagation();
