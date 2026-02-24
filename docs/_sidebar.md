@@ -1,5 +1,8 @@
 * [首页](/)
 * Daily Papers
+  * 2026-02-24 <!--dpr-date:20260224-->
+    * 速读区
+      * <a class="dpr-sidebar-item-link" href="#/202602/24/2602.05313v1-beyond-overcomplication-a-linear-model-suffices-to-decode-hidden-structure-property-relationships-in-glasses"><div class="dpr-sidebar-title">Beyond overcomplication: a linear model suffices to decode hidden structure-property relationships in glasses</div><div class="dpr-sidebar-tags"><span class="dpr-sidebar-tag dpr-sidebar-tag-score"><span class="dpr-stars" title="评分：6.0/10（3.0/5）" aria-label="3.0 out of 5"><span class="dpr-stars-bg">☆☆☆☆☆</span><span class="dpr-stars-fill" style="width:60%">★★★★★</span></span></span> <span class="dpr-sidebar-tag dpr-sidebar-tag-query">sr</span></div></a>
   * 2026-02-23 <!--dpr-date:20260223-->
     * 速读区
       * <a class="dpr-sidebar-item-link" href="#/202602/23/2601.18181v1-accurate-semiempirical-analytical-formulas-for-spontaneous-polarization-by-crystallographic-parameters-of-srtio3-batio3-system-by-ab-initio-calculations"><div class="dpr-sidebar-title">Accurate semiempirical analytical formulas for spontaneous polarization by crystallographic parameters of SrTiO3-BaTiO3 system by ab initio calculations</div><div class="dpr-sidebar-tags"><span class="dpr-sidebar-tag dpr-sidebar-tag-score"><span class="dpr-stars" title="评分：7.0/10（3.5/5）" aria-label="3.5 out of 5"><span class="dpr-stars-bg">☆☆☆☆☆</span><span class="dpr-stars-fill" style="width:70%">★★★★★</span></span></span> <span class="dpr-sidebar-tag dpr-sidebar-tag-query">sr</span></div></a>

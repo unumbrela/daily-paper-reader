@@ -1,0 +1,22 @@
+{
+  "label": "2026-02-24",
+  "date": "2026-02-24",
+  "generated_at": "2026-02-24T19:40:14",
+  "count": 1,
+  "papers": [
+    {
+      "paper_id": "202602/24/2602.05313v1-beyond-overcomplication-a-linear-model-suffices-to-decode-hidden-structure-property-relationships-in-glasses",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "Establishing reliable and interpretable structure-property relationships in glasses is a longstanding challenge in condensed matter physics. While modern data-driven machine learning techniques have proven highly effective in establishing structure-property correlations, many models are criticized for lacking physical interpretability and being task-specific. In this work, we identify an approximate linear relation between structure profiles and disorder-induced responses of glass properties based on first order perturbation theory. We analytically demonstrate that this relationship holds universally across glassy systems with varying dimensions and distinct interaction types. This robust theoretical relationship motivates the adoption of linear machine learning models, which we show numerically to achieve surprisingly high predictive accuracy for structure-property mapping in a wide variety of glassy materials. We further devise regularization analysis to further enhance the interpretability of our model, bridging the gap between predictive performance and physical insight. Overall, this linear relation establishes a simple yet powerful connection between structural disorder and spectral properties in glasses, opening a new avenue for advancing their studies."
+    }
+  ],
+  "errors": []
+}

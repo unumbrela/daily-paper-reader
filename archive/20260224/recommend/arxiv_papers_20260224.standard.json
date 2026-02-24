@@ -1,0 +1,50 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-02-24T19:39:46.634435+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 0,
+    "deep_cap": 6,
+    "deep_selected": 0,
+    "quick_candidates": 1,
+    "quick_skim_target": 11,
+    "quick_selected": 1
+  },
+  "deep_dive": [],
+  "quick_skim": [
+    {
+      "id": "2602.05313v1",
+      "title": "Beyond overcomplication: a linear model suffices to decode hidden structure-property relationships in glasses",
+      "abstract": "Establishing reliable and interpretable structure-property relationships in glasses is a longstanding challenge in condensed matter physics. While modern data-driven machine learning techniques have proven highly effective in establishing structure-property correlations, many models are criticized for lacking physical interpretability and being task-specific. In this work, we identify an approximate linear relation between structure profiles and disorder-induced responses of glass properties based on first order perturbation theory. We analytically demonstrate that this relationship holds universally across glassy systems with varying dimensions and distinct interaction types. This robust theoretical relationship motivates the adoption of linear machine learning models, which we show numerically to achieve surprisingly high predictive accuracy for structure-property mapping in a wide variety of glassy materials. We further devise regularization analysis to further enhance the interpretability of our model, bridging the gap between predictive performance and physical insight. Overall, this linear relation establishes a simple yet powerful connection between structural disorder and spectral properties in glasses, opening a new avenue for advancing their studies.",
+      "authors": [
+        "Chenyan Wang",
+        "Mouyang Cheng",
+        "Ji Chen"
+      ],
+      "primary_category": "cond-mat.dis-nn",
+      "categories": [
+        "cond-mat.dis-nn"
+      ],
+      "published": "2026-02-05T05:16:40+00:00",
+      "link": "https://arxiv.org/pdf/2602.05313v1",
+      "tags": [
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Decoding hidden structure-property relationships in physical systems",
+      "llm_evidence_cn": "解码物理系统中的隐藏结构-性质关系",
+      "llm_evidence": "解码物理系统中的隐藏结构-性质关系",
+      "llm_tldr_en": "Identifies linear relationships between structure and properties in glasses using first-order perturbation theory.",
+      "llm_tldr_cn": "利用一阶摄动理论识别玻璃结构与性质之间的线性关系，具有物理可解释性。",
+      "llm_tldr": "利用一阶摄动理论识别玻璃结构与性质之间的线性关系，具有物理可解释性。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    }
+  ]
+}
