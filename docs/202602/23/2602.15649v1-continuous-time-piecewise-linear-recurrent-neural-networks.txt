@@ -1,0 +1,1188 @@
+Title: Continuous-Time Piecewise-Linear Recurrent Neural Networks
+
+URL Source: https://arxiv.org/pdf/2602.15649v1
+
+Published Time: Wed, 18 Feb 2026 01:53:33 GMT
+
+Number of Pages: 24
+
+Markdown Content:
+# Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+Alena Br¨ andle * 1 2 3 Lukas Eisenmann * 1 2 Florian G¨ otz 1 4 Daniel Durstewitz 1 2 5 
+
+# Abstract 
+
+In dynamical systems reconstruction (DSR) we aim to recover the dynamical system (DS) under-lying observed time series. Specifically, we aim to learn a generative surrogate model which approx-imates the underlying, data-generating DS, and recreates its long-term properties (‘climate statis-tics’). In scientific and medical areas, in particular, these models need to be mechanistically tractable – through their mathematical analysis we would like to obtain insight into the recovered system’s workings. Piecewise-linear (PL), ReLU-based RNNs (PLRNNs) have a strong track-record in this regard, representing SOTA DSR models while allowing mathematical insight by virtue of their PL design. However, all current PLRNN variants are discrete-time maps . This is in disaccord with the assumed continuous-time nature of most phys-ical and biological processes, and makes it hard to accommodate data arriving at irregular temporal intervals. Neural ODEs are one solution, but they do not reach the DSR performance of PLRNNs and often lack their tractability. Here we develop theory for continuous-time PLRNNs (cPLRNNs): We present a novel algorithm for training and simulating such models, bypassing numerical in-tegration by efficiently exploiting their PL struc-ture. We further demonstrate how important topo-logical objects like equilibria or limit cycles can be determined semi-analytically in trained mod-els. We compare cPLRNNs to both their discrete-time cousins as well as Neural ODEs on DSR benchmarks, including systems with discontinu-ities which come with hard thresholds. 
+
+> 1
+
+Department of Theoretical Neuroscience, Central Institute of Mental Health, Mannheim, Germany 2Faculty of Physics and Astronomy, Heidelberg University, Heidelberg, Germany 
+
+> 3
+
+Hector Institute for Artificial Intelligence in Psychiatry, Cen-tral Institute of Mental Health, Mannheim, Germany 4Faculty of Mathematics and Computer Science, Heidelberg University, Heidelberg, Germany 5Interdisciplinary Center for Scientific Computing, Heidelberg University. Correspondence to: Alena Br ¨andle <alena.braendle@zi-mannheim.de >, Daniel Durstewitz 
+
+<daniel.durstewitz@zi-mannheim.de >.
+
+Preprint. February 18, 2026. 
+
+# 1. Introduction 
+
+Scientific theories for explaining and predicting empirical phenomena are most commonly formulated in terms of sys-tems of differential equations, aka dynamical systems (DS). While traditionally this meant hand-crafting mathematical models, in the last ∼5 years or so deep learning for automat-ically inferring dynamical models from time series data has become increasingly popular, also termed dynamical sys-tems reconstruction (DSR) (Brunton et al., 2022; Durstewitz et al., 2023; Gilpin, 2024). To qualify as proper surrogate models for the underlying dynamical process, DSR models must fulfill certain criteria. Most importantly, they must be able to reproduce the long-term properties (ergodic statis-tics) of an observed DS (G ¨oring et al., 2024). To be useful in scientific or medical contexts, they should also be inter-pretable and mathematically tractable, such that they can be analyzed to gain insight into dynamical mechanisms. State of the art (SOTA) models which fulfill both criteria are piecewise-linear (PL) systems, like PL recurrent neural networks (PLRNNs; Brenner et al. (2022; 2024b); Hess et al. (2023); Pals et al. (2024)) or recursive switching linear DS (rSLDS; Linderman et al. (2016; 2017)). These models are tractable by their PL design (Monfared & Durstewitz, 2020; Eisenmann et al., 2023; 2026), properties for which they have a celebrated tradition in both engineering (Bem-porad et al., 2000; Rantzer & Johansson, 2000; Carmona et al., 2002; Juloski et al., 2005; Stanculescu et al., 2014) and the mathematics of DS (Alligood et al., 1996; Avrutin et al., 2019; Simpson, 2025; Coombes et al., 2024). How-ever, all these models are discrete time recursive maps and thus require binning of the time axis – they cannot naturally deal with data spaced across irregular temporal intervals, although these are quite common in various scientific disci-plines like climate research or medical settings. Moreover, while theoretically discrete-time methods are supposed to approximate the flow (solution) operator of the underly-ing DS, practically this is not always given and may need additional regularization criteria to enforce the flow’s semi-group properties (Li et al., 2022). This is not only an issue for training if observations are made at arbitrary time points, but also for inference as we would like to be able to inter-and extrapolate a system’s state at arbitrary times. A natural solution is to formulate the model right away in terms of differential equations rather than maps, as in Neural ODEs 1
+
+> arXiv:2602.15649v1 [cs.LG] 17 Feb 2026 Continuous-Time Piecewise-Linear Recurrent Neural Networks
+
+(Chen et al., 2018; Alvarez et al., 2020) or physics-informed neural networks (Raissi et al., 2019). However, these lack the appealing mathematical accessibility of PLRNNs, and also cannot compete with them performance-wise (Brenner et al., 2022; Hess et al., 2023). To address this, here we introduce a continuous-time version of PLRNNs. In particular, we show how to harvest its PL structure for model training, simulation, and analysis. Our specific contributions are: 1. We introduce a novel algorithm for solving PL ODE systems exploiting the fact that within each linear sub-region of the system’s state space we have an analyti-cal expression for the dynamics. Thus, instead of nu-merically integrating the system (as in Neural ODEs), we semi-analytically determine the switching times at which the trajectory crosses the boundary into a new linear subregion. This gives rise to a much more ef-ficient and precise procedure, as we do not require a numerical solver which relies on determining optimal integration step sizes to meet a preset error criterion. 2. We demonstrate how the theory of PL continuous-time DS (Coombes et al., 2024) can be harvested to deter-mine important topological properties of the inferred DS, like its equilibria and limit cycles. This makes important DS features semi-analytically tractable, en-abling deeper mathematical insight into the system’s behavior than feasible with previous methods. We believe these are important steps for establishing data-inferred DS models as general scientific analysis and theory-building tools. 
+
+# 2. Related Work 
+
+Dynamical systems reconstruction (DSR) In DSR we aim to infer a generative surrogate model from time series observation which reproduces the underlying system’s long-term behavior (Durstewitz et al., 2023). Many directions toward this goal have been tested in past years, relying on models defined in terms of function libraries (Champion et al., 2019), RNNs including reservoir computers (Pathak et al., 2017; Platt et al., 2022; 2023), LSTMs (Vlachas et al., 2018), and PLRNNs (Durstewitz, 2017; Brenner et al., 2022; 2024a), or neural ODEs (Chen et al., 2018; Alvarez et al., 2020). One key aspect is the training process itself which needs to ensure that ergodic properties are captured, and various control-theoretically motivated training algorithms (Mikhaeil et al., 2022; Hess et al., 2023) or specical loss criteria (Platt et al., 2022; 2023) have been suggested to accomplish this. Recent work dealt with multimodal data integration for the purpose of DSR, steps towards DSR foun-dation models (Brenner et al., 2024b; Hemmer & Durste-witz, 2026), and the topic of out-of-domain generalization in DSR (G¨ oring et al., 2024). 
+
+Continuous-time RNNs Continuous-time models at some level seem the more natural choice for DSR, but currently face issues with mathematical tractability and still lag be-hind in DSR performance (Brenner et al., 2022; Hess et al., 2023). Early work on continuous-time RNNs dates back to the Wilson–Cowan equations (Wilson & Cowan, 1972), which describe neural population dynamics via coupled ODEs. Pearlmutter (1995) later generalized backpropaga-tion to continuous-time RNNs, enabling learning in differen-tiable DS. Modern approaches parameterize the vector field with deep networks, as in Neural ODEs (Chen et al., 2018) which invoke the adjoint sensitivity method to efficiently compute gradients. Numerous extensions to the basic approach have been ad-vanced in subsequent years. Augmented Neural ODEs (Dupont et al., 2019) expand the state space to enhance expressivity and mitigate topological constraints, as well as improve and speed up model training. Latent Neural ODEs (Rubanova et al., 2019) develop the basic approach more specifically for irregularly sampled time series data. Neu-ral Controlled Differential Equations (Kidger et al., 2020) generalize Neural ODEs to allow for continuous control sig-nals (rendering the system strictly non-autonomous) and for naturally handling partial observations. Hamiltonian Neural Networks (Greydanus et al., 2019) explicitly incorporate an Hamiltonian formulation into the loss to learn physical systems with conservation laws, an approach later extended by the Symplectic ODE-Net (Zhong et al., 2020) which includes external forcing and control into the model. Other advancements of the basic approach allow for event func-tions (Zhong et al., 2020) or explicitly model second-order terms (Norcliffe et al., 2020). Neural Stochastic Differential Equations (SDEs) (Tzen & Raginsky, 2019; Li et al., 2020), finally, introduce stochasticity into the latent process as in SDEs by separately modeling the drift and diffusion terms. 
+
+Piecewise linear systems Since in DSR we are not merely interested in prediction, but in gaining insight into the sys-tem dynamics which gave rise to the observed process, math-ematical tractability is an important criterion. PL DS par-tition the state space into subregions with linear dynamics, allowing for a complete analytical description within each subregion. These properties have made PL maps one of the most intensely studied areas in engineering (Bemporad et al., 2000; Carmona et al., 2002) and the mathematics of DS (Guckenheimer & Holmes, 1983; Alligood et al., 1996), with the tent map or the baker’s map famous examples of PL maps introduced to examine chaotic attractors, their fractal geometry, or their topological backbone of infinitely many periodic orbits (Avrutin et al., 2012; 2014; Gardini 2Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+& Makrooni, 2019). Switching linear dynamical systems (SLDS) (Ghahramani & Hinton, 2000; Fox et al., 2008; Linderman et al., 2016; 2017; Linderman & Johnson, 2017; Alameda-Pineda et al., 2022) and jump Markov systems (Shi & Li, 2015) capture regime changes by combining multiple linear modes with a discrete switching process. Bayesian extensions (Linderman et al., 2017) allow inference over the number of modes and their transition probabilities, and recent approaches combine SLDS with RNNs (recursive SLDS) to model nonlinear switching behavior (Smith et al., 2021). PLRNNs are another class of systems specifically introduced for DSR (Durstewitz, 2017) and exhibit SOTA performance, with the dendritic PLRNN (Brenner et al., 2022), shallow PLRNN (Hess et al., 2023), or almost-linear RNN (ALRNN; Brenner et al. (2024a)) various representa-tives of this class. All these models are, however, formulated in discrete time , and thus cannot deal with irregularly spaced data or provide solutions at arbitrary time points. 
+
+# 3. Model Formulation and Theoretical Analysis 
+
+3.1. Continuous PLRNN and Solution Method Data assumptions Suppose we are given a data set 
+
+{(tn, xn)}Tn=1 of T observations xn ∈ RN taken at times 
+
+tn, potentially sampled at irregular intervals. We assume these data were generated by some latent dynamical process 
+
+z(t) ∈ RM , coupled to the data via an observation (de-coder) function xn = G(z(tn)) . G may be linear, an MLP, or in the simplest case just an identity mapping from an N -dimensional subspace of the latent space (for the subsequent developments the assumed form for G is not relevant). 
+
+Model formulation Our approach builds on the class of PLRNNs (Durstewitz, 2017; Hess et al., 2023; Brenner et al., 2024a), which use the ReLU as their non-linearity and in discrete time are defined by the map 
+
+zt+1 = Az t + W Φ∗(zt) + h, (1) where zt, h ∈ RM , A, W ∈ RM ×M with A diagonal, and 
+
+Φ∗(zt) = 
+
+
+
+z(1)  
+
+> t
+
+, . . . , z (M −P ) 
+
+> t
+
+, max 
+
+n
+
+0, z (M −P +1) 
+
+> t
+
+o
+
+,. . . , max 
+
+n
+
+0, z (M )
+
+> t
+
+o T
+
+.
+
+(2) For P = M (i.e., a ReLU on all latent dimensions) this yields the original vanilla PLRNN (Durstewitz, 2017; Koppe et al., 2019b), while for P < M (i.e., P nonlinear and 
+
+M − P linear units) we obtain the ALRNN as introduced in Brenner et al. (2024a). Equation (1) can be rewritten as 
+
+zt+1 = ( A + W D t)zt + h, (3) with Dt := diag (dt) and dt := (1 , . . . , 1, d (M −P +1)  
+
+> t
+
+, . . . , d(M ) 
+
+> t
+
+)T , such that for i = M − P + 1 . . . M , d(i) 
+
+> t
+
+= 0 if 
+
+z(i) 
+
+> t
+
+≤ 0 and d(i) 
+
+> t
+
+= 1 otherwise. There are 2P different configurations of the matrix Dt, depending on the signs of the coordinates of zt. As a result, the state space is separated into 2P different subregions Ωk, k ∈ 1, 2, . . . , 2P , by 
+
+P hyperplanes. Within each subregion, the dynamics is governed by the linear map 
+
+zt+1 = ( A + W D Ωk )
+
+| {z }
+
+> WΩk
+
+zt + h, zt ∈ Ωk (4) Reformulating the discrete-time PLRNN as a continuous-time system, we obtain an equation as typically used for neural population dynamics (e.g. Song et al. (2016)): 
+
+˙z(t) = Az (t) + W Φ∗(z(t)) + h =: WΩk z(t) + h. (5) We call this the continuous-time PLRNN (cPLRNN) . In prin-ciple, we could train this system just like a Neural ODE, requiring numerical integration for obtaining solutions at particular time points. Instead, here we would like to exploit the system’s PL structure and write an analytic solution in each subregion, making numerical integration obsolete and allowing for efficient parallelization of crucial solver steps. 
+
+Solving the cPLRNN equations For an invertible and di-agonalizable WΩk (with diag (λ) = P −1 WΩk P ), Equa-tion (5) is solved by 
+
+z(t) = P diag  eλt P −1(z0 + W −1Ωk h)
+
+| {z }
+
+> c
+
+−W −1Ωk h
+
+= X
+
+> l
+
+c(l)
+
+eλ(l)t
+
+ul − W −1Ωk h =: f (t; z0) (6) with ul the eigenvector belonging to eigenvalue λ(l). The expression for the i−th dimension is given by 
+
+z(i)(t) = X
+
+> l
+
+c(l)u(i)
+
+> l
+
+| {z } 
+
+> ˜cl
+
+eλ(l)t − W −1Ωk h(i)
+
+| {z }
+
+> ˜h
+
+= X
+
+> l
+
+˜c(i) 
+
+> l
+
+eλ(l)t + ˜h(i) =: f (i)(t; z0) (7) where λ(l) = eigval (WΩk ) ∈ C, ˜h(i) ∈ R, ˜c(i) 
+
+> l
+
+a constant complex factor, and z0 := z(t = t0) ∈ RM is the initial condition. For more details, see Section A. The solution Equation (7) is only valid as long as the tra-jectory stays within one linear subregion. To determine the global solution, one has to determine the “switching times” 
+
+tswitch for the given initial state z0 and parameters A, W , h,i.e. the times at which one of the separating hyperplanes is crossed. In the cPLRNN, this comes down to the first 3Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+sign change (zero crossing) in one of its ReLU components 
+
+z(i)(t), i = 1 , . . . , P :
+
+tswitch := inf 
+
+n
+
+t > 0 | ∃ i ∈ { 1, . . . , P } : z(i)(t) = 0 
+
+∧ sgn 
+
+
+
+z(i)(t−)
+
+̸
+
+= sgn 
+
+
+
+z(i)(t+)
+
+o 
+
+(8) Using Equation (7), one can calculate the roots for the di-mensions independently from each other. 
+
+Interval root finding Say we are interested in computing solutions { ˆzn}Tn=1 at time points {tn}Tn=1 , with maximal time tend = tT , and from initial state z0 assumed (with no loss of generality) at time t0 = 0 . We thus need to search for the first switching time tswitch, 1 in the finite interval 
+
+(0 , t end ). Given tswitch, 1 , we then continue searching within 
+
+(tswitch, 1 , t end ), and so forth; see Section B.1. Since one cannot ensure the search interval (tstart , t end ) to be a bracketing interval ( f (i)(tstart ) · f (i)(tend ) < 0), e.g. two sign changes may happen in the interval (see Figure 3 for an example), and since it is crucial to find the first root rather than just any root, most available root finders are not suited for the problem at hand. We therefore wrote our own root finding algorithm, modeled after the algorithm from the Julia library IntervalRootFinding.jl (Sanders et al., 2025). Our version was designed to work well for the specific functional form Equation (7) (sum of exponentials), and for the specific task of finding the first root over several 
+
+similar functions. For algorithmic details and the required interval arithmetics, see Section C. Having established a reliable procedure for locating the switching times, the re-maining challenge is to perform gradient-descent through these times. 
+
+Differentiating through root times We are using stochas-tic gradient descent to optimize parameters A, W , h. Since it is not possible (or extremely tedious) to differentiate through the root finder function because it relies on non-differentiable algorithmic operations, we implemented a customized derivative w.r.t. the parameters ϕ,
+
+∂t switch 
+
+∂ϕ , ϕ ∈ [A, W , h]. (9) to be used by the automatic differentiation framework. The switching time is defined implicitly by the constraint 
+
+f (i)(tswitch (ϕ), ϕ) := z(i)(tswitch (ϕ); ϕ) = 0 . (10) By the implicit function theorem, if ∂f (i) 
+
+> ∂t
+
+(tswitch , ϕ)̸ = 0 ,then 
+
+∂t switch 
+
+∂ϕ = −  
+
+> ∂f (i)
+> ∂ϕ
+
+(tswitch , ϕ)  
+
+> ∂f (i)
+> ∂t
+
+(tswitch , ϕ) . (11) Using functional form Equation (7), the time derivative in Equation (11) becomes 
+
+∂f (i)
+
+∂t (t; z0) = X
+
+> l
+
+λ(l) ˜c(i) 
+
+> l
+
+eλ(l)t + ˜h(i) . (12) The parameter derivative ∂f (i) 
+
+> ∂ϕ
+
+depends on the gradients of ˜c(i) 
+
+> l
+
+(ϕ), λ(l)(ϕ), and ˜h(i)(ϕ), which are computed via automatic differentiation. In the unlikely case of a tangential root, i.e., when the denominator in the implicit derivative vanishes, the gradient is discarded. 
+
+Computing the states One great benefit of our method is that in one linear subregion, all states z(t) can be computed analytically and in parallel, in contrast to traditional non-linear RNNs where this can only be done sequentially (see Algorithm 1 and Section B.2 for an illustration). 
+
+Algorithm 1 Computing states { ˆzn}Tn=1 
+
+1: Input: {tn}Tn=0 , z0 = z(t0), ϕ = {A, W , h}
+
+2: tswitch , zs ← t0, z0 ▷ initial condition 
+
+3: nb ← 1 ▷ array index 
+
+4: { ˆz} ← {} ▷ initialize trajectory 
+
+5: ttot ← tswitch ▷ time index 
+
+6: while ttot < t T do 
+
+7: λ, ˜c, ˜h ← PARAMETERS (ϕ, zs) ▷ region param. 
+
+8: f (·) ← FUNCTION (λ, ˜c, ˜h) ▷ define region sol. f
+
+9: tswitch , zs ← ROOT (f, [ttot , t T ]) ▷ switching time 
+
+10: ne ← max i tswitch + ttot > t i ∈ { tn} ▷ region idx 
+
+11: { ˆz} ← { ˆz} ∪ f  {tn}ne
+
+> n=nb
+
+ ▷ parallel calculation 
+
+12: nb, t tot ← ne + 1 , t tot + tswitch ▷ index update 
+
+13: end while Sparse teacher forcing (STF) In STF, during training model-generated states z(t) are replaced by data-inferred states ˆz(t) = G−1(x(t)) at time lags τ chosen based on an estimate of the system’s maximal Lyapunov exponent or determined as a hyperparameter (Mikhaeil et al., 2022; Brenner et al., 2022). As shown in Mikhaeil et al. (2022), STF helps in dealing with the exploding and vanishing gra-dient problem (Bengio et al., 1994) especially when training on chaotic systems, where this problem is an inherent conse-quence of the system dynamics. Here we employed STF in all compared methods and models (cPLRNN, Neural ODE and standard PLRNN). For more details, see Section D. 
+
+3.2. State Space Analysis of Trained Models 
+
+While analyzing generic nonlinear DS, for instance identi-fying their periodic orbits, is generally hard, many of the required calculations are much more tractable when the sys-tem is piecewise-linear. Many of the tools from the smooth 4Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+linear theory can be adapted to this setting with minor mod-ifications that deal with the behavior of trajectories near the switching manifolds between pairs of PL regions. In this section, we explain how to algorithmically detect equilib-ria (fixed points) and limit cycles for the trained cPLRNN. Based on these results, in Section H we also review a selec-tion of further tools collected in Coombes et al. (2024) that might potentially be useful in our current setting. As before, we assume that the whole state space RM is divided into regions Ωk, k = 1 , . . . , 2P , within which the dynamics is linear. 
+
+Equilibria (fixed points) Equilibria (fixed points) are de-fined by the condition that the vector field vanishes at these points. Since the system is linear in every subregion, setting Equation (5) to zero, we can solve for z and obtain within each region: 
+
+z∗ 
+
+> Ωk
+
+= −W −1Ωk h. (13) Two scenarios are possible: z∗ 
+
+> Ωk
+
+may either lie within region 
+
+Ωk (including its boundary), in which case it is a real fixed point of the system; or it may lie outside of that region, in which case we call it a virtual fixed point. In practice, most fixed points will be virtual. As the number of regions grows exponentially with the number of ReLUs P , for large P ,solving the equation in every region and verifying whether the solution is real or virtual is computationally expensive. In Eisenmann et al. (2023), a heuristic algorithm called SCYFI is presented for discrete PLRNNs that significantly reduces computational costs by using virtual fixed points to initialize the next search run, which under some condi-tions leads the algorithm to converge in linear time. This algorithm can be easily adapted to the continuous setting by simply changing the fixed-point equation to Equation (13). SCYFI finds fixed points of arbitrary type (stable/ unstable nodes/ spirals, saddles) without the combinatorial explosion that would occur in a naive approach. Figure 1 shows the fixed points (pink) found in a cPLRNN, a standard PLRNN and a ReLU based Neural ODE, trained on the Lorenz-63 system, with the true fixed points overlaid in black. 
+
+Limit cycles A limit cycle is a closed (but non-constant), isolated orbit of a periodic trajectory of a dynamical sys-tem, corresponding to a nonlinear oscillation. In the piecewise-linear case, it will traverse a sequence of regions, 
+
+R =  Ωk1 , . . . , Ωkr
+
+, before eventually closing up within the initial region, Ωkr+1 = Ω k1 , after one or more itera-tions. Note that any subregion Ωk may occur more than once within this sequence of r subregions, e.g. we may have Ωk3 = Ω k5 . In order to find the trajectory γ of an orbit through R, we may assume that γ starts on the switching boundary Σkr k1 . Without loss of generality, as-sume that Σkr k1 = z ∈ RM | z(1) = 0 , so we can write 
+
+γ(0) ≡ γ0 = (0 , y (1) , . . . , y (M −1) )T . Recall that in each subregion, the linear ODE has an analytical solution given by Equation (7). Given γ0, γ will cross Σk1k2 at γ(t1) after a time of flight T1 ≡ t1, reflected in a change of sign in the corresponding coordinate. From there, it continues to evolve through Ωk2 until it hits Σk2k3 at γ(t2) after time of flight 
+
+T2 ≡ t2 − T1. This repeats r-times until at the end of region 
+
+Ωr , after a total time T ≡ tr = Pri=1 Ti, the trajectory crosses Σkr k1 and returns to Ωk1 . At this point, in order to constitute a limit cycle, γ needs to satisfy γ(T ) = γ(0) ,which is by assumption provided for the first dimension and gives M − 1 constraints for the remaining dimensions. In total, the cycle is thus parametrized by M − 1 + r
+
+unknowns y(1) , . . . , y (M −1) , T 1, . . . , T r . These are con-strained through M − 1 + r equations, 
+
+0 = f (d1)(T1; γ0)0 = f (d2)(T2; γ(t1)) ...
+
+0 = f (dr )(Tr ; γ(tr−1)) (14) 
+
+y(1) = f (2) (Tr ; γ(tr−1)) ...
+
+y(M −1) = f (M )(Tr ; γ(tr−1)) ,
+
+where di is the dimension corresponding to the i-th switch-ing event, and dr = 1 .Equation (14) holds for any type of limit cycle (stable, un-stable, or saddle). To solve it, we only need an initial guess about the sequence of subregions R visited and initial es-timates for {Ti} and y, and can then, in principle, use any numerical root finder. While this could also be our root-finding approach from Section 3.1, due to its inherently one-dimensional formulation, it would need to be embed-ded in a multiple-shooting-type scheme. Here we therefore employed a Trust Region solver (Conn et al., 2000) in com-bination with the Variable Projection method (O’Leary & Rust, 2013) to enhance robustness. Examples of limit cycles obtained in this manner are depicted in Figure 2. 
+
+# 4. Results 
+
+In this work we introduce a completely novel type of algorithm for solving a class of continuous-time RNNs, which come with the additional benefit of providing semi-analytical access to topological properties of their state spaces. The only viable class of direct reference meth-ods we therefore see and use for comparison, are Neural ODEs with ReLU-based activation functions, tested here with three different solvers (Euler, RK4, Tsit5; see Sec-tion E). As a further SOTA reference for DSR (Brenner et al., 2022; 2024a; Hess et al., 2023), we also compared to the standard, discrete-time PLRNN, although we empha-size again that its unsuitability for dealing with irregularly spaced and arbitrary time points is exactly one of the weak-5Continuous-Time Piecewise-Linear Recurrent Neural Networks     
+
+> Figure 1. Example reconstructions for all three methods compared: Ground truth trajectories and fixed points in black for Lorenz-63 system, and model-generated trajectories ( M= 20 , P = 10 for all models) and corresponding fixed points found with SCYFI in red.
+
+nesses we wanted to address here. All methods were com-pared on three benchmarks: the chaotic Lorenz-63 system as a standard benchmark used in the dynamical systems reconstruction literature, a simulated leaky-integrate-&-fire (LIF) neuron model (Gerstner et al., 2014) as an example system which involves a discontinuity (hard spiking thresh-old), and membrane potential recordings from a cortical pyramidal neuron as a real-world example (for details, see Section F). The hyperparameters used here can be found in Section D. 
+
+4.1. Performance Measures 
+
+For assessing DS reconstruction quality, we used two stan-dard measures introduced in the DSR literature for com-paring the geometrical and temporal structure of attractors (Koppe et al., 2019b; Mikhaeil et al., 2022): Dstsp is a Kullback-Leibler divergence which quantifies the overlap in attractor geometry by comparing the distributions of true and model-generated trajectories in state space (Brenner et al., 2022) (see Section G.1), and DH denotes the Hellinger distance between true and model-generated power spectra for comparing long-term temporal structure (Mikhaeil et al., 2022; Brenner et al., 2022); see Section G.2 for details. We also used the standard mean absolute error (MAE) for short-term prediction performance, which, however, for chaotic systems is only meaningful for up to one Lyapunov time (Wood, 2010; Koppe et al., 2019a). 
+
+4.2. Chaotic Lorenz-63 System 
+
+The celebrated Lorenz (1963) model, originally advanced as a model of atmospheric convection (see Section F.1 for details), was the first and probably most famous example of a system with a chaotic attractor. We trained the cPLRNN, Neural ODE, and the discrete-time ALRNN for different numbers of ReLUs ( P = 2 , 5, 10 ) and latent dimension 
+
+M = 20 on the Lorenz-63 within the chaotic regime (see Section F.1), with the performance provided in Table 1 and example reconstructions for P = 10 in Figure 1. For all three models, as they were all based on ReLUs, fixed points could also be computed by SCYFI. Note that the reconstruc-tion models were not trained on any data directly indicating the presence of the fixed points, but only on trajectories drawn from the chaotic attractor. Hence, the fixed points and their position are an inferred feature, constituting a type of topological out-of-domain generalization (G ¨oring et al., 2024). Performance-wise the cPLRNN solutions are on par with the best Neural ODE solver (Tsit5), with none of the differences statistically significant according to Mann-Whitney U tests (all p > 0.048 ), and only slightly worse than those produced by the standard discrete-time PLRNN (p < 0.043 ). However, while performance is similar for the different models, the cPLRNN trains significantly (several times) faster than Neural ODEs for comparable performance levels, as evident from Table 2 where training times for the different models are compared. In fact, the training costs for Neural ODEs have been a major bottleneck so far (Dupont et al., 2019; Ghosh et al., 2020; Fronk & Petzold, 2024). 
+
+4.3. Leaky integrated-and-fire (LIF) model 
+
+The LIF model is a simple model of a spiking neuron, which describes the temporal evolution of a cell’s membrane po-tential by a linear differential equation, with a hard spiking threshold at which a spike is triggered and the membrane potential is reset (see Section F.2 for details; Gerstner et al. (2014)). We used it here as an example for a system with discontinuity. We consider two scenarios, one where we assume we have observations from the system at equally spaced time points (‘constant sampling rate’), and one where observations are given at irregular time intervals, as in many real-world situations. 
+
+Equally spaced time points Figure 2A shows a time se-ries from a cPLRNN ( M = 25 , P = 2 ) trained on trajecto-6Continuous-Time Piecewise-Linear Recurrent Neural Networks         
+
+> Table 1. Comparison of reconstruction performance between Neural ODE (with different ODE solvers), continuous PLRNN (cPLRNN), and standard PLRNN for different latent dimensions Pfor models trained for 2000 epochs on the Lorenz-63 dataset. Reported are geometrical ( Dstsp ) and temporal ( DH) disagreement in the limit (lower is better) as median ±median absolute deviation across 10
+> model trainings, except for Neural ODEs integrated by Euler’s method where too many runs diverged (leaving only 4-6 valid model runs).
+
+P = 2 P = 5 P = 10 
+
+Model Dstsp DH Dstsp DH Dstsp DH
+
+Neural ODE (Euler) * 14 .7 ± 0.7 0.66 ± 0.07 1.9 ± 0.29 0.339 ± 0.005 0.41 ± 0.05 0.109 ± 0.01 
+
+Neural ODE (RK4) 9.3 ± 2.6 0.73 ± 0.07 2.0 ± 0.7 0.32 ± 0.04 0.54 ± 0.22 0.12 ± 0.04 
+
+Neural ODE (Tsit5) 9.7 ± 1.3 0.724 ± 0.03 1.53 ± 0.29 0.26 ± 0.06 0.28 ± 0.11 0.085 ± 0.019 
+
+cPLRNN 5.3 ± 1.9 0.62 ± 0.18 1.6 ± 0.5 0.30 ± 0.04 0.35 ± 0.14 0.116 ± 0.012 
+
+standard PLRNN 3.84 ± 0.23 0.31 ± 0.07 1.18 ± 0.26 0.14 ± 0.05 0.23 ± 0.05 0.079 ± 0.01                                                          
+
+> Table 2. Runtime comparison of Neural ODE, cPLRNN, and standard PLRNN for different number of piecewise linear units P
+> over 1999 epochs (removing the first epoch to eliminate differences due to compile time). Shown are means ±standard deviation [s] over 10 runs. Note that for comparability sequences in each batch were not run in parallel, but sequentially.
+> Model P= 2 P= 5 P= 10
+> Neural ODE (Euler) 43 .2±0.840 .7±1.339 .1±0.5
+> Neural ODE (RK4) 178 ±18 144 ±4154 ±18
+> Neural ODE (Tsit5) 156 ±15 163 ±12 175 ±32
+> cPLRNN 21 ±526 ±336 ±7
+> standard PLRNN 4.7±0.34.78 ±0.28 5.10 ±0.17
+
+ries from the spiking LIF model. A limit cycle identified in the trained cPLRNN by solving Equation (14), see sect. 3.2, and an additional fixed point located by SCYFI, is shown in the state space projection in Figure 2D. Table 3 suggests that the standard PLRNN, cPLRNN and the Neural ODE with Tsit5 as solver perform about equally well in this case, as confirmed by Mann-Whitney U tests (all p > 0.05 ). How-ever, Neural ODEs solved by straightforward Euler diverged in 4/10 cases, exposing the limitations of simple explicit solvers in dealing with discontinuities. 
+
+Unequally spaced time points We created a second data set from the LIF simulations with unequally space observa-tions by randomly sampling a subset of 10% of the obser-vations. For the standard PLRNN, which cannot naturally deal with irregular temporal intervals, a binning with equal bin sizes ∆t = 1 was created for the irregularly-spaced dataset by linearly interpolating between observations. All performance measures were, however, computed using the full original LIF simulations as comparison template. The results in Table 3 indicate that under these conditions the standard (discrete-time) PLRNN essentially breaks down and clearly looses out performance-wise, highlighting the strengths of a continuous-time approach.            
+
+> Figure 2. A) Top: LIF model (black) and trajectory generated by cPLRNN (red) with M= 25 and P= 2 . Bottom: Limit cycle and fixed point found in cPLRNN trained on time series from LIF model. A) Top: Membrane potential recordings (black) and trajectory generated by cPLRNN (red) with M= 25 and P= 6 .Bottom: Limit cycle and fixed point found in cPLRNN trained on empirical data.
+
+4.4. Electrophysiological Single Neuron Recordings 
+
+For a real-world dataset, we chose membrane potential recordings from a cortical neuron (Hert ¨ag et al., 2012). Fig-ure 2B shows time graphs of a cPLRNN ( M = 25 , P = 6 )trained on an 6-dimensional embedding (see Appx. F.3) of these time series. A limit cycle corresponding to the spiking activity was identified by solving Equation (14) and, additionally, a fixed point by SCYFI. We also trained Neu-ral ODEs and a standard PLRNN on the same (embedded) 7Continuous-Time Piecewise-Linear Recurrent Neural Networks          
+
+> Table 3. Performance comparison for Neural ODE, cPLRNN, and the standard PLRNN trained on regularly and irregularly sampled data from the LIF model, assessed after 2000 training epochs. Reported are median ±MAD for geometrical ( Dstsp ) and temporal ( DH)disagreement in limit behavior (lower is better), and MSE for short-term prediction, across 10 model trainings, except for Neural ODEs integrated by Euler’s method where only 4/10 (regular) and 2/10 (irregular) valid runs were produced (all others diverged)
+
+System Regularly sampled Irregulary sampled 
+
+Model Dstsp DH MAE Dstsp DH MAE Neural ODE (Euler) * 0.44 ± 0.04 0.22 ± 0.05 0.056 ± 0.018 0.31 ± 0.21 0.27 ± 0.04 0.08 ± 0.03 
+
+Neural ODE (RK4) 0.61 ± 0.02 0.26 ± 0.04 0.075 ± 0.024 0.33 ± 0.17 0.27 ± 0.04 0.074 ± 0.014 
+
+Neural ODE (Tsit5) 0.60 ± 0.13 0.30 ± 0.05 0.12 ± 0.08 0.27 ± 0.12 0.40 ± 0.09 0.12 ± 0.04 
+
+cPLRNN 0.42 ± 0.16 0.23 ± 0.03 0.076 ± 0.014 0.26 ± 0.03 0.232 ± 0.024 0.064 ± 0.014 
+
+standard PLRNN 0.30 ± 0.16 0.23 ± 0.05 0.10 ± 0.04 4.3 ± 0.3 0.50 ± 0.09 0.17 ± 0.05          
+
+> Table 4. Performance comparison for Neural ODE, cPLRNN, and the standard PLRNN trained on membrane potential recordings, assessed after 2000 training epochs. Reported are median ±MAD for geometrical ( Dstsp ) and temporal ( DH) disagreement in limit behavior (lower is better), and MAE for short-term prediction, across 10 model trainings, except diverging runs (2/10 for the standard PLRNN and 1/10 for Neural ODE with RK4). Explicit Euler always diverged on this stiff problem. For runs producing equilibira (thus flat power spectrum), DHwas set to 1. Note that we trained with a 6-dimensional delay embedding but computed performance measures on the original 1-dimensional data.
+
+Model Dstsp DH MAE Neural ODE (RK4) 0.75 ± 0.07 0.493 ± 0.016 0.65 ± 0.03 
+
+Neural ODE (Tsit5) 0.8 ± 0.04 0.514 ± 0.018 0.65 ± 0.01 
+
+cPLRNN 0.71 ± 0.02 0.474 ± 0.006 0.627 ± 0.01 
+
+standard PLRNN * 0.67 ± 0.05 0.466 ± 0.017 0.669 ± 0.011 
+
+dataset, with performance compared in Table 4, once again suggesting that performance-wise our model is on par with the standard ALRNN ( p > 0.07 ), while for Dstsp and DH ,our model slightly outperforms the Neural ODE with RK4 (p < 0.001 ). For Neural ODEs, only results with Tsit5 and RK4 are provided, since for this problem (with fast spiking on top of slower membrane potential variations) Euler always di-verged, a well-known issue with Euler’s method for stiff ODEs (Press et al., 2007), rendering it unsuitable for a large range of problems. 
+
+# 5. Conclusion 
+
+Here we introduce a novel type of algorithm for training and solving a class of PL continuous-time RNNs without the need of numerical integration. Most systems of interest in science and engineering are described in continuous time by sets of differential equations, yet the most successful models used for reconstructing DS from data are discrete-time maps. Continuous-time reconstruction models are not only a more natural way to describe the temporal evolution in most phys-ical, biological, medical, or engineered systems, but also enable to extrapolate to arbitrary time points and seamlessly handle observations sampled across irregular temporal inter-vals. The class of Neural ODEs has been a common choice for dealing with these situations, but Neural ODEs are slow to train (Finlay et al., 2020), lag behind discrete-time models in terms of reconstruction performance (Hess et al., 2023), and are commonly not easily interpretable as we would wish in scientific or medical settings. The cPLRNN addresses these issues by leveraging the PL (ReLU-based) structure to obtain analytic solutions within each linear subregion, avoiding numerical integration and reducing training to the repeated computation of switching times at which trajectories cross region boundaries. This enables a semi-analytical forward pass that is both precise and compatible with nonuniform sampling, and runs much faster than integration in Neural ODEs without compro-mising performance. In addition, the well developed the-ory for continuous-time PL DS enables to compute im-portant topological properties of trained cPLRNNs, such as their equilibria (fixed points) and limit cycles. Empir-ically, cPLRNNs can match the reconstruction quality of discrete-time PLRNNs and Neural ODE baselines on regu-larly sampled data, while for the irregularly sampled regime, cPLRNNs offer a clear practical advantage by operating directly on the observation times. cPLRNNs thus provide a step toward continuous-time surrogate models that are both high-performing and amenable to DS analysis, strengthen-ing the role of learned models as scientific tools rather than purely predictive black boxes. 8Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+Limitations Training of the cPLRNN is currently not fully numerically robust. In rare cases, optimization terminates due to numerical instabilities, which appear to be related to ill-conditioned eigen-decompositions. Although more stable linear solvers are used in place of explicit matrix inverses, these issues can still occur and may currently limit reliabil-ity for long training runs. Root-finding must be restarted after each switching event, leading to increased computation times in models with many switching boundaries. Caching results of eigen-decompositions may partly mitigate this. 
+
+# Impact Statement 
+
+This paper presents mainly theoretical work to advance a general class of Machine Learning models. Depending on the field of application, there could be many potential societal consequences of our work, none which we feel must be specifically highlighted here. 
+
+# Acknowledgements 
+
+This work was supported by the German Research Foun-dation (DFG) through the TRR 265 (subproject A06), in-dividual grant Du 354/15-1 (project no. 502196519), and Du 354/14-1 (project no. 437610067) to DD within the FOR-5159 
+
+# References 
+
+Alameda-Pineda, X., Drouard, V., and Horaud, R. P. Varia-tional inference and learning of piecewise linear dynami-cal systems. IEEE Transactions on Neural Networks and Learning Systems , 33(8):3753–3764, August 2022. doi: 10.1109/TNNLS.2021.3054407. Alligood, K. T., Sauer, T. D., and Yorke, J. A. Chaos: An Introduction to Dynamical Systems . Textbooks in Mathematical Sciences. Springer, 1996. ISBN 978-0-387-94677-1 978-0-387-22492-3. Alvarez, V. M. M., Ro s¸ ca, R., and F ˘alcu t¸escu, C. G. DyN-ODE: Neural ordinary differential equations for dynam-ics modeling in continuous control. arXiv preprint arXiv:2009.04278 , 2020. Avrutin, V., Futter, B., Gardini, L., and Schanz, M. Unstable orbits and Milnor attractors in the discontinuous flat top tent map. In ESAIM: Proceedings , volume 36, pp. 126– 158. EDP Sciences, 2012. doi: 10.1051/proc/201236011. Avrutin, V., Gardini, L., Schanz, M., and Sushko, I. Bifurca-tions of chaotic attractors in one-dimensional piecewise smooth maps. International Journal of Bifurcation and Chaos , 24(08):1440012, 2014. doi: 10.1142/S021812741 4400124. Avrutin, V., Gardini, L., Sushko, I., and Tramontana, F. 
+
+Continuous And Discontinuous Piecewise-Smooth One-Dimensional Maps: Invariant Sets And Bifurcation Struc-tures . World Scientific, May 2019. ISBN 978-981-12-0471-5. Bemporad, A., Borrelli, F., and Morari, M. Piecewise linear optimal controllers for hybrid systems. In Proceedings of the 2000 American Control Conference. ACC (IEEE Cat. No. 00CH36334) , volume 2, pp. 1190–1194. IEEE, 2000. doi: 10.1109/ACC.2000.876688. Bengio, Y., Simard, P., and Frasconi, P. Learning long-term dependencies with gradient descent is difficult. IEEE Transactions on Neural Networks , 5(2):157–166, 1994. doi: 10.1109/72.279181. Bernardo, M., Budd, C., Champneys, A. R., and Kowalczyk, P. Piecewise-smooth Dynamical Systems: Theory and Applications , volume 163. Springer Science & Business Media, 2008. ISBN 978.1.84628-039-9. Bezanson, J., Edelman, A., Karpinski, S., and Shah, V. B. Julia: A fresh approach to numerical computing. SIAM review , 59(1):65–98, 2017. doi: 10.1137/141000671. Brenner, M., Hess, F., Mikhaeil, J. M., Bereska, L. F., Mon-fared, Z., Kuo, P.-C., and Durstewitz, D. Tractable den-dritic RNNs for reconstructing nonlinear dynamical sys-tems. In Proceedings of the 39th International Confer-ence on Machine Learning , volume 162, pp. 2292–2320. PMLR, June 2022. Brenner, M., Hemmer, C. J., Monfared, Z., and Durste-witz, D. Almost-linear RNNs yield highly interpretable symbolic codes in dynamical systems reconstruction. In 
+
+Advances in Neural Information Processing Systems 37 ,pp. 36829–36868. Curran Associates, Inc., 2024a. Brenner, M., Hess, F., Koppe, G., and Durstewitz, D. Inte-grating multimodal data for joint generative modeling of complex dynamics. In Proceedings of the 41st Interna-tional Conference on Machine Learning , volume 235, pp. 4482–4516. PMLR, July 2024b. Brunton, S. L., Budi ˇsi ´c, M., Kaiser, E., and Kutz, J. N. Modern Koopman theory for dynamical systems. SIAM Review , 64(2):229–340, 2022. doi: 10.1137/21M14012 43. Carmona, V., Freire, E., Ponce, E., and Torres, F. On sim-plifying and classifying piecewise-linear systems. IEEE Transactions on Circuits and Systems I: Fundamental Theory and Applications , 49(5):609–620, 2002. doi: 10.1109/TCSI.2002.1001950. 9Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+Champion, K., Lusch, B., Kutz, J. N., and Brunton, S. L. Data-driven discovery of coordinates and governing equa-tions. Proceedings of the National Academy of Sciences USA , 116(45):22445–22451, 2019. doi: 10.1073/pnas.1 906995116. Chen, R. T. Q., Rubanova, Y., Bettencourt, J., and Duvenaud, D. Neural ordinary differential equations. In Advances in Neural Information Processing Systems 31 , pp. 6571– 6583. Curran Associates, Inc., 2018. Conn, A. R., Gould, N. I., and Toint, P. L. Trust Region Methods . SIAM, 2000. ISBN 978-0-89871-460-9. Cooley, J. W. and Tukey, J. W. An algorithm for the machine calculation of complex Fourier series. Mathematics of Computation , 19(90):297–301, April 1965. doi: 10.2307/ 2003354. Coombes, S., Sayli, M., Thul, R., Nicks, R., Porter, M. A., and Lai, Y. M. Oscillatory networks: Insights from piecewise-linear modeling. SIAM Review , 66(4):619–679, 2024. doi: 0.1137/22M1534365. Datseris, G. DynamicalSystems.jl: A julia software li-brary for chaos and nonlinear dynamics. Journal of Open Source Software , 3(23):598, March 2018. doi: 10.21105/joss.00598. Dupont, E., Doucet, A., and Teh, Y. W. Augmented neural odes. In Advances in Neural Information Processing Sys-tems 32 , pp. 3140–3150. Curran Associates, Inc., 2019. Durstewitz, D. A state space approach for piecewise-linear recurrent neural networks for identifying computational dynamics from neural measurements. PLoS Comput. Biol. , 13(6), 2017. doi: 10.1371/journal.pcbi.1005542. Durstewitz, D., Koppe, G., and Thurm, M. I. Reconstructing computational system dynamics from neural data with recurrent neural networks. Nature Reviews. Neuroscience ,24(11):693–710, November 2023. doi: 10.1038/s41583 -023-00740-7. Eisenmann, L., Monfared, Z., G ¨oring, N., and Durstewitz, D. Bifurcations and loss jumps in RNN training. Advances in Neural Information Processing Systems 36 , pp. 70511– 70547, 2023. Eisenmann, L., Br ¨andle, A., Monfared, Z., and Durstewitz, D. Detecting invariant manifolds in ReLU-based RNNs. In International Conference on Learning Representations ,2026. Accepted; camera-ready version forthcoming. Finlay, C., Jacobsen, J.-H., Nurbekyan, L., and Oberman, A. How to train your neural ODE: The world of Jacobian and kinetic regularization. In Proceedings of the 37th International Conference on Machine Learning , volume 119, pp. 3154–3164. PMLR, 2020. Fox, E., Sudderth, E., Jordan, M., and Willsky, A. Nonpara-metric Bayesian learning of switching linear dynamical systems. In Advances in Neural Information Processing Systems 21 , pp. 457–464. Curran Associates, Inc., 2008. Fronk, C. and Petzold, L. Training stiff neural ordinary differential equations with implicit single-step methods. 
+
+Chaos: An Interdisciplinary Journal of Nonlinear Sci-ence , 34(12), 2024. doi: 10.1063/5.0243382. Gardini, L. and Makrooni, R. Necessary and sufficient con-ditions of full chaos for expanding Baker-like maps and their use in non-expanding Lorenz maps. Communica-tions in Nonlinear Science and Numerical Simulation , 67: 272–289, 2019. doi: 10.1016/j.cnsns.2018.06.018. Gerstner, W., Kistler, W. M., Naud, R., and Paninski, L. 
+
+Neuronal dynamics: From Single Neurons to Networks and Models of Cognition . Cambridge University Press, 2014. ISBN 9781107447615. Ghahramani, Z. and Hinton, G. E. Variational learning for switching state-space models. Neural Computation , 12 (4):831–864, 2000. doi: 10.1162/089976600300015619. Ghosh, A., Behl, H., Dupont, E., Torr, P., and Namboodiri, V. Steer: Simple temporal regularization for neural ODE. In Advances in Neural Information Processing Systems 33 , pp. 14831–14843. Curran Associates, Inc., 2020. Gilpin, W. Generative learning for nonlinear dynamics. Na-ture Reviews Physics , 6(3):194–206, March 2024. doi: 10.1038/s42254-024-00688-2. Publisher: Nature Pub-lishing Group. Greydanus, S., Dzamba, M., and Yosinski, J. Hamiltonian neural networks. In Advances in Neural Information Pro-cessing Systems 32 , pp. 15379–15389. Curran Associates, Inc., 2019. Guckenheimer, J. and Holmes, P. Nonlinear Oscillations, Dynamical Systems, and Bifurcations of Vector Fields ,volume 42 of Applied Mathematical Sciences . Springer, New York, NY, 1983. ISBN 978-1-4612-7020-1 978-1-4612-1140-2. G ¨oring, N. A., Hess, F., Brenner, M., Monfared, Z., and Durstewitz, D. Out-of-domain generalization in Dynam-ical systems reconstruction. In Proceedings of the 41st International Conference on Machine Learning , volume 235, pp. 16071–16114. PMLR, 2024. Hansen, E. and Sengupta, S. Bounding solutions of sys-tems of equations using interval analysis. BIT Numerical Mathematics , 21(2):203–211, 1981. doi: 10.1007/BF01 933165. 10 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+Hemmer, C. J. and Durstewitz, D. True zero-shot inference of dynamical systems preserving long-term statistics. In 
+
+Advances in Neural Information Processing Systems 39 .Curran Associates, Inc., 2026. Hert ¨ag, L., Hass, J., Golovko, T., and Durstewitz, D. An ap-proximation to the adaptive exponential integrate-and-fire neuron model allows fast and predictive fitting to physio-logical data. Frontiers in Computational Neuroscience , 6: 62, 2012. doi: 10.3389/fncom.2012.00062. Hess, F., Monfared, Z., Brenner, M., and Durstewitz, D. Generalized teacher forcing for learning chaotic dynam-ics. In Proceedings of the 40th International Conference on Machine Learning , volume 202, pp. 13017–13049. PMLR, 2023. Juloski, A., Weiland, S., and Heemels, W. A Bayesian ap-proach to identification of hybrid systems. IEEE Transac-tions on Automatic Control , 50(10):1520–1533, October 2005. doi: 10.1109/TAC.2005.856649. Kantz, H. and Schreiber, T. Nonlinear Time Series Analysis ,volume 7. Cambridge University Press, 2004. ISBN 0521821509. Kidger, P., Morrill, J., Foster, J., and Lyons, T. Neural controlled differential equations for irregular time series. In Advances in Neural Information Processing Systems 33 , pp. 6696–6707. Curran Associates, Inc., 2020. Koppe, G., Guloksuz, S., Reininghaus, U., and Durste-witz, D. Recurrent neural networks in mobile sampling and intervention. Schizophrenia Bulletin , 45(2):272–276, March 2019a. doi: 10.1093/schbul/sby171. Koppe, G., Toutounji, H., Kirsch, P., Lis, S., and Durstewitz, D. Identifying nonlinear dynamical systems via genera-tive recurrent neural networks with applications to fMRI. 
+
+PLOS Computational Biology , 15(8):e1007263, 2019b. doi: 10.1371/journal.pcbi.1007263. Leine, R. I. and Nijmeijer, H. Dynamics and Bifurcations of Non-Smooth Mechanical Systems , volume 18. Springer Science & Business Media, 2013. ISBN 978-3-642-06029-8. Li, X., Wong, T.-K. L., Chen, R. T. Q., and Duvenaud, D. Scalable gradients for stochastic differential equations. In 
+
+Proceedings of the 23rd International Conference on Ar-tificial Intelligence and Statistics , volume 108, pp. 3870– 3882. PMLR, 2020. Li, Z., Liu-Schiaffini, M., Kovachki, N., Liu, B., Azizzade-nesheli, K., Bhattacharya, K., Stuart, A., and Anandku-mar, A. Learning dissipative dynamics in chaotic systems. In Advances in Neural Information Processing Systems 36 , pp. 16768–16781. Curran Associates, Inc., 2022. Linderman, S., Johnson, M., Miller, A., Adams, R., Blei, D., and Paninski, L. Bayesian learning and inference in recur-rent switching linear dynamical system. In Proceedings of the 20th International Conference on Artificial Intel-ligence and Statistics , volume 54, pp. 914–922. PMLR, April 2017. Linderman, S. W. and Johnson, M. J. Structure-exploiting variational inference for recurrent switching linear dynam-ical systems. In 2017 IEEE 7th International Workshop on Computational Advances in Multi-Sensor Adaptive Processing (CAMSAP) , pp. 1–5, December 2017. doi: 10.1109/CAMSAP.2017.8313132. Linderman, S. W., Miller, A. C., Adams, R. P., Blei, D. M., Paninski, L., and Johnson, M. J. Recurrent switching lin-ear dynamical systems. arXiv preprint arXiv:1610.08466 ,October 2016. Lorenz, E. N. Deterministic nonperiodic flow. Journal of Atmospheric Sciences , 20(2):130–141, March 1963. doi: 10.1175/1520-0469(1963)020 ⟨0130:DNF ⟩2.0.CO;2. Mikhaeil, J., Monfared, Z., and Durstewitz, D. On the difficulty of learning chaotic dynamics with RNNs. In 
+
+Advances in Neural Information Processing Systems 35 ,pp. 11297–11312. Curran Associates, Inc., 2022. Monfared, Z. and Durstewitz, D. Existence of n-cycles and border-collision bifurcations in piecewise-linear con-tinuous maps with applications to recurrent neural net-works. Nonlinear Dynamics , 101(2):1037–1052, 2020. doi: 10.1007/s11071-020-05841-x. Norcliffe, A., Bodnar, C., Day, B., Simidjievski, N., and Li `o, P. On second order behaviour in augmented neural ODEs. In Advances in Neural Information Processing Systems 33 , pp. 5911–5921. Curran Associates, Inc., 2020. O’Leary, D. P. and Rust, B. W. Variable projection for nonlinear least squares problems. Computational Opti-mization and Applications , 54(3):579–593, 2013. doi: 10.1007/s10589-012-9492-9. Pals, M., Sa ˘gtekin, A. E., Pei, F., Gloeckler, M., and Macke, J. H. Inferring stochastic low-rank recurrent neural net-works from neural data. In Advances in Neural Informa-tion Processing Systems 37 , pp. 18225–18264. Curran Associates, Inc., 2024. Pathak, J., Lu, Z., Hunt, B. R., Girvan, M., and Ott, E. Using machine learning to replicate chaotic attractors and calculate lyapunov exponents from data. Chaos: An Interdisciplinary Journal of Nonlinear Science , 27(12): 121102, December 2017. doi: 10.1063/1.5010300. 11 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+Pearlmutter, B. A. Gradient calculations for dynamic recurrent neural networks: A survey. IEEE Transac-tions on Neural Networks , 6(5):1212–1228, 1995. doi: 10.1109/72.410363. Platt, J. A., Penny, S. G., Smith, T. A., Chen, T.-C., and Abarbanel, H. D. A systematic exploration of reservoir computing for forecasting complex spatiotemporal dy-namics. Neural Networks , 153:530–552, 2022. doi: 0.1016/j.neunet.2022.06.025. Platt, J. A., Penny, S. G., Smith, T. A., Chen, T.-C., and Abar-banel, H. D. Constraining chaos: Enforcing dynamical invariants in the training of reservoir computers. Chaos: An Interdisciplinary Journal of Nonlinear Science , 33 (10):103107, October 2023. doi: 10.1063/5.0156999. Press, W. H., Teukolsky, S. A., Vetterling, W. T., and Flan-nery, B. P. Numerical Recipes: The Art of Scientific Computing . Cambridge University Press, 3rd edition, 2007. ISBN 9780521880688. Rackauckas, C. and Nie, Q. Adaptive methods for stochastic differential equations via natural embeddings and rejec-tion sampling with memory. Discrete and Continuous Dynamical Systems. Series B , 22(7):2731, 2017. doi: 10.3934/dcdsb.2017133. Raissi, M., Perdikaris, P., and Karniadakis, G. Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations. Journal of Computational Physics , 378:686–707, February 2019. doi: 10.1016/j.jc p.2018.10.045. Rantzer, A. and Johansson, M. Piecewise linear quadratic optimal control. IEEE transactions on automatic control ,45(4):629–637, 2000. doi: 10.1109/9.847100. Rubanova, Y., Chen, R. T. Q., and Duvenaud, D. K. Latent ordinary differential equations for irregularly-sampled time series. In Advances in Neural Information Process-ing Systems 32 , pp. 5320–5330. Curran Associates, Inc., 2019. Sanders, D. P., Richard, B., Benet, L., Grawitter, J., Gupta, E., Ferranti, L., Karrasch, D., H ´enot, O., Hur ´ak, Z., Sharma, Y., TagBot, Datseris, G., Schnetter, E., Han-son, E., Saba, E., and Trejo, E. IntervalRootFinding.jl: library for finding the roots of functions using interval arithmetic, 2025. doi: 10.5281/zenodo.16929699. Sauer, T., Yorke, J. A., and Casdagli, M. Embedology. 
+
+Journal of Statistical Physics , 65(3):579–616, 1991. doi: 10.1007/BF01053745. Shampine, L. Solving ODEs and DDEs with residual con-trol. Applied Numerical Mathematics , 52(1):113–127, 2005. doi: 10.1016/j.apnum.2004.07.003. Shi, P. and Li, F. A survey on markovian jump systems: Modeling and design. International Journal of Control, Automation, and Systems , 13(1):1–16, February 2015. doi: 10.1007/s12555-014-0576-4. Simpson, D. J. How to compute multi-dimensional sta-ble and unstable manifolds of piecewise-linear maps. In 
+
+New Developments in Discrete Dynamical Systems, Dif-ference Equations, and Applications , pp. 1–14, Cham, 2025. Springer Nature Switzerland. doi: 10.1007/978-3 -031-82003-8 1. Smith, J., Linderman, S., and Sussillo, D. Reverse engineer-ing recurrent neural networks with Jacobian switching linear dynamical systems. In Advances in Neural Infor-mation Processing Systems 34 , pp. 16700–16713, 2021. Song, H. F., Yang, G. R., and Wang, X.-J. Training excitatory-inhibitory recurrent neural networks for cog-nitive tasks: a simple and flexible framework. PLoS computational biology , 12(2):e1004792, 2016. doi: 10.1371/journal.pcbi.1004792. Stanculescu, I., Williams, C. K. I., and Freer, Y. A hier-archical switching linear dynamical system applied to the detection of sepsis in neonatal condition monitor-ing. In Proceedings of the 30th Conference on Uncer-tainty in Artificial Intelligence (UAI 2014) , 2014. doi: 10.5555/3020751.3020829. Takens, F. Detecting strange attractors in turbulence. In Dy-namical Systems and Turbulence, Warwick 1980 , volume 898, pp. 366–381. Springer, 1981. ISBN 978-3-540-11171-9 978-3-540-38945-3. Tsitouras, C. Runge–Kutta pairs of order 5(4) satisfying only the first column simplifying assumption. Computers & Mathematics with Applications , 62(2):770–775, 2011. doi: 10.1016/j.camwa.2011.06.002. Tzen, B. and Raginsky, M. Neural stochastic differential equations: Deep latent Gaussian models in the diffusion limit. arXiv preprint arXiv:1905.09883 , October 2019. Vlachas, P. R., Byeon, W., Wan, Z. Y., Sapsis, T. P., and Koumoutsakos, P. Data-driven forecasting of high-dimensional chaotic systems with long short-term mem-ory networks. Proceedings of the Royal Society A: Math-ematical, Physical and Engineering Sciences , 474(2213): 20170844, 2018. doi: 10.1098/rspa.2017.0844. Wilson, H. R. and Cowan, J. D. Excitatory and inhibitory interactions in localized populations of model neurons. 
+
+Biophysical Journal , 12(1):1–24, 1972. doi: 10.1016/S0 006-3495(72)86068-5. Wood, S. N. Statistical inference for noisy nonlinear eco-logical dynamic systems. Nature , 466(7310):1102–1104, August 2010. doi: 10.1038/nature09319. 12 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+Zhong, Y. D., Dey, B., and Chakraborty, A. Symplectic ODE-Net: Learning Hamiltonian dynamics with control. In International Conference on Learning Representations ,2020. 13 A. Functional Expression for State Variables 
+
+In order to determine tswitch (and also the state values required inside a linear subregion), we need a functional expression for z(t), i.e. a solution to the linear differential equations 5. In general form, this is given by 
+
+z(t, z 0) = eWΩk tz0 + eWΩk t
+
+Z t
+
+> 0
+
+e−WΩk τ h dτ, t ∈ [0 , t switch ]. (15) We will assume matrices WΩk to be invertible, as non-invertible matrices constitute a measure-0 subset within the set of matrices and are thus unlikely to occur in training. In this case, the expression for the solution can be simplified to 
+
+z(t, z0) = eWΩk t(z0 + W −1Ωk h) − W −1Ωk h ,
+
+and in one dimension i and for fixed z0 to 
+
+zi(t) =  eWΩk t(z0 + W −1Ωk h)(i) − W −1Ωk h(i)
+
+| {z }
+
+> ˜h
+
+,
+
+where superscript (i) denotes the i-th component of the respective vectors. Furthermore, if WΩk is diagonalizable, diag (λ) = P −1 WΩk P , this results in 
+
+z(t, z0) = P diag  eλt P −1(z0 + W −1Ωk h)
+
+| {z }
+
+> c
+
+−W −1Ωk h = X
+
+> l
+
+cl
+
+
+
+eλ(l)t
+
+ul − W −1Ωk h ,
+
+with ul the eigenvector corresponding to eigenvalue λ(l). The expression for the i-th dimension is given by 
+
+zi(t) = X
+
+> l
+
+c(l)u(i)
+
+> l
+
+| {z } 
+
+> ˜cl
+
+eλ(l)t − W −1Ωk h(i)
+
+| {z }
+
+> ˜h
+
+= X
+
+> l
+
+˜cleλ(l)t + ˜h(i),
+
+i.e. a sum of exponentials with possibly (and most likely) different λ(l). As non-diagonalizable matrices will usually occur only rarely, we base our algorithm on the diagonalizability assumption and slightly perturb WΩk to promote distinct eigenvalues in the case of non-diagonalizability, as well as discarding the gradient contributions from these rare cases. 
+
+# B. Illustration of Solution Technique 
+
+B.1. Bracketing interval 
+
+If there is more than one root present in a given search interval (tstart , t end ), it might not be a bracketing interval, i.e. 
+
+f (tstart ) · f (tend ) < 0, as illustrated in Section B.1. This means we cannot use any generic root finding algorithm. 
+
+Figure 3. Illustration of several roots in a non-bracketing interval. Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+B.2. Computing states 
+
+For a PLRNN with P ReLU’s the state space RM is divided into 2P linear subregions, within each of which we have an analytical solution for z(t) according to Equation (6). Assume we would like to obtain a global solution for a trajectory as illustrated in Figure 4, started from an initial condition z0 in subregion k1. As outlined in Algorithm 1, we begin by evaluating Equation (7) with the right WΩk in the first subregion. Based on this, we then compute the first switching time, 
+
+ts, 1, and evaluate Equation (7) at all intermediate times provided within the interval (0 , t s, 1]. We then proceed through subsequent subregions in the same manner as indicated below and in Figure 4. 
+
+{
+
+> ts, 1≤t<t s, 1
+
+z }| {
+
+t1, t 2, t 3 ,
+
+> ts, 1≤t<t s, 2
+
+z }| {
+
+t4, t 5, t 6 ,
+
+> ts, 2≤t<t s, 3
+
+z }| { 
+
+t7, t 8 }{z1, z2, z3
+
+| {z }
+
+> f1(t1,t 2,t 3)
+
+, z4, z5, z6
+
+| {z }
+
+> f2(t4,t 5,t 6)
+
+, z7, z8
+
+| {z } 
+
+> f3(t7,t 8)
+
+} (16) 
+
+Figure 4. Illustration of problem setting: for obtaining a global trajectory solution at arbitrary time points ti we need to find the switching times ts,k between linear subregions. 
+
+# C. The Interval Newton Method 
+
+Because our goal is to locate the first root among potentially several roots within a specified interval, the interval Newton method is an appropriate option, as it can identify all roots contained in that interval (Hansen & Sengupta, 1981). Since understanding this method requires familiarity with interval arithmetic, we first provide a brief introduction to that topic. 
+
+C.1. Interval Arithmetic 
+
+Interval arithmetic replaces single numbers with intervals and generalizes the usual arithmetic operations so that the outcome is an interval again. For a real-valued function f , its interval extension finterval (X) is defined such that 
+
+f (x) ∈ finterval (X) for all x ∈ X, (17) i.e. the image finterval (X) includes every function value f (x) for each point x ∈ X.Recall Equation (7), restated here for convenience: 
+
+f (i)(t) = X
+
+> l
+
+˜cleλ(l)t + ˜h(i). (18) This equation may have complex eigenvalues λ(l), but because matrix WΩk itself has real entries, they must appear in complex-conjugate pairs λ(l), λ (l). Consequently, we can express the corresponding exponentials using real-valued functions as 
+
+˜cleλ(l)t + ˜ cleλ(l)t = 2 eRe( λ(l))t
+
+Re(˜ cl) cos 
+
+
+
+Im( λ(l))t
+
+
+
+− Im(˜ cl) sin 
+
+
+
+Im( λ(l))t
+
+ 
+
+. (19) 15 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+Thus, to construct the interval extension of our function, we require the standard operations—such as addition—together with the interval rules for real exponential, sine, and cosine terms. 
+
+Basic rules of interval arithmetic Let X = [ a, b ] ⊂ R, Y = [ c, d ] ⊂ R with a ≤ b and c ≤ d. Then the basic arithmetic rules are given by • Addition: X + Y = [ a + c, b + d].
+
+• Subtraction: X − Y = [ a − d, b − c].
+
+• Scalar Multiplication: For μ ∈ R, μX =
+
+(
+
+[μ · a, μ · b], μ ≥ 0,
+
+[μ · b, μ · a], μ < 0.
+
+• Multiplication: X · Y = [min {ac, ad, bc, bd }, max {ac, ad, bc, bd }].
+
+• Division: If 0 /∈ Y , then 1/Y =  1 
+
+> d
+
+, 1
+
+> c
+
+; if c < 0 < d , then 1/Y = −∞ , 1
+
+> c
+
+ ∪  1 
+
+> d
+
+, ∞.
+
+Monotonic functions For a monotonic function such as the real-valued exponential function, the interval function evaluation is given by 
+
+finterval (X) = exp ([ a, b ]) = [exp( a), exp( b)] , (20) i.e. it depends solely on the endpoints of the interval, easing computations. 
+
+Sine and cosine To compute the sine and cosine over an interval X = [ a, b ], one must distinguish and handle several different cases: 1. X contains a full period: 
+
+If b − a ≥ 2π then X contains at least one full period of sine and cosine. In this case, the exact ranges are given by 
+
+sin( X) = [ −1, 1] , cos( X) = [ −1, 1] .2. X contains both a maximum and a minimum 
+
+If X contains at least one point of the form π 
+
+> 2
+
++ kπ and at least one point of the form − π 
+
+> 2
+
++ kπ for some k ∈ Z, then 
+
+sin( X) attains both its global maximum and minimum over X, and therefore 
+
+sin( X) = [ −1, 1] .
+
+An analogous condition holds for cos( X) if X contains both a point kπ and a point π + kπ .3. X contains exactly one extremum 
+
+If X contains exactly one critical point of the sine function, but not both a maximum and a minimum, then the range is determined by evaluating the function at the endpoints and at the one extremum: 
+
+sin( X) = min {sin( a), sin( b), sin( x∗)}, max {sin( a), sin( b), sin( x∗)},
+
+where x∗ = π 
+
+> 2
+
++ kπ or x∗ = − π 
+
+> 2
+
++ kπ is the unique extremum in X. An analogous expression holds for cos( X) with 
+
+x∗ = kπ or x∗ = π + kπ .4. X contains no extrema 
+
+If X contains no critical points of the function, then sine or cosine is monotonic on X, and the interval evaluation reduces to 
+
+sin( X) = min {sin( a), sin( b)}, max {sin( a), sin( b)},
+
+and analogously for cos( X).16 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+C.2. Interval Newton method 
+
+A Newton step in 1D is relatively straightforward. We begin with a chosen point x0 ∈ X (in our setting, we take x0 to be the midpoint of X; a typical choice). We then compute the “Newton image interval” N (X) as 
+
+N (X) = x0 − f (x0)
+
+f ′(X) ,
+
+where f ′ denotes the first derivative of f . Next, we form the intersection of N (X) with the current interval X,
+
+Xnew = N (X) ∩ X, (21) and use Xnew as the updated interval, since it is guaranteed to contain all roots. 
+
+Existence and uniqueness properties The interval Newton method provides strong theoretical guarantees: • If Xnew = ∅, then the equation f (x) = 0 has no solution in X.• If N (X) ⊆ interior( X), then there exists a unique solution x∗ ∈ X.• If neither condition holds, X may be subdivided and the method applied recursively. These can be used to define a recursive algorithm to determine the first root in an interval X.17 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+Algorithmic structure Note that we are interested in the first root over multiple functions f = f (i) at the same time, and therefore we obtain a list of intervals when performing operations, i.e. N (i)(X) . Our interval Newton algorithm is specified in Algorithm 2 below. 
+
+Algorithm 2 Interval Newton step as used in the branch-and-prune root finding described in Section C.3. Initial inputs are 
+
+X = [ tinf , t sup ], I0 = {M − P + 1 . . . M }
+
+Input: Interval X, candidate dimensions I0
+
+Output: Pruning decision, interval X, remaining candidate dimensions I0, root candidate tmin 
+
+for i ∈ I0 do 
+
+˜X(i) = f (i)(X) ▷ compute function image intervals dimension-wise 
+
+end for 
+
+I1 := { i ∈ I0 | 0 ∈ ˜X(i) } ▷ dimensions whose interval images contain zero 
+
+if I1 = ∅ then return Prune , X, ∅, ∞ ▷ if none of the interval images contain zero ⇒ no root 
+
+else for i ∈ I1 do 
+
+˜X(i) 
+
+> N
+
+← N (X(i)) ▷ compute interval Newton images dimension-wise 
+
+X(i) 
+
+> new
+
+← ˜X(i) 
+
+> N
+
+∩ X ▷ intersect Newton images XN with X to obtain Xnew 
+
+end for 
+
+I2 := { i ∈ I1 | X(i)
+
+> new
+
+̸ = ∅ } ▷ dimensions for which Xnew is nonempty 
+
+if I2 = ∅ then return Prune , X, ∅, ∞ ▷ for no dimension Xnew is nonempty ⇒ no root 
+
+else 
+
+I3 := { i ∈ I2 | X(i) 
+
+> new
+
+⊂ interior( X)} ▷ dims whose intervals Xnew are strictly inside X ⇒ unique root 
+
+for i ∈ I3 do 
+
+t(i) 
+
+> root
+
+= ROOT( X(i)
+
+> new
+
+) ▷ compute unique root in X(i) 
+
+> new
+
+dimension-wise 
+
+end for if I3̸ = ∅ then 
+
+tmin = min 
+
+
+
+∞,
+
+n
+
+t(i)
+
+> root
+
+o
+
+> i∈I3
+
+
+
+▷ Determine first root time across all dimensions 
+
+end if if I3 = I2 then return Store , X, ∅, tmin ▷ no remaining candidate dimensions ⇒ found minimal root 
+
+else 
+
+I0 ← I2 \ I3 ▷ remaining candidate dimensions 
+
+U ← S 
+
+> i∈I0
+
+X(i) 
+
+> new
+
+▷ union of intervals X(i)
+
+> new
+
+X ← [inf (U ), min {sup (U ), t min }] ▷ form new search interval 
+
+Branch , X, I0, tmin ▷ remaining candidate dimensions ⇒ bisect X and perform Newton step again 
+
+end if end if end if 
+
+This branch-and-bound strategy ensures that all solutions in the initial domain are either enclosed or excluded. 
+
+C.3. Branch-and-Prune Root Finding 
+
+Our algorithm follows a branch-and-prune paradigm with search for rigorous root isolation, just like our model, 
+
+IntervalRootFinding.jl . As we are interested only in the first root, we chose as search order depth-first , i.e. the next interval X to be studied is always the one in the tree closest to the left/lower boundary tinf . Given a function 
+
+f : R → Rn and an initial search region [tinf , t sup ] = X ⊆ R,1. Early Stopping: As we are only interested in the first root, we can stop the search if tinf > t min , i.e. if the current root found tmin has a time less than the current interval’s lower bound tinf .18 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+2. Contract: Perform a Newton step to contract the interval X (see Algorithm 2) 3. Prune: The region is empty and the branch is discarded. 4. Store: The region contains a unique root candidate and the branch is discarded. 5. Branch: If the region remains unknown, it is bisected (by default at a fixed fraction of its width), and the two resulting subregions are returned to the search queue. 
+
+C.4. Numerical issues 
+
+The example f (x) = ex − 1 can be used to demonstrate how overflow of floating-point numbers may affect the outcome of root-finding algorithms. Consider a large interval X = (0 , T ) and the corresponding image f (X) =  −1, e T − 1. If 
+
+eT becomes very large, computing it may cause an overflow, potentially wrapping around to a negative value. This can incorrectly indicate that there is no root in the interval. Imposing a maximum interval length and bisecting intervals that exceed this limit, examining the resulting smaller subintervals first, can mitigate this problem. Another potential numerical problem is that the switching time tswitch returned by the root finder might not yield exactly 
+
+ziswitch (tswitch ) = 0 , but values that slightly deviate in either direction, placing the new state slightly before or after the root. This leads to two problems when initializing the system at the new state z(tswitch ):• If the state is slightly before the actual boundary crossing, the same root might be discovered again, leading to an infinite loop. • Even if the value of ziswitch (tswitch ) is exactly 0, the DΩk matrix is not initialized correctly if the boundary is crossed from negative to positive, since di(t) = 0 for either zi(t) < 0 or zi(t) = 0 . (Autodifferentiation with Zygote does not allow for in-place modifications and therefore we cannot just switch the di entry in the d-vector to match the new subregion.) To solve this, we introduce a slight perturbation δt to make sure the boundary is actually crossed when we initialize in the next linear subregion. How to best choose δt is still an open question. If chosen too small, the numerical problems may prevail, while if chosen too big, one may potentially jump across further boundaries and thereby alter the dynamics of the system. Here we used a fixed δt = 0 .0001 , but one potential future extension is to determine the best value adaptively using ideas from numerical integration (which may be easier in our case since all the derivatives are given in analytical form). 
+
+# D. Training Method & Hyper-Parameters 
+
+For linking the DSR model (cPLRNN, standard PLRNN, or Neural ODE) with latent states zt ∈ RM to the actual data 
+
+xt ∈ RN , we used a simple identity observation model 
+
+ˆxt = Izt (22) (23) with 
+
+I =
+
+
+
+1 0 · · · 00 1 · · · 0
+
+... ... . . .
+
+0 10 0 · · · 0
+
+... ...
+
+0 0 0
+
+
+
+N
+
+ M − N, (24) i.e., the first N dimensions of the latent state zt were used as read-out neurons. 19 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+All models were then trained by sparse teacher forcing (STF; (Mikhaeil et al., 2022)) using a standard Mean Squared Error (MSE) loss comparing model predictions ˆxt with actual observations xt,
+
+ℓMSE 
+
+
+
+{ ˆxn}Tn=1 , {xn}Tn=1 
+
+
+
+= 1
+
+N · T
+
+> T
+
+X
+
+> n=1
+
+∥ ˆxn − xn∥22 . (25) In our case of an identity observation model, the STF signal is simply given by 
+
+˜zt =
+
+
+
+xt, z(N +1: M )
+
+> t
+
+T
+
+, (26) where the states of the read-out neurons are replaced directly by observations xt every τ time steps during training (not at test time, where trajectories evolve freely across the total simulation period!). The STF interval τ and all other hyperparameters used are reported in Table 5 & Table 6.  
+
+> Table 5. Model hyperparameters for all experiments
+
+Experiment Hyperparameter Lorenz-63 LIF regular LIF irregular Membrane potential continuous standard 
+
+Latent dimension M 20 25 25 25 25 PL units P [2, 5, 10] 2 2 2 6Start learning rate 1.0 × 10 −3 1.0 × 10 −3 1.0 × 10 −3 1.0 × 10 −3 4.0 × 10 −3
+
+Teacher forcing interval τ 16 25 3 25 25 Gaussian noise level 0.05 0.05 0.05 0.05 0.05 Sequence length 200 200 20 200 200 State dimension N 3 1 1 1 6 
+
+> Table 6. Hyperparameters of training algorithm for all models
+
+Hyperparameter Neural ODE cPLRNN standard PLRNN 
+
+Optimizer RAdam RAdam RAdam Batch size 16 16 16 Batches per epoch 50 50 50 Epochs 2000 2000 2000 End learning rate 1.0 × 10 −5 1.0 × 10 −5 1.0 × 10 −5
+
+Gradient clipping norm 0.0 10.0 0.0 Solver [Euler, RK4, Tsit5] - -Solver ∆t 1.0 - -Error tolerance Default - -Observation model G Identity Identity Identity 20 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+# E. Numerical Solvers 
+
+We tested three solvers of different numerical complexity for the Neural ODEs, using the Julia (Bezanson et al., 2017) implementation from DifferentialEquations.jl (Rackauckas & Nie, 2017). 
+
+Euler method The forward Euler method is a simple first-order scheme that updates the state using a fixed step size ∆t as 
+
+zn+1 = zn + fθ (tn, zn)∆ t. (27) 
+
+Fourth-order Runge-Kutta (RK4) The 4th-order Runge–Kutta is a standard explicit method that improves accuracy by combining multiple intermediate evaluations of the vector field: 
+
+k1 = fθ (tn, zn), (28) 
+
+k2 = fθ
+
+ tn + ∆t 
+
+> 2
+
+, zn + ∆t 
+
+> 2
+
+k1
+
+ , (29) 
+
+k3 = fθ
+
+ tn + ∆t 
+
+> 2
+
+, zn + ∆t 
+
+> 2
+
+k2
+
+ , (30) 
+
+k4 = fθ (tn + ∆ t, zn + ∆ tk 3), (31) followed by the update 
+
+zn+1 = zn + ∆t 
+
+> 6
+
+(k1 + 2 k2 + 2 k3 + k4). (32) The Julia implementation uses a defect control as described in (Shampine, 2005). 
+
+Tsitouras 5/4 method (Tsit5) Tsit5 is an explicit adaptive Runge–Kutta method of order five. It automatically adjusts the step size to control a local error by comparing 5th and 4th-order solution, yielding an efficient trade-off between accuracy and computational cost (Tsitouras, 2011). 
+
+# F. Benchmark Systems 
+
+F.1. Lorenz63 
+
+The Lorenz-63 system (Lorenz, 1963) is a continuous-time dynamical model that was initially introduced as a minimal model of atmospheric convection. It provides the time evolution of three state variables through a set of nonlinear differential equations, 
+
+dx 1
+
+dt = σ(x2 − x1),dx 2
+
+dt = x1(ρ − x3) − x2,dx 3
+
+dt = x1x2 − βx 3,
+
+where x1, x2, and x3 represent, respectively, the convection rate, the horizontal temperature difference, and the vertical temperature difference. The parameters σ, ρ, and β are physical constants associated with the Prandtl number, the Rayleigh number, and the geometric configuration of the system. For particular parameter choices, such as σ = 10 , ρ = 28 , and 
+
+β = 83 , the system exhibits chaotic behavior. For these parameters specifically, the famous “butterfly attractor” emerges, a canonical illustration of deterministic chaos in low-dimensional DS. We simulated a trajectory of T = 10 5 time steps, using the DynamicalSystems.jl Julia library (Datseris, 2018). The time step for the standard ALRNN was set to dt = 10 −2. To obtain a comparable configuration for the continuous models, we scaled the time values {tn} by a factor of 100. 
+
+F.2. Leaky Integrate-and-Fire (LIF) Neuron 
+
+The LIF neuron (Gerstner et al., 2014) is a simple continuous-time model that mimics the membrane potential dynamics of a spiking neuron, with spikes ‘pasted’ on top whenever a spiking threshold is crossed. The membrane potential V (t) ∈ R
+
+evolves according to the linear differential equation 
+
+τ dV (t)
+
+dt = −V (t) + RI (t),
+
+21 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+where I(t) is some input current, R the membrane resistance, C the membrane capacitance, and τ = RC the membrane time constant. Each time the membrane potential crosses a fixed threshold Vth , a spike is triggered and the membrane potential is reset to Vreset . Since this is a simple 1d linear ODE, for given I(t) the model can just be integrated analytically. We simulate trajectories with T = 10 3 time steps, using parameters R = 5 , C = 10 −3, V th = 1 , and reset value Vreset = 0 .A constant input current I(t) = 0 .25 was used, producing regular spiking. 
+
+F.3. Electrophysical Single neuron Recordings 
+
+As an empirical dataset, we employ electrophysiological recordings obtained from a cortical neuron (Hert ¨ag et al., 2012). For empirical data, for which the dimensionality of the underlying dynamical system is often (much) higher than the dimensionality of the observation space (as is this case here where only scalar voltage recordings were available), it is necessary to extend the observation space for the purpose of reconstruction to a higher-dimensional embedding space where trajectories and their derivative directions are sufficiently resolved and smooth (Kantz & Schreiber, 2004). The most common technique for this is the method of temporal delay embedding (Takens, 1981; Sauer et al., 1991). For a one-dimensional observed time series {xt} as here, a d-dimensional embedding is defined by 
+
+xemb  
+
+> t
+
+=  xt, x t−τ , . . . , x t−(d−1) ×τ
+
+T , (33) where τ is a time lag, typically inferred from the autocorrelation function of the corresponding time series. Here we used 
+
+d = 6 and a time lag of τ = 13 .
+
+# G. Evaluation Metrics 
+
+G.1. Geometrical Measure: Dstsp 
+
+Given probability distributions p(x) over ground-truth trajectories and q(x) over model-generated trajectories in the state space, Dstsp is defined as the Kullback-Leibler (KL) divergence 
+
+Dstsp := DKL (p(x) ∥ q(x)) = 
+
+Z
+
+> x∈RN
+
+p(x) log p(x)
+
+q(x) dx. (58) For low-dimensional observation spaces, p(x) and q(x) can be estimated via histogram-based binning procedures (Koppe et al., 2019a; Brenner et al., 2022), in which the Kullback–Leibler divergence is approximated by 
+
+Dstsp = DKL (ˆ p(x) ∥ ˆq(x)) ≈
+
+> K
+
+X
+
+> k=1
+
+ˆpk(x) log ˆpk(x)ˆqk(x) . (59) Here, K = mN denotes the total number of bins, with m bins allocated to each dimension. The quantities ˆpk(x) and ˆqk(x)
+
+represent the normalized counts in bin k corresponding to the ground-truth and model-generated orbits, respectively. 
+
+G.2. Temporal Measure: DH
+
+To quantify the long-term temporal agreement we compare the power spectra between true and reconstructed DS, employing the Hellinger distance (Mikhaeil et al., 2022; Hess et al., 2023). Let fi(ω) and gi(ω) be normalized power spectra of the i-th variable of the observed ( X) and generated ( XR) time series, respectively, where R ∞−∞ fi(ω)dω = 1 and R ∞−∞ gi(ω)dω = 1 ,then the Hellinger distance is given by 
+
+H(fi(ω), g i(ω)) = 
+
+s
+
+1 −
+
+Z ∞−∞ 
+
+pfi(ω)gi(ω) dω (34) with H(fi(ω), g i(ω) ∈ [0 , 1] , where 0 indicates perfect alignment. In practice, the Hellinger distance is computed using fast fourier transforms (FFT; Cooley & Tukey (1965)), which results in ˆfi = |F xi, 1: T |2 and ˆgi = |F ˆxi, 1: T |2, where the vectors ˆfi and ˆgi represent the discrete power spectra of the ground truth traces xi, 1: T and the model-generated traces ˆxi, 1: T , respectively. Because raw power spectra are typically quite noisy, 22 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+they are smoothed by applying a Gaussian filter with standard deviation σs. The resulting spectra are normalized to fulfill P 
+
+> ω
+
+ˆfi,ω = 1 and P 
+
+> ω
+
+ˆgi,ω = 1 . H is then computed as 
+
+H( ˆfi, ˆgi) = 1
+
+√2
+
+q
+
+ˆfi − pˆgi
+
+> 2
+
+, (35) with element-wise square root. Finally we average H across dimensions to obtain DH :
+
+DH = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+H( ˆfi, ˆgi) (36) with hyperparameter σs.For the comparisons on the Lorenz-63 as well as the cortical neuron dataset, we used σs = 20 , while for the LIF model comparisons no smoothing was necessary. 
+
+# H. Mathematical Tools for Analyzing Trained Piecewise-Linear Systems 
+
+H.1. Classification of PL Systems 
+
+While always linear and hence smooth within regions, PL systems can exhibit different degrees of non-smoothness locally. Following previous literature (Leine & Nijmeijer, 2013; Bernardo et al., 2008), (Coombes et al., 2024) classify systems by their degree of discontinuity across switching manifolds as follows: 1. Continuous PL systems , such as the class of cPLRNNs considered here, have continuous states and vector fields, but different Jacobians on both sides, i.e., the vector field is not smooth. 2. Filippov systems have continuous states, but discontinuous vector fields. On the boundary, the vector field can be (non-uniquely) interpolated as a convex combination of the vector fields on both sides. An example of this type of system is the McKean model. 3. Impact systems are discontinuous in both states and vector fields. The behavior of a trajectory that hits the boundary at time t0 can be described by a jump operator J , lim t ↓ t0 x(t) = J (lim t ↑ t0 x(t)) . An example in two dimensions is the planar leaky integrate-and-fire model. 
+
+H.2. Stability Analysis of Periodic Orbits 
+
+In smooth systems, Floquet theory can be used to study the stability and bifurcations of periodic orbits. The starting point for this theory is the equation ˙Φ = D f (xγ (t)) Φ, Φ(0) = Im, (37) where ˙x ≡ f (x), xγ is a periodic orbit of period T , Φ is the fundamental matrix of the ODE, whose columns are linearly independent solutions of the system, and Im is the identity matrix in m dimensions. The eigenvalues λk of the monodromy matrix Φ(T ) are called Floquet multipliers , and writing them as λk = eκk T defines Floquet exponents κk. These exponents play a similar role in the study of periodic orbits as Lyapunov exponents do in the study of chaotic systems and are foundational for the derivations in Coombes et al. (2024). In order to make use of Floquet theory, since we are in a non-smooth setting, we need to make some adjustments and introduce a Floquet theory of PL systems. The key ingredient for this purpose are so-called saltation operators ; these quantify how a perturbation of a trajectory – in our case, a periodic orbit γ : [0 , T ] → Rm – behaves when crossing a switching manifold. Here, a perturbation can be viewed as a vector field along the curve, δx : [0 , T ] → T Rm ∼= Rm, which evolves according to 
+
+ddt δx = WΩk δx (38) in region Ωk. Hence, the saltation operator Sk can be represented as an m × m matrix that acts linearly on the tangent space of perturbations, 
+
+δx(t+ 
+
+> i
+
+) = Sk(ti)δx(t− 
+
+> i
+
+). (39) 23 Continuous-Time Piecewise-Linear Recurrent Neural Networks 
+
+In Coombes et al. (2024), an explicit expression for the saltation operator of a boundary crossing is derived in terms of the Jacobian of the jump operator (if defined), the velocity of the curve, and the gradient of the indicator function defining the switching manifold. With this tool at hand, the monodromy matrix of the smooth theory can be replaced with a new matrix that is defined by following the orbit, for each segment multiplying the corresponding propagation matrix G, and for each boundary-crossing multiplying the saltation operator from the left. The Floquet multipliers are then obtained as the non-trivial eigenvalues of that matrix, and the orbit is linearly stable if all multipliers are smaller than 1 in absolute value. 
+
+H.3. Advanced Tools 
+
+Coombes et al. (2024) further consider systems of coupled oscillators and introduce tools to analyze the stability of periodic orbits in synchronized systems of such oscillators. The formalisms introduced are based on the basic tools described above and include infinitesimal phase and isostable response (iPRC and iIRC 1) and the master stability function . Each of these tools has been well-established in the literature for smooth systems and is extended to the non-smooth setting by the use of saltation operators. To give an idea of these tools, here we provide a quick overview of the phase and amplitude responses for autonomous, non-coupled systems: ˙x = f (x), x ∈ Rm. A neighborhood of a (hyperbolic) limit cycle in such a system can be reparameterized in terms of a phase coordinate θ specifying progression along the cycle and amplitude coordinates ψj , j ∈ { 1, . . . , m − 1}
+
+quantifying orthogonal deviation from the cycle; these coordinates evolve as 
+
+˙θ = ω, ˙ψj = κj ψj , (40) where ω = 2πT is a constant angular velocity and κk are the Floquet exponents from the previous section. Curves of constant phase are called isochrons , those of (individual) constant amplitude coordinates isostables . We denote the functions that reparameterize the neighborhood as Θ( x) = θ and Σk(x) = ψk. From these functions, one defines the infinitesimal phase response ,
+
+Z := ∇xγ Θ, (41) which quantifies how the phase along the cycle reacts to small perturbations and can be obtained as the solution of the initial value problem, ˙Z = −Df (xγ (t)) ⊤Z, Z(0) · f (xγ (0)) = ω. (42) Similarly, the infinitesimal isostable response , ˙Ik := ∇xγ Σk, (43) describes the response of amplitude coordinates under small perturbations and evolves as 
+
+˙Ik =  κkIk − Df (xγ (t)) ⊤ Ik, Ik(0) · vk = 1 , (44) 
+
+vk being the eigenvector corresponding to κk.In Coombes et al. (2024), it is shown that, across switching manifolds, these functions behave as 
+
+lim   
+
+> t↓ti
+
+Z(t) = ( S⊤(ti)) −1 lim   
+
+> t↑ti
+
+Z(t) and lim   
+
+> t↓ti
+
+Ik(t) = ( S⊤(ti)) −1 lim   
+
+> t↑ti
+
+Ik(t), (45) where, as before, S is the saltation operator at that boundary. From this and the forms of Equation (42) and Equation (44), one can easily see that iPRCs and iIRCs admit closed-form solutions consisting of products of matrix exponentials and inverse-transposed saltation operators Equation (45), whose initial conditions can be determined by requiring periodicity and the respective normalization conditions. 
+
+> 1The “C” historically stands for “curve”.
+
+24

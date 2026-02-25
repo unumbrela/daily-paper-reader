@@ -1,0 +1,124 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-02-25T19:35:34.375524+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 0,
+    "deep_cap": 6,
+    "deep_selected": 0,
+    "quick_candidates": 3,
+    "quick_skim_target": 11,
+    "quick_selected": 3
+  },
+  "deep_dive": [],
+  "quick_skim": [
+    {
+      "id": "2602.16823v1",
+      "title": "Formal Mechanistic Interpretability: Automated Circuit Discovery with Provable Guarantees",
+      "abstract": "*Automated circuit discovery* is a central tool in mechanistic interpretability for identifying the internal components of neural networks responsible for specific behaviors. While prior methods have made significant progress, they typically depend on heuristics or approximations and do not offer provable guarantees over continuous input domains for the resulting circuits. In this work, we leverage recent advances in neural network verification to propose a suite of automated algorithms that yield circuits with *provable guarantees*. We focus on three types of guarantees: (1) *input domain robustness*, ensuring the circuit agrees with the model across a continuous input region; (2) *robust patching*, certifying circuit alignment under continuous patching perturbations; and (3) *minimality*, formalizing and capturing a wide array of various notions of succinctness. Interestingly, we uncover a diverse set of novel theoretical connections among these three families of guarantees, with critical implications for the convergence of our algorithms. Finally, we conduct experiments with state-of-the-art verifiers on various vision models, showing that our algorithms yield circuits with substantially stronger robustness guarantees than standard circuit discovery methods, establishing a principled foundation for provable circuit discovery.",
+      "authors": [
+        "Itamar Hadad",
+        "Guy Katz",
+        "Shahaf Bassan"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.LO"
+      ],
+      "published": "2026-02-18T19:41:01+00:00",
+      "link": "https://arxiv.org/pdf/2602.16823v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "automated circuit discovery and mechanistic interpretability of neural networks",
+      "llm_evidence_cn": "神经网络的自动电路发现与机械可解释性",
+      "llm_evidence": "神经网络的自动电路发现与机械可解释性",
+      "llm_tldr_en": "Develops automated algorithms for discovering provable internal circuits within neural networks.",
+      "llm_tldr_cn": "开发了用于发现神经网络内部可证明电路的自动化算法。",
+      "llm_tldr": "开发了用于发现神经网络内部可证明电路的自动化算法。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Comparison of genetic programming and neural symbolic regression techniques",
+      "matched_requirement_id": "req-4",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.16849v1",
+      "title": "On the Mechanism and Dynamics of Modular Addition: Fourier Features, Lottery Ticket, and Grokking",
+      "abstract": "We present a comprehensive analysis of how two-layer neural networks learn features to solve the modular addition task. Our work provides a full mechanistic interpretation of the learned model and a theoretical explanation of its training dynamics. While prior work has identified that individual neurons learn single-frequency Fourier features and phase alignment, it does not fully explain how these features combine into a global solution. We bridge this gap by formalizing a diversification condition that emerges during training when overparametrized, consisting of two parts: phase symmetry and frequency diversification. We prove that these properties allow the network to collectively approximate a flawed indicator function on the correct logic for the modular addition task. While individual neurons produce noisy signals, the phase symmetry enables a majority-voting scheme that cancels out noise, allowing the network to robustly identify the correct sum. Furthermore, we explain the emergence of these features under random initialization via a lottery ticket mechanism. Our gradient flow analysis proves that frequencies compete within each neuron, with the \"winner\" determined by its initial spectral magnitude and phase alignment. From a technical standpoint, we provide a rigorous characterization of the layer-wise phase coupling dynamics and formalize the competitive landscape using the ODE comparison lemma. Finally, we use these insights to demystify grokking, characterizing it as a three-stage process involving memorization followed by two generalization phases, driven by the competition between loss minimization and weight decay.",
+      "authors": [
+        "Jianliang He",
+        "Leda Wang",
+        "Siyu Chen",
+        "Zhuoran Yang"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "math.OC",
+        "stat.ML"
+      ],
+      "published": "2026-02-18T20:25:13+00:00",
+      "link": "https://arxiv.org/pdf/2602.16849v1",
+      "tags": [
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "mechanistic interpretation of neural networks solving mathematical tasks",
+      "llm_evidence_cn": "神经网络解决数学任务的机械解释",
+      "llm_evidence": "神经网络解决数学任务的机械解释",
+      "llm_tldr_en": "Provides a full mechanistic interpretation of how neural networks learn to solve modular addition.",
+      "llm_tldr_cn": "对神经网络如何学习解决模加法任务提供了完整的机械解释。",
+      "llm_tldr": "对神经网络如何学习解决模加法任务提供了完整的机械解释。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Comparison of genetic programming and neural symbolic regression techniques",
+      "matched_requirement_id": "req-4",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.17528v1",
+      "title": "Interpretable Machine Learning of Nanoparticle Stability through Topological Layer Embeddings",
+      "abstract": "The stability of chemically complex nanoparticles is governed by an immense configurational space arising from heterogeneous local atomic environments across surface and interior regions. Efficiently identifying low-energy configurations within this space remains a central challenge for first-principles-based materials discovery, particularly when the available reference data are limited. Here, we introduce a data-efficient and physically interpretable machine-learning framework based on a fragmented, layer-resolved descriptor that explicitly decomposes nanoparticles into surface, intermediate, and core environments using a topology-driven definition. This representation preserves a compact and fixed feature dimensionality while retaining spatial resolution, enabling controlled emphasis on different regions of the nanoparticle through physically motivated weighting schemes. Coupled with gradient-boosted decision tree models and a ranking-based learning strategy, the proposed framework enables accurate identification of the most stable nanoparticle configurations using only a few hundred density functional theory reference calculations. Ranking performance metrics demonstrate near-saturation of correlation, high top-k recall, and rapidly vanishing regret at moderate training-set sizes, highlighting the strong data efficiency of the approach. Beyond predictive performance, layer-weighting and SHAP-based interpretability analyses reveal how surface segregation, coordination topology, and local chemical disorder contribute differently to stability across spatial regions of the nanoparticle. These insights provide a transparent physical interpretation of the learned models and establish a natural pathway toward active learning-driven exploration of complex nanoparticle configurational spaces.",
+      "authors": [
+        "Felipe Hawthorne",
+        "Leandro Seixas",
+        "James M. Almeida",
+        "Cristiano F. Woellner",
+        "Raphael M. Tromer"
+      ],
+      "primary_category": "cond-mat.mtrl-sci",
+      "categories": [
+        "cond-mat.mtrl-sci",
+        "cond-mat.dis-nn"
+      ],
+      "published": "2026-02-19T16:37:56+00:00",
+      "link": "https://arxiv.org/pdf/2602.17528v1",
+      "tags": [
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Interpretable machine learning for physical nanoparticle stability",
+      "llm_evidence_cn": "物理纳米颗粒稳定性的可解释机器学习",
+      "llm_evidence": "物理纳米颗粒稳定性的可解释机器学习",
+      "llm_tldr_en": "Introduces an interpretable ML framework for nanoparticle stability, aiding scientific discovery in materials.",
+      "llm_tldr_cn": "引入一种用于纳米颗粒稳定性的可解释机器学习框架，助力材料科学发现。",
+      "llm_tldr": "引入一种用于纳米颗粒稳定性的可解释机器学习框架，助力材料科学发现。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    }
+  ]
+}

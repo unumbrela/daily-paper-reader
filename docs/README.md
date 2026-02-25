@@ -9,37 +9,28 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-02-21
-- 运行时间：2026-02-21 17:14:51 UTC
+- 最新运行日期：2026-02-25
+- 运行时间：2026-02-25 19:36:35 UTC
 - 运行状态：成功
-- 本次总论文数：7
+- 本次总论文数：3
 - 精读区：0
-- 速读区：7
+- 速读区：3
 
 ### 今日简报（AI）
-今日聚焦利用符号回归与物理信息模型从观测数据中“重发现”物理规律，涵盖引力理论、偏微分方程及流体湍流。
-核心突破在于通过 AI 实现了规范场论到引力的跨越式推导，并从实验数据中直接提取出高可解释性的物理方程。
-建议重点关注符号回归技术，看它如何将海量数据转化为人类可理解的科学公式。
-- 详情：[/202602/21/README](/202602/21/README)
+今日聚焦可解释性机器学习，重点攻克自动化电路发现、模加法动力学及纳米材料稳定性预测。
+研究揭示了
+- 详情：[/202602/25/README](/202602/25/README)
 
 ### 精读区论文标签
 - 本次无精读推荐。
 
 ### 速读区论文标签
-1. [Learning the S-matrix from data: Rediscovering gravity from gauge theory via symbolic regression](/202602/21/2602.15169v1-learning-the-s-matrix-from-data-rediscovering-gravity-from-gauge-theory-via-symbolic-regression)  
-   标签：评分：10.0/10、query:sr
-2. [Symbolic recovery of PDEs from measurement data](/202602/21/2602.15603v1-symbolic-recovery-of-pdes-from-measurement-data)  
-   标签：评分：10.0/10、query:sr
-3. [Physics-informed data-driven inference of an interpretable equivariant LES model of incompressible fluid turbulence](/202602/21/2602.15743v1-physics-informed-data-driven-inference-of-an-interpretable-equivariant-les-model-of-incompressible-fluid-turbulence)  
-   标签：评分：10.0/10、query:sr
-4. [Order of Magnitude Analysis and Data-Based Physics-Informed Symbolic Regression for Turbulent Pipe Flow](/202602/21/2602.17082v1-order-of-magnitude-analysis-and-data-based-physics-informed-symbolic-regression-for-turbulent-pipe-flow)  
-   标签：评分：10.0/10、query:sr
-5. [FactorMiner: A Self-Evolving Agent with Skills and Experience Memory for Financial Alpha Discovery](/202602/21/2602.14670v1-factorminer-a-self-evolving-agent-with-skills-and-experience-memory-for-financial-alpha-discovery)  
-   标签：评分：9.0/10、query:sr
-6. [Discovering Unknown Inverter Governing Equations via Physics-Informed Sparse Machine Learning](/202602/21/2602.16166v1-discovering-unknown-inverter-governing-equations-via-physics-informed-sparse-machine-learning)  
-   标签：评分：9.0/10、query:sr
-7. [Beyond Message Passing: A Symbolic Alternative for Expressive and Interpretable Graph Learning](/202602/21/2602.16947v1-beyond-message-passing-a-symbolic-alternative-for-expressive-and-interpretable-graph-learning)  
-   标签：评分：8.0/10、query:sr
+1. [Formal Mechanistic Interpretability: Automated Circuit Discovery with Provable Guarantees](/202602/25/2602.16823v1-formal-mechanistic-interpretability-automated-circuit-discovery-with-provable-guarantees)  
+   标签：评分：6.0/10、query:sr
+2. [On the Mechanism and Dynamics of Modular Addition: Fourier Features, Lottery Ticket, and Grokking](/202602/25/2602.16849v1-on-the-mechanism-and-dynamics-of-modular-addition-fourier-features-lottery-ticket-and-grokking)  
+   标签：评分：6.0/10、query:sr
+3. [Interpretable Machine Learning of Nanoparticle Stability through Topological Layer Embeddings](/202602/25/2602.17528v1-interpretable-machine-learning-of-nanoparticle-stability-through-topological-layer-embeddings)  
+   标签：评分：6.0/10、query:sr
 
 
 <div class="dpr-home-promo-card">
