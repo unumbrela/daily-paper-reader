@@ -9,24 +9,27 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-02-24
-- 运行时间：2026-02-24 19:40:06 UTC
+- 最新运行日期：2026-02-25
+- 运行时间：2026-02-25 19:36:35 UTC
 - 运行状态：成功
-- 本次总论文数：1
+- 本次总论文数：3
 - 精读区：0
-- 速读区：1
+- 速读区：3
 
 ### 今日简报（AI）
-今日聚焦玻璃材料研究的“化繁为简”，探讨如何用基础模型破解复杂的物理难题。
-研究发现简单的线性模型足以解码玻璃中隐藏的结构-性能关系，有力挑战了对复杂算法的过度依赖。
-建议读者关注材料建模中“大道至简”的新趋势，重新评估简单模型在处理复杂非晶态系统时的潜力。
-- 详情：[/202602/24/README](/202602/24/README)
+今日聚焦可解释性机器学习，重点攻克自动化电路发现、模加法动力学及纳米材料稳定性预测。
+研究揭示了
+- 详情：[/202602/25/README](/202602/25/README)
 
 ### 精读区论文标签
 - 本次无精读推荐。
 
 ### 速读区论文标签
-1. [Beyond overcomplication: a linear model suffices to decode hidden structure-property relationships in glasses](/202602/24/2602.05313v1-beyond-overcomplication-a-linear-model-suffices-to-decode-hidden-structure-property-relationships-in-glasses)  
+1. [Formal Mechanistic Interpretability: Automated Circuit Discovery with Provable Guarantees](/202602/25/2602.16823v1-formal-mechanistic-interpretability-automated-circuit-discovery-with-provable-guarantees)  
+   标签：评分：6.0/10、query:sr
+2. [On the Mechanism and Dynamics of Modular Addition: Fourier Features, Lottery Ticket, and Grokking](/202602/25/2602.16849v1-on-the-mechanism-and-dynamics-of-modular-addition-fourier-features-lottery-ticket-and-grokking)  
+   标签：评分：6.0/10、query:sr
+3. [Interpretable Machine Learning of Nanoparticle Stability through Topological Layer Embeddings](/202602/25/2602.17528v1-interpretable-machine-learning-of-nanoparticle-stability-through-topological-layer-embeddings)  
    标签：评分：6.0/10、query:sr
 
 
