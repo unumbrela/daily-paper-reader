@@ -1,0 +1,523 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-02-26T19:48:42.791900+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 5,
+    "deep_cap": 6,
+    "deep_selected": 5,
+    "quick_candidates": 9,
+    "quick_skim_target": 11,
+    "quick_selected": 9
+  },
+  "deep_dive": [
+    {
+      "id": "2602.20557v1",
+      "title": "GENSR: Symbolic Regression Based in Equation Generative Space",
+      "abstract": "Symbolic Regression (SR) tries to reveal the hidden equations behind observed data. However, most methods search within a discrete equation space, where the structural modifications of equations rarely align with their numerical behavior, leaving fitting error feedback too noisy to guide exploration. To address this challenge, we propose GenSR, a generative latent space-based SR framework following the `map construction -> coarse localization -> fine search'' paradigm. Specifically, GenSR first pretrains a dual-branch Conditional Variational Autoencoder (CVAE) to reparameterize symbolic equations into a generative latent space with symbolic continuity and local numerical smoothness. This space can be regarded as a well-structured `map'' of the equation space, providing directional signals for search. At inference, the CVAE coarsely localizes the input data to promising regions in the latent space. Then, a modified CMA-ES refines the candidate region, leveraging smooth latent gradients. From a Bayesian perspective, GenSR reframes the SR task as maximizing the conditional distribution $p(\\mathrm{Equ.} \\mid \\mathrm{Num.})$, with CVAE training achieving this objective through the Evidence Lower Bound (ELBO). This new perspective provides a theoretical guarantee for the effectiveness of GenSR. Extensive experiments show that GenSR jointly optimizes predictive accuracy, expression simplicity, and computational efficiency, while remaining robust under noise.",
+      "authors": [
+        "Qian Li",
+        "Yuxiao Hu",
+        "Juncheng Liu",
+        "Yuntian Chen"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.SC"
+      ],
+      "published": "2026-02-24 05:14:34+00:00",
+      "link": "https://arxiv.org/pdf/2602.20557v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Generative latent space for symbolic regression and equation search",
+      "llm_evidence_cn": "用于符号回归和方程搜索的生成潜空间",
+      "llm_evidence": "用于符号回归和方程搜索的生成潜空间",
+      "llm_tldr_en": "Proposes GenSR, a framework using CVAE to map symbolic equations into a continuous latent space for better search.",
+      "llm_tldr_cn": "提出了GenSR框架，利用CVAE将符号方程映射到连续潜空间以优化搜索。",
+      "llm_tldr": "提出了GenSR框架，利用CVAE将符号方程映射到连续潜空间以优化搜索。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Recent advances and state-of-the-art methods in symbolic regression",
+      "matched_requirement_id": "req-2"
+    },
+    {
+      "id": "2602.21307v1",
+      "title": "SymTorch: A Framework for Symbolic Distillation of Deep Neural Networks",
+      "abstract": "Symbolic distillation replaces neural networks, or components thereof, with interpretable, closed-form mathematical expressions. This approach has shown promise in discovering physical laws and mathematical relationships directly from trained deep learning models, yet adoption remains limited due to the engineering barrier of integrating symbolic regression into deep learning workflows. We introduce SymTorch, a library that automates this distillation by wrapping neural network components, collecting their input-output behavior, and approximating them with human-readable equations via PySR. SymTorch handles the engineering challenges that have hindered adoption: GPU-CPU data transfer, input-output caching, model serialization, and seamless switching between neural and symbolic forward passes. We demonstrate SymTorch across diverse architectures including GNNs, PINNs and transformer models. Finally, we present a proof-of-concept for accelerating LLM inference by replacing MLP layers with symbolic surrogates, achieving an 8.3\\% throughput improvement with moderate performance degradation.",
+      "authors": [
+        "Elizabeth S. Z. Tan",
+        "Adil Soubki",
+        "Miles Cranmer"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-24 19:17:56+00:00",
+      "link": "https://arxiv.org/pdf/2602.21307v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Symbolic distillation using PySR for physical laws",
+      "llm_evidence_cn": "使用PySR进行物理定律的符号蒸馏",
+      "llm_evidence": "使用PySR进行物理定律的符号蒸馏",
+      "llm_tldr_en": "Introduces SymTorch, a framework for distilling neural networks into interpretable symbolic equations via PySR.",
+      "llm_tldr_cn": "介绍了SymTorch框架，通过PySR将神经网络蒸馏为可解释的符号方程。",
+      "llm_tldr": "介绍了SymTorch框架，通过PySR将神经网络蒸馏为可解释的符号方程。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Recent advances and state-of-the-art methods in symbolic regression",
+      "matched_requirement_id": "req-2"
+    },
+    {
+      "id": "2602.19516v1",
+      "title": "Pixel2Phys: Distilling Governing Laws from Visual Dynamics",
+      "abstract": "Discovering physical laws directly from high-dimensional visual data is a long-standing human pursuit but remains a formidable challenge for machines, representing a fundamental goal of scientific intelligence. This task is inherently difficult because physical knowledge is low-dimensional and structured, whereas raw video observations are high-dimensional and redundant, with most pixels carrying little or no physical meaning. Extracting concise, physically relevant variables from such noisy data remains a key obstacle. To address this, we propose Pixel2Phys, a collaborative multi-agent framework adaptable to any Multimodal Large Language Model (MLLM). It emulates human scientific reasoning by employing a structured workflow to extract formalized physical knowledge through iterative hypothesis generation, validation, and refinement. By repeatedly formulating, and refining candidate equations on high-dimensional data, it identifies the most concise representations that best capture the underlying physical evolution. This automated exploration mimics the iterative workflow of human scientists, enabling AI to reveal interpretable governing equations directly from raw observations. Across diverse simulated and real-world physics videos, Pixel2Phys discovers accurate, interpretable governing equations and maintaining stable long-term extrapolation where baselines rapidly diverge.",
+      "authors": [
+        "Ruikun Li",
+        "Jun Yao",
+        "Yingfan Hua",
+        "Shixiang Tang",
+        "Biqing Qi",
+        "Bin Liu",
+        "Wanli Ouyang",
+        "Yan Lu"
+      ],
+      "primary_category": "cs.CE",
+      "categories": [
+        "cs.CE"
+      ],
+      "published": "2026-02-23 05:16:47+00:00",
+      "link": "https://arxiv.org/pdf/2602.19516v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "Distilling governing laws from visual dynamics for scientific discovery",
+      "llm_evidence_cn": "从视觉动力学中提取支配物理定律用于科学发现",
+      "llm_evidence": "从视觉动力学中提取支配物理定律用于科学发现",
+      "llm_tldr_en": "Proposes Pixel2Phys to extract structured physical laws from high-dimensional video data using MLLMs.",
+      "llm_tldr_cn": "提出Pixel2Phys框架，利用多模态大模型从高维视频数据中提取结构化物理定律。",
+      "llm_tldr": "提出Pixel2Phys框架，利用多模态大模型从高维视频数据中提取结构化物理定律。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3"
+    },
+    {
+      "id": "2602.20152v1",
+      "title": "Behavior Learning (BL): Learning Hierarchical Optimization Structures from Data",
+      "abstract": "Inspired by behavioral science, we propose Behavior Learning (BL), a novel general-purpose machine learning framework that learns interpretable and identifiable optimization structures from data, ranging from single optimization problems to hierarchical compositions. It unifies predictive performance, intrinsic interpretability, and identifiability, with broad applicability to scientific domains involving optimization. BL parameterizes a compositional utility function built from intrinsically interpretable modular blocks, which induces a data distribution for prediction and generation. Each block represents and can be written in symbolic form as a utility maximization problem (UMP), a foundational paradigm in behavioral science and a universal framework of optimization. BL supports architectures ranging from a single UMP to hierarchical compositions, the latter modeling hierarchical optimization structures. Its smooth and monotone variant (IBL) guarantees identifiability. Theoretically, we establish the universal approximation property of BL, and analyze the M-estimation properties of IBL. Empirically, BL demonstrates strong predictive performance, intrinsic interpretability and scalability to high-dimensional data. Code: https://github.com/MoonYLiang/Behavior-Learning ; install via pip install blnetwork.",
+      "authors": [
+        "Zhenyao Ma",
+        "Yue Liang",
+        "Dongxu Li"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI",
+        "stat.ML"
+      ],
+      "published": "2026-02-23 18:59:04+00:00",
+      "link": "https://arxiv.org/pdf/2602.20152v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Learning interpretable symbolic optimization structures from scientific data",
+      "llm_evidence_cn": "从科学数据中学习可解释的符号优化结构",
+      "llm_evidence": "从科学数据中学习可解释的符号优化结构",
+      "llm_tldr_en": "Proposes Behavior Learning to extract interpretable symbolic optimization models from data.",
+      "llm_tldr_cn": "提出行为学习框架，从数据中提取可解释的符号化优化模型，适用于科学领域。",
+      "llm_tldr": "提出行为学习框架，从数据中提取可解释的符号化优化模型，适用于科学领域。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3"
+    },
+    {
+      "id": "2602.22055v1",
+      "title": "Physics-Informed Machine Learning for Vessel Shaft Power and Fuel Consumption Prediction: Interpretable KAN-based Approach",
+      "abstract": "Accurate prediction of shaft rotational speed, shaft power, and fuel consumption is crucial for enhancing operational efficiency and sustainability in maritime transportation. Conventional physics-based models provide interpretability but struggle with real-world variability, while purely data-driven approaches achieve accuracy at the expense of physical plausibility. This paper introduces a Physics-Informed Kolmogorov-Arnold Network (PI-KAN), a hybrid method that integrates interpretable univariate feature transformations with a physics-informed loss function and a leakage-free chained prediction pipeline. Using operational and environmental data from five cargo vessels, PI-KAN consistently outperforms the traditional polynomial method and neural network baselines. The model achieves the lowest mean absolute error (MAE) and root mean squared error (RMSE), and the highest coefficient of determination (R^2) for shaft power and fuel consumption across all vessels, while maintaining physically consistent behavior. Interpretability analysis reveals rediscovery of domain-consistent dependencies, such as cubic-like speed-power relationships and cosine-like wave and wind effects. These results demonstrate that PI-KAN achieves both predictive accuracy and interpretability, offering a robust tool for vessel performance monitoring and decision support in operational settings.",
+      "authors": [
+        "Hamza Haruna Mohammed",
+        "Dusica Marijan",
+        "Arnbjørn Maressa"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI"
+      ],
+      "published": "2026-02-25 16:06:28+00:00",
+      "link": "https://arxiv.org/pdf/2602.22055v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Physics-informed KAN for scientific discovery and physical law extraction in maritime data",
+      "llm_evidence_cn": "物理信息KAN用于航运数据的科学发现和物理规律提取",
+      "llm_evidence": "物理信息KAN用于航运数据的科学发现和物理规律提取",
+      "llm_tldr_en": "Introduces a Physics-Informed Kolmogorov-Arnold Network for interpretable vessel power and fuel prediction.",
+      "llm_tldr_cn": "引入了一种物理信息Kolmogorov-Arnold网络，用于可解释的船舶功率和燃料预测。",
+      "llm_tldr": "引入了一种物理信息Kolmogorov-Arnold网络，用于可解释的船舶功率和燃料预测。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2602.20323v1",
+      "title": "Learning Physical Principles from Interaction: Self-Evolving Planning via Test-Time Memory",
+      "abstract": "Reliable object manipulation requires understanding physical properties that vary across objects and environments. Vision-language model (VLM) planners can reason about friction and stability in general terms; however, they often cannot predict how a specific ball will roll on a particular surface or which stone will provide a stable foundation without direct experience. We present PhysMem, a memory framework that enables VLM robot planners to learn physical principles from interaction at test time, without updating model parameters. The system records experiences, generates candidate hypotheses, and verifies them through targeted interaction before promoting validated knowledge to guide future decisions. A central design choice is verification before application: the system tests hypotheses against new observations rather than applying retrieved experience directly, reducing rigid reliance on prior experience when physical conditions change. We evaluate PhysMem on three real-world manipulation tasks and simulation benchmarks across four VLM backbones. On a controlled brick insertion task, principled abstraction achieves 76% success compared to 23% for direct experience retrieval, and real-world experiments show consistent improvement over 30-minute deployment sessions.",
+      "authors": [
+        "Haoyang Li",
+        "Yang You",
+        "Hao Su",
+        "Leonidas Guibas"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO",
+        "cs.AI"
+      ],
+      "published": "2026-02-23 20:18:35+00:00",
+      "link": "https://arxiv.org/pdf/2602.20323v1",
+      "tags": [
+        "query:SR"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "learning physical principles and hypotheses from interaction",
+      "llm_evidence_cn": "通过交互学习物理原理和假设",
+      "llm_evidence": "通过交互学习物理原理和假设",
+      "llm_tldr_en": "A memory framework for VLM planners to learn and verify physical principles through targeted interaction.",
+      "llm_tldr_cn": "一种记忆框架，使VLM机器人规划器能够通过交互学习、生成并验证物理原理假设。",
+      "llm_tldr": "一种记忆框架，使VLM机器人规划器能够通过交互学习、生成并验证物理原理假设。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.18916v1",
+      "title": "Adaptive Collaboration of Arena-Based Argumentative LLMs for Explainable and Contestable Legal Reasoning",
+      "abstract": "Legal reasoning requires not only high accuracy but also the ability to justify decisions through verifiable and contestable arguments. However, existing Large Language Model (LLM) approaches, such as Chain-of-Thought (CoT) and Retrieval-Augmented Generation (RAG), often produce unstructured explanations that lack a formal mechanism for verification or user intervention. To address this limitation, we propose Adaptive Collaboration of Argumentative LLMs (ACAL), a neuro-symbolic framework that integrates adaptive multi-agent collaboration with an Arena-based Quantitative Bipolar Argumentation Framework (A-QBAF). ACAL dynamically deploys expert agent teams to construct arguments, employs a clash resolution mechanism to adjudicate conflicting claims, and utilizes uncertainty-aware escalation for borderline cases. Crucially, our framework supports a Human-in-the-Loop (HITL) contestability workflow, enabling users to directly audit and modify the underlying reasoning graph to influence the final judgment. Empirical evaluations on the LegalBench benchmark demonstrate that ACAL outperforms strong baselines across Gemini-2.5-Flash-Lite and Gemini-2.5-Flash architectures, effectively balancing efficient predictive performance with structured transparency and contestability. Our implementation is available at: https://github.com/loc110504/ACAL.",
+      "authors": [
+        "Hoang-Loc Cao",
+        "Phuc Ho",
+        "Truong Thanh Hung Nguyen",
+        "Phuc Truong Loc Nguyen",
+        "Dinh Thien Loc Nguyen",
+        "Hung Cao"
+      ],
+      "primary_category": "cs.MA",
+      "categories": [
+        "cs.MA",
+        "cs.AI",
+        "cs.SC"
+      ],
+      "published": "2026-02-21 17:47:13+00:00",
+      "link": "https://arxiv.org/pdf/2602.18916v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "neuro-symbolic framework for explainable reasoning",
+      "llm_evidence_cn": "用于可解释推理的神经符号框架",
+      "llm_evidence": "用于可解释推理的神经符号框架",
+      "llm_tldr_en": "Integrates multi-agent collaboration with a neuro-symbolic framework for legal reasoning and verification.",
+      "llm_tldr_cn": "将多智能体协作与神经符号框架结合，用于可解释且可验证的法律推理。",
+      "llm_tldr": "将多智能体协作与神经符号框架结合，用于可解释且可验证的法律推理。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Comparison of genetic programming and neural symbolic regression techniques",
+      "matched_requirement_id": "req-4",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.20639v1",
+      "title": "Grounding LLMs in Scientific Discovery via Embodied Actions",
+      "abstract": "Large Language Models (LLMs) have shown significant potential in scientific discovery but struggle to bridge the gap between theoretical reasoning and verifiable physical simulation. Existing solutions operate in a passive \"execute-then-response\" loop and thus lacks runtime perception, obscuring agents to transient anomalies (e.g., numerical instability or diverging oscillations). To address this limitation, we propose EmbodiedAct, a framework that transforms established scientific software into active embodied agents by grounding LLMs in embodied actions with a tight perception-execution loop. We instantiate EmbodiedAct within MATLAB and evaluate it on complex engineering design and scientific modeling tasks. Extensive experiments show that EmbodiedAct significantly outperforms existing baselines, achieving SOTA performance by ensuring satisfactory reliability and stability in long-horizon simulations and enhanced accuracy in scientific modeling.",
+      "authors": [
+        "Bo Zhang",
+        "Jinfeng Zhou",
+        "Yuxuan Chen",
+        "Jianing Yin",
+        "Minlie Huang",
+        "Hongning Wang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-02-24 07:37:18+00:00",
+      "link": "https://arxiv.org/pdf/2602.20639v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "scientific modeling and discovery via grounded LLM agents",
+      "llm_evidence_cn": "通过具身LLM代理进行科学建模与发现",
+      "llm_evidence": "通过具身LLM代理进行科学建模与发现",
+      "llm_tldr_en": "Proposes EmbodiedAct to ground LLMs in scientific software for modeling and engineering discovery.",
+      "llm_tldr_cn": "提出EmbodiedAct框架，将LLM与科学软件结合以实现自动化的科学建模与工程发现。",
+      "llm_tldr": "提出EmbodiedAct框架，将LLM与科学软件结合以实现自动化的科学建模与工程发现。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.19265v1",
+      "title": "Spectral bias in physics-informed and operator learning: Analysis and mitigation guidelines",
+      "abstract": "Solving partial differential equations (PDEs) by neural networks as well as Kolmogorov-Arnold Networks (KANs), including physics-informed neural networks (PINNs), physics-informed KANs (PIKANs), and neural operators, are known to exhibit spectral bias, whereby low-frequency components of the solution are learned significantly faster than high-frequency modes. While spectral bias is often treated as an intrinsic representational limitation of neural architectures, its interaction with optimization dynamics and physics-based loss formulations remains poorly understood. In this work, we provide a systematic investigation of spectral bias in physics-informed and operator learning frameworks, with emphasis on the coupled roles of network architecture, activation functions, loss design, and optimization strategy. We quantify spectral bias through frequency-resolved error metrics, Barron-norm diagnostics, and higher-order statistical moments, enabling a unified analysis across elliptic, hyperbolic, and dispersive PDEs. Through diverse benchmark problems, including the Korteweg-de Vries, wave and steady-state diffusion-reaction equations, turbulent flow reconstruction, and earthquake dynamics, we demonstrate that spectral bias is not simply representational but fundamentally dynamical. In particular, second-order optimization methods substantially alter the spectral learning order, enabling earlier and more accurate recovery of high-frequency modes for all PDE types. For neural operators, we further show that spectral bias is dependent on the neural operator architecture and can also be effectively mitigated through spectral-aware loss formulations without increasing the inference cost.",
+      "authors": [
+        "Siavash Khodakarami",
+        "Vivek Oommen",
+        "Nazanin Ahmadi Daryakenari",
+        "Maxim Beekenkamp",
+        "George Em Karniadakis"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-22 16:29:18+00:00",
+      "link": "https://arxiv.org/pdf/2602.19265v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Physics-informed neural networks and Kolmogorov-Arnold Networks for PDE discovery",
+      "llm_evidence_cn": "用于偏微分方程发现的物理信息神经网络与KAN网络",
+      "llm_evidence": "用于偏微分方程发现的物理信息神经网络与KAN网络",
+      "llm_tldr_en": "Analyzes spectral bias in physics-informed networks like KANs, which are often used for scientific discovery.",
+      "llm_tldr_cn": "分析了物理信息网络（如KAN）中的频率偏好，这些网络常用于科学发现和物理规律提取。",
+      "llm_tldr": "分析了物理信息网络（如KAN）中的频率偏好，这些网络常用于科学发现和物理规律提取。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.19711v1",
+      "title": "A Three-stage Neuro-symbolic Recommendation Pipeline for Cultural Heritage Knowledge Graphs",
+      "abstract": "The growing volume of digital cultural heritage resources highlights the need for advanced recommendation methods capable of interpreting semantic relationships between heterogeneous data entities. This paper presents a complete methodology for implementing a hybrid recommendation pipeline integrating knowledge-graph embeddings, approximate nearest-neighbour search, and SPARQL-driven semantic filtering. The work is evaluated on the JUHMP (Jagiellonian University Heritage Metadata Portal) knowledge graph developed within the CHExRISH project, which at the time of experimentation contained ${\\approx}3.2$M RDF triples describing people, events, objects, and historical relations affiliated with the Jagiellonian University (Kraków, PL). We evaluate four embedding families (TransE, ComplEx, ConvE, CompGCN) and perform hyperparameter selection for ComplEx and HNSW. Then, we present and evaluate the final three-stage neuro-symbolic recommender. Despite sparse and heterogeneous metadata, the approach produces useful and explainable recommendations, which were also proven with expert evaluation.",
+      "authors": [
+        "Krzysztof Kutt",
+        "Elżbieta Sroka",
+        "Oleksandra Ishchuk",
+        "Luiz do Valle Miranda"
+      ],
+      "primary_category": "cs.IR",
+      "categories": [
+        "cs.IR",
+        "cs.DL",
+        "cs.HC"
+      ],
+      "published": "2026-02-23 11:02:13+00:00",
+      "link": "https://arxiv.org/pdf/2602.19711v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "neuro-symbolic recommendation pipeline for knowledge graphs",
+      "llm_evidence_cn": "用于知识图谱的神经营号推荐流水线",
+      "llm_evidence": "用于知识图谱的神经营号推荐流水线",
+      "llm_tldr_en": "Presents a neuro-symbolic hybrid recommendation system for cultural heritage knowledge graphs.",
+      "llm_tldr_cn": "提出了一种用于文化遗产知识图谱的神经营号混合推荐系统。",
+      "llm_tldr": "提出了一种用于文化遗产知识图谱的神经营号混合推荐系统。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Comparison of genetic programming and neural symbolic regression techniques",
+      "matched_requirement_id": "req-4",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.20857v1",
+      "title": "Functional Continuous Decomposition",
+      "abstract": "The analysis of non-stationary time-series data requires insight into its local and global patterns with physical interpretability. However, traditional smoothing algorithms, such as B-splines, Savitzky-Golay filtering, and Empirical Mode Decomposition (EMD), lack the ability to perform parametric optimization with guaranteed continuity. In this paper, we propose Functional Continuous Decomposition (FCD), a JAX-accelerated framework that performs parametric, continuous optimization on a wide range of mathematical functions. By using Levenberg-Marquardt optimization to achieve up to $C^1$ continuous fitting, FCD transforms raw time-series data into $M$ modes that capture different temporal patterns from short-term to long-term trends. Applications of FCD include physics, medicine, financial analysis, and machine learning, where it is commonly used for the analysis of signal temporal patterns, optimized parameters, derivatives, and integrals of decomposition. Furthermore, FCD can be applied for physical analysis and feature extraction with an average SRMSE of 0.735 per segment and a speed of 0.47s on full decomposition of 1,000 points. Finally, we demonstrate that a Convolutional Neural Network (CNN) enhanced with FCD features, such as optimized function values, parameters, and derivatives, achieved 16.8% faster convergence and 2.5% higher accuracy over a standard CNN.",
+      "authors": [
+        "Teymur Aghayev"
+      ],
+      "primary_category": "eess.SP",
+      "categories": [
+        "eess.SP",
+        "cs.LG"
+      ],
+      "published": "2026-02-24 12:58:21+00:00",
+      "link": "https://arxiv.org/pdf/2602.20857v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Parametric optimization of mathematical functions for physical interpretability in time-series",
+      "llm_evidence_cn": "时间序列中具有物理可解释性的数学函数参数优化",
+      "llm_evidence": "时间序列中具有物理可解释性的数学函数参数优化",
+      "llm_tldr_en": "Proposes a framework for continuous optimization of mathematical functions to capture patterns in time-series.",
+      "llm_tldr_cn": "提出了一种数学函数连续优化的框架，用于捕捉时间序列中的模式。",
+      "llm_tldr": "提出了一种数学函数连续优化的框架，用于捕捉时间序列中的模式。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.21044v1",
+      "title": "LogicGraph : Benchmarking Multi-Path Logical Reasoning via Neuro-Symbolic Generation and Verification",
+      "abstract": "Evaluations of large language models (LLMs) primarily emphasize convergent logical reasoning, where success is defined by producing a single correct proof. However, many real-world reasoning problems admit multiple valid derivations, requiring models to explore diverse logical paths rather than committing to one route. To address this limitation, we introduce LogicGraph, the first benchmark aimed to systematically evaluate multi-path logical reasoning, constructed via a neuro-symbolic framework that leverages backward logic generation and semantic instantiation. This pipeline yields solver-verified reasoning problems formalized by high-depth multi-path reasoning and inherent logical distractions, where each instance is associated with an exhaustive set of minimal proofs. We further propose a reference-free evaluation framework to rigorously assess model performance in both convergent and divergent regimes. Experiments on state-of-the-art language models reveal a common limitation: models tend to commit early to a single route and fail to explore alternatives, and the coverage gap grows substantially with reasoning depth. LogicGraph exposes this divergence gap and provides actionable insights to motivate future improvements. Our code and data will be released at https://github.com/kkkkarry/LogicGraph.",
+      "authors": [
+        "Yanrui Wu",
+        "Lingling Zhang",
+        "Xinyu Zhang",
+        "Jiayu Chang",
+        "Pengyu Li",
+        "Xu Jiang",
+        "Jingtao Hu",
+        "Jun Liu"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-02-24 16:04:26+00:00",
+      "link": "https://arxiv.org/pdf/2602.21044v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "neuro-symbolic framework for logical reasoning and verification",
+      "llm_evidence_cn": "用于逻辑推理和验证的神经符号框架",
+      "llm_evidence": "用于逻辑推理和验证的神经符号框架",
+      "llm_tldr_en": "LogicGraph uses a neuro-symbolic framework to benchmark and verify multi-path logical reasoning.",
+      "llm_tldr_cn": "LogicGraph利用神经符号框架来评估和验证多路径逻辑推理能力。",
+      "llm_tldr": "LogicGraph利用神经符号框架来评估和验证多路径逻辑推理能力。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Comparison of genetic programming and neural symbolic regression techniques",
+      "matched_requirement_id": "req-4",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.21467v1",
+      "title": "Geometric Priors for Generalizable World Models via Vector Symbolic Architecture",
+      "abstract": "A key challenge in artificial intelligence and neuroscience is understanding how neural systems learn representations that capture the underlying dynamics of the world. Most world models represent the transition function with unstructured neural networks, limiting interpretability, sample efficiency, and generalization to unseen states or action compositions. We address these issues with a generalizable world model grounded in Vector Symbolic Architecture (VSA) principles as geometric priors. Our approach utilizes learnable Fourier Holographic Reduced Representation (FHRR) encoders to map states and actions into a high dimensional complex vector space with learned group structure and models transitions with element-wise complex multiplication. We formalize the framework's group theoretic foundation and show how training such structured representations to be approximately invariant enables strong multi-step composition directly in latent space and generalization performances over various experiments. On a discrete grid world environment, our model achieves 87.5% zero shot accuracy to unseen state-action pairs, obtains 53.6% higher accuracy on 20-timestep horizon rollouts, and demonstrates 4x higher robustness to noise relative to an MLP baseline. These results highlight how training to have latent group structure yields generalizable, data-efficient, and interpretable world models, providing a principled pathway toward structured models for real-world planning and reasoning.",
+      "authors": [
+        "William Youngwoo Chung",
+        "Calvin Yeung",
+        "Hansen Jin Lillemark",
+        "Zhuowen Zou",
+        "Xiangjian Liu",
+        "Mohsen Imani"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-25 00:41:42+00:00",
+      "link": "https://arxiv.org/pdf/2602.21467v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Vector Symbolic Architecture for world models and transition functions",
+      "llm_evidence_cn": "用于世界模型和转移函数的向量符号架构",
+      "llm_evidence": "用于世界模型和转移函数的向量符号架构",
+      "llm_tldr_en": "Uses Vector Symbolic Architecture (VSA) to improve interpretability and generalization in world models.",
+      "llm_tldr_cn": "利用向量符号架构（VSA）提升世界模型的可解释性与泛化能力。",
+      "llm_tldr": "利用向量符号架构（VSA）提升世界模型的可解释性与泛化能力。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Comparison of genetic programming and neural symbolic regression techniques",
+      "matched_requirement_id": "req-4",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.21468v1",
+      "title": "Unsupervised Discovery of Intermediate Phase Order in the Frustrated $J_1$-$J_2$ Heisenberg Model via Prometheus Framework",
+      "abstract": "The spin-$1/2$ $J_1$-$J_2$ Heisenberg model on the square lattice exhibits a debated intermediate phase between Néel antiferromagnetic and stripe ordered regimes, with competing theories proposing plaquette valence bond, nematic, and quantum spin liquid ground states. We apply the Prometheus variational autoencoder framework -- previously validated on classical (2D, 3D Ising) and quantum (disordered transverse field Ising) phase transitions -- to systematically explore the $J_1$-$J_2$ phase diagram via unsupervised analysis of exact diagonalization ground states for a $4 \\times 4$ lattice. Through dense parameter scans of $J_2/J_1 \\in [0.3, 0.7]$ with step size 0.01 and comprehensive latent space analysis, we investigate the nature of the intermediate regime using unsupervised order parameter discovery and critical point detection via multiple independent methods. This work demonstrates the application of rigorously validated machine learning methods to open questions in frustrated quantum magnetism, where traditional order parameter identification is challenged by competing interactions and limited accessible system sizes.",
+      "authors": [
+        "Brandon Yee",
+        "Wilson Collins",
+        "Maximilian Rutkowski"
+      ],
+      "primary_category": "cond-mat.str-el",
+      "categories": [
+        "cond-mat.str-el",
+        "cond-mat.dis-nn",
+        "cs.LG",
+        "quant-ph"
+      ],
+      "published": "2026-02-25 00:44:51+00:00",
+      "link": "https://arxiv.org/pdf/2602.21468v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Unsupervised discovery of physical phases in Heisenberg model",
+      "llm_evidence_cn": "海森堡模型中物理相的无监督发现",
+      "llm_evidence": "海森堡模型中物理相的无监督发现",
+      "llm_tldr_en": "Uses a VAE framework for unsupervised discovery of intermediate phases in quantum physical models.",
+      "llm_tldr_cn": "使用VAE框架在量子物理模型中进行中间相的无监督发现。",
+      "llm_tldr": "使用VAE框架在量子物理模型中进行中间相的无监督发现。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "6"
+    }
+  ]
+}
