@@ -29,30 +29,15 @@ subscriptions:
       description: ''
       enabled: true
       keywords:
-        - id: kw-1772208863973-1284
-          keyword: Symbolic Regression
+        - keyword: Symbolic Regression
           keyword_cn: 符号回归
           query: Symbolic regression methods and applications
-          logic_cn: ''
-          enabled: true
-          source: manual
-          note: ''
-        - id: kw-1772208863973-9481
-          keyword: Genetic Programming
+        - keyword: Genetic Programming
           keyword_cn: 遗传编程
           query: Genetic programming for symbolic model discovery
-          logic_cn: ''
-          enabled: true
-          source: manual
-          note: ''
-        - id: kw-1772208863973-1404
-          keyword: Reinforcement Learning
+        - keyword: Reinforcement Learning
           keyword_cn: 强化学习
           query: Reinforcement learning based symbolic regression
-          logic_cn: ''
-          enabled: true
-          source: manual
-          note: ''
       intent_queries:
         - id: intent-q-1772208863973-4500
           query: Symbolic regression methods and applications
@@ -78,46 +63,21 @@ subscriptions:
       description: 符号回归与强化学习的结合研究
       enabled: true
       keywords:
-        - id: gen-kw-1772208974374-1
-          keyword: symbolic regression
+        - keyword: symbolic regression
           keyword_cn: 符号回归
           query: deep symbolic regression using reinforcement learning
-          logic_cn: 符号回归
-          enabled: true
-          source: generated
-          note: ''
-        - id: gen-kw-1772208974374-2
-          keyword: reinforcement learning
+        - keyword: reinforcement learning
           keyword_cn: 强化学习
           query: reinforcement learning for mathematical expression discovery
-          logic_cn: 强化学习
-          enabled: true
-          source: generated
-          note: ''
-        - id: gen-kw-1772208974374-5
-          keyword: genetic programming
+        - keyword: genetic programming
           keyword_cn: 遗传规划
           query: comparison between genetic programming and RL-based symbolic regression
-          logic_cn: 遗传规划
-          enabled: true
-          source: generated
-          note: ''
-        - id: gen-kw-1772208974374-6
-          keyword: Transformer
+        - keyword: Transformer
           keyword_cn: Transformer模型
           query: Transformer models for symbolic regression tasks
-          logic_cn: Transformer模型
-          enabled: true
-          source: generated
-          note: ''
-        - id: gen-kw-1772208974374-8
-          keyword: equation discovery
+        - keyword: equation discovery
           keyword_cn: 方程发现
           query: automated equation discovery from data using RL
-          logic_cn: 方程发现
-          enabled: true
-          source: generated
-          note: ''
       intent_queries:
         - id: gen-intent-1772208974374-1
           query: state-of-the-art reinforcement learning methods for symbolic regression
@@ -132,6 +92,43 @@ subscriptions:
           source: generated
           note: ''
       updated_at: '2026-02-27T16:16:37.608Z'
+    - id: profile-1772209276556-8860
+      tag: SR-LNS
+      description: 符号回归与大邻域搜索算法的结合研究
+      enabled: true
+      keywords:
+        - keyword: symbolic regression
+          keyword_cn: 符号回归
+          query: symbolic regression algorithms and methods
+        - keyword: large neighborhood search
+          keyword_cn: 大邻域搜索
+          query: large neighborhood search (LNS) optimization
+        - keyword: ALNS
+          keyword_cn: 自适应大邻域搜索
+          query: adaptive large neighborhood search for symbolic regression
+        - keyword: local search
+          keyword_cn: 局部搜索
+          query: local search heuristics in symbolic regression
+      intent_queries:
+        - id: intent-q-1772209276556-5191
+          query: adaptive large neighborhood search for mathematical expression discovery
+          query_cn: 用于数学表达式发现的自适应大邻域搜索
+          enabled: true
+          source: manual
+          note: ''
+        - id: intent-q-1772209276556-724
+          query: hybrid genetic programming and large neighborhood search for regression
+          query_cn: 混合遗传编程与大邻域搜索的回归方法
+          enabled: true
+          source: manual
+          note: ''
+        - id: intent-q-1772209276556-724
+          query: state-of-the-art symbolic regression using metaheuristic search
+          query_cn: 使用元启发式搜索的前沿符号回归技术
+          enabled: true
+          source: manual
+          note: ''
+      updated_at: '2026-02-27T16:21:16.556Z'
   smart_query_prompt_template: >-
     You are a retrieval planning assistant.
 
