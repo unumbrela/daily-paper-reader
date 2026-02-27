@@ -47,6 +47,19 @@ window.SubscriptionsManager = (function () {
     '5) 只输出 JSON，不要输出其它文本。',
   ].join('\n');
 
+  const QUICK_RUN_CONFERENCES = [
+    'ACL',
+    'AAAI',
+    'COLING',
+    'EMNLP',
+    'ICCV',
+    'ICLR',
+    'ICML',
+    'IJCAI',
+    'NeurIPS',
+    'SIGIR',
+  ];
+
   const normalizeText = (v) => String(v || '').trim();
 
   const cloneDeep = (obj) => {
@@ -77,6 +90,60 @@ window.SubscriptionsManager = (function () {
     if (!s) return false;
     if (s.includes('(') || s.includes(')')) return true;
     return /\b(AND|OR|NOT)\b|&&|\|\||!/.test(s.toUpperCase());
+  };
+
+  const fillQuickRunOptions = (yearSelectEl, confSelectEl) => {
+    if (yearSelectEl && !yearSelectEl._dprQuickRunOptionsFilled) {
+      yearSelectEl._dprQuickRunOptionsFilled = true;
+      const currentYear = new Date().getFullYear();
+      for (let y = currentYear; y >= currentYear - 8; y -= 1) {
+        const opt = document.createElement('option');
+        opt.value = String(y);
+        opt.textContent = String(y);
+        yearSelectEl.appendChild(opt);
+      }
+    }
+
+    if (confSelectEl && !confSelectEl._dprQuickRunOptionsFilled) {
+      confSelectEl._dprQuickRunOptionsFilled = true;
+      QUICK_RUN_CONFERENCES.forEach((name) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        confSelectEl.appendChild(opt);
+      });
+    }
+  };
+
+  const runQuickFetch = (days, msgEl) => {
+    if (!window.DPRWorkflowRunner || typeof window.DPRWorkflowRunner.runQuickFetchByDays !== 'function') {
+      if (msgEl) {
+        msgEl.textContent = '工作流触发器未加载到当前页面。';
+        msgEl.style.color = '#c00';
+      }
+      return;
+    }
+    window.DPRWorkflowRunner.runQuickFetchByDays(days);
+    if (msgEl) {
+      msgEl.textContent = `已发起 ${days} 天内抓取任务。`;
+      msgEl.style.color = '#080';
+    }
+  };
+
+  const runQuickConferencePlaceholder = (yearSelectEl, confSelectEl, msgEl) => {
+    const year = (yearSelectEl && yearSelectEl.value) || '';
+    const conf = String((confSelectEl && confSelectEl.value) || '').trim();
+    if (!year || !conf) {
+      if (msgEl) {
+        msgEl.textContent = '请先选择年份和会议名。';
+        msgEl.style.color = '#c00';
+      }
+      return;
+    }
+    if (msgEl) {
+      msgEl.textContent = `${year} ${conf} 的会议论文抓取功能暂未接入。`;
+      msgEl.style.color = '#c90';
+    }
   };
 
   const cleanBooleanForEmbedding = (expr) => {
@@ -345,19 +412,47 @@ window.SubscriptionsManager = (function () {
           </div>
         </div>
 
-        <div id="dpr-smart-query-section" class="arxiv-pane dpr-smart-pane">
-          <div class="dpr-display-card">
-            <div id="dpr-sq-display" class="dpr-sq-display"></div>
+        <div id="arxiv-search-panel-body">
+          <div id="arxiv-search-panel-main">
+            <div id="dpr-smart-query-section" class="arxiv-pane dpr-smart-pane">
+              <div class="dpr-display-card">
+                <div id="dpr-sq-display" class="dpr-sq-display"></div>
+              </div>
+
+              <div class="dpr-input-card">
+                <div class="dpr-inline-row">
+                  <button id="dpr-sq-open-chat-btn" class="arxiv-tool-btn" style="background:#2e7d32; color:#fff;">新增</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="dpr-smart-msg" style="font-size:12px; color:#666; margin-top:10px;">提示：修改后点击「保存」才会写入 config.yaml。</div>
           </div>
 
-          <div class="dpr-input-card">
-            <div class="dpr-inline-row">
-              <button id="dpr-sq-open-chat-btn" class="arxiv-tool-btn" style="background:#2e7d32; color:#fff;">新增</button>
+          <div id="arxiv-search-quick-run-divider" aria-hidden="true"></div>
+
+          <div id="arxiv-search-quick-run-side">
+            <div class="chat-quick-run-title">快速抓取</div>
+            <button id="arxiv-admin-quick-run-7d-btn" class="chat-quick-run-item" type="button">立即搜寻七天内论文</button>
+            <button id="arxiv-admin-quick-run-30d-btn" class="chat-quick-run-item" type="button">立即搜寻三十天内论文</button>
+            <div class="chat-quick-run-divider" aria-hidden="true"></div>
+            <div class="chat-quick-run-title">会议论文（先保留）</div>
+            <div class="chat-quick-run-row">
+              <label for="arxiv-admin-quick-run-year-select">年份</label>
+              <select id="arxiv-admin-quick-run-year-select">
+                <option value="">选择年份</option>
+              </select>
             </div>
+            <div class="chat-quick-run-row">
+              <label for="arxiv-admin-quick-run-conference-select">会议名</label>
+              <select id="arxiv-admin-quick-run-conference-select">
+                <option value="">选择会议名</option>
+              </select>
+            </div>
+            <button id="arxiv-admin-quick-run-conference-run-btn" class="chat-quick-run-run-btn" type="button">运行</button>
+            <div id="arxiv-admin-quick-run-msg" class="chat-quick-run-msg"></div>
           </div>
         </div>
-
-        <div id="dpr-smart-msg" style="font-size:12px; color:#666; margin-top:10px;">提示：修改后点击「保存」才会写入 config.yaml。</div>
       </div>
     `;
 
@@ -496,6 +591,43 @@ window.SubscriptionsManager = (function () {
         } catch (e) {
           console.error(e);
         }
+      });
+    }
+
+    const quickRun7dBtn = document.getElementById('arxiv-admin-quick-run-7d-btn');
+    const quickRun30dBtn = document.getElementById('arxiv-admin-quick-run-30d-btn');
+    const quickRunConferenceBtn = document.getElementById(
+      'arxiv-admin-quick-run-conference-run-btn',
+    );
+    const quickRunYearSelect = document.getElementById('arxiv-admin-quick-run-year-select');
+    const quickRunConferenceSelect = document.getElementById(
+      'arxiv-admin-quick-run-conference-select',
+    );
+    const quickRunMsgEl = document.getElementById('arxiv-admin-quick-run-msg');
+    fillQuickRunOptions(quickRunYearSelect, quickRunConferenceSelect);
+
+    if (quickRun7dBtn && !quickRun7dBtn._bound) {
+      quickRun7dBtn._bound = true;
+      quickRun7dBtn.addEventListener('click', () => {
+        runQuickFetch(7, quickRunMsgEl);
+      });
+    }
+
+    if (quickRun30dBtn && !quickRun30dBtn._bound) {
+      quickRun30dBtn._bound = true;
+      quickRun30dBtn.addEventListener('click', () => {
+        runQuickFetch(30, quickRunMsgEl);
+      });
+    }
+
+    if (quickRunConferenceBtn && !quickRunConferenceBtn._bound) {
+      quickRunConferenceBtn._bound = true;
+      quickRunConferenceBtn.addEventListener('click', () => {
+        runQuickConferencePlaceholder(
+          quickRunYearSelect,
+          quickRunConferenceSelect,
+          quickRunMsgEl,
+        );
       });
     }
 
