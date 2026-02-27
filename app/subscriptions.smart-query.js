@@ -988,7 +988,14 @@ window.SubscriptionsSmartQuery = (function () {
         <div class="dpr-modal-title">${modalState && modalState.editProfileId ? '修改词条' : '新增词条候选'}</div>
         <button class="arxiv-tool-btn" data-action="close">关闭</button>
       </div>
-      <div class="dpr-modal-group-title">请先在下方输入你的检索想法<br/>ex: 请帮我去查找强化学习和符号回归相关的论文</div>
+      <div class="dpr-modal-group-title">
+        请先在下方输入你的检索想法
+        <span class="dpr-help-example">
+          ex: 请帮我去查找强化学习和符号回归相关的论文<br />
+          ex: 请帮我查找可解释的深度学习符号回归论文<br />
+          ex: 我想找强化学习在方程发现中的应用
+        </span>
+      </div>
       <div class="dpr-modal-list dpr-combo-list">${candidateBlocks || '<div class="dpr-cloud-empty"></div>'}</div>
       <div class="dpr-modal-actions-inline dpr-modal-add-inline">
         <input id="dpr-add-kw-text" type="text" placeholder="手动新增关键词（召回词）" value="${escapeHtml(modalState.customKeyword || '')}" />
@@ -1093,7 +1100,14 @@ window.SubscriptionsSmartQuery = (function () {
         <button class="arxiv-tool-btn" data-action="close">关闭</button>
       </div>
       <div class="dpr-chat-result-module">
-        <div class="dpr-modal-group-title">请先在下方输入你的检索想法<br/>ex: 请帮我去查找强化学习和符号回归相关的论文</div>
+        <div class="dpr-modal-group-title">
+          请先在下方输入你的检索想法
+          <span class="dpr-help-example">
+            ex: 请帮我去查找强化学习和符号回归相关的论文<br />
+            ex: 请帮我查找可解释的深度学习符号回归论文<br />
+            ex: 我想找强化学习在方程发现中的应用
+          </span>
+        </div>
         <div class="dpr-cloud-scroll">${mixedHtml || emptyBlock}</div>
       </div>
       <div class="dpr-modal-actions dpr-chat-action-area">
