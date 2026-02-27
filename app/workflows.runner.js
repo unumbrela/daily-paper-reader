@@ -9,7 +9,7 @@ window.DPRWorkflowRunner = (function () {
       name: '立即爬取并处理论文',
       desc: '触发 daily-paper-reader 工作流（抓取→召回→重排→生成 docs）。',
       dispatchInputs: {
-        run_enrich: 'true',
+        run_enrich: 'false',
       },
     },
     {
@@ -18,7 +18,7 @@ window.DPRWorkflowRunner = (function () {
       name: '立即爬取并处理论文（一个月）',
       desc: '回溯 30 天并使用全速读（skims）模式生成结果。',
       dispatchInputs: {
-        run_enrich: 'true',
+        run_enrich: 'false',
         fetch_days: '30',
       },
     },
@@ -34,14 +34,14 @@ window.DPRWorkflowRunner = (function () {
     '7': {
       key: 'daily-now',
       dispatchInputs: {
-        run_enrich: 'true',
+        run_enrich: 'false',
         fetch_days: '7',
       },
     },
     '30': {
       key: 'daily-month-skims',
       dispatchInputs: {
-        run_enrich: 'true',
+        run_enrich: 'false',
         fetch_days: '30',
       },
     },
@@ -723,7 +723,7 @@ window.DPRWorkflowRunner = (function () {
     const preset = QUICK_FETCH_PRESETS[normalized] || {
       key: 'daily-now',
       dispatchInputs: {
-        run_enrich: 'true',
+        run_enrich: 'false',
         fetch_days: normalized,
       },
     };
