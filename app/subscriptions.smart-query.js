@@ -906,13 +906,13 @@ window.SubscriptionsSmartQuery = (function () {
       <div class="dpr-modal-actions dpr-modal-add-footer">
         <label class="dpr-modal-field">
           <span class="dpr-modal-field-label">标签</span>
-          <input id="dpr-add-profile-tag" type="text" value="${escapeHtml(modalState.tag || '')}" placeholder="请填写标签（必填）" />
+          <input id="dpr-add-profile-tag" type="text" value="${escapeHtml(modalState.tag || '')}" placeholder="请填写标签" />
         </label>
         <label class="dpr-modal-field">
           <span class="dpr-modal-field-label">描述</span>
-          <input id="dpr-add-profile-desc" type="text" value="${escapeHtml(modalState.description || '')}" placeholder="请填写描述（必填）" />
+          <input id="dpr-add-profile-desc" type="text" value="${escapeHtml(modalState.description || '')}" placeholder="请填写中文描述" />
         </label>
-        <button class="arxiv-tool-btn" data-action="apply-add" style="background:#2e7d32;color:#fff;">应用勾选结果</button>
+        <button class="arxiv-tool-btn" data-action="apply-add" style="background:#2e7d32;color:#fff;">保存查询</button>
       </div>
     `;
   };
@@ -993,15 +993,15 @@ window.SubscriptionsSmartQuery = (function () {
         <div class="dpr-modal-title">新增查询（请勾选你想要了解的关键词）</div>
         <div class="dpr-chat-head-actions">
           <label class="dpr-chat-label dpr-chat-inline-tag">
-            <span class="dpr-chat-label-text">标签（必填）</span>
-            <input id="dpr-chat-tag-input" type="text" placeholder="必填，标签，如SR" value="${escapeHtml(modalState.inputTag || '')}" />
+            <span class="dpr-chat-label-text">标签</span>
+            <input id="dpr-chat-tag-input" type="text" placeholder="例如：SR" value="${escapeHtml(modalState.inputTag || '')}" />
           </label>
           <label class="dpr-chat-label dpr-chat-inline-desc">
-            <span class="dpr-chat-label-text">中文描述（必填）</span>
+            <span class="dpr-chat-label-text">中文描述</span>
             <input id="dpr-chat-required-desc" type="text" placeholder="请填写描述" value="${escapeHtml(modalState.inputDesc || '')}" />
           </label>
           <button class="arxiv-tool-btn" data-action="apply-chat" style="background:#2e7d32;color:#fff;" ${hasCandidates ? '' : 'disabled'}>
-            应用勾选结果
+            保存查询
           </button>
           <button class="arxiv-tool-btn" data-action="close">关闭</button>
         </div>
@@ -1040,11 +1040,11 @@ window.SubscriptionsSmartQuery = (function () {
     const tag = normalizeText(document.getElementById('dpr-chat-tag-input')?.value || modalState.inputTag || '');
 
     if (!tag) {
-      setMessage('请先填写标签（必填）。', '#c00');
+      setMessage('请先填写标签。', '#c00');
       return;
     }
     if (!desc) {
-      setMessage('请先填写描述（必填）。', '#c00');
+      setMessage('请先填写中文描述。', '#c00');
       return;
     }
     modalState.inputTag = tag;
@@ -1063,7 +1063,7 @@ window.SubscriptionsSmartQuery = (function () {
       return;
     }
     if (typeof reloadAll === 'function') reloadAll();
-    setMessage('已应用勾选结果，请点击「保存」。', '#666');
+    setMessage('查询已保存，请点击「保存」。', '#666');
     closeModal();
   };
 
@@ -1077,12 +1077,8 @@ window.SubscriptionsSmartQuery = (function () {
     const finalTag = tag || `SR-${new Date().toISOString().slice(0, 10)}`;
     const finalDesc = desc;
 
-    if (!tag) {
-      setChatStatus('请先填写标签（必填）。', '#c00');
-      return;
-    }
     if (!finalDesc) {
-      setChatStatus('请先填写描述（必填）。', '#c00');
+      setChatStatus('请先填写中文描述。', '#c00');
       return;
     }
 
@@ -1549,10 +1545,7 @@ window.SubscriptionsSmartQuery = (function () {
   const generateAndOpenAddModal = async () => {
     const tag = normalizeText(tagInputEl?.value || '');
     const desc = normalizeText(descInputEl?.value || '');
-    if (!tag) {
-      setMessage('请先填写标签（Tag）。', '#c00');
-      return;
-    }
+    const finalTag = tag || `SR-${new Date().toISOString().slice(0, 10)}`;
     if (!desc) {
       setMessage('请先填写智能 Query 描述。', '#c00');
       return;
@@ -1561,9 +1554,9 @@ window.SubscriptionsSmartQuery = (function () {
     try {
       setMessage('正在生成候选，请稍候...', '#666');
       if (createBtn) createBtn.disabled = true;
-      const candidates = await requestCandidatesByDesc(tag, desc);
+      const candidates = await requestCandidatesByDesc(finalTag, desc);
 
-      openAddModal(tag, desc, candidates);
+      openAddModal(finalTag, desc, candidates);
       setMessage(`候选已生成（关键词 ${candidates.keywords.length} 条，Query ${candidates.queries.length} 条）。`, '#666');
     } catch (e) {
       console.error(e);
