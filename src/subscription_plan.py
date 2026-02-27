@@ -89,6 +89,60 @@ def _normalize_query_item(item: Any) -> str:
   )
 
 
+def _normalize_intent_query_entry(item: Any, default_id: str) -> Dict[str, Any]:
+  if isinstance(item, str):
+    query = _norm_text(item)
+    if not query:
+      return {}
+    return {
+      "id": default_id,
+      "query": query,
+      "enabled": True,
+      "source": "manual",
+    }
+
+  if not isinstance(item, dict):
+    return {}
+
+  query = _norm_text(item.get("query") or item.get("text") or item.get("keyword") or item.get("expr") or "")
+  if not query:
+    return {}
+
+  return {
+    "id": _norm_text(item.get("id") or default_id),
+    "query": query,
+    "enabled": _as_bool(item.get("enabled"), True),
+    "source": _norm_text(item.get("source") or "manual"),
+    "note": _norm_text(item.get("note") or ""),
+  }
+
+
+def _normalize_query_list(
+  items: Any,
+  pid: str,
+  start_index: int,
+  id_prefix: str,
+) -> List[Dict[str, Any]]:
+  if not isinstance(items, list):
+    return []
+
+  out: List[Dict[str, Any]] = []
+  for idx, raw in enumerate(items):
+    entry = _normalize_intent_query_entry(raw, f"{pid}-{id_prefix}-{start_index + idx + 1}")
+    if entry:
+      out.append(entry)
+
+  seen = set()
+  deduped: List[Dict[str, Any]] = []
+  for item in out:
+    key = _norm_text(item.get("query")).lower()
+    if not key or key in seen:
+      continue
+    seen.add(key)
+    deduped.append(item)
+  return deduped
+
+
 def _normalize_keyword_entry(item: Any, default_id: str) -> Dict[str, Any]:
   if isinstance(item, str):
     keyword = _norm_text(item)
@@ -179,6 +233,12 @@ def _normalize_profile(profile: Dict[str, Any], idx: int) -> Dict[str, Any]:
 
   kw_rules_in = profile.get("keywords") or []
   kw_rules: List[Dict[str, Any]] = _normalize_keyword_list(kw_rules_in, pid)
+  intent_queries: List[Dict[str, Any]] = _normalize_query_list(
+    profile.get("intent_queries"),
+    pid,
+    0,
+    "intent",
+  )
 
   return {
     "id": pid,
@@ -186,6 +246,7 @@ def _normalize_profile(profile: Dict[str, Any], idx: int) -> Dict[str, Any]:
     "description": description,
     "enabled": _as_bool(profile.get("enabled"), True),
     "keywords": kw_rules,
+    "intent_queries": intent_queries,
     "updated_at": _norm_text(profile.get("updated_at") or _now_iso()),
   }
 
@@ -269,6 +330,59 @@ def _build_from_profiles(subs: Dict[str, Any]) -> Dict[str, Any]:
           "tag": paper_tag_query,
           "query": raw_query,
           "logic_cn": logic_cn,
+        }
+      )
+
+    for intent_query in profile.get("intent_queries") or []:
+      normalized_intent = _normalize_intent_query_entry(
+        intent_query,
+        f"{_norm_text(profile.get('id'))}-intent-query-{len(context_queries) + 1}",
+      )
+      if not normalized_intent:
+        continue
+      if not _as_bool(normalized_intent.get("enabled"), True):
+        continue
+
+      raw_query = _norm_text(normalized_intent.get("query") or "")
+      if not raw_query:
+        continue
+
+      source = _norm_text(normalized_intent.get("source") or "manual")
+      source_rule_id = _norm_text(normalized_intent.get("id") or "")
+      intent_query_tag = f"query:{tag}::intent"
+
+      bm25_queries.append(
+        {
+          "type": "intent_query",
+          "tag": tag,
+          "paper_tag": f"query:{tag}",
+          "query_text": raw_query,
+          "query_terms": [{"text": raw_query, "weight": MAIN_TERM_WEIGHT}],
+          "boolean_expr": "",
+          "logic_cn": "",
+          "source_profile_id": profile.get("id"),
+          "source_rule_id": source_rule_id,
+          "source": source,
+          "or_soft_weight": OR_SOFT_WEIGHT,
+        }
+      )
+      embedding_queries.append(
+        {
+          "type": "intent_query",
+          "tag": tag,
+          "paper_tag": f"query:{tag}",
+          "query_text": raw_query,
+          "logic_cn": "",
+          "source_profile_id": profile.get("id"),
+          "source_rule_id": source_rule_id,
+          "source": source,
+        }
+      )
+      context_queries.append(
+        {
+          "tag": intent_query_tag,
+          "query": raw_query,
+          "logic_cn": "",
         }
       )
 

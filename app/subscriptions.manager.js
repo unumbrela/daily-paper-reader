@@ -113,6 +113,46 @@ window.SubscriptionsManager = (function () {
     return out;
   };
 
+  const normalizeIntentQueryItem = (item) => {
+    if (typeof item === 'string') {
+      const query = normalizeText(item);
+      if (!query) return null;
+      return {
+        id: `intent-q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+        query,
+        enabled: true,
+        source: 'manual',
+      };
+    }
+    if (!item || typeof item !== 'object') return null;
+
+    const query = normalizeText(item.query || item.text || item.keyword || item.expr || '');
+    if (!query) return null;
+
+    return {
+      id: normalizeText(item.id) || `intent-q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      query,
+      enabled: item.enabled !== false,
+      source: normalizeText(item.source || 'manual'),
+      note: normalizeText(item.note || ''),
+    };
+  };
+
+  const normalizeIntentQueries = (items) => {
+    const list = Array.isArray(items) ? items : [];
+    const seen = new Set();
+    const out = [];
+    for (const item of list) {
+      const normalized = normalizeIntentQueryItem(item);
+      if (!normalized) continue;
+      const key = normalizeText(normalized.query).toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(normalized);
+    }
+    return out;
+  };
+
   const fillQuickRunOptions = (yearSelectEl, confSelectEl) => {
     if (yearSelectEl && !yearSelectEl._dprQuickRunOptionsFilled) {
       yearSelectEl._dprQuickRunOptionsFilled = true;
@@ -176,21 +216,22 @@ window.SubscriptionsManager = (function () {
         const tag = normalizeText(p.tag) || id;
         const description = normalizeText(p.description || '');
         const enabled = p.enabled !== false;
-
-        let keywordRules = (Array.isArray(p.keywords) ? p.keywords : []).map(normalizeKeywordItem).filter(Boolean);
+        const keywordRules = (Array.isArray(p.keywords) ? p.keywords : []).map(normalizeKeywordItem).filter(Boolean);
         const normalizedKeywords = dedupeKeywords(keywordRules);
-        if (!keywordRules.length && !normalizedKeywords.length) {
+        const normalizedIntentQueries = normalizeIntentQueries(p.intent_queries);
+        if (!keywordRules.length && !normalizedKeywords.length && !normalizedIntentQueries.length) {
           return null;
         }
 
-      return {
-        id,
-        tag,
-        description,
-        enabled,
-        keywords: normalizedKeywords,
-        updated_at: normalizeText(p.updated_at) || new Date().toISOString(),
-      };
+        return {
+          id,
+          tag,
+          description,
+          enabled,
+          keywords: normalizedKeywords,
+          intent_queries: normalizedIntentQueries,
+          updated_at: normalizeText(p.updated_at) || new Date().toISOString(),
+        };
       })
       .filter(Boolean);
   };

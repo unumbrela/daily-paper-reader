@@ -32,14 +32,19 @@ window.SubscriptionsSmartQuery = (function () {
     '      "keyword": "用于 BM25 召回的关键词短语",',
     '      "query": "对应的语义 Query 改写"',
     '    }',
-    '  ]',
+    '  ],',
+    '  "intent_queries": [',
+    '    "满足用户意图的语义查询1",',
+    '    "满足用户意图的语义查询2"',
+    '  ],',
     '}',
     '要求：',
     '1) keywords 为数组，请输出 5~12 条对象（keyword + query），供用户多选；',
     '2) keywords 建议为短词组（1~4 个核心概念词，建议不超过 6 个词）；',
-    '3) 避免长句式与无关修饰词，优先输出可独立召回的短名词短语。',
-    '4) 不要返回 must_have/optional/exclude/rewrite_for_embedding 等额外字段。',
-    '5) 只输出 JSON，不要输出其它文本。',
+    '3) keywords 建议为短词组（1~4 个核心概念词，建议不超过 6 个词），优先输出可独立召回的短名词短语。',
+    '4) intent_queries 输出 3~8 条可落地的检索句。',
+    '5) 不要返回 must_have/optional/exclude/rewrite_for_embedding 等额外字段。',
+    '6) 只输出 JSON，不要输出其它文本。',
   ].join('\n');
 
   const normalizeText = (v) => String(v || '').trim();
@@ -87,6 +92,41 @@ window.SubscriptionsSmartQuery = (function () {
         };
       })
       .filter(Boolean);
+  };
+
+  const normalizeIntentQueryEntries = (rawIntentQueries) => {
+    const items = Array.isArray(rawIntentQueries) ? rawIntentQueries : [];
+    const seen = new Set();
+    return items
+      .map((item, idx) => {
+        if (typeof item === 'string') {
+          const query = normalizeText(item);
+          if (!query) return null;
+          return {
+            id: `gen-intent-${Date.now()}-${idx + 1}`,
+            query,
+            enabled: true,
+            source: 'generated',
+          };
+        }
+        if (!item || typeof item !== 'object') return null;
+        const query = normalizeText(item.query || item.text || item.keyword || item.expr || '');
+        if (!query) return null;
+        return {
+          id: normalizeText(item.id) || `gen-intent-${Date.now()}-${idx + 1}`,
+          query,
+          enabled: item.enabled !== false,
+          source: normalizeText(item.source || 'generated'),
+          note: normalizeText(item.note || ''),
+        };
+      })
+      .filter((item) => {
+        if (!item) return false;
+        const key = normalizeText(item.query).toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
   };
 
   const escapeHtml = (str) => {
@@ -329,12 +369,19 @@ window.SubscriptionsSmartQuery = (function () {
       return true;
     });
 
-    return { keywords };
+    const rawIntentQueries = Array.isArray(data.intent_queries) ? data.intent_queries : [];
+    const intentQueries = normalizeIntentQueryEntries(rawIntentQueries);
+
+    return {
+      keywords,
+      intent_queries: intentQueries,
+    };
   };
 
   const buildPromptFromTemplate = (tag, desc, template) => {
     const retrievalContext =
-      'keywords 下每条应包含 keyword（召回词）与 query（对应改写）；keyword 用于 BM25 OR 检索，query 用于 embedding/ranker/LLM。';
+      'keywords 下每条应包含 keyword（召回词）与 query（对应改写）；keyword 用于 BM25 OR 检索，query 用于 embedding/ranker/LLM；'
+      + 'intent_queries 用于用户意图匹配的召回候选，也会进入最终大模型打分。';
     return template
       .replace(/\{\{TAG\}\}/g, tag)
       .replace(/\{\{USER_DESCRIPTION\}\}/g, desc)
@@ -521,6 +568,7 @@ window.SubscriptionsSmartQuery = (function () {
     if (!selectedKeywords.length) {
       return false;
     }
+    const intentQueries = normalizeIntentQueryEntries(candidates.intent_queries || []);
 
     window.SubscriptionsManager.updateDraftConfig((cfg) => {
       const next = cfg || {};
@@ -553,6 +601,26 @@ window.SubscriptionsSmartQuery = (function () {
 
       profile.description = normalizeText(profile.description || description || '');
       profile.keywords = kwList;
+      const mergedIntentQueries = [];
+      const intentSeen = new Set();
+      const pushIntent = (item) => {
+        const query = normalizeText(item && item.query);
+        if (!query) return;
+        const qKey = query.toLowerCase();
+        if (intentSeen.has(qKey)) return;
+        intentSeen.add(qKey);
+        mergedIntentQueries.push({
+          id: normalizeText(item.id) || `intent-q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+          query,
+          enabled: item.enabled !== false,
+          source: normalizeText(item.source || 'generated'),
+          note: normalizeText(item.note || ''),
+        });
+      };
+
+      normalizeIntentQueryEntries(profile.intent_queries).forEach(pushIntent);
+      intentQueries.forEach(pushIntent);
+      profile.intent_queries = mergedIntentQueries;
       profile.updated_at = new Date().toISOString();
       subs.intent_profiles = profiles;
       next.subscriptions = subs;
@@ -567,6 +635,7 @@ window.SubscriptionsSmartQuery = (function () {
 
     const selectedKeywords = (candidates.keywords || []).filter((x) => x._selected);
     if (!selectedKeywords.length) return false;
+    const intentQueries = normalizeIntentQueryEntries(candidates.intent_queries || []);
 
     let found = false;
     window.SubscriptionsManager.updateDraftConfig((cfg) => {
@@ -579,6 +648,24 @@ window.SubscriptionsSmartQuery = (function () {
       found = true;
 
       const existedProfile = profiles[idx] || {};
+      const mergedIntentQueries = [];
+      const intentSeen = new Set();
+      const pushIntent = (queryObj) => {
+        const query = normalizeText(queryObj && queryObj.query);
+        if (!query || intentSeen.has(query.toLowerCase())) return;
+        intentSeen.add(query.toLowerCase());
+        mergedIntentQueries.push({
+          id: normalizeText(queryObj.id) || `intent-q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+          query,
+          enabled: queryObj.enabled !== false,
+          source: normalizeText(queryObj.source || 'manual'),
+          note: normalizeText(queryObj.note || ''),
+        });
+      };
+
+      (normalizeIntentQueryEntries(existedProfile.intent_queries) || []).forEach(pushIntent);
+      intentQueries.forEach(pushIntent);
+
       profiles[idx] = {
         ...existedProfile,
         id: existedProfile.id,
@@ -595,6 +682,7 @@ window.SubscriptionsSmartQuery = (function () {
             note: normalizeText(item.note || ''),
           }))
           .filter((x) => x.keyword),
+        intent_queries: mergedIntentQueries,
         updated_at: new Date().toISOString(),
       };
       subs.intent_profiles = profiles;
@@ -607,6 +695,7 @@ window.SubscriptionsSmartQuery = (function () {
   const parseCandidatesForState = (candidates, selected = true) => {
     return {
       keywords: (candidates.keywords || []).map((x) => ({ ...x, _selected: selected })),
+      intent_queries: (candidates.intent_queries || []).map((x) => ({ ...x })),
     };
   };
 
@@ -625,6 +714,7 @@ window.SubscriptionsSmartQuery = (function () {
     const keywordState = parseCandidatesForState({ keywords }, false);
     return {
       keywords: keywordState.keywords,
+      intent_queries: normalizeIntentQueryEntries(profile && profile.intent_queries),
     };
   };
 
@@ -783,11 +873,13 @@ window.SubscriptionsSmartQuery = (function () {
   };
 
   const openAddModal = (tag, description, candidates) => {
+    const normalizedCandidates = parseCandidatesForState(candidates);
     modalState = {
       type: 'add',
       tag,
       description,
-      keywords: parseCandidatesForState(candidates).keywords,
+      keywords: normalizedCandidates.keywords,
+      intent_queries: (normalizedCandidates.intent_queries || []),
       customKeyword: '',
       customKeywordLogic: '',
     };
@@ -1061,6 +1153,7 @@ window.SubscriptionsSmartQuery = (function () {
       tag: profile.tag || '',
       description: profile.description || '',
       ...toProfileSelectableCandidates(profile),
+      intent_queries: normalizeIntentQueryEntries(profile && profile.intent_queries),
       customKeyword: '',
       customKeywordLogic: '',
     };

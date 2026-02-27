@@ -90,6 +90,51 @@ class SubscriptionPlanTest(unittest.TestCase):
         emb = [q for q in plan['embedding_queries'] if q.get('type') == 'keyword'][0]
         self.assertEqual(emb.get('query_text'), 'legacy expr')
 
+    def test_build_pipeline_inputs_with_intent_queries(self):
+        cfg = {
+            'subscriptions': {
+                'intent_profiles': [
+                    {
+                        'id': 'p1',
+                        'tag': 'SR',
+                        'enabled': True,
+                        'keywords': [
+                            {
+                                'keyword': 'Symbolic Regression',
+                                'query': 'symbolic regression methods',
+                                'enabled': True,
+                            },
+                        ],
+                        'intent_queries': [
+                            {'query': 'symbolic regression with reinforcement learning', 'enabled': True},
+                            {'query': 'equation discovery for physical systems', 'enabled': True},
+                        ],
+                    }
+                ],
+            }
+        }
+        plan = build_pipeline_inputs(cfg)
+
+        intent_bm25 = [q for q in plan['bm25_queries'] if q.get('type') == 'intent_query']
+        intent_emb = [q for q in plan['embedding_queries'] if q.get('type') == 'intent_query']
+        intent_context = [q for q in plan['context_queries'] if q.get('tag', '').startswith('query:SR::intent')]
+
+        self.assertEqual(len(intent_bm25), 2)
+        self.assertEqual(len(intent_emb), 2)
+        self.assertEqual(len(intent_context), 2)
+
+        bm25_texts = [q.get('query_text') for q in intent_bm25]
+        self.assertIn('symbolic regression with reinforcement learning', bm25_texts)
+        self.assertIn('equation discovery for physical systems', bm25_texts)
+
+        emb_texts = [q.get('query_text') for q in intent_emb]
+        self.assertIn('symbolic regression with reinforcement learning', emb_texts)
+        self.assertIn('equation discovery for physical systems', emb_texts)
+
+        context_texts = [q.get('query') for q in intent_context]
+        self.assertIn('symbolic regression with reinforcement learning', context_texts)
+        self.assertIn('equation discovery for physical systems', context_texts)
+
     def test_count_tags(self):
         cfg = {
             'subscriptions': {

@@ -47,6 +47,34 @@ class QueryTagFlowTest(unittest.TestCase):
         self.assertEqual(reqs[0]["tag"], "query:sr")
         self.assertEqual(reqs[0]["id"], "req-1")
 
+    def test_build_user_requirements_include_intent_queries(self):
+        config = {
+            "subscriptions": {
+                "schema_migration": {"stage": "A"},
+                "intent_profiles": [
+                    {
+                        "id": "p1",
+                        "tag": "SR",
+                        "keywords": [
+                            {"keyword": "Symbolic Regression", "query": "symbolic regression", "enabled": True},
+                        ],
+                        "intent_queries": [
+                            {"query": "symbolic regression with reinforcement learning", "enabled": True},
+                            {"query": "equation discovery for physical systems", "enabled": True},
+                        ],
+                    }
+                ]
+            }
+        }
+        reqs = self.refine_mod.build_user_requirements(config, [])
+        self.assertEqual(len(reqs), 3)
+        self.assertEqual(reqs[0]["tag"], "query:sr")
+        self.assertTrue(reqs[1]["tag"].startswith("query:sr-intent"))
+        self.assertTrue(reqs[2]["tag"].startswith("query:sr-intent"))
+        req_texts = [r["query"] for r in reqs]
+        self.assertIn("symbolic regression with reinforcement learning", req_texts)
+        self.assertIn("equation discovery for physical systems", req_texts)
+
     def test_build_scored_papers_fallback_match_tag(self):
         papers = [{"id": "p-1", "title": "t", "abstract": "a"}]
         llm_ranked = [
