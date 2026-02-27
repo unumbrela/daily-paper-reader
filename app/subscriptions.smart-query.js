@@ -259,8 +259,7 @@ window.SubscriptionsSmartQuery = (function () {
     }
   };
 
-  const normalizeGenerated = (payload, options = {}) => {
-    const descHint = normalizeText(options.description || '');
+  const normalizeGenerated = (payload) => {
     const normalizeIntentSource = (obj) => {
       if (!obj || typeof obj !== 'object') return [];
       const rawList = [];
@@ -277,33 +276,6 @@ window.SubscriptionsSmartQuery = (function () {
       pushArr(obj.semantic_queries);
       if (typeof obj.intent === 'string') rawList.push(obj.intent);
       return rawList;
-    };
-
-    const fallbackIntentQueries = () => {
-      const out = [];
-      const pushFallback = (query, note) => {
-        const normalizedQuery = normalizeText(query);
-        if (!normalizedQuery) return;
-        out.push({
-          query: normalizeCandidatePhrase(normalizedQuery),
-          enabled: true,
-          source: 'fallback',
-          note,
-        });
-      };
-
-      if (descHint) {
-        pushFallback(descHint, '基于用户检索需求补齐');
-      }
-
-      keywords.slice(0, 3).forEach((kw) => {
-        const src = normalizeText((kw && (kw.query || kw.keyword || kw.text || kw.expr || '')) || '');
-        if (src) {
-          pushFallback(src, '基于关键词补齐');
-        }
-      });
-
-      return out;
     };
 
     const data = payload && typeof payload === 'object' ? payload : {};
@@ -416,8 +388,7 @@ window.SubscriptionsSmartQuery = (function () {
     });
 
     const rawIntentQueries = normalizeIntentSource(data);
-    const intentSource = rawIntentQueries.length ? rawIntentQueries : fallbackIntentQueries();
-    const intentQueries = normalizeIntentQueryEntries(intentSource);
+    const intentQueries = normalizeIntentQueryEntries(rawIntentQueries);
 
     return {
       keywords,
@@ -603,7 +574,7 @@ window.SubscriptionsSmartQuery = (function () {
     const data = await res.json();
     const content = extractLlmJsonText(data);
     const parsed = loadJsonLenient(content);
-    const candidates = normalizeGenerated(parsed, { description: finalDesc });
+    const candidates = normalizeGenerated(parsed);
     if (!candidates.keywords.length) {
       throw new Error('模型未返回可用候选，请调整描述后重试。');
     }
