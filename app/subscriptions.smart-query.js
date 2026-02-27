@@ -1212,9 +1212,7 @@ window.SubscriptionsSmartQuery = (function () {
     if (!modalState || modalState.type !== 'chat') return;
     if (modalState.pending) return;
     const tag = normalizeText(document.getElementById('dpr-chat-tag-input')?.value || '');
-    const bottomDesc = normalizeText(document.getElementById('dpr-chat-desc-input')?.value || '');
-    const topDesc = normalizeText(document.getElementById('dpr-chat-required-desc')?.value || '');
-    const desc = bottomDesc || topDesc;
+    const desc = normalizeText(document.getElementById('dpr-chat-desc-input')?.value || '');
     const finalDesc = desc;
     let finalTag = tag || `SR-${new Date().toISOString().slice(0, 10)}`;
 
