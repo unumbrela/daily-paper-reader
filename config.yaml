@@ -73,7 +73,7 @@ subscriptions:
       enabled: true
       keyword_rules:
         - id: kw-1772188468765-1208
-          expr: Symbolic Regression AND (physics OR astronomy) AND NOT survey
+          expr: Symbolic Regression physics astronomy
           logic_cn: 重点关注符号回归在物理或天文中的应用，排除综述类论文。
           must_have:
             - Symbolic Regression
@@ -87,7 +87,7 @@ subscriptions:
           source: legacy
           note: ''
         - id: kw-1772188468765-187
-          expr: '"Symbolic Regression" OR ("Genetic Programming" AND "Equation Discovery")'
+          expr: Symbolic Regression Genetic Programming Equation Discovery
           logic_cn: 检索符号回归核心术语，或通过遗传算法进行方程发现的相关研究
           must_have:
             - Symbolic Regression
@@ -100,7 +100,7 @@ subscriptions:
           source: legacy
           note: ''
         - id: kw-1772188468765-4860
-          expr: '"Symbolic Regression" AND ("Deep Learning" OR "Transformer" OR "Reinforcement Learning")'
+          expr: Symbolic Regression Deep Learning Transformer Reinforcement Learning
           logic_cn: 检索结合深度学习、Transformer或强化学习等现代机器学习技术的符号回归方法
           must_have:
             - Symbolic Regression
@@ -140,7 +140,7 @@ subscriptions:
           note: ''
       updated_at: '2026-02-27T10:34:28.765Z'
   keywords:
-    - keyword: Symbolic Regression AND (physics OR astronomy) AND NOT survey
+    - keyword: Symbolic Regression physics astronomy
       tag: SR
       logic_cn: 重点关注符号回归在物理或天文中的应用，排除综述类论文。
       must_have:
@@ -156,7 +156,7 @@ subscriptions:
       rewrite: Symbolic regression for physics or astronomy applications
       enabled: true
       source: legacy
-    - keyword: '"Symbolic Regression" OR ("Genetic Programming" AND "Equation Discovery")'
+    - keyword: Symbolic Regression Genetic Programming Equation Discovery
       tag: SR
       logic_cn: 检索符号回归核心术语，或通过遗传算法进行方程发现的相关研究
       must_have:
@@ -171,7 +171,7 @@ subscriptions:
       rewrite: Symbolic regression and genetic programming for mathematical equation discovery
       enabled: true
       source: legacy
-    - keyword: '"Symbolic Regression" AND ("Deep Learning" OR "Transformer" OR "Reinforcement Learning")'
+    - keyword: Symbolic Regression Deep Learning Transformer Reinforcement Learning
       tag: SR
       logic_cn: 检索结合深度学习、Transformer或强化学习等现代机器学习技术的符号回归方法
       must_have:

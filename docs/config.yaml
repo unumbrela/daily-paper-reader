@@ -41,7 +41,7 @@ subscriptions:
     enabled: true
     keyword_rules:
     - id: kw-1771761721134-7516
-      expr: Symbolic Regression AND (physics OR astronomy) AND NOT survey
+      expr: Symbolic Regression physics astronomy
       logic_cn: 重点关注符号回归在物理或天文中的应用，排除综述类论文。
       must_have:
       - Symbolic Regression
@@ -55,7 +55,7 @@ subscriptions:
       source: legacy
       note: ''
     - id: kw-1771761721134-4688
-      expr: '"Symbolic Regression" OR ("Genetic Programming" AND "Equation Discovery")'
+      expr: Symbolic Regression Genetic Programming Equation Discovery
       logic_cn: 检索符号回归核心术语，或通过遗传算法进行方程发现的相关研究
       must_have:
       - Symbolic Regression
@@ -69,8 +69,7 @@ subscriptions:
       source: legacy
       note: ''
     - id: kw-1771761721134-1132
-      expr: '"Symbolic Regression" AND ("Deep Learning" OR "Transformer" OR "Reinforcement
-        Learning")'
+      expr: Symbolic Regression Deep Learning Transformer Reinforcement Learning
       logic_cn: 检索结合深度学习、Transformer或强化学习等现代机器学习技术的符号回归方法
       must_have:
       - Symbolic Regression
@@ -111,7 +110,7 @@ subscriptions:
       note: ''
     updated_at: '2026-02-22T12:02:01.134Z'
   keywords:
-  - keyword: Symbolic Regression AND (physics OR astronomy) AND NOT survey
+  - keyword: Symbolic Regression physics astronomy
     tag: SR
     logic_cn: 重点关注符号回归在物理或天文中的应用，排除综述类论文。
     must_have:
@@ -127,7 +126,7 @@ subscriptions:
     rewrite: Symbolic regression for physics or astronomy applications
     enabled: true
     source: legacy
-  - keyword: '"Symbolic Regression" OR ("Genetic Programming" AND "Equation Discovery")'
+  - keyword: Symbolic Regression Genetic Programming Equation Discovery
     tag: SR
     logic_cn: 检索符号回归核心术语，或通过遗传算法进行方程发现的相关研究
     must_have:
@@ -143,8 +142,7 @@ subscriptions:
       discovery
     enabled: true
     source: legacy
-  - keyword: '"Symbolic Regression" AND ("Deep Learning" OR "Transformer" OR "Reinforcement
-      Learning")'
+  - keyword: Symbolic Regression Deep Learning Transformer Reinforcement Learning
     tag: SR
     logic_cn: 检索结合深度学习、Transformer或强化学习等现代机器学习技术的符号回归方法
     must_have:
