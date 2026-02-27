@@ -1185,14 +1185,14 @@ window.SubscriptionsSmartQuery = (function () {
     if (!modalState || modalState.type !== 'chat') return;
     if (modalState.pending) return;
     const tag = normalizeText(document.getElementById('dpr-chat-tag-input')?.value || '');
-    const topDesc = normalizeText(document.getElementById('dpr-chat-required-desc')?.value || '');
     const bottomDesc = normalizeText(document.getElementById('dpr-chat-desc-input')?.value || '');
-    const desc = topDesc || bottomDesc;
+    const topDesc = normalizeText(document.getElementById('dpr-chat-required-desc')?.value || '');
+    const desc = bottomDesc || topDesc;
     const finalDesc = desc;
     let finalTag = tag || `SR-${new Date().toISOString().slice(0, 10)}`;
 
     if (!finalDesc) {
-      setChatStatus('请先填写中文描述。', '#c00');
+      setChatStatus('请先填写检索需求。', '#c00');
       return;
     }
 
@@ -1212,8 +1212,10 @@ window.SubscriptionsSmartQuery = (function () {
       if (suggestedTag && !modalState.inputTag) {
         modalState.inputTag = suggestedTag;
       }
-      if (suggestedDesc && !modalState.inputDesc) {
-        modalState.inputDesc = suggestedDesc;
+      const finalDescForProfile = suggestedDesc || finalDesc;
+      modalState.inputDesc = finalDescForProfile;
+      if (document.getElementById('dpr-chat-required-desc')) {
+        document.getElementById('dpr-chat-required-desc').value = finalDescForProfile;
       }
       const nextKeywords = mergeCloudSelections(modalState.keywords || [], nextCandidates.keywords, 'keyword');
       const nextIntentQueries = mergeCloudSelections(
