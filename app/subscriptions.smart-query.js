@@ -565,10 +565,11 @@ window.SubscriptionsSmartQuery = (function () {
 
   const applyCandidateToProfile = (tag, description, candidates) => {
     const selectedKeywords = (candidates.keywords || []).filter((x) => x._selected);
-    if (!selectedKeywords.length) {
+    const selectedIntentQueries = (candidates.intent_queries || []).filter((x) => x._selected);
+    if (!selectedKeywords.length && !selectedIntentQueries.length) {
       return false;
     }
-    const intentQueries = normalizeIntentQueryEntries(candidates.intent_queries || []);
+    const intentQueries = normalizeIntentQueryEntries(selectedIntentQueries);
 
     window.SubscriptionsManager.updateDraftConfig((cfg) => {
       const next = cfg || {};
@@ -634,8 +635,9 @@ window.SubscriptionsSmartQuery = (function () {
     if (!profileKey) return false;
 
     const selectedKeywords = (candidates.keywords || []).filter((x) => x._selected);
-    if (!selectedKeywords.length) return false;
-    const intentQueries = normalizeIntentQueryEntries(candidates.intent_queries || []);
+    const selectedIntentQueries = (candidates.intent_queries || []).filter((x) => x._selected);
+    if (!selectedKeywords.length && !selectedIntentQueries.length) return false;
+    const intentQueries = normalizeIntentQueryEntries(selectedIntentQueries);
 
     let found = false;
     window.SubscriptionsManager.updateDraftConfig((cfg) => {
@@ -671,17 +673,20 @@ window.SubscriptionsSmartQuery = (function () {
         id: existedProfile.id,
         tag: normalizeText(tag || existedProfile.tag || ''),
         description: normalizeText(description || existedProfile.description || ''),
-        keywords: selectedKeywords
-          .map((item, idx) => ({
-            id: normalizeText(item.id) || `kw-${Date.now()}-${idx + 1}`,
-            keyword: normalizeText(item.keyword || item.text || item.expr || ''),
-            query: normalizeText(item.query || item.text || item.keyword || ''),
-            logic_cn: normalizeText(item.logic_cn || ''),
-            enabled: item.enabled !== false,
-            source: normalizeText(item.source || 'generated'),
-            note: normalizeText(item.note || ''),
-          }))
-          .filter((x) => x.keyword),
+        keywords:
+          selectedKeywords.length > 0
+            ? selectedKeywords
+                .map((item, idx) => ({
+                  id: normalizeText(item.id) || `kw-${Date.now()}-${idx + 1}`,
+                  keyword: normalizeText(item.keyword || item.text || item.expr || ''),
+                  query: normalizeText(item.query || item.text || item.keyword || ''),
+                  logic_cn: normalizeText(item.logic_cn || ''),
+                  enabled: item.enabled !== false,
+                  source: normalizeText(item.source || 'generated'),
+                  note: normalizeText(item.note || ''),
+                }))
+                .filter((x) => x.keyword)
+            : normalizeProfileKeywords(existedProfile),
         intent_queries: mergedIntentQueries,
         updated_at: new Date().toISOString(),
       };
@@ -695,7 +700,7 @@ window.SubscriptionsSmartQuery = (function () {
   const parseCandidatesForState = (candidates, selected = true) => {
     return {
       keywords: (candidates.keywords || []).map((x) => ({ ...x, _selected: selected })),
-      intent_queries: (candidates.intent_queries || []).map((x) => ({ ...x })),
+      intent_queries: (candidates.intent_queries || []).map((x) => ({ ...x, _selected: selected })),
     };
   };
 
@@ -891,6 +896,7 @@ window.SubscriptionsSmartQuery = (function () {
     modalState = {
       type: 'chat',
       keywords: [],
+      intent_queries: [],
       requestHistory: [],
       inputTag: '',
       inputDesc: '',
@@ -913,6 +919,16 @@ window.SubscriptionsSmartQuery = (function () {
     `,
       )
       .join('');
+    const intentHtml = (modalState.intent_queries || [])
+      .map(
+        (item, idx) => `
+      <button type="button" class="dpr-pick-card ${item._selected ? 'selected' : ''}" data-action="toggle-intent-query-card" data-index="${idx}">
+        <div class="dpr-pick-title">${escapeHtml(item.query || item.text || '')}</div>
+        <div class="dpr-pick-desc">${escapeHtml(item.note || item.source || '（意图检索句）')}</div>
+      </button>
+    `,
+      )
+      .join('');
 
     modalPanel.innerHTML = `
       <div class="dpr-modal-head">
@@ -921,6 +937,8 @@ window.SubscriptionsSmartQuery = (function () {
       </div>
       <div class="dpr-modal-group-title">关键词候选（用于召回，勾选项之间默认 OR）</div>
       <div class="dpr-modal-list dpr-pick-grid">${kwHtml || '<div style="color:#999;">无关键词候选</div>'}</div>
+      <div class="dpr-modal-group-title">意图查询候选（用于意图召回与最终打分）</div>
+      <div class="dpr-modal-list dpr-pick-grid">${intentHtml || '<div style="color:#999;">无意图查询候选</div>'}</div>
       <div class="dpr-modal-actions-inline dpr-modal-add-inline">
         <input id="dpr-add-kw-text" type="text" placeholder="手动新增关键词（召回词）" value="${escapeHtml(modalState.customKeyword || '')}" />
         <input id="dpr-add-kw-query" type="text" placeholder="对应语义 Query 改写" value="${escapeHtml(modalState.customQuery || '')}" />
@@ -955,6 +973,7 @@ window.SubscriptionsSmartQuery = (function () {
     modalState.description = nextDesc;
 
     const selectedKeywords = (modalState.keywords || []).filter((x) => x._selected);
+    const selectedIntentQueries = (modalState.intent_queries || []).filter((x) => x._selected);
     const isEditMode = !!(modalState && modalState.editProfileId);
     const ok = isEditMode
       ? replaceProfileFromSelection(
@@ -964,11 +983,13 @@ window.SubscriptionsSmartQuery = (function () {
           {
             ...modalState,
             keywords: selectedKeywords,
+            intent_queries: selectedIntentQueries,
           },
         )
       : applyCandidateToProfile(modalState.tag, modalState.description, {
           ...modalState,
           keywords: selectedKeywords,
+          intent_queries: selectedIntentQueries,
         });
 
     if (!ok) {
@@ -989,13 +1010,32 @@ window.SubscriptionsSmartQuery = (function () {
       descField: 'logic_cn',
       defaultDesc: '（待补充中文直译）',
     });
+    const intentHtml = renderCloudCards(modalState.intent_queries || [], 'intent', {
+      textField: 'query',
+      descField: 'note',
+      defaultDesc: '（待补充说明）',
+    });
     const hasKeywords = Array.isArray(modalState.keywords) && modalState.keywords.length > 0;
-    const hasCandidates = hasKeywords;
+    const hasIntentQueries = Array.isArray(modalState.intent_queries) && modalState.intent_queries.length > 0;
+    const hasCandidates = hasKeywords || hasIntentQueries;
     const isFirstRound = !(Array.isArray(modalState.requestHistory) && modalState.requestHistory.length);
     const actionLabel = isFirstRound ? '生成候选' : '新增候选';
     const sections = [];
     if (kwHtml) {
-      sections.push(`<div class="dpr-chat-result-block">${`<div class="dpr-cloud-grid dpr-cloud-grid-keywords">${kwHtml}</div>`}</div>`);
+      sections.push(
+        `<div class="dpr-chat-result-block">
+          <div class="dpr-modal-group-title">关键词候选（用于召回，勾选项之间默认 OR）</div>
+          <div class="dpr-cloud-grid dpr-cloud-grid-keywords">${kwHtml}</div>
+        </div>`,
+      );
+    }
+    if (intentHtml) {
+      sections.push(
+        `<div class="dpr-chat-result-block">
+          <div class="dpr-modal-group-title">意图查询候选（用于意图召回与最终打分）</div>
+          <div class="dpr-cloud-grid dpr-cloud-grid-intent">${intentHtml}</div>
+        </div>`,
+      );
     }
     const mixedHtml = sections.join('<div class="dpr-chat-result-row-gap"></div>');
     const emptyBlock = '<div class="dpr-cloud-empty"></div>';
@@ -1046,7 +1086,8 @@ window.SubscriptionsSmartQuery = (function () {
   const applyChatSelection = () => {
     let hasSelection = false;
     const selectedKeywords = (modalState.keywords || []).filter((x) => x._selected);
-    const hasItems = selectedKeywords.length;
+    const selectedIntentQueries = (modalState.intent_queries || []).filter((x) => x._selected);
+    const hasItems = selectedKeywords.length || selectedIntentQueries.length;
     const desc = normalizeText(document.getElementById('dpr-chat-required-desc')?.value || '');
     const tag = normalizeText(document.getElementById('dpr-chat-tag-input')?.value || modalState.inputTag || '');
 
@@ -1064,6 +1105,7 @@ window.SubscriptionsSmartQuery = (function () {
       const ok = applyCandidateToProfile(tag || `SR-${new Date().toISOString().slice(0, 10)}`, desc, {
         ...modalState,
         keywords: selectedKeywords,
+        intent_queries: selectedIntentQueries,
       });
       hasSelection = ok;
     }
@@ -1101,22 +1143,29 @@ window.SubscriptionsSmartQuery = (function () {
       const candidates = await requestCandidatesByDesc(finalTag, finalDesc);
       const nextCandidates = parseCandidatesForState(candidates, false);
       const nextKeywords = mergeCloudSelections(modalState.keywords || [], nextCandidates.keywords, 'keyword');
+      const nextIntentQueries = mergeCloudSelections(
+        modalState.intent_queries || [],
+        nextCandidates.intent_queries,
+        'query',
+      );
       const roundLabel = requestHistoryLength(modalState);
       const history = Array.isArray(modalState.requestHistory) ? modalState.requestHistory.slice() : [];
       history.push({
         label: roundLabel,
         desc: finalDesc,
         newKeywords: nextCandidates.keywords.length,
+        newIntentQueries: nextCandidates.intent_queries.length,
         createdAt: new Date().toISOString(),
       });
       modalState.keywords = nextKeywords;
+      modalState.intent_queries = nextIntentQueries;
       modalState.chatTag = finalTag;
       modalState.inputTag = finalTag;
       modalState.lastTag = finalTag;
       modalState.lastDesc = finalDesc;
       modalState.inputDesc = finalDesc;
       modalState.requestHistory = history;
-      modalState.chatStatus = `已生成候选（关键词 ${nextCandidates.keywords.length} 条新增、共 ${nextKeywords.length} 条）。`;
+      modalState.chatStatus = `已生成候选（关键词 ${nextCandidates.keywords.length} 条新增/共 ${nextKeywords.length} 条，意图 ${nextCandidates.intent_queries.length} 条新增/共 ${nextIntentQueries.length} 条）。`;
       if (document.getElementById('dpr-chat-desc-input')) {
         document.getElementById('dpr-chat-desc-input').value = '';
       }
@@ -1153,7 +1202,10 @@ window.SubscriptionsSmartQuery = (function () {
       tag: profile.tag || '',
       description: profile.description || '',
       ...toProfileSelectableCandidates(profile),
-      intent_queries: normalizeIntentQueryEntries(profile && profile.intent_queries),
+      intent_queries: normalizeIntentQueryEntries(profile && profile.intent_queries).map((item) => ({
+        ...item,
+        _selected: item.enabled !== false,
+      })),
       customKeyword: '',
       customKeywordLogic: '',
     };
@@ -1180,6 +1232,14 @@ window.SubscriptionsSmartQuery = (function () {
         const idx = Number(actionEl.getAttribute('data-index'));
         if (idx >= 0 && idx < (modalState.keywords || []).length) {
           modalState.keywords[idx]._selected = !modalState.keywords[idx]._selected;
+          renderAddModal();
+        }
+        return;
+      }
+      if (action === 'toggle-intent-query-card') {
+        const idx = Number(actionEl.getAttribute('data-index'));
+        if (idx >= 0 && idx < (modalState.intent_queries || []).length) {
+          modalState.intent_queries[idx]._selected = !modalState.intent_queries[idx]._selected;
           renderAddModal();
         }
         return;
@@ -1242,7 +1302,7 @@ window.SubscriptionsSmartQuery = (function () {
 
     const kind = target.getAttribute('data-kind');
     const idx = Number(target.getAttribute('data-index'));
-    const list = modalState.keywords;
+    const list = kind === 'intent' ? modalState.intent_queries : modalState.keywords;
     if (!Array.isArray(list) || idx < 0 || idx >= list.length) return;
     const selected = !!target.checked;
     const card = target.closest('.dpr-cloud-item');
@@ -1250,7 +1310,7 @@ window.SubscriptionsSmartQuery = (function () {
       card.classList.toggle('selected', selected);
     }
 
-    modalState.keywords[idx]._selected = selected;
+    list[idx]._selected = selected;
   };
 
   const requestHistoryLength = (state) => {
