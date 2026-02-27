@@ -1167,9 +1167,6 @@
   }
 
   function init() {
-    // 默认视为锁定状态，直到用户选择“解锁 / 游客”
-    window.DPR_ACCESS_MODE = FORCE_GUEST_MODE ? 'guest' : 'locked';
-
     const overlay = document.getElementById('secret-gate-overlay');
     const registerGuestOnlySecretSetup = () => {
       window.DPRSecretSetup = window.DPRSecretSetup || {};
@@ -1179,12 +1176,11 @@
       };
     };
 
+    // 默认视为锁定状态，直到用户选择“解锁 / 游客”
+    window.DPR_ACCESS_MODE = FORCE_GUEST_MODE ? 'guest' : 'locked';
+
     if (FORCE_GUEST_MODE) {
-      if (!overlay) {
-        enforceGuestMode(null);
-        registerGuestOnlySecretSetup();
-        return;
-      }
+      setAccessMode('guest', { mode: 'guest', reason: 'domain_force_guest' });
       registerGuestOnlySecretSetup();
       enforceGuestMode(overlay);
       return;
