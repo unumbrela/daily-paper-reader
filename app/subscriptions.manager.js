@@ -160,7 +160,9 @@ window.SubscriptionsManager = (function () {
         const description = normalizeText(p.description || '');
         const enabled = p.enabled !== false;
 
-        const keywordRules = (Array.isArray(p.keyword_rules) ? p.keyword_rules : [])
+        const keywordRules = (Array.isArray(p.keywords) ? p.keywords : []).concat(
+          Array.isArray(p.keyword_rules) ? p.keyword_rules : [],
+        )
           .map((k, kIdx) => {
             if (!k || typeof k !== 'object') return null;
             const expr = normalizeText(k.expr || k.keyword || '');
@@ -199,15 +201,15 @@ window.SubscriptionsManager = (function () {
           })
           .filter(Boolean);
 
-        return {
-          id,
-          tag,
-          description,
-          enabled,
-          keyword_rules: keywordRules,
-          semantic_queries: semanticQueries,
-          updated_at: normalizeText(p.updated_at) || new Date().toISOString(),
-        };
+      return {
+        id,
+        tag,
+        description,
+        enabled,
+        keywords: keywordRules,
+        semantic_queries: semanticQueries,
+        updated_at: normalizeText(p.updated_at) || new Date().toISOString(),
+      };
       })
       .filter(Boolean);
   };
@@ -228,7 +230,7 @@ window.SubscriptionsManager = (function () {
           tag: key,
           description: '',
           enabled: true,
-          keyword_rules: [],
+          keywords: [],
           semantic_queries: [],
           updated_at: new Date().toISOString(),
         };
@@ -242,7 +244,7 @@ window.SubscriptionsManager = (function () {
         const kw = normalizeText(item);
         if (!kw) return;
         const p = ensureProfile('default');
-        p.keyword_rules.push({
+        p.keywords.push({
           id: `kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           expr: kw,
           logic_cn: '',
@@ -261,7 +263,7 @@ window.SubscriptionsManager = (function () {
       if (!kw) return;
       const tag = normalizeText(item.tag || item.alias || 'default');
       const p = ensureProfile(tag);
-      p.keyword_rules.push({
+      p.keywords.push({
         id: `kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
         expr: kw,
         logic_cn: normalizeText(item.logic_cn || ''),

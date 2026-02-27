@@ -104,7 +104,7 @@ def _normalize_profile(profile: Dict[str, Any], idx: int) -> Dict[str, Any]:
   if not tag:
     tag = pid
 
-  kw_rules_in = profile.get("keyword_rules") or []
+  kw_rules_in = profile.get("keywords") or profile.get("keyword_rules") or []
   sq_in = profile.get("semantic_queries") or []
   kw_rules: List[Dict[str, Any]] = []
   sem_queries: List[Dict[str, Any]] = []
@@ -157,7 +157,7 @@ def _normalize_profile(profile: Dict[str, Any], idx: int) -> Dict[str, Any]:
     "tag": tag,
     "description": description,
     "enabled": _as_bool(profile.get("enabled"), True),
-    "keyword_rules": kw_rules,
+    "keywords": kw_rules,
     "semantic_queries": sem_queries,
     "updated_at": _norm_text(profile.get("updated_at") or _now_iso()),
   }
@@ -188,7 +188,7 @@ def _build_from_profiles(subs: Dict[str, Any]) -> Dict[str, Any]:
     paper_tag_keyword = f"keyword:{tag}"
     paper_tag_query = f"query:{tag}"
 
-    for rule in profile.get("keyword_rules") or []:
+    for rule in profile.get("keywords") or profile.get("keyword_rules") or []:
       if not rule.get("enabled", True):
         continue
       expr = _norm_text(rule.get("expr") or "")

@@ -16,7 +16,7 @@ class SubscriptionPlanTest(unittest.TestCase):
                         'id': 'p1',
                         'tag': 'SR',
                         'enabled': True,
-                        'keyword_rules': [
+                        'keywords': [
                             {
                                 'id': 'k1',
                                 'expr': 'A AND B',
@@ -71,7 +71,7 @@ class SubscriptionPlanTest(unittest.TestCase):
                         'id': 'p1',
                         'tag': 'SR',
                         'enabled': True,
-                        'keyword_rules': [
+                        'keywords': [
                             {
                                 'id': 'k1',
                                 'expr': 'A AND B',
@@ -86,6 +86,29 @@ class SubscriptionPlanTest(unittest.TestCase):
         kw_bm25 = [q for q in plan['bm25_queries'] if q.get('type') == 'keyword'][0]
         self.assertEqual(kw_bm25.get('boolean_expr'), '')
         self.assertEqual(kw_bm25.get('query_text'), 'A B')
+
+    def test_build_pipeline_inputs_backward_compatible_keyword_rules(self):
+        cfg = {
+            'subscriptions': {
+                'intent_profiles': [
+                    {
+                        'id': 'p1',
+                        'tag': 'SR',
+                        'enabled': True,
+                        'keyword_rules': [
+                            {
+                                'id': 'k1',
+                                'expr': 'legacy expr',
+                                'enabled': True,
+                            }
+                        ],
+                    }
+                ],
+            }
+        }
+        plan = build_pipeline_inputs(cfg)
+        kw_bm25 = [q for q in plan['bm25_queries'] if q.get('type') == 'keyword'][0]
+        self.assertEqual(kw_bm25.get('query_text'), 'legacy expr')
 
     def test_count_tags(self):
         cfg = {

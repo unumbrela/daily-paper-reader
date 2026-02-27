@@ -39,7 +39,7 @@ subscriptions:
     tag: SR
     description: ''
     enabled: true
-    keyword_rules:
+    keywords:
     - id: kw-1771761721134-7516
       expr: Symbolic Regression physics astronomy
       logic_cn: 重点关注符号回归在物理或天文中的应用，排除综述类论文。

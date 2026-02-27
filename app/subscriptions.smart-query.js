@@ -54,6 +54,12 @@ window.SubscriptionsSmartQuery = (function () {
 
   const normalizeText = (v) => String(v || '').trim();
 
+  const normalizeProfileKeywords = (profile) => {
+    if (Array.isArray(profile && profile.keywords)) return profile.keywords;
+    if (Array.isArray(profile && profile.keyword_rules)) return profile.keyword_rules;
+    return [];
+  };
+
   const escapeHtml = (str) => {
     if (!str) return '';
     return String(str)
@@ -134,7 +140,7 @@ window.SubscriptionsSmartQuery = (function () {
       tag: t,
       description: normalizeText(description),
       enabled: true,
-      keyword_rules: [],
+      keywords: [],
       semantic_queries: [],
       updated_at: new Date().toISOString(),
     };
@@ -543,7 +549,7 @@ window.SubscriptionsSmartQuery = (function () {
       const subs = next.subscriptions;
       const profiles = Array.isArray(subs.intent_profiles) ? subs.intent_profiles.slice() : [];
       const profile = ensureProfile(profiles, tag, description);
-      const kwList = Array.isArray(profile.keyword_rules) ? profile.keyword_rules.slice() : [];
+      const kwList = normalizeProfileKeywords(profile).slice();
       const qList = Array.isArray(profile.semantic_queries) ? profile.semantic_queries.slice() : [];
 
       const kwSeen = new Set(kwList.map((x) => normalizeText(x.expr).toLowerCase()).filter(Boolean));
@@ -584,7 +590,7 @@ window.SubscriptionsSmartQuery = (function () {
       });
 
       profile.description = normalizeText(profile.description || description || '');
-      profile.keyword_rules = kwList;
+      profile.keywords = kwList;
       profile.semantic_queries = qList;
       profile.updated_at = new Date().toISOString();
       subs.intent_profiles = profiles;
@@ -618,7 +624,7 @@ window.SubscriptionsSmartQuery = (function () {
         id: existedProfile.id,
         tag: normalizeText(tag || existedProfile.tag || ''),
         description: normalizeText(description || existedProfile.description || ''),
-        keyword_rules: selectedKeywords
+        keywords: selectedKeywords
           .map((item, i) => ({
             id: normalizeText(item.id) || `kw-${Date.now()}-${i + 1}`,
             expr: normalizeText(item.expr || ''),
@@ -660,7 +666,7 @@ window.SubscriptionsSmartQuery = (function () {
   };
 
   const toProfileSelectableCandidates = (profile) => {
-    const rawKeywords = Array.isArray(profile && profile.keyword_rules) ? profile.keyword_rules : [];
+    const rawKeywords = normalizeProfileKeywords(profile);
     const rawQueries = Array.isArray(profile && profile.semantic_queries) ? profile.semantic_queries : [];
     const keywords = rawKeywords.map((k) => ({
       id: normalizeText(k.id),
@@ -1185,7 +1191,7 @@ window.SubscriptionsSmartQuery = (function () {
   const renderEditModal = () => {
     if (!modalPanel || !modalState || modalState.type !== 'edit') return;
     const p = modalState.profile || {};
-    const kwList = Array.isArray(p.keyword_rules) ? p.keyword_rules : [];
+    const kwList = normalizeProfileKeywords(p);
     const qList = Array.isArray(p.semantic_queries) ? p.semantic_queries : [];
 
     const kwHtml = kwList
@@ -1255,11 +1261,12 @@ window.SubscriptionsSmartQuery = (function () {
 
     if (action === 'toggle-kw') {
       mutateEditState((profile) => {
-        if (!Array.isArray(profile.keyword_rules)) profile.keyword_rules = [];
+        const kwList = normalizeProfileKeywords(profile).slice();
         const i = Number(idx);
-        if (i >= 0 && i < profile.keyword_rules.length) {
-          profile.keyword_rules[i].enabled = profile.keyword_rules[i].enabled === false;
+        if (i >= 0 && i < kwList.length) {
+          kwList[i].enabled = kwList[i].enabled === false;
         }
+        profile.keywords = kwList;
       });
       return;
     }
@@ -1278,8 +1285,9 @@ window.SubscriptionsSmartQuery = (function () {
     if (action === 'edit-kw') {
       mutateEditState((profile) => {
         const i = Number(idx);
-        if (!Array.isArray(profile.keyword_rules) || i < 0 || i >= profile.keyword_rules.length) return;
-        const item = profile.keyword_rules[i] || {};
+        const kwList = normalizeProfileKeywords(profile).slice();
+        if (i < 0 || i >= kwList.length) return;
+        const item = kwList[i] || {};
         const expr = window.prompt('编辑关键词表达式：', item.expr || '');
         if (expr == null) return;
         const logic = window.prompt('编辑逻辑说明：', item.logic_cn || '');
@@ -1287,7 +1295,8 @@ window.SubscriptionsSmartQuery = (function () {
         item.logic_cn = normalizeText(logic || '');
         item.rewrite_for_embedding =
           normalizeText(item.rewrite_for_embedding || '') || normalizeKeywordText(item.expr || '');
-        profile.keyword_rules[i] = item;
+        kwList[i] = item;
+        profile.keywords = kwList;
       });
       return;
     }
@@ -1310,9 +1319,10 @@ window.SubscriptionsSmartQuery = (function () {
     if (action === 'del-kw') {
       mutateEditState((profile) => {
         const i = Number(idx);
-        if (!Array.isArray(profile.keyword_rules)) return;
-        if (i >= 0 && i < profile.keyword_rules.length) {
-          profile.keyword_rules.splice(i, 1);
+        const kwList = normalizeProfileKeywords(profile).slice();
+        if (i >= 0 && i < kwList.length) {
+          kwList.splice(i, 1);
+          profile.keywords = kwList;
         }
       });
       return;
@@ -1334,8 +1344,8 @@ window.SubscriptionsSmartQuery = (function () {
         const expr = window.prompt('新增关键词表达式：', '');
         if (!expr) return;
         const logic = window.prompt('逻辑说明（可选）：', '');
-        if (!Array.isArray(profile.keyword_rules)) profile.keyword_rules = [];
-        profile.keyword_rules.push({
+        const kwList = normalizeProfileKeywords(profile).slice();
+        kwList.push({
           id: `kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           expr: normalizeText(expr),
           logic_cn: normalizeText(logic || ''),
@@ -1347,6 +1357,7 @@ window.SubscriptionsSmartQuery = (function () {
           source: 'manual',
           note: '',
         });
+        profile.keywords = kwList;
       });
       return;
     }
@@ -1384,7 +1395,7 @@ window.SubscriptionsSmartQuery = (function () {
     local.tag = tag;
     local.description = desc;
     local.enabled = enabled;
-    local.keyword_rules = (Array.isArray(local.keyword_rules) ? local.keyword_rules : [])
+    local.keywords = (Array.isArray(local.keywords) ? local.keywords : [])
       .map((x) => ({ ...x, expr: normalizeText(x.expr || '') }))
       .filter((x) => normalizeText(x.expr || ''));
     local.semantic_queries = (Array.isArray(local.semantic_queries) ? local.semantic_queries : [])
