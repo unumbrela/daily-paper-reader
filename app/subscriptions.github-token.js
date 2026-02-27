@@ -34,8 +34,36 @@ window.SubscriptionsGithubToken = (function () {
     }
   };
 
+  const readConfigYamlForRepo = async () => {
+    const yaml = window.jsyaml || window.jsYaml || window.jsYAML;
+    if (!yaml || typeof yaml.load !== 'function') {
+      return null;
+    }
+    const candidates = ['config.yaml', 'docs/config.yaml', '../config.yaml', '/config.yaml'];
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) continue;
+        const text = await res.text();
+        const cfg = yaml.load(text || '') || {};
+        const githubCfg = (cfg && cfg.github) || {};
+        if (githubCfg && typeof githubCfg === 'object') {
+          const owner = String(githubCfg.owner || '').trim();
+          const repo = String(githubCfg.repo || '').trim();
+          if (owner || repo) {
+            return { owner, repo };
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return null;
+  };
+
   // 验证 GitHub Token 并检查权限
-  const verifyGithubToken = async (token) => {
+  const verifyGithubToken = async (token, options = {}) => {
+    const { requireWorkflow = true } = options;
     try {
       // 1. 获取用户信息
       const userRes = await fetch('https://api.github.com/user', {
@@ -55,7 +83,7 @@ window.SubscriptionsGithubToken = (function () {
       const scopes = userRes.headers.get('X-OAuth-Scopes');
       const scopeList = scopes ? scopes.split(',').map((s) => s.trim()) : [];
 
-      const requiredScopes = ['repo', 'workflow'];
+      const requiredScopes = requireWorkflow ? ['repo', 'workflow'] : ['repo'];
       const missingScopes = requiredScopes.filter(
         (scope) => !scopeList.includes(scope),
       );
@@ -66,7 +94,7 @@ window.SubscriptionsGithubToken = (function () {
           valid: false,
           error: `Token 权限不足：缺少 ${missingScopes.join(
             ', ',
-          )}。请在 GitHub 中重新生成 Personal Access Token，并至少勾选 repo（仓库读写）和 workflow（工作流）权限。`,
+          )}。请在 GitHub 中重新生成 Personal Access Token 并补充所示权限。`,
           scopes: scopeList,
           login: userData.login,
         };
@@ -76,7 +104,7 @@ window.SubscriptionsGithubToken = (function () {
       // 规则：
       // - 若运行在 localhost（含 127.0.0.1），默认仓库名为 daily-paper-reader，owner 为当前登录用户
       // - 若运行在 username.github.io/repo-name，则从 URL 解析 owner/repo
-      // - 其它域名：尝试从当前站点根目录的 config.yaml 中读取 github.owner / github.repo
+      // - 其它域名：尝试从当前站点 config.yaml 中读取 github 信息
       const currentUrl = window.location.href;
       const urlObj = new URL(currentUrl);
       const host = urlObj.hostname || '';
@@ -97,25 +125,12 @@ window.SubscriptionsGithubToken = (function () {
           repoOwner = githubPagesMatch[1];
           repoName = githubPagesMatch[2];
         } else {
-          // 情况 C：其它域名，尝试从当前站点的 config.yaml 中读取 github 信息
-          try {
-            const res = await fetch('/config.yaml');
-            if (res.ok) {
-              const text = await res.text();
-              const yaml = window.jsyaml || window.jsYaml || window.jsYAML;
-              if (yaml && typeof yaml.load === 'function') {
-                const cfg = yaml.load(text) || {};
-                const githubCfg = (cfg && cfg.github) || {};
-                if (githubCfg && typeof githubCfg === 'object') {
-                  if (githubCfg.owner) repoOwner = String(githubCfg.owner);
-                  if (githubCfg.repo) repoName = String(githubCfg.repo);
-                }
-              }
-            }
-          } catch (e) {
-            // 忽略 config.yaml 读取失败，后续会回退为“未检测到仓库”
+          const parsedRepo = await readConfigYamlForRepo();
+          if (parsedRepo) {
+            repoOwner = parsedRepo.owner || repoOwner;
+            repoName = parsedRepo.repo || repoName;
           }
-
+          // 情况 C：其它域名，尝试从当前站点的 config.yaml 中读取 github 信息
           // 若 config.yaml 未提供 owner，则至少使用当前用户作为 owner
           if (!repoOwner) {
             repoOwner = userData.login || '';
@@ -173,18 +188,18 @@ window.SubscriptionsGithubToken = (function () {
   const getTokenForConfig = () => {
     const secret = window.decoded_secret_private || {};
     if (secret.github && secret.github.token) {
-      return secret.github.token;
+      return String(secret.github.token || '').trim();
     }
     const tokenData = loadGithubToken();
     if (tokenData && tokenData.token) {
-      return tokenData.token;
+      return String(tokenData.token || '').trim();
     }
     return null;
   };
 
   // 基于 Token 推断仓库 owner/name（复用 verifyGithubToken 的逻辑）
-  const resolveRepoInfoFromToken = async (token) => {
-    const result = await verifyGithubToken(token);
+  const resolveRepoInfoFromToken = async (token, requireWorkflow = true) => {
+    const result = await verifyGithubToken(token, { requireWorkflow });
     if (!result.valid) {
       throw new Error(
         `GitHub Token 验证失败：${result.error || '原因未知'}`,
@@ -205,7 +220,7 @@ window.SubscriptionsGithubToken = (function () {
     if (!token) {
       throw new Error('未配置有效的 GitHub Token，请先完成首页的新配置指引。');
     }
-    const info = await resolveRepoInfoFromToken(token);
+    const info = await resolveRepoInfoFromToken(token, false);
     const res = await fetch(
       `https://api.github.com/repos/${info.owner}/${info.repo}/contents/config.yaml`,
       {
@@ -289,7 +304,7 @@ window.SubscriptionsGithubToken = (function () {
     if (!token) {
       throw new Error('未配置有效的 GitHub Token，请先完成首页的新配置指引。');
     }
-    const info = await resolveRepoInfoFromToken(token);
+    const info = await resolveRepoInfoFromToken(token, false);
     const { config: current, sha } = await loadConfigFromGithub();
     const next = typeof updater === 'function' ? updater({ ...(current || {}) }) || current : current;
     const yaml = window.jsyaml || window.jsYaml || window.jsYAML;
@@ -329,7 +344,7 @@ window.SubscriptionsGithubToken = (function () {
     if (!token) {
       throw new Error('未配置有效的 GitHub Token，请先完成首页的新配置指引。');
     }
-    const info = await resolveRepoInfoFromToken(token);
+    const info = await resolveRepoInfoFromToken(token, false);
     // 仅用于获取当前文件的 sha
     const { sha } = await loadConfigFromGithub();
     const yaml = window.jsyaml || window.jsYaml || window.jsYAML;
