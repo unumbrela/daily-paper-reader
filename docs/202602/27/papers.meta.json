@@ -1,22 +1,8 @@
 {
   "label": "2026-02-27",
   "date": "2026-02-27",
-  "generated_at": "2026-02-27T09:52:06",
-  "count": 1,
-  "papers": [
-    {
-      "paper_id": "202602/27/2601.12442v1-constraint-aware-neurosymbolic-uncertainty-quantification-with-bayesian-deep-learning-for-scientific-discovery",
-      "section": "quick",
-      "title_en": "",
-      "authors": "",
-      "date": "",
-      "pdf": "",
-      "score": "",
-      "evidence": "",
-      "tldr": "",
-      "tags": "",
-      "abstract_en": "Scientific Artificial Intelligence (AI) applications require models that deliver trustworthy uncertainty estimates while respecting domain constraints. Existing uncertainty quantification methods lack mechanisms to incorporate symbolic scientific knowledge, while neurosymbolic approaches operate deterministically without principled uncertainty modeling. We introduce the Constraint-Aware Neurosymbolic Uncertainty Framework (CANUF), unifying Bayesian deep learning with differentiable symbolic reasoning. The architecture comprises three components: automated constraint extraction from scientific literature, probabilistic neural backbone with variational inference, and differentiable constraint satisfaction layer ensuring physical consistency. Experiments on Materials Project (140,000+ materials), QM9 molecular properties, and climate benchmarks show CANUF reduces Expected Calibration Error by 34.7% versus Bayesian neural networks while maintaining 99.2% constraint satisfaction. Ablations reveal constraint-guided recalibration contributes 18.3% performance gain, with constraint extraction achieving 91.4% precision. CANUF provides the first end-to-end differentiable pipeline simultaneously addressing uncertainty quantification, constraint satisfaction, and interpretable explanations for scientific predictions."
-    }
-  ],
+  "generated_at": "2026-02-28T03:19:41",
+  "count": 0,
+  "papers": [],
   "errors": []
 }
