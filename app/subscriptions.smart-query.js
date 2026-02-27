@@ -1100,7 +1100,7 @@ window.SubscriptionsSmartQuery = (function () {
         <div class="dpr-chat-row">
           <label class="dpr-chat-label dpr-chat-inline-desc">
             <span class="dpr-chat-label-text">检索需求</span>
-            <textarea id="dpr-chat-desc-input" rows="2" placeholder="请帮我去查找强化学习和diffusion model相关的论文">${escapeHtml(
+            <textarea id="dpr-chat-desc-input" rows="2" placeholder="请帮我去查找强化学习和符号回归相关的论文">${escapeHtml(
               modalState.inputDesc || '',
             )}</textarea>
           </label>
