@@ -470,7 +470,7 @@ window.SubscriptionsSmartQuery = (function () {
 
     const cfg = window.SubscriptionsManager.getDraftConfig ? window.SubscriptionsManager.getDraftConfig() : {};
     const subs = (cfg && cfg.subscriptions) || {};
-    const template = normalizeText(subs.smart_query_prompt_template || '') || defaultPromptTemplate;
+    const template = defaultPromptTemplate;
     const prompt = buildPromptFromTemplate(tag, desc, template);
     const buildEndpoints = () => {
       const out = [];

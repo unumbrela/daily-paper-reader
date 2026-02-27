@@ -311,9 +311,6 @@ window.SubscriptionsManager = (function () {
       subs.schema_migration.diff_threshold_pct = 15;
     }
 
-    if (!normalizeText(subs.smart_query_prompt_template)) {
-      subs.smart_query_prompt_template = defaultPromptTemplate;
-    }
     if (!normalizeText(subs.keyword_recall_mode)) {
       subs.keyword_recall_mode = 'or';
     }
