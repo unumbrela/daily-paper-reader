@@ -766,29 +766,43 @@ window.SubscriptionsSmartQuery = (function () {
     };
   };
 
-  const preserveSelections = (existingItems, incomingItems, keyField) => {
+  const mergeCandidatesForNextRound = (existingItems, incomingItems, keyField) => {
     const normalizeKey = (item, field) =>
       normalizeText(item && item[field]).toLowerCase().trim();
-    const stateMap = new Map();
+    const incoming = Array.isArray(incomingItems) ? incomingItems.slice() : [];
+    const incomingMap = new Map();
+    const existing = Array.isArray(existingItems) ? existingItems : [];
 
-    (Array.isArray(existingItems) ? existingItems : []).forEach((item) => {
+    incoming.forEach((item) => {
       const key = normalizeKey(item, keyField);
-      if (!key || stateMap.has(key)) return;
-      stateMap.set(key, !!item._selected);
+      if (!key || incomingMap.has(key)) return;
+      incomingMap.set(key, item);
     });
 
-    return (Array.isArray(incomingItems) ? incomingItems : []).map((item) => {
-      if (!item || typeof item !== 'object') return item;
-      const next = { ...item };
+    const selectedFromExisting = [];
+    const seen = new Set();
+
+    existing.forEach((item) => {
       const key = normalizeKey(item, keyField);
-      if (!key) return next;
-      if (stateMap.has(key)) {
-        next._selected = stateMap.get(key);
-      } else {
-        next._selected = false;
-      }
-      return next;
+      if (!key || seen.has(key) || !item || !item._selected) return;
+      const incomingItem = incomingMap.get(key);
+      selectedFromExisting.push({
+        ...(incomingItem || item),
+        _selected: true,
+      });
+      seen.add(key);
     });
+
+    const nextIncoming = incoming.filter((item) => {
+      if (!item || typeof item !== 'object') return false;
+      const key = normalizeKey(item, keyField);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      item._selected = false;
+      return true;
+    });
+
+    return selectedFromExisting.concat(nextIncoming);
   };
 
   const toProfileSelectableCandidates = (profile) => {
@@ -1216,13 +1230,14 @@ window.SubscriptionsSmartQuery = (function () {
 
     try {
       const candidates = await requestCandidatesByDesc(finalTag, finalDesc);
+      const isFirstRound = !(Array.isArray(modalState.requestHistory) && modalState.requestHistory.length);
       const nextCandidates = parseCandidatesForState(candidates, false);
-      const nextKeywords = preserveSelections(modalState.keywords, nextCandidates.keywords, 'keyword');
-      const nextIntentQueries = preserveSelections(
-        modalState.intent_queries,
-        nextCandidates.intent_queries,
-        'query',
-      );
+      const nextKeywords = isFirstRound
+        ? nextCandidates.keywords
+        : mergeCandidatesForNextRound(modalState.keywords, nextCandidates.keywords, 'keyword');
+      const nextIntentQueries = isFirstRound
+        ? nextCandidates.intent_queries
+        : mergeCandidatesForNextRound(modalState.intent_queries, nextCandidates.intent_queries, 'query');
       const suggestedTag = normalizeText(candidates.tag);
       const suggestedDesc = normalizeText(candidates.description);
       if (!tag && suggestedTag) {
