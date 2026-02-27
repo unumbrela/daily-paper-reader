@@ -1022,7 +1022,7 @@ window.SubscriptionsSmartQuery = (function () {
         <div class="dpr-modal-title">${modalState && modalState.editProfileId ? '修改词条' : '新增词条候选'}</div>
         <button class="arxiv-tool-btn" data-action="close">关闭</button>
       </div>
-      <div class="dpr-modal-group-title">关键词和意图Query候选（同一面板）</div>
+      <div class="dpr-modal-group-title">请先在“检索需求”输入你的检索想法</div>
       <div class="dpr-modal-list dpr-combo-list">${candidateBlocks || '<div class="dpr-cloud-empty"></div>'}</div>
       <div class="dpr-modal-actions-inline dpr-modal-add-inline">
         <input id="dpr-add-kw-text" type="text" placeholder="手动新增关键词（召回词）" value="${escapeHtml(modalState.customKeyword || '')}" />
@@ -1127,7 +1127,7 @@ window.SubscriptionsSmartQuery = (function () {
         <button class="arxiv-tool-btn" data-action="close">关闭</button>
       </div>
       <div class="dpr-chat-result-module">
-        <div class="dpr-modal-group-title">关键词和意图Query候选（同一面板）</div>
+        <div class="dpr-modal-group-title">请先在“检索需求”输入你的检索想法</div>
         <div class="dpr-cloud-scroll">${mixedHtml || emptyBlock}</div>
       </div>
       <div class="dpr-modal-actions dpr-chat-action-area">
