@@ -1,0 +1,53 @@
+{
+  "mode": "skims",
+  "generated_at": "2026-02-27T09:51:34.596223+00:00",
+  "stats": {
+    "mode": "skims",
+    "forced_all_quick": true,
+    "min_score": 8.0,
+    "deep_divecandidates": 1,
+    "deep_cap": null,
+    "deep_selected": 0,
+    "quick_candidates": 1,
+    "quick_skim_target": null,
+    "quick_selected": 1
+  },
+  "deep_dive": [],
+  "quick_skim": [
+    {
+      "id": "2601.12442v1",
+      "title": "Constraint-Aware Neurosymbolic Uncertainty Quantification with Bayesian Deep Learning for Scientific Discovery",
+      "abstract": "Scientific Artificial Intelligence (AI) applications require models that deliver trustworthy uncertainty estimates while respecting domain constraints. Existing uncertainty quantification methods lack mechanisms to incorporate symbolic scientific knowledge, while neurosymbolic approaches operate deterministically without principled uncertainty modeling. We introduce the Constraint-Aware Neurosymbolic Uncertainty Framework (CANUF), unifying Bayesian deep learning with differentiable symbolic reasoning. The architecture comprises three components: automated constraint extraction from scientific literature, probabilistic neural backbone with variational inference, and differentiable constraint satisfaction layer ensuring physical consistency. Experiments on Materials Project (140,000+ materials), QM9 molecular properties, and climate benchmarks show CANUF reduces Expected Calibration Error by 34.7% versus Bayesian neural networks while maintaining 99.2% constraint satisfaction. Ablations reveal constraint-guided recalibration contributes 18.3% performance gain, with constraint extraction achieving 91.4% precision. CANUF provides the first end-to-end differentiable pipeline simultaneously addressing uncertainty quantification, constraint satisfaction, and interpretable explanations for scientific predictions.",
+      "authors": [
+        "Shahnawaz Alam",
+        "Mohammed Mudassir Uddin",
+        "Mohammed Kaif Pasha"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI",
+        "cs.CV"
+      ],
+      "published": "2026-01-18T14:57:35+00:00",
+      "link": "https://arxiv.org/pdf/2601.12442v1",
+      "tags": [
+        "keyword:SR",
+        "query:SR"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "Neurosymbolic reasoning for scientific discovery and constraint extraction",
+      "llm_evidence_cn": "用于科学发现和约束提取的神经符号推理",
+      "llm_evidence": "用于科学发现和约束提取的神经符号推理",
+      "llm_tldr_en": "Unifies Bayesian deep learning with symbolic reasoning for scientific discovery with uncertainty quantification.",
+      "llm_tldr_cn": "将贝叶斯深度学习与符号推理结合，用于带不确定性量化的科学发现。",
+      "llm_tldr": "将贝叶斯深度学习与符号推理结合，用于带不确定性量化的科学发现。",
+      "llm_tags": [
+        "query:sr"
+      ],
+      "matched_query_tag": "query:sr",
+      "matched_query_text": "Symbolic regression for scientific discovery and physical law extraction",
+      "matched_requirement_id": "req-3"
+    }
+  ]
+}
