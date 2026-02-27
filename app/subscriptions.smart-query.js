@@ -260,6 +260,16 @@ window.SubscriptionsSmartQuery = (function () {
     try {
       return JSON.parse(raw);
     } catch {
+      const startArray = raw.indexOf('[');
+      const endArray = raw.lastIndexOf(']');
+      if (startArray >= 0 && endArray > startArray) {
+        try {
+          return JSON.parse(raw.slice(startArray, endArray + 1));
+        } catch {
+          // ignore and continue fallback
+        }
+      }
+
       const start = raw.indexOf('{');
       const end = raw.lastIndexOf('}');
       if (start >= 0 && end > start) {
@@ -270,6 +280,22 @@ window.SubscriptionsSmartQuery = (function () {
   };
 
   const normalizeGenerated = (payload) => {
+    const resolvePayload = (value) => {
+      if (!value) return {};
+      if (Array.isArray(value)) {
+        const candidate = value.find(
+          (item) =>
+            item &&
+            typeof item === 'object' &&
+            !Array.isArray(item) &&
+            (item.keywords || item.intent_queries || item.intentQueries || item.llm_queries || item.semantic_queries || item.description || item.tag),
+        );
+        return candidate || {};
+      }
+      if (value && typeof value === 'object') return value;
+      return {};
+    };
+
     const normalizeIntentSource = (obj) => {
       if (!obj || typeof obj !== 'object') return [];
       const rawList = [];
@@ -288,7 +314,7 @@ window.SubscriptionsSmartQuery = (function () {
       return rawList;
     };
 
-    const data = payload && typeof payload === 'object' ? payload : {};
+    const data = resolvePayload(payload);
     const tag = normalizeText(
       data.tag ||
         data.标签 ||
