@@ -963,7 +963,7 @@ window.SubscriptionsSmartQuery = (function () {
         <div class="dpr-pick-title">${escapeHtml(k.keyword || k.text || '')}</div>
         <div class="dpr-pick-desc">${escapeHtml(k.query || k.logic_cn || '（待补充 Query 改写）')}</div>
       </button>
-    `,
+        `,
       )
       .join('');
     const intentHtml = (modalState.intent_queries || [])
@@ -973,19 +973,33 @@ window.SubscriptionsSmartQuery = (function () {
         <div class="dpr-pick-title">${escapeHtml(item.query || item.text || '')}</div>
         <div class="dpr-pick-desc">${escapeHtml(item.note || item.source || '（意图检索句）')}</div>
       </button>
-    `,
+        `,
       )
       .join('');
+    const hasKeywords = (modalState.keywords || []).length > 0;
+    const hasIntentQueries = (modalState.intent_queries || []).length > 0;
+    const keywordBlock =
+      `<div class="dpr-combo-block">
+        <div class="dpr-modal-group-title">关键词（用于召回）</div>
+        <div class="dpr-pick-grid">${kwHtml || '<div style="color:#999;">无关键词候选</div>'}</div>
+      </div>`;
+    const intentBlock =
+      `<div class="dpr-combo-block">
+        <div class="dpr-modal-group-title">意图Query（用于意图召回与最终打分）</div>
+        <div class="dpr-pick-grid">${intentHtml || '<div style="color:#999;">无意图查询候选</div>'}</div>
+      </div>`;
+    const divider = `<div class="dpr-modal-divider"></div>`;
+    const candidateBlocks = `${hasKeywords ? keywordBlock : ''}${hasKeywords && hasIntentQueries ? divider : ''}${
+      hasIntentQueries ? intentBlock : ''
+    }`;
 
     modalPanel.innerHTML = `
       <div class="dpr-modal-head">
         <div class="dpr-modal-title">${modalState && modalState.editProfileId ? '修改词条' : '新增词条候选'}</div>
         <button class="arxiv-tool-btn" data-action="close">关闭</button>
       </div>
-      <div class="dpr-modal-group-title">关键词候选（用于召回，勾选项之间默认 OR）</div>
-      <div class="dpr-modal-list dpr-pick-grid">${kwHtml || '<div style="color:#999;">无关键词候选</div>'}</div>
-      <div class="dpr-modal-group-title">意图查询候选（用于意图召回与最终打分）</div>
-      <div class="dpr-modal-list dpr-pick-grid">${intentHtml || '<div style="color:#999;">无意图查询候选</div>'}</div>
+      <div class="dpr-modal-group-title">关键词和意图Query候选（同一面板）</div>
+      <div class="dpr-modal-list dpr-combo-list">${candidateBlocks || '<div class="dpr-cloud-empty"></div>'}</div>
       <div class="dpr-modal-actions-inline dpr-modal-add-inline">
         <input id="dpr-add-kw-text" type="text" placeholder="手动新增关键词（召回词）" value="${escapeHtml(modalState.customKeyword || '')}" />
         <input id="dpr-add-kw-query" type="text" placeholder="对应语义 Query 改写" value="${escapeHtml(modalState.customQuery || '')}" />
@@ -1067,24 +1081,19 @@ window.SubscriptionsSmartQuery = (function () {
     const hasCandidates = hasKeywords || hasIntentQueries;
     const isFirstRound = !(Array.isArray(modalState.requestHistory) && modalState.requestHistory.length);
     const actionLabel = isFirstRound ? '生成候选' : '新增候选';
-    const sections = [];
-    if (kwHtml) {
-      sections.push(
-        `<div class="dpr-chat-result-block">
-          <div class="dpr-modal-group-title">关键词候选（用于召回，勾选项之间默认 OR）</div>
-          <div class="dpr-cloud-grid dpr-cloud-grid-keywords">${kwHtml}</div>
-        </div>`,
-      );
-    }
-    if (intentHtml) {
-      sections.push(
-        `<div class="dpr-chat-result-block">
-          <div class="dpr-modal-group-title">意图查询候选（用于意图召回与最终打分）</div>
-          <div class="dpr-cloud-grid dpr-cloud-grid-intent">${intentHtml}</div>
-        </div>`,
-      );
-    }
-    const mixedHtml = sections.join('<div class="dpr-chat-result-row-gap"></div>');
+    const kwSection = hasKeywords
+      ? `<div class="dpr-chat-result-block">
+           <div class="dpr-modal-group-title">关键词（用于召回）</div>
+           <div class="dpr-cloud-grid dpr-cloud-grid-keywords">${kwHtml}</div>
+         </div>`
+      : '';
+    const intentSection = hasIntentQueries
+      ? `<div class="dpr-chat-result-block">
+           <div class="dpr-modal-group-title">意图Query（用于意图召回与最终打分）</div>
+           <div class="dpr-cloud-grid dpr-cloud-grid-intent">${intentHtml}</div>
+         </div>`
+      : '';
+    const mixedHtml = `${kwSection}${hasKeywords && hasIntentQueries ? '<div class="dpr-chat-divider"></div>' : ''}${intentSection}`;
     const emptyBlock = '<div class="dpr-cloud-empty"></div>';
 
     modalPanel.innerHTML = `
@@ -1106,6 +1115,7 @@ window.SubscriptionsSmartQuery = (function () {
         </div>
       </div>
       <div class="dpr-chat-result-module">
+        <div class="dpr-modal-group-title">关键词和意图Query候选（同一面板）</div>
         <div class="dpr-cloud-scroll">${mixedHtml || emptyBlock}</div>
       </div>
       <div class="dpr-modal-actions dpr-chat-action-area">

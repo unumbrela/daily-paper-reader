@@ -3672,6 +3672,23 @@ article.markdown-section {
   gap: 8px;
 }
 
+.dpr-combo-list {
+  border: 1px solid #e5ebf6;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+}
+
+.dpr-combo-block {
+  width: 100%;
+}
+
+.dpr-modal-divider,
+.dpr-chat-divider {
+  border-top: 1px solid #e2e9f5;
+  margin: 10px 0;
+}
+
 .dpr-pick-card {
   text-align: left;
   width: 100%;
