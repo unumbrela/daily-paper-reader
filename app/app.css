@@ -3310,8 +3310,8 @@ article.markdown-section {
 }
 
 #dpr-sq-modal-panel {
-  width: min(860px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
+  width: min(1040px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
   overflow: auto;
   background: #fff;
   border-radius: 6px;
@@ -3626,7 +3626,7 @@ article.markdown-section {
 }
 
 .dpr-cloud-scroll {
-  max-height: 36vh;
+  max-height: 56vh;
   overflow: auto;
 }
 
