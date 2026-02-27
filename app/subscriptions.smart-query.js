@@ -990,11 +990,11 @@ window.SubscriptionsSmartQuery = (function () {
       </div>
       <div class="dpr-modal-group-title">
         请先在下方输入你的检索想法
-        <span class="dpr-help-example">
-          ex: 请帮我去查找强化学习和符号回归相关的论文<br />
-          ex: 请帮我查找可解释的深度学习符号回归论文<br />
-          ex: 我想找强化学习在方程发现中的应用
-        </span>
+      </div>
+      <div class="dpr-help-examples">
+        <div class="dpr-help-example">ex: 强化学习 符号回归</div>
+        <div class="dpr-help-example">ex: 请帮我去查找强化学习和符号回归相关的论文</div>
+        <div class="dpr-help-example">ex: 请帮我查找可解释的强化学习驱动符号回归方程发现论文</div>
       </div>
       <div class="dpr-modal-list dpr-combo-list">${candidateBlocks || '<div class="dpr-cloud-empty"></div>'}</div>
       <div class="dpr-modal-actions-inline dpr-modal-add-inline">
@@ -1102,11 +1102,11 @@ window.SubscriptionsSmartQuery = (function () {
       <div class="dpr-chat-result-module">
         <div class="dpr-modal-group-title">
           请先在下方输入你的检索想法
-          <span class="dpr-help-example">
-            ex: 请帮我去查找强化学习和符号回归相关的论文<br />
-            ex: 请帮我查找可解释的深度学习符号回归论文<br />
-            ex: 我想找强化学习在方程发现中的应用
-          </span>
+        </div>
+        <div class="dpr-help-examples">
+          <div class="dpr-help-example">ex: 强化学习 符号回归</div>
+          <div class="dpr-help-example">ex: 请帮我去查找强化学习和符号回归相关的论文</div>
+          <div class="dpr-help-example">ex: 请帮我查找可解释的强化学习驱动符号回归方程发现论文</div>
         </div>
         <div class="dpr-cloud-scroll">${mixedHtml || emptyBlock}</div>
       </div>
