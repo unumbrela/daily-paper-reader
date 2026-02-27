@@ -35,19 +35,19 @@ subscriptions:
 
     请输出 JSON：
 
-    {
-      "keywords": [
+      {
+        "keywords": [
         {
-          "keyword": "Symbolic Regression physics astronomy",
-          "query": "Symbolic regression for physics and astronomy applications"
+          "keyword": "Symbolic Regression",
+          "query": "Symbolic regression methods and applications"
         },
         {
-          "keyword": "Symbolic Regression Genetic Programming Equation Discovery",
-          "query": "Genetic programming and equation discovery using symbolic regression"
+          "keyword": "Genetic Programming",
+          "query": "Genetic programming for symbolic model discovery"
         },
         {
-          "keyword": "Symbolic Regression Deep Learning Transformer Reinforcement Learning",
-          "query": "Symbolic regression with deep learning, transformer, and reinforcement learning"
+          "keyword": "Reinforcement Learning",
+          "query": "Reinforcement learning based symbolic regression"
         }
       ]
     }
@@ -56,23 +56,25 @@ subscriptions:
 
     1) keywords 请给出 5~12 条对象（keyword + query），便于用户多选；
 
-    2) 避免输出大量“X + 核心术语”冗余形式（如 "deep symbolic regression"）。若核心术语已出现（如 "symbolic regression"），优先输出可独立召回的前缀概念（如 "machine learning"）；
+    2) keywords 以短词组为主（1~4 个核心概念词，建议不超过 6 个词），尽量避免长句式；
 
-    3) 不要产出 must_have/optional/exclude/rewrite 等额外字段；
+    3) 避免输出大量“X + 核心术语”冗余形式（如 "deep symbolic regression"）。若核心术语已出现（如 "symbolic regression"），优先输出可独立召回的前缀概念（如 "machine learning"）；
 
-    4) 保持领域边界，不要发散到新方向；
+    4) 不要产出 must_have/optional/exclude/rewrite 等额外字段；
 
-    5) 只输出 JSON，不要输出其它文本。
+    5) 保持领域边界，不要发散到新方向；
+
+    6) 只输出 JSON，不要输出其它文本。
   intent_profiles:
     - id: profile-1
       tag: SR
       description: ''
       enabled: true
       keywords:
-        - keyword: Symbolic Regression physics astronomy
-          query: Symbolic regression for physics and astronomy applications
-        - keyword: Symbolic Regression Genetic Programming Equation Discovery
-          query: Genetic programming and equation discovery using symbolic regression
-        - keyword: Symbolic Regression Deep Learning Transformer Reinforcement Learning
-          query: Symbolic regression with deep learning, transformer, and reinforcement learning
+        - keyword: Symbolic Regression
+          query: Symbolic regression methods and applications
+        - keyword: Genetic Programming
+          query: Genetic programming for symbolic model discovery
+        - keyword: Reinforcement Learning
+          query: Reinforcement learning based symbolic regression
       updated_at: '2026-02-27T10:34:28.765Z'

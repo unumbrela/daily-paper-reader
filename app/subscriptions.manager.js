@@ -32,9 +32,10 @@ window.SubscriptionsManager = (function () {
     '}',
     '要求：',
     '1) keywords 为数组，请给出 5~12 条对象（keyword + query），供用户多选；',
-    '2) 每条 keywords 只保留 keyword 与 query 字段；',
-    '3) 不要返回 must_have/optional/exclude/rewrite_for_embedding/must_have 等额外字段。',
-    '4) 只输出 JSON，不要输出其它文本。',
+    '2) 每个 keyword 建议为短词组（1~4 个核心概念词，建议不超过 6 个词）；',
+    '3) 避免长句式与无关修饰词，优先输出可独立召回的短名词短语；',
+    '4) 不要返回 must_have/optional/exclude/rewrite_for_embedding/must_have 等额外字段。',
+    '5) 只输出 JSON，不要输出其它文本。',
   ].join('\n');
 
   const QUICK_RUN_CONFERENCES = [

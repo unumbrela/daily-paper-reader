@@ -23,17 +23,17 @@ subscriptions:
     stage: A
     diff_threshold_pct: 15
   keyword_recall_mode: or
-  smart_query_prompt_template: "你是一名检索规划助手。\\n用户主题标签: {{TAG}}\\n用户描述: {{USER_DESCRIPTION}}\\n检索链路说明: {{RETRIEVAL_CONTEXT}}\\n\\n请输出 JSON：\\n{\\n  \\\"keywords\\\": [\\n    {\\\"keyword\\\": \\\"Symbolic Regression physics astronomy\\\", \\\"query\\\": \\\"Symbolic regression for physics and astronomy applications\\\"},\\n    {\\\"keyword\\\": \\\"Symbolic Regression Genetic Programming Equation Discovery\\\", \\\"query\\\": \\\"Genetic programming and equation discovery using symbolic regression\\\"},\\n    {\\\"keyword\\\": \\\"Symbolic Regression Deep Learning Transformer Reinforcement Learning\\\", \\\"query\\\": \\\"Symbolic regression with deep learning, transformer, and reinforcement learning\\\"}\\n  ]\\n}\\n要求：\\n1) keywords 请给出 5~12 条对象（keyword + query），便于用户多选；\\n2) 避免输出大量\\\"X + 核心术语\\\"冗余形式（如 \\\"deep symbolic regression\\\"）。若核心术语已出现（如 \\\"symbolic regression\\\"），优先输出可独立召回的前缀概念（如 \\\"machine learning\\\"）；\\n3) 不要输出查询链路字段与重复改写；\\n4) 只输出 JSON，不要输出其它文本。"
+  smart_query_prompt_template: "你是一名检索规划助手。\\n用户主题标签: {{TAG}}\\n用户描述: {{USER_DESCRIPTION}}\\n检索链路说明: {{RETRIEVAL_CONTEXT}}\\n\\n请输出 JSON：\\n{\\n  \\\"keywords\\\": [\\n    {\\\"keyword\\\": \\\"Symbolic Regression\\\", \\\"query\\\": \\\"Symbolic regression methods and applications\\\"},\\n    {\\\"keyword\\\": \\\"Genetic Programming\\\", \\\"query\\\": \\\"Genetic programming for symbolic model discovery\\\"},\\n    {\\\"keyword\\\": \\\"Reinforcement Learning\\\", \\\"query\\\": \\\"Reinforcement learning based symbolic regression\\\"}\\n  ]\\n}\\n要求：\\n1) keywords 请给出 5~12 条对象（keyword + query），便于用户多选；\\n2) keywords 以短词组为主（1~4 个核心概念词，建议不超过 6 个词），尽量避免长句式；\\n3) 避免输出大量\\\"X + 核心术语\\\"冗余形式（如 \\\"deep symbolic regression\\\"）。若核心术语已出现（如 \\\"symbolic regression\\\"），优先输出可独立召回的前缀概念（如 \\\"machine learning\\\"）；\\n4) 不要输出查询链路字段与重复改写；\\n5) 只输出 JSON，不要输出其它文本。"
   intent_profiles:
     - id: profile-1
       tag: SR
       description: ''
       enabled: true
       keywords:
-        - keyword: Symbolic Regression physics astronomy
-          query: Symbolic regression for physics and astronomy applications
-        - keyword: Symbolic Regression Genetic Programming Equation Discovery
-          query: Genetic programming and equation discovery using symbolic regression
-        - keyword: Symbolic Regression Deep Learning Transformer Reinforcement Learning
-          query: Symbolic regression with deep learning, transformer, and reinforcement learning
+        - keyword: Symbolic Regression
+          query: Symbolic regression methods and applications
+        - keyword: Genetic Programming
+          query: Genetic programming for symbolic model discovery
+        - keyword: Reinforcement Learning
+          query: Reinforcement learning based symbolic regression
       updated_at: '2026-02-22T12:02:01.134Z'
