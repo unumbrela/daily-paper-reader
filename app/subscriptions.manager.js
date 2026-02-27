@@ -115,7 +115,7 @@ window.SubscriptionsManager = (function () {
     }
   };
 
-  const runQuickFetch = (days, msgEl) => {
+  const runQuickFetch = (days, msgEl, tipText) => {
     if (!window.DPRWorkflowRunner || typeof window.DPRWorkflowRunner.runQuickFetchByDays !== 'function') {
       if (msgEl) {
         msgEl.textContent = '工作流触发器未加载到当前页面。';
@@ -125,7 +125,7 @@ window.SubscriptionsManager = (function () {
     }
     window.DPRWorkflowRunner.runQuickFetchByDays(days);
     if (msgEl) {
-      msgEl.textContent = `已发起 ${days} 天内抓取任务。`;
+      msgEl.textContent = tipText || `已发起 ${days} 天内抓取任务。`;
       msgEl.style.color = '#080';
     }
   };
@@ -433,6 +433,7 @@ window.SubscriptionsManager = (function () {
 
           <div id="arxiv-search-quick-run-side">
             <div class="chat-quick-run-title">快速抓取</div>
+            <button id="arxiv-admin-quick-run-today-btn" class="chat-quick-run-item" type="button">立即搜寻当天论文</button>
             <button id="arxiv-admin-quick-run-7d-btn" class="chat-quick-run-item" type="button">立即搜寻七天内论文</button>
             <button id="arxiv-admin-quick-run-30d-btn" class="chat-quick-run-item" type="button">立即搜寻三十天内论文</button>
             <div class="chat-quick-run-divider" aria-hidden="true"></div>
@@ -595,6 +596,7 @@ window.SubscriptionsManager = (function () {
     }
 
     const quickRun7dBtn = document.getElementById('arxiv-admin-quick-run-7d-btn');
+    const quickRunTodayBtn = document.getElementById('arxiv-admin-quick-run-today-btn');
     const quickRun30dBtn = document.getElementById('arxiv-admin-quick-run-30d-btn');
     const quickRunConferenceBtn = document.getElementById(
       'arxiv-admin-quick-run-conference-run-btn',
@@ -610,6 +612,13 @@ window.SubscriptionsManager = (function () {
       quickRun7dBtn._bound = true;
       quickRun7dBtn.addEventListener('click', () => {
         runQuickFetch(7, quickRunMsgEl);
+      });
+    }
+
+    if (quickRunTodayBtn && !quickRunTodayBtn._bound) {
+      quickRunTodayBtn._bound = true;
+      quickRunTodayBtn.addEventListener('click', () => {
+        runQuickFetch(1, quickRunMsgEl, '已发起当天论文抓取任务。');
       });
     }
 
