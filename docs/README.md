@@ -10,21 +10,30 @@
 
 ## 每次日报
 - 最新运行日期：2026-02-27
-- 运行时间：2026-02-27 19:10:58 UTC
+- 运行时间：2026-02-27 19:23:47 UTC
 - 运行状态：成功
-- 本次总论文数：0
+- 本次总论文数：4
 - 精读区：0
-- 速读区：0
+- 速读区：4
 
 ### 今日简报（AI）
-> 今日无新推荐，系统未产出可展示论文。
+今日速递 4 篇满分论文，深度探索符号回归、遗传编程与偏微分方程求解的跨界融合。
+亮点在于利用目标条件强化学习驱动经验化符号回归，以及 SymPlex 架构通过结构感知 Transformer 实现高效 PDE 符号求解。
+建议关注符号逻辑与深度学习结合的新趋势，尝试将结构先验引入科学计算模型。
 - 详情：[/202602/27/README](/202602/27/README)
 
 ### 精读区论文标签
 - 本次无精读推荐。
 
 ### 速读区论文标签
-- 本次无速读推荐。
+1. [Beyond Error-Based Optimization: Experience-Driven Symbolic Regression with Goal-Conditioned Reinforcement Learning](/202602/27/2601.14693v1-beyond-error-based-optimization-experience-driven-symbolic-regression-with-goal-conditioned-reinforcement-learning)  
+   标签：评分：10.0/10、query:sr-rl
+2. [Introns and Templates Matter: Rethinking Linkage in GP-GOMEA](/202602/27/2602.02311v1-introns-and-templates-matter-rethinking-linkage-in-gp-gomea)  
+   标签：评分：10.0/10、query:sr-lns
+3. [SymPlex: A Structure-Aware Transformer for Symbolic PDE Solving](/202602/27/2602.03816v1-symplex-a-structure-aware-transformer-for-symbolic-pde-solving)  
+   标签：评分：10.0/10、query:sr-rl
+4. [ROIDS: Robust Outlier-Aware Informed Down-Sampling](/202602/27/2601.19477v1-roids-robust-outlier-aware-informed-down-sampling)  
+   标签：评分：9.0/10、query:sr-lns
 
 
 <div class="dpr-home-promo-card">

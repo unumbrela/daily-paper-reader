@@ -1,8 +1,61 @@
 {
   "label": "2026-02-27",
   "date": "2026-02-27",
-  "generated_at": "2026-02-27T19:10:58",
-  "count": 0,
-  "papers": [],
+  "generated_at": "2026-02-27T19:24:01",
+  "count": 4,
+  "papers": [
+    {
+      "paper_id": "202602/27/2601.14693v1-beyond-error-based-optimization-experience-driven-symbolic-regression-with-goal-conditioned-reinforcement-learning",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "Symbolic Regression aims to automatically identify compact and interpretable mathematical expressions that model the functional relationship between input and output variables. Most existing search-based symbolic regression methods typically rely on the fitting error to inform the search process. However, in the vast expression space, numerous candidate expressions may exhibit similar error values while differing substantially in structure, leading to ambiguous search directions and hindering convergence to the underlying true function. To address this challenge, we propose a novel framework named EGRL-SR (Experience-driven Goal-conditioned Reinforcement Learning for Symbolic Regression). In contrast to traditional error-driven approaches, EGRL-SR introduces a new perspective: leveraging precise historical trajectories and optimizing the action-value network to proactively guide the search process, thereby achieving a more robust expression search. Specifically, we formulate symbolic regression as a goal-conditioned reinforcement learning problem and incorporate hindsight experience replay, allowing the action-value network to generalize common mapping patterns from diverse input-output pairs. Moreover, we design an all-point satisfaction binary reward function that encourages the action-value network to focus on structural patterns rather than low-error expressions, and concurrently propose a structure-guided heuristic exploration strategy to enhance search diversity and space coverage. Experiments on public benchmarks show that EGRL-SR consistently outperforms state-of-the-art methods in recovery rate and robustness, and can recover more complex expressions under the same search budget. Ablation results validate that the action-value network effectively guides the search, with both the reward function and the exploration strategy playing critical roles."
+    },
+    {
+      "paper_id": "202602/27/2602.02311v1-introns-and-templates-matter-rethinking-linkage-in-gp-gomea",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "GP-GOMEA is among the state-of-the-art for symbolic regression, especially when it comes to finding small and potentially interpretable solutions. A key mechanism employed in any GOMEA variant is the exploitation of linkage, the dependencies between variables, to ensure efficient evolution. In GP-GOMEA, mutual information between node positions in GP trees has so far been used to learn linkage. For this, a fixed expression template is used. This however leads to introns for expressions smaller than the full template. As introns have no impact on fitness, their occurrences are not directly linked to selection. Consequently, introns can adversely affect the extent to which mutual information captures dependencies between tree nodes. To overcome this, we propose two new measures for linkage learning, one that explicitly considers introns in mutual information estimates, and one that revisits linkage learning in GP-GOMEA from a grey-box perspective, yielding a measure that needs not to be learned from the population but is derived directly from the template. Across five standard symbolic regression problems, GP-GOMEA achieves substantial improvements using both measures. We also find that the newly learned linkage structure closely reflects the template linkage structure, and that explicitly using the template structure yields the best performance overall."
+    },
+    {
+      "paper_id": "202602/27/2602.03816v1-symplex-a-structure-aware-transformer-for-symbolic-pde-solving",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "We propose SymPlex, a reinforcement learning framework for discovering analytical symbolic solutions to partial differential equations (PDEs) without access to ground-truth expressions. SymPlex formulates symbolic PDE solving as tree-structured decision-making and optimizes candidate solutions using only the PDE and its boundary conditions. At its core is SymFormer, a structure-aware Transformer that models hierarchical symbolic dependencies via tree-relative self-attention and enforces syntactic validity through grammar-constrained autoregressive decoding, overcoming the limited expressivity of sequence-based generators. Unlike numerical and neural approaches that approximate solutions in discretized or implicit function spaces, SymPlex operates directly in symbolic expression space, enabling interpretable and human-readable solutions that naturally represent non-smooth behavior and explicit parametric dependence. Empirical results demonstrate exact recovery of non-smooth and parametric PDE solutions using deep learning-based symbolic methods."
+    },
+    {
+      "paper_id": "202602/27/2601.19477v1-roids-robust-outlier-aware-informed-down-sampling",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "Informed down-sampling (IDS) is known to improve performance in symbolic regression when combined with various selection strategies, especially tournament selection. However, recent work found that IDS's gains are not consistent across all problems. Our analysis reveals that IDS performance is worse for problems containing outliers. IDS systematically favors including outliers in subsets which pushes GP towards finding solutions that overfit to outliers. To address this, we introduce ROIDS (Robust Outlier-Aware Informed Down-Sampling), which excludes potential outliers from the sampling process of IDS. With ROIDS it is possible to keep the advantages of IDS without overfitting to outliers and to compete on a wide range of benchmark problems. This is also reflected in our experiments in which ROIDS shows the desired behavior on all studied benchmark problems. ROIDS consistently outperforms IDS on synthetic problems with added outliers as well as on a wide range of complex real-world problems, surpassing IDS on over 80% of the real-world benchmark problems. Moreover, compared to all studied baseline approaches, ROIDS achieves the best average rank across all tested benchmark problems. This robust behavior makes ROIDS a reliable down-sampling method for selection in symbolic regression, especially when outliers may be included in the data set."
+    }
+  ],
   "errors": []
 }

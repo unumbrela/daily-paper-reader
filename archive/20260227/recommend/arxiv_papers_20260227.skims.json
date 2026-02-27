@@ -1,16 +1,158 @@
 {
   "mode": "skims",
-  "generated_at": "2026-02-27T19:10:57.674878+00:00",
+  "generated_at": "2026-02-27T19:22:26.774237+00:00",
   "stats": {
     "mode": "skims",
-    "tag_count": 2,
-    "deep_divecandidates": 0,
+    "forced_all_quick": true,
+    "min_score": 8.0,
+    "deep_divecandidates": 4,
     "deep_cap": null,
     "deep_selected": 0,
-    "quick_candidates": 0,
-    "quick_skim_target": 2,
-    "quick_selected": 0
+    "quick_candidates": 4,
+    "quick_skim_target": null,
+    "quick_selected": 4
   },
   "deep_dive": [],
-  "quick_skim": []
+  "quick_skim": [
+    {
+      "id": "2601.14693v1",
+      "title": "Beyond Error-Based Optimization: Experience-Driven Symbolic Regression with Goal-Conditioned Reinforcement Learning",
+      "abstract": "Symbolic Regression aims to automatically identify compact and interpretable mathematical expressions that model the functional relationship between input and output variables. Most existing search-based symbolic regression methods typically rely on the fitting error to inform the search process. However, in the vast expression space, numerous candidate expressions may exhibit similar error values while differing substantially in structure, leading to ambiguous search directions and hindering convergence to the underlying true function. To address this challenge, we propose a novel framework named EGRL-SR (Experience-driven Goal-conditioned Reinforcement Learning for Symbolic Regression). In contrast to traditional error-driven approaches, EGRL-SR introduces a new perspective: leveraging precise historical trajectories and optimizing the action-value network to proactively guide the search process, thereby achieving a more robust expression search. Specifically, we formulate symbolic regression as a goal-conditioned reinforcement learning problem and incorporate hindsight experience replay, allowing the action-value network to generalize common mapping patterns from diverse input-output pairs. Moreover, we design an all-point satisfaction binary reward function that encourages the action-value network to focus on structural patterns rather than low-error expressions, and concurrently propose a structure-guided heuristic exploration strategy to enhance search diversity and space coverage. Experiments on public benchmarks show that EGRL-SR consistently outperforms state-of-the-art methods in recovery rate and robustness, and can recover more complex expressions under the same search budget. Ablation results validate that the action-value network effectively guides the search, with both the reward function and the exploration strategy playing critical roles.",
+      "authors": [
+        "Jianwen Sun",
+        "Xinrui Li",
+        "Fuqing Li",
+        "Xiaoxuan Shen"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI"
+      ],
+      "published": "2026-01-21T06:08:37+00:00",
+      "link": "https://arxiv.org/pdf/2601.14693v1",
+      "tags": [
+        "keyword:SR-LNS",
+        "keyword:SR-RL",
+        "query:SR-RL"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "goal-conditioned reinforcement learning for symbolic regression and expression discovery",
+      "llm_evidence_cn": "用于符号回归和表达式发现的目标条件强化学习",
+      "llm_evidence": "用于符号回归和表达式发现的目标条件强化学习",
+      "llm_tldr_en": "Proposes a goal-conditioned RL framework to improve search efficiency and convergence in symbolic regression.",
+      "llm_tldr_cn": "提出一种目标条件强化学习框架，以提高符号回归中的搜索效率和收敛性。",
+      "llm_tldr": "提出一种目标条件强化学习框架，以提高符号回归中的搜索效率和收敛性。",
+      "llm_tags": [
+        "query:sr-rl"
+      ],
+      "matched_query_tag": "query:sr-rl",
+      "matched_query_text": "reinforcement learning for mathematical expression discovery",
+      "matched_requirement_id": "req-2"
+    },
+    {
+      "id": "2602.02311v1",
+      "title": "Introns and Templates Matter: Rethinking Linkage in GP-GOMEA",
+      "abstract": "GP-GOMEA is among the state-of-the-art for symbolic regression, especially when it comes to finding small and potentially interpretable solutions. A key mechanism employed in any GOMEA variant is the exploitation of linkage, the dependencies between variables, to ensure efficient evolution. In GP-GOMEA, mutual information between node positions in GP trees has so far been used to learn linkage. For this, a fixed expression template is used. This however leads to introns for expressions smaller than the full template. As introns have no impact on fitness, their occurrences are not directly linked to selection. Consequently, introns can adversely affect the extent to which mutual information captures dependencies between tree nodes. To overcome this, we propose two new measures for linkage learning, one that explicitly considers introns in mutual information estimates, and one that revisits linkage learning in GP-GOMEA from a grey-box perspective, yielding a measure that needs not to be learned from the population but is derived directly from the template. Across five standard symbolic regression problems, GP-GOMEA achieves substantial improvements using both measures. We also find that the newly learned linkage structure closely reflects the template linkage structure, and that explicitly using the template structure yields the best performance overall.",
+      "authors": [
+        "Johannes Koch",
+        "Tanja Alderliesten",
+        "Peter A. N. Bosman"
+      ],
+      "primary_category": "cs.NE",
+      "categories": [
+        "cs.NE"
+      ],
+      "published": "2026-02-02T16:42:30+00:00",
+      "link": "https://arxiv.org/pdf/2602.02311v1",
+      "tags": [
+        "keyword:SR-LNS",
+        "keyword:SR-RL",
+        "query:SR-LNS"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "GP-GOMEA state-of-the-art symbolic regression method",
+      "llm_evidence_cn": "GP-GOMEA 符号回归先进方法",
+      "llm_evidence": "GP-GOMEA 符号回归先进方法",
+      "llm_tldr_en": "Improves GP-GOMEA for symbolic regression by rethinking linkage and introns for better expression discovery.",
+      "llm_tldr_cn": "通过重新思考连锁和内含子，改进了用于符号回归的 GP-GOMEA 方法。",
+      "llm_tldr": "通过重新思考连锁和内含子，改进了用于符号回归的 GP-GOMEA 方法。",
+      "llm_tags": [
+        "query:sr-lns"
+      ],
+      "matched_query_tag": "query:sr-lns",
+      "matched_query_text": "symbolic regression algorithms and methods",
+      "matched_requirement_id": "req-8"
+    },
+    {
+      "id": "2602.03816v1",
+      "title": "SymPlex: A Structure-Aware Transformer for Symbolic PDE Solving",
+      "abstract": "We propose SymPlex, a reinforcement learning framework for discovering analytical symbolic solutions to partial differential equations (PDEs) without access to ground-truth expressions. SymPlex formulates symbolic PDE solving as tree-structured decision-making and optimizes candidate solutions using only the PDE and its boundary conditions. At its core is SymFormer, a structure-aware Transformer that models hierarchical symbolic dependencies via tree-relative self-attention and enforces syntactic validity through grammar-constrained autoregressive decoding, overcoming the limited expressivity of sequence-based generators. Unlike numerical and neural approaches that approximate solutions in discretized or implicit function spaces, SymPlex operates directly in symbolic expression space, enabling interpretable and human-readable solutions that naturally represent non-smooth behavior and explicit parametric dependence. Empirical results demonstrate exact recovery of non-smooth and parametric PDE solutions using deep learning-based symbolic methods.",
+      "authors": [
+        "Yesom Park",
+        "Annie C. Lu",
+        "Shao-Ching Huang",
+        "Qiyang Hu",
+        "Y. Sungtaek Ju",
+        "Stanley Osher"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-03T18:18:30+00:00",
+      "link": "https://arxiv.org/pdf/2602.03816v1",
+      "tags": [
+        "query:SR-RL"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Transformer for symbolic PDE solving and reinforcement learning framework",
+      "llm_evidence_cn": "用于符号 PDE 求解的 Transformer 和强化学习框架",
+      "llm_evidence": "用于符号 PDE 求解的 Transformer 和强化学习框架",
+      "llm_tldr_en": "SymPlex uses a structure-aware Transformer and RL to discover analytical symbolic solutions for PDEs.",
+      "llm_tldr_cn": "SymPlex 使用结构感知 Transformer 和强化学习来发现偏微分方程的解析符号解。",
+      "llm_tldr": "SymPlex 使用结构感知 Transformer 和强化学习来发现偏微分方程的解析符号解。",
+      "llm_tags": [
+        "query:sr-rl"
+      ],
+      "matched_query_tag": "query:sr-rl",
+      "matched_query_text": "Transformer models for symbolic regression tasks",
+      "matched_requirement_id": "req-4"
+    },
+    {
+      "id": "2601.19477v1",
+      "title": "ROIDS: Robust Outlier-Aware Informed Down-Sampling",
+      "abstract": "Informed down-sampling (IDS) is known to improve performance in symbolic regression when combined with various selection strategies, especially tournament selection. However, recent work found that IDS's gains are not consistent across all problems. Our analysis reveals that IDS performance is worse for problems containing outliers. IDS systematically favors including outliers in subsets which pushes GP towards finding solutions that overfit to outliers. To address this, we introduce ROIDS (Robust Outlier-Aware Informed Down-Sampling), which excludes potential outliers from the sampling process of IDS. With ROIDS it is possible to keep the advantages of IDS without overfitting to outliers and to compete on a wide range of benchmark problems. This is also reflected in our experiments in which ROIDS shows the desired behavior on all studied benchmark problems. ROIDS consistently outperforms IDS on synthetic problems with added outliers as well as on a wide range of complex real-world problems, surpassing IDS on over 80% of the real-world benchmark problems. Moreover, compared to all studied baseline approaches, ROIDS achieves the best average rank across all tested benchmark problems. This robust behavior makes ROIDS a reliable down-sampling method for selection in symbolic regression, especially when outliers may be included in the data set.",
+      "authors": [
+        "Alina Geiger",
+        "Martin Briesch",
+        "Dominik Sobania",
+        "Franz Rothlauf"
+      ],
+      "primary_category": "cs.NE",
+      "categories": [
+        "cs.NE"
+      ],
+      "published": "2026-01-27T11:07:47+00:00",
+      "link": "https://arxiv.org/pdf/2601.19477v1",
+      "tags": [
+        "keyword:SR-LNS",
+        "keyword:SR-RL",
+        "query:SR-LNS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "Informed down-sampling in symbolic regression and tournament selection",
+      "llm_evidence_cn": "符号回归中的知情下采样和锦标赛选择",
+      "llm_evidence": "符号回归中的知情下采样和锦标赛选择",
+      "llm_tldr_en": "Introduces ROIDS to improve symbolic regression robustness by handling outliers during down-sampling.",
+      "llm_tldr_cn": "引入 ROIDS，通过在下采样过程中处理离群值来提高符号回归的鲁棒性。",
+      "llm_tldr": "引入 ROIDS，通过在下采样过程中处理离群值来提高符号回归的鲁棒性。",
+      "llm_tags": [
+        "query:sr-lns"
+      ],
+      "matched_query_tag": "query:sr-lns",
+      "matched_query_text": "symbolic regression algorithms and methods",
+      "matched_requirement_id": "req-8"
+    }
+  ]
 }
