@@ -1,0 +1,35 @@
+{
+  "label": "2026-02-27",
+  "date": "2026-02-27",
+  "generated_at": "2026-02-27T09:37:31",
+  "count": 2,
+  "papers": [
+    {
+      "paper_id": "202602/27/2602.22967v1-discovery-of-interpretable-physical-laws-in-materials-via-language-model-guided-symbolic-regression",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "Discovering interpretable physical laws from high-dimensional data is a fundamental challenge in scientific research. Traditional methods, such as symbolic regression, often produce complex, unphysical formulas when searching a vast space of possible forms. We introduce a framework that guides the search process by leveraging the embedded scientific knowledge of large language models, enabling efficient identification of physical laws in the data. We validate our approach by modeling key properties of perovskite materials. Our method mitigates the combinatorial explosion commonly encountered in traditional symbolic regression, reducing the effective search space by a factor of approximately $10^5$. A set of novel formulas for bulk modulus, band gap, and oxygen evolution reaction activity are identified, which not only provide meaningful physical insights but also outperform previous formulas in accuracy and simplicity."
+    },
+    {
+      "paper_id": "202602/27/2601.12442v1-constraint-aware-neurosymbolic-uncertainty-quantification-with-bayesian-deep-learning-for-scientific-discovery",
+      "section": "quick",
+      "title_en": "",
+      "authors": "",
+      "date": "",
+      "pdf": "",
+      "score": "",
+      "evidence": "",
+      "tldr": "",
+      "tags": "",
+      "abstract_en": "Scientific Artificial Intelligence (AI) applications require models that deliver trustworthy uncertainty estimates while respecting domain constraints. Existing uncertainty quantification methods lack mechanisms to incorporate symbolic scientific knowledge, while neurosymbolic approaches operate deterministically without principled uncertainty modeling. We introduce the Constraint-Aware Neurosymbolic Uncertainty Framework (CANUF), unifying Bayesian deep learning with differentiable symbolic reasoning. The architecture comprises three components: automated constraint extraction from scientific literature, probabilistic neural backbone with variational inference, and differentiable constraint satisfaction layer ensuring physical consistency. Experiments on Materials Project (140,000+ materials), QM9 molecular properties, and climate benchmarks show CANUF reduces Expected Calibration Error by 34.7% versus Bayesian neural networks while maintaining 99.2% constraint satisfaction. Ablations reveal constraint-guided recalibration contributes 18.3% performance gain, with constraint extraction achieving 91.4% precision. CANUF provides the first end-to-end differentiable pipeline simultaneously addressing uncertainty quantification, constraint satisfaction, and interpretable explanations for scientific predictions."
+    }
+  ],
+  "errors": []
+}
