@@ -2,7 +2,7 @@
 # 基于全量 ArXiv 元数据池做二次筛选：
 # 1. 读取 arxiv_fetch_raw.py 生成的 JSON（所有论文）；
 # 2. 使用 sentence-transformers 将「标题 + 摘要」编码为向量；
-# 3. 使用 config.yaml 中的 keywords / llm_queries 作为查询，计算相似度；
+# 3. 使用 config.yaml 中的 intent_profiles -> keywords / intent_queries 作为查询，计算相似度；
 # 4. 每个查询保留前 top_k 篇论文，并为这些论文打上 tag（tag），一篇论文可拥有多个 tag；
 # 5. 将带 tag 的论文列表和每个查询的 top_k arxiv_id 写回到一个新的 JSON 文件中。
 
@@ -91,7 +91,7 @@ class Paper:
 def load_config() -> dict:
   """
   从仓库根目录读取 config.yaml。
-  只要能拿到 subscriptions.keywords / subscriptions.llm_queries 即可。
+  仅基于 intent_profiles 构建检索输入，不兼容 legacy 字段。
   """
   if not os.path.exists(CONFIG_FILE):
     log(f"[WARN] config.yaml 不存在：{CONFIG_FILE}")
@@ -238,7 +238,7 @@ def rank_papers_for_queries(
     }
   """
   if not queries:
-    log("[WARN] 未从 config.yaml 中解析到任何查询（keywords / llm_queries），将直接返回空结果。")
+    log("[WARN] 未从 config.yaml 中解析到任何查询（intent_profiles），将直接返回空结果。")
     return {"queries": [], "papers": {}}
 
   paper_ids = [p.id for p in papers]

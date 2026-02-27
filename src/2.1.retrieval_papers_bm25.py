@@ -2,7 +2,7 @@
 # 基于 BM25 对 ArXiv 元数据池做二次筛选：
 # 1. 读取 arxiv_fetch_raw.py 生成的 JSON（所有论文）；
 # 2. 对标题 + 摘要做 BM25 索引；
-# 3. 使用 config.yaml 中的 keywords / llm_queries 作为查询，计算相似度；
+# 3. 使用 config.yaml 中的 intent_profiles -> keywords / intent_queries 作为查询，计算相似度；
 # 4. 每个查询保留前 top_k 篇论文，并为这些论文打上 tag（tag），一篇论文可拥有多个 tag；
 # 5. 将带 tag 的论文列表和每个查询的 top_k 结果写回到一个新的 JSON 文件中。
 
@@ -161,7 +161,7 @@ class BM25Index:
 def load_config() -> dict:
   """
   从仓库根目录读取 config.yaml。
-  只要能拿到 subscriptions.keywords / subscriptions.llm_queries 即可。
+  仅基于 intent_profiles 构建检索输入，不兼容 legacy 字段。
   """
   if not os.path.exists(CONFIG_FILE):
     log(f"[WARN] config.yaml 不存在：{CONFIG_FILE}")
@@ -185,68 +185,9 @@ def load_config() -> dict:
     return {}
 
 
-def build_queries_from_config(config: dict) -> List[dict]:
-  """
-  基于 config.yaml 中的 subscriptions.keywords / subscriptions.llm_queries
-  构造查询列表：
-  - 对于 keywords：使用 keyword 作为查询文本，tag 作为标签；
-  - 对于 llm_queries：使用 query 作为查询文本，tag 作为标签。
-  """
-  subs = (config or {}).get("subscriptions") or {}
-
-  queries: List[dict] = []
-
-  cfg_keywords = subs.get("keywords")
-  if isinstance(cfg_keywords, list):
-    for item in cfg_keywords:
-      if not isinstance(item, dict):
-        continue
-      kw = (item.get("keyword") or "").strip()
-      tag_label = (item.get("tag") or item.get("alias") or "").strip()
-      related = item.get("related") or []
-      if not kw:
-        continue
-      base = tag_label or kw
-      paper_tag = f"keyword:{base}"
-      query_terms = [{"text": kw, "weight": MAIN_TERM_WEIGHT}]
-
-      if isinstance(related, list):
-        for term in related:
-          t = (str(term) or "").strip()
-          if t:
-            query_terms.append({"text": t, "weight": RELATED_TERM_WEIGHT})
-
-      queries.append(
-        {
-          "type": "keyword",
-          "query_text": kw,
-          "tag": tag_label,
-          "paper_tag": paper_tag,
-          "query_terms": query_terms,
-        }
-      )
-
-  cfg_llm = subs.get("llm_queries")
-  if isinstance(cfg_llm, list):
-    for item in cfg_llm:
-      if not isinstance(item, dict):
-        continue
-      q = (item.get("query") or "").strip()
-      tag_label = (item.get("tag") or item.get("alias") or "").strip()
-      if not q:
-        continue
-      base = tag_label or (q[:30] + "..." if len(q) > 30 else q)
-      paper_tag = f"query:{base}"
-      queries.append(
-        {
-          "type": "intent_query",
-          "query_text": q,
-          "tag": tag_label,
-          "paper_tag": paper_tag,
-        }
-      )
-
-  return queries
+def _query_text_for_supabase_bm25(q: dict) -> str:
+  q_text = str(q.get("query_text") or "").strip()
+  return q_text
 
 
 def load_paper_pool(path: str) -> List[Paper]:
@@ -287,11 +228,6 @@ def build_bm25_index(papers: List[Paper], k1: float = 1.5, b: float = 0.75) -> B
   docs = [p.text_for_bm25 for p in papers]
   tokenized = [tokenize(d) for d in docs]
   return BM25Index(tokenized_docs=tokenized, k1=k1, b=b)
-
-
-def _query_text_for_supabase_bm25(q: dict) -> str:
-  q_text = str(q.get("query_text") or "").strip()
-  return q_text
 
 
 def rank_papers_for_queries_via_supabase(
@@ -475,7 +411,7 @@ def rank_papers_for_queries(
     }
   """
   if not queries:
-    log("[WARN] 未从 config.yaml 中解析到任何查询（keywords / llm_queries），将直接返回空结果。")
+    log("[WARN] 未从 config.yaml 中解析到任何查询（intent_profiles），将直接返回空结果。")
     return {"queries": [], "papers": {}}
 
   paper_ids = [p.id for p in papers]
