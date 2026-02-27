@@ -21,8 +21,8 @@ window.SubscriptionsSmartQuery = (function () {
 
   const defaultPromptTemplate = [
     'You are a retrieval planning assistant.',
-    'User tag: {{TAG}}',
-    'User description: {{USER_DESCRIPTION}}',
+    '标签 (Tag): {{TAG}}',
+    '中文描述 (Description): {{USER_DESCRIPTION}}',
     'Retrieval context: {{RETRIEVAL_CONTEXT}}',
     '',
     'Return JSON only:',
@@ -298,8 +298,20 @@ window.SubscriptionsSmartQuery = (function () {
     };
 
     const data = payload && typeof payload === 'object' ? payload : {};
-    const tag = normalizeText(data.tag || data.intent_tag || data.profile_tag || '');
-    const description = normalizeText(data.description || data.profile_desc || data.user_description || '');
+    const tag = normalizeText(
+      data.tag ||
+        data.标签 ||
+        data.intent_tag ||
+        data.profile_tag ||
+        '',
+    );
+    const description = normalizeText(
+      data.description ||
+        data.中文描述 ||
+        data.profile_desc ||
+        data.user_description ||
+        '',
+    );
     const rawKeywords = Array.isArray(data.keywords) ? data.keywords : [];
     const shortZh = (text, maxLen = 20) => {
       const t = normalizeText(text || '');

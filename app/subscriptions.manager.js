@@ -17,8 +17,8 @@ window.SubscriptionsManager = (function () {
 
   const defaultPromptTemplate = [
     'You are a retrieval planning assistant.',
-    'User tag: {{TAG}}',
-    'User description: {{USER_DESCRIPTION}}',
+    '标签 (Tag): {{TAG}}',
+    '中文描述 (Description): {{USER_DESCRIPTION}}',
     'Retrieval context: {{RETRIEVAL_CONTEXT}}',
     '',
     'Return JSON only:',
