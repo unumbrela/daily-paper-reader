@@ -24,40 +24,6 @@ subscriptions:
     diff_threshold_pct: 15
   keyword_recall_mode: or
   intent_profiles:
-    - id: profile-1
-      tag: SR
-      description: ''
-      enabled: true
-      keywords:
-        - keyword: Symbolic Regression
-          keyword_cn: 符号回归
-          query: Symbolic regression methods and applications
-        - keyword: Genetic Programming
-          keyword_cn: 遗传编程
-          query: Genetic programming for symbolic model discovery
-        - keyword: Reinforcement Learning
-          keyword_cn: 强化学习
-          query: Reinforcement learning based symbolic regression
-      intent_queries:
-        - id: intent-q-1772208863973-4500
-          query: Symbolic regression methods and applications
-          query_cn: 符号回归方法与应用
-          enabled: true
-          source: manual
-          note: ''
-        - id: intent-q-1772208863973-6941
-          query: Recent advances and state-of-the-art methods in symbolic regression
-          query_cn: 符号回归领域的最新进展与先进方法
-          enabled: true
-          source: manual
-          note: ''
-        - id: intent-q-1772208863973-3705
-          query: Deep learning for symbolic regression
-          query_cn: 用于符号回归的深度学习方法
-          enabled: true
-          source: manual
-          note: ''
-      updated_at: '2026-02-27T10:34:28.765Z'
     - id: profile-1772208997608-3242
       tag: SR-RL
       description: 符号回归与强化学习的结合研究
