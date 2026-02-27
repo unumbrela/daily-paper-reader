@@ -137,7 +137,7 @@ def build_user_requirements(
     if not requirements:
         for q in fallback_queries:
             q_type = str(q.get("type") or "").strip().lower()
-            if q_type and q_type != "llm_query":
+            if q_type and q_type not in {"llm_query", "intent_query"}:
                 continue
             text = (q.get("query_text") or "").strip()
             if not text:

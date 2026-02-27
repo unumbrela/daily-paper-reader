@@ -353,7 +353,7 @@ def _build_from_profiles(subs: Dict[str, Any]) -> Dict[str, Any]:
 
       bm25_queries.append(
         {
-          "type": "llm_query",
+          "type": "intent_query",
           "tag": tag,
           "paper_tag": f"query:{tag}",
           "query_text": raw_query,
@@ -368,7 +368,7 @@ def _build_from_profiles(subs: Dict[str, Any]) -> Dict[str, Any]:
       )
       embedding_queries.append(
         {
-          "type": "llm_query",
+          "type": "intent_query",
           "tag": tag,
           "paper_tag": f"query:{tag}",
           "query_text": raw_query,

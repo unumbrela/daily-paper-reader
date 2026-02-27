@@ -239,7 +239,7 @@ def build_queries_from_config(config: dict) -> List[dict]:
       paper_tag = f"query:{base}"
       queries.append(
         {
-          "type": "llm_query",
+          "type": "intent_query",
           "query_text": q,
           "tag": tag_label,
           "paper_tag": paper_tag,

@@ -153,10 +153,14 @@ def process_file(
     log(f"[WARN] 文件 {os.path.basename(input_path)} 中缺少 papers 或 queries，跳过。")
     return
 
-  # 仅使用 semantic query（llm_query）进行 rerank。
-  queries = [q for q in all_queries if str(q.get("type") or "").strip().lower() == "llm_query"]
+  # 仅使用语义查询（intent_query 或兼容旧的 llm_query）进行 rerank。
+  def _is_intent_rerank_query(q: Dict[str, Any]) -> bool:
+    q_type = str(q.get("type") or "").strip().lower()
+    return q_type in {"intent_query", "llm_query"}
+
+  queries = [q for q in all_queries if _is_intent_rerank_query(q)]
   if not queries:
-    log("[WARN] 当前输入中没有 llm_query，跳过 rerank。")
+    log("[WARN] 当前输入中没有可用于 rerank 的意图查询，跳过 rerank。")
     # 保持输出结构一致，避免后续步骤读不到文件
     meta_generated_at = data.get("generated_at") or ""
     data["reranked_at"] = datetime.utcnow().isoformat()
@@ -168,7 +172,7 @@ def process_file(
   encoder = build_token_encoder()
   group_start(f"Step 3 - rerank {os.path.basename(input_path)}")
   log(
-    f"[INFO] 开始 rerank：queries={len(queries)}（仅 llm_query），papers={len(papers_list)}，"
+    f"[INFO] 开始 rerank：queries={len(queries)}（仅 intent/语义查询），papers={len(papers_list)}，"
     f"batch_size={BATCH_SIZE}，max_chars={MAX_CHARS_PER_DOC}，token_safety={TOKEN_SAFETY}"
   )
 
