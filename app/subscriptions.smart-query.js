@@ -1036,7 +1036,7 @@ window.SubscriptionsSmartQuery = (function () {
           <input id="dpr-add-profile-tag" type="text" value="${escapeHtml(modalState.tag || '')}" placeholder="请填写标签" />
         </label>
         <label class="dpr-modal-field">
-          <span class="dpr-modal-field-label">描述</span>
+          <span class="dpr-modal-field-label">中文描述</span>
           <input id="dpr-add-profile-desc" type="text" value="${escapeHtml(modalState.description || '')}" placeholder="请填写中文描述" />
         </label>
         <button class="arxiv-tool-btn" data-action="apply-add" style="background:#2e7d32;color:#fff;">保存查询</button>
@@ -1124,20 +1124,7 @@ window.SubscriptionsSmartQuery = (function () {
     modalPanel.innerHTML = `
       <div class="dpr-modal-head">
         <div class="dpr-modal-title">新增查询（请勾选你想要了解的关键词）</div>
-        <div class="dpr-chat-head-actions">
-          <label class="dpr-chat-label dpr-chat-inline-tag">
-            <span class="dpr-chat-label-text">标签</span>
-            <input id="dpr-chat-tag-input" type="text" placeholder="例如：SR" value="${escapeHtml(modalState.inputTag || '')}" />
-          </label>
-          <label class="dpr-chat-label dpr-chat-inline-desc">
-            <span class="dpr-chat-label-text">中文描述</span>
-            <input id="dpr-chat-required-desc" type="text" placeholder="请填写描述" value="${escapeHtml(modalState.inputDesc || '')}" />
-          </label>
-          <button class="arxiv-tool-btn" data-action="apply-chat" style="background:#2e7d32;color:#fff;" ${hasCandidates ? '' : 'disabled'}>
-            保存查询
-          </button>
-          <button class="arxiv-tool-btn" data-action="close">关闭</button>
-        </div>
+        <button class="arxiv-tool-btn" data-action="close">关闭</button>
       </div>
       <div class="dpr-chat-result-module">
         <div class="dpr-modal-group-title">关键词和意图Query候选（同一面板）</div>
@@ -1161,6 +1148,19 @@ window.SubscriptionsSmartQuery = (function () {
           </button>
         </div>
         <div id="dpr-chat-inline-status" class="dpr-chat-inline-status">${escapeHtml(modalState.chatStatus || '')}</div>
+      </div>
+      <div class="dpr-modal-actions dpr-modal-add-footer">
+        <label class="dpr-chat-label dpr-chat-inline-tag">
+          <span class="dpr-chat-label-text">标签</span>
+          <input id="dpr-chat-tag-input" type="text" placeholder="例如：SR" value="${escapeHtml(modalState.inputTag || '')}" />
+        </label>
+        <label class="dpr-chat-label dpr-chat-inline-desc">
+          <span class="dpr-chat-label-text">中文描述</span>
+          <input id="dpr-chat-required-desc" type="text" placeholder="请填写描述" value="${escapeHtml(modalState.inputDesc || '')}" />
+        </label>
+        <button class="arxiv-tool-btn" data-action="apply-chat" style="background:#2e7d32;color:#fff;" ${hasCandidates ? '' : 'disabled'}>
+          保存查询
+        </button>
       </div>
     `;
   };
