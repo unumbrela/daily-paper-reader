@@ -14,6 +14,7 @@ window.SubscriptionsSmartQuery = (function () {
   let reloadAll = null;
 
   let currentProfiles = [];
+  const pendingDeletedProfileIds = new Set();
   let modalOverlay = null;
   let modalPanel = null;
   let modalState = null;
@@ -100,6 +101,23 @@ window.SubscriptionsSmartQuery = (function () {
     if (!msgEl) return;
     msgEl.textContent = text || '';
     msgEl.style.color = color || '#666';
+  };
+
+  const getProfileId = (profileId) => normalizeText(profileId);
+
+  const isProfileDeleted = (profileId) => {
+    const normalizedId = getProfileId(profileId);
+    return !!normalizedId && pendingDeletedProfileIds.has(normalizedId);
+  };
+
+  const clearPendingDeletedProfileIds = () => {
+    pendingDeletedProfileIds.clear();
+  };
+
+  const filterDeletedProfiles = (profiles) => {
+    return (Array.isArray(profiles) ? profiles : []).filter(
+      (profile) => !isProfileDeleted(getProfileId(profile && profile.id)),
+    );
   };
 
   const ensureProfile = (profiles, tag, description) => {
@@ -1586,7 +1604,11 @@ window.SubscriptionsSmartQuery = (function () {
         `确认删除词条「${tag}」吗？\n简介：${summary}\n此操作可在未保存前通过刷新放弃。`,
       );
       if (!ok) return;
-      currentProfiles = currentProfiles.filter((item) => normalizeText(item.id) !== normalizeText(profileId));
+      const normalizedProfileId = getProfileId(profileId);
+      if (normalizedProfileId) {
+        pendingDeletedProfileIds.add(normalizedProfileId);
+      }
+      currentProfiles = currentProfiles.filter((item) => getProfileId(item && item.id) !== normalizedProfileId);
       renderMain();
 
       window.SubscriptionsManager.updateDraftConfig((cfg) => {
@@ -1648,12 +1670,14 @@ window.SubscriptionsSmartQuery = (function () {
   };
 
   const render = (profiles) => {
-    currentProfiles = Array.isArray(profiles) ? deepClone(profiles) : [];
+    const normalizedProfiles = Array.isArray(profiles) ? deepClone(profiles) : [];
+    currentProfiles = filterDeletedProfiles(normalizedProfiles);
     renderMain();
   };
 
   return {
     attach,
     render,
+    clearPendingDeletedProfileIds,
   };
 })();

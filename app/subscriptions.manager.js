@@ -488,6 +488,9 @@ window.SubscriptionsManager = (function () {
     if (window.SubscriptionsSmartQuery && window.SubscriptionsSmartQuery.render) {
       window.SubscriptionsSmartQuery.render(profiles);
     }
+    if (window.SubscriptionsSmartQuery && window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds) {
+      window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds();
+    }
   };
 
   const loadSubscriptions = async () => {
@@ -498,6 +501,9 @@ window.SubscriptionsManager = (function () {
       const { config } = await window.SubscriptionsGithubToken.loadConfig();
       draftConfig = normalizeSubscriptions(config || {});
       hasUnsavedChanges = false;
+      if (window.SubscriptionsSmartQuery && window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds) {
+        window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds();
+      }
       renderFromDraft();
       setMessage('已加载配置，可开始编辑。', '#666');
     } catch (e) {
@@ -532,6 +538,9 @@ window.SubscriptionsManager = (function () {
       );
       draftConfig = toSave;
       hasUnsavedChanges = false;
+      if (window.SubscriptionsSmartQuery && window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds) {
+        window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds();
+      }
       setMessage('配置已保存。', '#080');
     } catch (e) {
       console.error(e);
@@ -557,6 +566,9 @@ window.SubscriptionsManager = (function () {
     if (hasUnsavedChanges) {
       const ok = window.confirm('检测到未保存修改，确认直接关闭并丢弃本地草稿吗？');
       if (!ok) return;
+      if (window.SubscriptionsSmartQuery && window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds) {
+        window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds();
+      }
       draftConfig = null;
       hasUnsavedChanges = false;
     }
