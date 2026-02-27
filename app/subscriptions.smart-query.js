@@ -1586,6 +1586,9 @@ window.SubscriptionsSmartQuery = (function () {
         `确认删除词条「${tag}」吗？\n简介：${summary}\n此操作可在未保存前通过刷新放弃。`,
       );
       if (!ok) return;
+      currentProfiles = currentProfiles.filter((item) => normalizeText(item.id) !== normalizeText(profileId));
+      renderMain();
+
       window.SubscriptionsManager.updateDraftConfig((cfg) => {
         const next = cfg || {};
         if (!next.subscriptions) next.subscriptions = {};

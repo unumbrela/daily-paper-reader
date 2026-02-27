@@ -13,6 +13,7 @@ window.SubscriptionsManager = (function () {
 
   let draftConfig = null;
   let hasUnsavedChanges = false;
+  let isSavingDraftConfig = false;
 
   const defaultPromptTemplate = [
     '你是一名检索规划助手。',
@@ -506,11 +507,23 @@ window.SubscriptionsManager = (function () {
   };
 
   const saveDraftConfig = async () => {
+    if (isSavingDraftConfig) {
+      setMessage('正在保存中，请稍后...', '#666');
+      return;
+    }
     if (!window.SubscriptionsGithubToken || !window.SubscriptionsGithubToken.saveConfig) {
       setMessage('当前无法保存配置，请先完成 GitHub 登录。', '#c00');
       return;
     }
+    if (!draftConfig) {
+      setMessage('配置尚未加载完成，请先等待配置读取完成后再试。', '#c00');
+      return;
+    }
     try {
+      isSavingDraftConfig = true;
+      if (saveBtn) {
+        saveBtn.disabled = true;
+      }
       setMessage('正在保存配置...', '#666');
       const toSave = normalizeSubscriptions(draftConfig || {});
       await window.SubscriptionsGithubToken.saveConfig(
@@ -522,7 +535,13 @@ window.SubscriptionsManager = (function () {
       setMessage('配置已保存。', '#080');
     } catch (e) {
       console.error(e);
-      setMessage('保存配置失败，请稍后重试。', '#c00');
+      const msg = e && e.message ? e.message : '未知错误';
+      setMessage(`保存配置失败：${msg}`.slice(0, 180), '#c00');
+    } finally {
+      isSavingDraftConfig = false;
+      if (saveBtn) {
+        saveBtn.disabled = false;
+      }
     }
   };
 
