@@ -133,24 +133,60 @@ def attach_embeddings(
         return 0
 
     texts = [build_embedding_text(r) for r in rows]
-    log(f"[Embedding] 开始编码：{len(texts)} 条")
+    total_rows = len(rows)
+    if total_rows == 0:
+        return 0
+    log(f"[Embedding] 开始编码：{total_rows} 条")
+    batch_size = max(int(batch_size or 1), 1)
     use_devices = devices or ["cpu"]
+    total_batches = (total_rows + batch_size - 1) // batch_size
     if len(use_devices) == 1:
-        log(f"[Embedding] 加载模型：{model_name}（device={use_devices[0]}）")
+        device = use_devices[0]
+        log(f"[Embedding] 加载模型：{model_name}（device={device}）")
         model = SentenceTransformer(model_name, device=use_devices[0])
         if max_length > 0 and hasattr(model, "max_seq_length"):
             try:
                 model.max_seq_length = max_length
             except Exception:
                 pass
-        emb = model.encode(
-            texts,
-            convert_to_numpy=True,
-            normalize_embeddings=True,
-            batch_size=max(int(batch_size or 8), 1),
-            show_progress_bar=False,
-        )
+
+        now_iso = _now_iso()
+        for batch_index in range(total_batches):
+            batch_from = batch_index * batch_size
+            batch_to = min((batch_index + 1) * batch_size, total_rows)
+            texts_batch = texts[batch_from:batch_to]
+            rows_batch = rows[batch_from:batch_to]
+            log(
+                f"[Embedding] 正在编码第 {batch_index + 1}/{total_batches} 批 "
+                f"（{batch_from + 1}-{batch_to}/{total_rows}，device={device}）"
+            )
+            emb = model.encode(
+                texts_batch,
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+                batch_size=max(batch_size, 1),
+                show_progress_bar=False,
+            )
+            if batch_index == 0:
+                dim = int(emb.shape[1]) if hasattr(emb, "shape") and len(emb.shape) >= 2 else 0
+            if len(emb) != len(rows_batch):
+                raise RuntimeError("embedding 输出长度与输入批次不一致")
+            for local_idx, row in enumerate(rows_batch):
+                vec = emb[local_idx].tolist()
+                row["embedding"] = to_pgvector_literal(vec)
+                row["embedding_model"] = model_name
+                row["embedding_dim"] = dim
+                row["embedding_updated_at"] = now_iso
+            log(
+                f"[Embedding] 完成编码第 {batch_index + 1}/{total_batches} 批 "
+                f"（{batch_from + 1}-{batch_to}/{total_rows}）"
+            )
+        if dim <= 0:
+            raise RuntimeError("embedding 输出维度异常")
+        return dim
+
     else:
+        log(f"[Embedding] 开始分流编码：total={total_rows}, batch={batch_size}, multi-device={use_devices}")
         log(f"[Embedding] 加载模型：{model_name}（multi-device={use_devices}）")
         model = SentenceTransformer(model_name)
         if max_length > 0 and hasattr(model, "max_seq_length"):
@@ -160,26 +196,39 @@ def attach_embeddings(
                 pass
         pool = model.start_multi_process_pool(target_devices=use_devices)
         try:
-            emb = model.encode_multi_process(
-                texts,
-                pool=pool,
-                batch_size=max(int(batch_size or 8), 1),
-                normalize_embeddings=True,
-            )
+            now_iso = _now_iso()
+            for batch_index in range(total_batches):
+                batch_from = batch_index * batch_size
+                batch_to = min((batch_index + 1) * batch_size, total_rows)
+                texts_batch = texts[batch_from:batch_to]
+                rows_batch = rows[batch_from:batch_to]
+                log(
+                    f"[Embedding] 多卡第 {batch_index + 1}/{total_batches} 批编码 "
+                    f"（{batch_from + 1}-{batch_to}/{total_rows}，multi-device={use_devices}）"
+                )
+                emb = model.encode_multi_process(
+                    texts_batch,
+                    pool=pool,
+                    batch_size=max(int(batch_size or 8), 1),
+                    normalize_embeddings=True,
+                )
+                if batch_index == 0:
+                    dim = int(emb.shape[1]) if hasattr(emb, "shape") and len(emb.shape) >= 2 else 0
+                if len(emb) != len(rows_batch):
+                    raise RuntimeError("embedding 输出长度与输入批次不一致")
+                for local_idx, row in enumerate(rows_batch):
+                    vec = emb[local_idx].tolist()
+                    row["embedding"] = to_pgvector_literal(vec)
+                    row["embedding_model"] = model_name
+                    row["embedding_dim"] = dim
+                    row["embedding_updated_at"] = now_iso
+                log(
+                    f"[Embedding] 完成多卡第 {batch_index + 1}/{total_batches} 批 "
+                    f"（{batch_from + 1}-{batch_to}/{total_rows}）"
+                )
         finally:
             model.stop_multi_process_pool(pool)
 
-    if len(emb.shape) != 2 or emb.shape[0] != len(rows):
-        raise RuntimeError("embedding 输出维度异常")
-
-    dim = int(emb.shape[1])
-    now_iso = _now_iso()
-    for idx, row in enumerate(rows):
-        vec = emb[idx].tolist()
-        row["embedding"] = to_pgvector_literal(vec)
-        row["embedding_model"] = model_name
-        row["embedding_dim"] = dim
-        row["embedding_updated_at"] = now_iso
     log(f"[Embedding] 编码完成：dim={dim}")
     return dim
 
