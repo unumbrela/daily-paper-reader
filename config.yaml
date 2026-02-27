@@ -29,20 +29,161 @@ subscriptions:
       description: ''
       enabled: true
       keywords:
-        - keyword: Symbolic Regression
+        - id: kw-1772208863973-1284
+          keyword: Symbolic Regression
           keyword_cn: 符号回归
           query: Symbolic regression methods and applications
-        - keyword: Genetic Programming
+          logic_cn: ''
+          enabled: true
+          source: manual
+          note: ''
+        - id: kw-1772208863973-9481
+          keyword: Genetic Programming
           keyword_cn: 遗传编程
           query: Genetic programming for symbolic model discovery
-        - keyword: Reinforcement Learning
+          logic_cn: ''
+          enabled: true
+          source: manual
+          note: ''
+        - id: kw-1772208863973-1404
+          keyword: Reinforcement Learning
           keyword_cn: 强化学习
           query: Reinforcement learning based symbolic regression
+          logic_cn: ''
+          enabled: true
+          source: manual
+          note: ''
       intent_queries:
-        - query: Symbolic regression methods and applications
+        - id: intent-q-1772208863973-4500
+          query: Symbolic regression methods and applications
           query_cn: 符号回归方法与应用
-        - query: Recent advances and state-of-the-art methods in symbolic regression
+          enabled: true
+          source: manual
+          note: ''
+        - id: intent-q-1772208863973-6941
+          query: Recent advances and state-of-the-art methods in symbolic regression
           query_cn: 符号回归领域的最新进展与先进方法
-        - query: Deep learning for symbolic regression
+          enabled: true
+          source: manual
+          note: ''
+        - id: intent-q-1772208863973-3705
+          query: Deep learning for symbolic regression
           query_cn: 用于符号回归的深度学习方法
+          enabled: true
+          source: manual
+          note: ''
       updated_at: '2026-02-27T10:34:28.765Z'
+    - id: profile-1772208997608-3242
+      tag: SR-RL
+      description: 符号回归与强化学习的结合研究
+      enabled: true
+      keywords:
+        - id: gen-kw-1772208974374-1
+          keyword: symbolic regression
+          keyword_cn: 符号回归
+          query: deep symbolic regression using reinforcement learning
+          logic_cn: 符号回归
+          enabled: true
+          source: generated
+          note: ''
+        - id: gen-kw-1772208974374-2
+          keyword: reinforcement learning
+          keyword_cn: 强化学习
+          query: reinforcement learning for mathematical expression discovery
+          logic_cn: 强化学习
+          enabled: true
+          source: generated
+          note: ''
+        - id: gen-kw-1772208974374-5
+          keyword: genetic programming
+          keyword_cn: 遗传规划
+          query: comparison between genetic programming and RL-based symbolic regression
+          logic_cn: 遗传规划
+          enabled: true
+          source: generated
+          note: ''
+        - id: gen-kw-1772208974374-6
+          keyword: Transformer
+          keyword_cn: Transformer模型
+          query: Transformer models for symbolic regression tasks
+          logic_cn: Transformer模型
+          enabled: true
+          source: generated
+          note: ''
+        - id: gen-kw-1772208974374-8
+          keyword: equation discovery
+          keyword_cn: 方程发现
+          query: automated equation discovery from data using RL
+          logic_cn: 方程发现
+          enabled: true
+          source: generated
+          note: ''
+      intent_queries:
+        - id: gen-intent-1772208974374-1
+          query: state-of-the-art reinforcement learning methods for symbolic regression
+          query_cn: 强化学习在符号回归中的前沿方法
+          enabled: true
+          source: generated
+          note: ''
+        - id: gen-intent-1772208974374-2
+          query: how to use policy gradient to optimize mathematical expressions
+          query_cn: 如何使用策略梯度优化数学表达式
+          enabled: true
+          source: generated
+          note: ''
+      updated_at: '2026-02-27T16:16:37.608Z'
+  smart_query_prompt_template: >-
+    You are a retrieval planning assistant.
+
+    标签 (Tag): {{TAG}}
+
+    中文描述 (Description): {{USER_DESCRIPTION}}
+
+    Retrieval context: {{RETRIEVAL_CONTEXT}}
+
+
+    Return JSON only:
+
+    {
+      "tag": "optional tag suggestion (for user convenience)",
+      "description": "optional Chinese description (for user convenience)",
+      "keywords": [
+        {
+          "keyword": "short keyword phrase for BM25 recall",
+          "query": "semantic rewrite for this keyword",
+          "keyword_cn": "中文直译（可选）",
+        },
+      ],
+      "intent_queries": [
+        {
+          "query": "intent-oriented semantic query 1",
+          "query_cn": "中文直译（可选）",
+        },
+        {
+          "query": "intent-oriented semantic query 2",
+          "query_cn": "中文直译（可选）",
+        }
+      ],
+    }
+
+    Requirements:
+
+    1) keywords: output 5-12 objects; each item must include keyword and query, keyword_cn optional.
+
+    2) keywords are used for recall and should be atomic phrases (prefer 1-3 core words).
+
+    3) Avoid coupling core terms (e.g., "symbolic regression", "reinforcement learning", "genetic programming",
+    "Transformer") with extra qualifiers into one keyword. Keep core terms atomic in keyword and use query for full
+    intent.
+
+    4) Suggested example:
+       {"keyword":"symbolic regression","query":"deep symbolic regression methods","keyword_cn":"符号回归","query_cn":"符号回归深度方法"},
+       {"keyword":"reinforcement learning","query":"policy gradient symbolic regression","keyword_cn":"强化学习","query_cn":"策略梯度在符号回归中的应用"},
+       {"keyword":"MCTS","query":"MCTS for symbolic regression"}
+    5) intent_queries: output 3-8 actionable intent queries. Each item should include query and optional query_cn.
+
+    6) Do not output extra fields like must_have / optional / exclude / rewrite_for_embedding / must_have.
+
+    7) Return pure JSON only, no explanations.
+
+    8) Tag suggestion should be concise, preferably under 6 characters.
