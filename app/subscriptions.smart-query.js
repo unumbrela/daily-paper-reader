@@ -35,10 +35,9 @@ window.SubscriptionsSmartQuery = (function () {
     '  ]',
     '}',
     '要求：',
-    '1) keywords 为数组，每条只保留 keyword 与 query 字段；',
-    '2) 每条建议给 1~2 条；',
-    '3) 不要返回 must_have/optional/exclude/rewrite_for_embedding 等额外字段。',
-    '4) 只输出 JSON，不要输出其它文本。',
+    '1) keywords 为数组，请输出 5~12 条对象（keyword + query），供用户多选；',
+    '2) 不要返回 must_have/optional/exclude/rewrite_for_embedding 等额外字段。',
+    '3) 只输出 JSON，不要输出其它文本。',
   ].join('\n');
 
   const normalizeText = (v) => String(v || '').trim();
