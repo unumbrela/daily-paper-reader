@@ -26,7 +26,8 @@ window.SubscriptionsManager = (function () {
     '  "keywords": [',
     '    {',
     '      "keyword": "用于 BM25 召回的关键词短语",',
-    '      "query": "对应的语义 Query 改写"',
+    '      "query": "对应的语义 Query 改写",',
+    '      "keyword_cn": "对应中文直译（可选）",',
     '    },',
     '  ],',
     '  "intent_queries": [',
@@ -35,7 +36,7 @@ window.SubscriptionsManager = (function () {
     '  ],',
     '}',
     '要求：',
-    '1) keywords 为数组，请给出 5~12 条对象（keyword + query），供用户多选；',
+    '1) keywords 为数组，请给出 5~12 条对象（keyword + query + 可选 keyword_cn），供用户多选；',
     '2) keywords 建议为短词组（1~4 个核心概念词，建议不超过 6 个词），优先输出可独立召回的短名词短语。',
     '3) intent_queries 输出 3~8 条可落地的检索句。',
     '4) 不要返回 must_have/optional/exclude/rewrite_for_embedding/must_have 等额外字段。',
@@ -72,6 +73,7 @@ window.SubscriptionsManager = (function () {
       return {
         id: `kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
         keyword: text,
+        keyword_cn: '',
         query: text,
         logic_cn: '',
         enabled: true,
@@ -91,10 +93,12 @@ window.SubscriptionsManager = (function () {
         item.keyword ||
         '',
     );
+    const keywordCn = normalizeText(item.keyword_cn || item.keyword_zh || item.zh || item.logic_cn || '');
 
     return {
       id: normalizeText(item.id) || `kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
       keyword,
+      keyword_cn: keywordCn,
       query: query || keyword,
       logic_cn: normalizeText(item.logic_cn || ''),
       enabled: item.enabled !== false,

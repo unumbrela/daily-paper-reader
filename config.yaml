@@ -30,9 +30,12 @@ subscriptions:
       enabled: true
       keywords:
         - keyword: Symbolic Regression
+          keyword_cn: 符号回归
           query: Symbolic regression methods and applications
         - keyword: Genetic Programming
+          keyword_cn: 遗传编程
           query: Genetic programming for symbolic model discovery
         - keyword: Reinforcement Learning
+          keyword_cn: 强化学习
           query: Reinforcement learning based symbolic regression
       updated_at: '2026-02-27T10:34:28.765Z'

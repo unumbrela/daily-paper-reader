@@ -30,7 +30,8 @@ window.SubscriptionsSmartQuery = (function () {
     '  "keywords": [',
     '    {',
     '      "keyword": "用于 BM25 召回的关键词短语",',
-    '      "query": "对应的语义 Query 改写"',
+    '      "query": "对应的语义 Query 改写",',
+    '      "keyword_cn": "对应中文直译（可选）",',
     '    }',
     '  ],',
     '  "intent_queries": [',
@@ -39,7 +40,7 @@ window.SubscriptionsSmartQuery = (function () {
     '  ],',
     '}',
     '要求：',
-    '1) keywords 为数组，请输出 5~12 条对象（keyword + query），供用户多选；',
+    '1) keywords 为数组，请输出 5~12 条对象（keyword + query + 可选 keyword_cn），供用户多选；',
     '2) keywords 建议为短词组（1~4 个核心概念词，建议不超过 6 个词）；',
     '3) keywords 建议为短词组（1~4 个核心概念词，建议不超过 6 个词），优先输出可独立召回的短名词短语。',
     '4) intent_queries 输出 3~8 条可落地的检索句。',
@@ -63,6 +64,7 @@ window.SubscriptionsSmartQuery = (function () {
           return {
             id: `kw-${Date.now()}-${idx + 1}`,
             keyword,
+            keyword_cn: '',
             query: keyword,
             logic_cn: '',
             source: fallbackTag === 'legacy' ? 'legacy' : 'manual',
@@ -81,9 +83,11 @@ window.SubscriptionsSmartQuery = (function () {
             item.keyword ||
             '',
         );
+        const keywordCn = normalizeText(item.keyword_cn || item.keyword_zh || item.zh || item.logic_cn || '');
         return {
           id: normalizeText(item.id),
           keyword,
+          keyword_cn: keywordCn,
           query: query || keyword,
           logic_cn: normalizeText(item.logic_cn || ''),
           enabled: item.enabled !== false,
@@ -318,14 +322,20 @@ window.SubscriptionsSmartQuery = (function () {
         const keyword =
           typeof item === 'string' ? normalizeText(item) : normalizeText(item.keyword || item.text || item.expr || '');
         if (!keyword) return null;
+        const keywordCn = normalizeText(
+          typeof item === 'string'
+            ? ''
+            : normalizeText(item.keyword_cn || item.keyword_zh || item.zh || item.logic_cn || ''),
+        );
         const query = normalizeText(
           typeof item === 'string' ? keyword : normalizeText(item.query || item.rewrite || keyword),
         );
         return {
           id: `gen-kw-${Date.now()}-${idx + 1}`,
           keyword,
+          keyword_cn: keywordCn,
           query: query || keyword,
-          logic_cn: shortZh(typeof item === 'string' ? '' : item.logic_cn || ''),
+          logic_cn: shortZh(keywordCn || (typeof item === 'string' ? '' : item.logic_cn || '')),
           enabled: true,
           source: 'generated',
         };
@@ -371,7 +381,7 @@ window.SubscriptionsSmartQuery = (function () {
           return {
             ...k,
             keyword: prefixPlain,
-            logic_cn: shortZh(k.logic_cn || '关键词直译'),
+            logic_cn: shortZh(k.keyword_cn || '关键词直译'),
           };
         }
         return k;
@@ -610,8 +620,9 @@ window.SubscriptionsSmartQuery = (function () {
         kwList.push({
           id: normalizeText(item.id) || `kw-${Date.now()}-${idx + 1}`,
           keyword,
+          keyword_cn: normalizeText(item.keyword_cn || item.keyword_zh || item.zh || ''),
           query: normalizeText(item.query || item.text || keyword),
-          logic_cn: normalizeText(item.logic_cn || ''),
+          logic_cn: normalizeText(item.logic_cn || item.keyword_cn || ''),
           enabled: item.enabled !== false,
           source: normalizeText(item.source || 'generated'),
           note: normalizeText(item.note || ''),
@@ -697,8 +708,9 @@ window.SubscriptionsSmartQuery = (function () {
                 .map((item, idx) => ({
                   id: normalizeText(item.id) || `kw-${Date.now()}-${idx + 1}`,
                   keyword: normalizeText(item.keyword || item.text || item.expr || ''),
+                  keyword_cn: normalizeText(item.keyword_cn || item.keyword_zh || item.zh || ''),
                   query: normalizeText(item.query || item.text || item.keyword || ''),
-                  logic_cn: normalizeText(item.logic_cn || ''),
+                  logic_cn: normalizeText(item.logic_cn || item.keyword_cn || ''),
                   enabled: item.enabled !== false,
                   source: normalizeText(item.source || 'generated'),
                   note: normalizeText(item.note || ''),
@@ -759,6 +771,7 @@ window.SubscriptionsSmartQuery = (function () {
     normalizedList.unshift({
       id: `user-kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
       keyword,
+      keyword_cn: normalizeText('用户检索需求'),
       query,
       logic_cn: '用户检索需求',
       enabled: true,
@@ -774,6 +787,7 @@ window.SubscriptionsSmartQuery = (function () {
       id: normalizeText(k.id),
       keyword: normalizeText(k.keyword || ''),
       query: normalizeText(k.query || k.keyword || ''),
+      keyword_cn: normalizeText(k.keyword_cn || ''),
       logic_cn: normalizeText(k.logic_cn || ''),
       enabled: k.enabled !== false,
       source: normalizeText(k.source || 'manual'),
@@ -828,11 +842,14 @@ window.SubscriptionsSmartQuery = (function () {
   const renderCloudCards = (items, kind, options = {}) => {
     const textField = options.textField || 'text';
     const descField = options.descField || 'logic_cn';
+    const descFallbackField = options.descFallbackField || 'logic_cn';
     const defaultDesc = options.defaultDesc || '';
     return (items || [])
       .map((item, idx) => {
         const text = normalizeText(item[textField] || '');
-        const desc = normalizeText(item[descField] || defaultDesc || '');
+        const desc = normalizeText(
+          item[descField] || item[descFallbackField] || defaultDesc || '',
+        );
         const selected = !!item._selected;
         const checked = selected ? 'checked' : '';
         return `
@@ -976,10 +993,10 @@ window.SubscriptionsSmartQuery = (function () {
     if (!modalPanel || !modalState || modalState.type !== 'add') return;
     const kwHtml = (modalState.keywords || [])
       .map(
-        (k, idx) => `
+      (k, idx) => `
       <button type="button" class="dpr-pick-card ${k._selected ? 'selected' : ''}" data-action="toggle-kw-card" data-index="${idx}">
         <div class="dpr-pick-title">${escapeHtml(k.keyword || k.text || '')}</div>
-        <div class="dpr-pick-desc">${escapeHtml(k.query || k.logic_cn || '（待补充 Query 改写）')}</div>
+        <div class="dpr-pick-desc">${escapeHtml(k.keyword_cn || k.logic_cn || '（待补充中文直译）')}</div>
       </button>
         `,
       )
@@ -1021,7 +1038,7 @@ window.SubscriptionsSmartQuery = (function () {
       <div class="dpr-modal-actions-inline dpr-modal-add-inline">
         <input id="dpr-add-kw-text" type="text" placeholder="手动新增关键词（召回词）" value="${escapeHtml(modalState.customKeyword || '')}" />
         <input id="dpr-add-kw-query" type="text" placeholder="对应语义 Query 改写" value="${escapeHtml(modalState.customQuery || '')}" />
-        <input id="dpr-add-kw-logic" type="text" placeholder="关键词说明（可选）" value="${escapeHtml(modalState.customKeywordLogic || '')}" />
+        <input id="dpr-add-kw-logic" type="text" placeholder="中文直译（可选）" value="${escapeHtml(modalState.customKeywordLogic || '')}" />
         <button class="arxiv-tool-btn" data-action="add-custom-kw">加入候选</button>
       </div>
       <div class="dpr-modal-actions dpr-modal-add-footer">
@@ -1086,7 +1103,7 @@ window.SubscriptionsSmartQuery = (function () {
 
     const kwHtml = renderCloudCards(modalState.keywords || [], 'kw', {
       textField: 'keyword',
-      descField: 'logic_cn',
+      descField: 'keyword_cn',
       defaultDesc: '（待补充中文直译）',
     });
     const intentHtml = renderCloudCards(modalState.intent_queries || [], 'intent', {
@@ -1338,6 +1355,7 @@ window.SubscriptionsSmartQuery = (function () {
         modalState.keywords.push({
           id: `manual-kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           keyword: kwText,
+          keyword_cn: logic,
           query: query || kwText,
           logic_cn: logic,
           enabled: true,
