@@ -25,27 +25,16 @@ window.SubscriptionsManager = (function () {
     '{',
     '  "keywords": [',
     '    {',
-      '      "expr": "关键词短语（单条用于召回，多个关键词之间默认 OR）",',
-    '      "logic_cn": "仅做中文直译（尽量短，不超过20字）",',
-      '      "must_have": ["可选：该关键词关注的核心概念"],',
-      '      "optional": ["可选：该关键词相关扩展概念"],',
-      '      "exclude": ["可选：尽量避开的概念"],',
-      '      "rewrite_for_embedding": "与该关键词语义一致的自然语言短语"',
-    '    }',
-    '  ],',
-    '  "queries": [',
-    '    {',
-    '      "text": "润色后的语义 Query（供 embedding+ranker+LLM 链路）",',
-    '      "logic_cn": "一句中文说明该改写与原始 query 的差异"',
-    '    }',
+    '      "keyword": "用于 BM25 召回的关键词短语",',
+    '      "query": "对应的语义 Query 改写"',
+    '    },',
     '  ]',
     '}',
     '要求：',
-    '1) keywords 请给出 5~12 条短语，便于用户多选；',
-    '2) 避免输出大量“X + 核心术语”冗余形式（如 "deep symbolic regression"）。若核心术语已出现（如 "symbolic regression"），优先输出可独立召回的前缀概念（如 "machine learning"）；',
-    '3) queries 最多 3 条，且必须基于原始 query 做同义改写，不要引入新领域/新主题；',
-    '4) 如果原始 query 偏学术方向，保持该方向，不做发散；',
-    '5) 只输出 JSON，不要输出其它文本。',
+    '1) keywords 为数组，建议给 1~2 条；',
+    '2) 每条 keywords 只保留 keyword 与 query 字段；',
+    '3) 不要返回 must_have/optional/exclude/rewrite_for_embedding/must_have 等额外字段。',
+    '4) 只输出 JSON，不要输出其它文本。',
   ].join('\n');
 
   const QUICK_RUN_CONFERENCES = [
@@ -71,18 +60,55 @@ window.SubscriptionsManager = (function () {
     }
   };
 
-  const uniqList = (arr) => {
-    const list = Array.isArray(arr) ? arr : [];
+  const normalizeKeywordItem = (item) => {
+    if (typeof item === 'string') {
+      const text = normalizeText(item);
+      if (!text) return null;
+      return {
+        id: `kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+        keyword: text,
+        query: text,
+        logic_cn: '',
+        enabled: true,
+        source: 'legacy',
+        note: '',
+      };
+    }
+    if (!item || typeof item !== 'object') return null;
+
+    const keyword = normalizeText(item.keyword || item.expr || item.text || '');
+    if (!keyword) return null;
+    const query = normalizeText(
+      item.query ||
+        item.rewrite ||
+        item.rewrite_for_embedding ||
+        item.text ||
+        item.keyword ||
+        '',
+    );
+
+    return {
+      id: normalizeText(item.id) || `kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      keyword,
+      query: query || keyword,
+      logic_cn: normalizeText(item.logic_cn || ''),
+      enabled: item.enabled !== false,
+      source: normalizeText(item.source || 'manual'),
+      note: normalizeText(item.note || ''),
+    };
+  };
+
+  const dedupeKeywords = (items) => {
+    const list = Array.isArray(items) ? items : [];
     const seen = new Set();
     const out = [];
-    list.forEach((item) => {
-      const t = normalizeText(item);
-      if (!t) return;
-      const key = t.toLowerCase();
-      if (seen.has(key)) return;
+    for (const item of list) {
+      if (!item || typeof item !== 'object') continue;
+      const key = normalizeText(item.keyword || '').toLowerCase();
+      if (!key || seen.has(key)) continue;
       seen.add(key);
-      out.push(t);
-    });
+      out.push(item);
+    }
     return out;
   };
 
@@ -140,16 +166,6 @@ window.SubscriptionsManager = (function () {
     }
   };
 
-  const normalizeKeywordText = (expr) => {
-    let s = normalizeText(expr);
-    if (!s) return '';
-    s = s.replace(/\(/g, ' ').replace(/\)/g, ' ');
-    s = s.replace(/\bAND\b|\bOR\b|\bNOT\b|&&|\|\||!/gi, ' ');
-    s = s.replace(/\bauthor\s*:\s*/gi, ' ');
-    s = s.replace(/\s+/g, ' ').trim();
-    return s;
-  };
-
   const normalizeProfiles = (subs) => {
     const profiles = Array.isArray(subs.intent_profiles) ? subs.intent_profiles : [];
     return profiles
@@ -160,54 +176,18 @@ window.SubscriptionsManager = (function () {
         const description = normalizeText(p.description || '');
         const enabled = p.enabled !== false;
 
-        const keywordRules = (Array.isArray(p.keywords) ? p.keywords : []).concat(
-          Array.isArray(p.keyword_rules) ? p.keyword_rules : [],
-        )
-          .map((k, kIdx) => {
-            if (!k || typeof k !== 'object') return null;
-            const expr = normalizeText(k.expr || k.keyword || '');
-            if (!expr) return null;
-            const rewrite =
-              normalizeText(k.rewrite_for_embedding || '') ||
-              normalizeKeywordText(expr);
-            return {
-              id: normalizeText(k.id) || `${id}-kw-${kIdx + 1}`,
-              expr,
-              logic_cn: normalizeText(k.logic_cn || ''),
-              must_have: uniqList(k.must_have),
-              optional: uniqList(k.optional),
-              exclude: uniqList(k.exclude),
-              rewrite_for_embedding: rewrite,
-              enabled: k.enabled !== false,
-              source: normalizeText(k.source || 'manual'),
-              note: normalizeText(k.note || ''),
-            };
-          })
-          .filter(Boolean);
-
-        const semanticQueries = (Array.isArray(p.semantic_queries) ? p.semantic_queries : [])
-          .map((q, qIdx) => {
-            if (!q || typeof q !== 'object') return null;
-            const text = normalizeText(q.text || q.query || '');
-            if (!text) return null;
-            return {
-              id: normalizeText(q.id) || `${id}-q-${qIdx + 1}`,
-              text,
-              logic_cn: normalizeText(q.logic_cn || ''),
-              enabled: q.enabled !== false,
-              source: normalizeText(q.source || 'manual'),
-              note: normalizeText(q.note || ''),
-            };
-          })
-          .filter(Boolean);
+        let keywordRules = (Array.isArray(p.keywords) ? p.keywords : []).map(normalizeKeywordItem).filter(Boolean);
+        const normalizedKeywords = dedupeKeywords(keywordRules);
+        if (!keywordRules.length && !normalizedKeywords.length) {
+          return null;
+        }
 
       return {
         id,
         tag,
         description,
         enabled,
-        keywords: keywordRules,
-        semantic_queries: semanticQueries,
+        keywords: normalizedKeywords,
         updated_at: normalizeText(p.updated_at) || new Date().toISOString(),
       };
       })
@@ -218,85 +198,11 @@ window.SubscriptionsManager = (function () {
     const existingProfiles = normalizeProfiles(subs);
     if (existingProfiles.length > 0) {
       subs.intent_profiles = existingProfiles;
-      return subs;
+    } else {
+      subs.intent_profiles = [];
     }
-
-    const profilesByTag = {};
-    const ensureProfile = (tag) => {
-      const key = normalizeText(tag) || 'default';
-      if (!profilesByTag[key]) {
-        profilesByTag[key] = {
-          id: `profile-${Object.keys(profilesByTag).length + 1}`,
-          tag: key,
-          description: '',
-          enabled: true,
-          keywords: [],
-          semantic_queries: [],
-          updated_at: new Date().toISOString(),
-        };
-      }
-      return profilesByTag[key];
-    };
-
-    const keywords = Array.isArray(subs.keywords) ? subs.keywords : [];
-    keywords.forEach((item) => {
-      if (typeof item === 'string') {
-        const kw = normalizeText(item);
-        if (!kw) return;
-        const p = ensureProfile('default');
-        p.keywords.push({
-          id: `kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-          expr: kw,
-          logic_cn: '',
-          must_have: [],
-          optional: [],
-          exclude: [],
-          rewrite_for_embedding: normalizeKeywordText(kw),
-          enabled: true,
-          source: 'legacy',
-          note: '',
-        });
-        return;
-      }
-      if (!item || typeof item !== 'object') return;
-      const kw = normalizeText(item.keyword || '');
-      if (!kw) return;
-      const tag = normalizeText(item.tag || item.alias || 'default');
-      const p = ensureProfile(tag);
-      p.keywords.push({
-        id: `kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-        expr: kw,
-        logic_cn: normalizeText(item.logic_cn || ''),
-        must_have: uniqList(item.must_have),
-        optional: uniqList(item.optional || item.related),
-        exclude: uniqList(item.exclude),
-          rewrite_for_embedding:
-            normalizeText(item.rewrite || '') ||
-            normalizeKeywordText(kw),
-        enabled: item.enabled !== false,
-        source: 'legacy',
-        note: '',
-      });
-    });
-
-    const queries = Array.isArray(subs.llm_queries) ? subs.llm_queries : [];
-    queries.forEach((item) => {
-      if (!item || typeof item !== 'object') return;
-      const q = normalizeText(item.query || '');
-      if (!q) return;
-      const tag = normalizeText(item.tag || item.alias || 'default');
-      const p = ensureProfile(tag);
-      p.semantic_queries.push({
-        id: `q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-        text: q,
-        logic_cn: normalizeText(item.logic_cn || ''),
-        enabled: item.enabled !== false,
-        source: 'legacy',
-        note: '',
-      });
-    });
-
-    subs.intent_profiles = Object.values(profilesByTag);
+    delete subs.keywords;
+    delete subs.llm_queries;
     return subs;
   };
 

@@ -30,9 +30,13 @@ class QueryTagFlowTest(unittest.TestCase):
                         "id": "p1",
                         "tag": "SR",
                         "enabled": True,
-                        "semantic_queries": [
-                            {"id": "q1", "text": "symbolic regression with rl", "enabled": True},
-                            {"id": "q2", "text": "symbolic regression with rl", "enabled": True},
+                        "keywords": [
+                            {
+                                "id": "q1",
+                                "keyword": "Symbolic Regression",
+                                "query": "symbolic regression with rl",
+                                "enabled": True,
+                            },
                         ],
                     }
                 ]

@@ -67,10 +67,83 @@ def _uniq_keep_order(items: List[str]) -> List[str]:
   return out
 
 
-def _to_str_list(v: Any) -> List[str]:
-  if not isinstance(v, list):
+def _normalize_text_item(item: Any) -> str:
+  if isinstance(item, str):
+    return _norm_text(item)
+  if not isinstance(item, dict):
+    return ''
+  return _norm_text(item.get('text') or item.get('keyword') or item.get('expr') or '')
+
+
+def _normalize_query_item(item: Any) -> str:
+  if isinstance(item, str):
+    return _norm_text(item)
+  if not isinstance(item, dict):
+    return ''
+  return _norm_text(
+    item.get('query')
+    or item.get('rewrite')
+    or item.get('rewrite_for_embedding')
+    or item.get('text')
+    or ''
+  )
+
+
+def _normalize_keyword_entry(item: Any, default_id: str) -> Dict[str, Any]:
+  if isinstance(item, str):
+    keyword = _norm_text(item)
+    if not keyword:
+      return {}
+    return {
+      "id": default_id,
+      "keyword": keyword,
+      "query": keyword,
+      "logic_cn": "",
+      "enabled": True,
+      "source": "manual",
+      "note": "",
+    }
+
+  if not isinstance(item, dict):
+    return {}
+
+  keyword = _norm_text(item.get("keyword") or item.get("text") or item.get("expr") or "")
+  if not keyword:
+    return {}
+  query = _normalize_query_item(item)
+  if not query:
+    query = keyword
+
+  return {
+    "id": _norm_text(item.get("id") or default_id),
+    "keyword": keyword,
+    "query": query,
+    "logic_cn": _norm_text(item.get("logic_cn") or ""),
+    "enabled": _as_bool(item.get("enabled"), True),
+    "source": _norm_text(item.get("source") or "manual"),
+    "note": _norm_text(item.get("note") or ""),
+  }
+
+
+def _normalize_keyword_list(items: Any, pid: str, start_index: int = 0) -> List[Dict[str, Any]]:
+  if not isinstance(items, list):
     return []
-  return _uniq_keep_order([_norm_text(x) for x in v])
+
+  out: List[Dict[str, Any]] = []
+  for idx, raw in enumerate(items):
+    entry = _normalize_keyword_entry(raw, f"{pid}-kw-{start_index + idx + 1}")
+    if entry:
+      out.append(entry)
+
+  seen = set()
+  deduped: List[Dict[str, Any]] = []
+  for item in out:
+    key = _norm_text(item.get("keyword")).lower()
+    if not key or key in seen:
+      continue
+    seen.add(key)
+    deduped.append(item)
+  return deduped
 
 
 def get_migration_stage(config: Dict[str, Any]) -> str:
@@ -104,53 +177,8 @@ def _normalize_profile(profile: Dict[str, Any], idx: int) -> Dict[str, Any]:
   if not tag:
     tag = pid
 
-  kw_rules_in = profile.get("keywords") or profile.get("keyword_rules") or []
-  sq_in = profile.get("semantic_queries") or []
-  kw_rules: List[Dict[str, Any]] = []
-  sem_queries: List[Dict[str, Any]] = []
-
-  if isinstance(kw_rules_in, list):
-    for k_idx, rule in enumerate(kw_rules_in):
-      if not isinstance(rule, dict):
-        continue
-      expr = _norm_text(rule.get("expr") or rule.get("keyword") or "")
-      if not expr:
-        continue
-      rid = _norm_text(rule.get("id") or f"{pid}-kw-{k_idx + 1}")
-      rewrite_for_embedding = _normalize_keyword_expr(rule.get("rewrite_for_embedding") or expr)
-      kw_rules.append(
-        {
-          "id": rid,
-          "expr": expr,
-          "logic_cn": _norm_text(rule.get("logic_cn") or ""),
-          "must_have": _to_str_list(rule.get("must_have")),
-          "optional": _to_str_list(rule.get("optional")),
-          "exclude": _to_str_list(rule.get("exclude")),
-          "rewrite_for_embedding": rewrite_for_embedding,
-          "enabled": _as_bool(rule.get("enabled"), True),
-          "source": _norm_text(rule.get("source") or "manual"),
-          "note": _norm_text(rule.get("note") or ""),
-        }
-      )
-
-  if isinstance(sq_in, list):
-    for q_idx, item in enumerate(sq_in):
-      if not isinstance(item, dict):
-        continue
-      text = _norm_text(item.get("text") or item.get("query") or "")
-      if not text:
-        continue
-      qid = _norm_text(item.get("id") or f"{pid}-q-{q_idx + 1}")
-      sem_queries.append(
-        {
-          "id": qid,
-          "text": text,
-          "logic_cn": _norm_text(item.get("logic_cn") or ""),
-          "enabled": _as_bool(item.get("enabled"), True),
-          "source": _norm_text(item.get("source") or "manual"),
-          "note": _norm_text(item.get("note") or ""),
-        }
-      )
+  kw_rules_in = profile.get("keywords") or []
+  kw_rules: List[Dict[str, Any]] = _normalize_keyword_list(kw_rules_in, pid)
 
   return {
     "id": pid,
@@ -158,7 +186,6 @@ def _normalize_profile(profile: Dict[str, Any], idx: int) -> Dict[str, Any]:
     "description": description,
     "enabled": _as_bool(profile.get("enabled"), True),
     "keywords": kw_rules,
-    "semantic_queries": sem_queries,
     "updated_at": _norm_text(profile.get("updated_at") or _now_iso()),
   }
 
@@ -188,35 +215,39 @@ def _build_from_profiles(subs: Dict[str, Any]) -> Dict[str, Any]:
     paper_tag_keyword = f"keyword:{tag}"
     paper_tag_query = f"query:{tag}"
 
-    for rule in profile.get("keywords") or profile.get("keyword_rules") or []:
-      if not rule.get("enabled", True):
+    for keyword_rule in profile.get("keywords") or []:
+      normalized = _normalize_keyword_entry(
+        keyword_rule,
+        f"{_norm_text(profile.get('id'))}-kw-{len(context_keywords) + len(context_queries) + 1}",
+      )
+      if not normalized:
         continue
-      expr = _norm_text(rule.get("expr") or "")
-      if not expr:
+      if not _as_bool(normalized.get("enabled"), True):
         continue
-      bm25_text = _normalize_keyword_expr(expr)
-      logic_cn = _norm_text(rule.get("logic_cn") or "")
-      rewrite_for_embedding = _normalize_keyword_expr(rule.get("rewrite_for_embedding") or expr)
 
-      query_terms = [{"text": bm25_text, "weight": MAIN_TERM_WEIGHT}]
-      for x in _to_str_list(rule.get("optional")):
-        query_terms.append({"text": x, "weight": RELATED_TERM_WEIGHT})
+      raw_text = _norm_text(normalized.get("keyword") or "")
+      raw_query = _norm_text(normalized.get("query") or "")
+      if not raw_text:
+        continue
+      if not raw_query:
+        raw_query = raw_text
 
+      expr = _normalize_keyword_expr(raw_text)
+      logic_cn = _norm_text(normalized.get("logic_cn") or "")
+      source = _norm_text(normalized.get("source") or "manual")
+      source_rule_id = _norm_text(normalized.get("id") or "")
       bm25_queries.append(
         {
           "type": "keyword",
           "tag": tag,
           "paper_tag": paper_tag_keyword,
-          "query_text": bm25_text,
-          "query_terms": query_terms,
+          "query_text": expr,
+          "query_terms": [{"text": expr, "weight": MAIN_TERM_WEIGHT}],
           "boolean_expr": "",
           "logic_cn": logic_cn,
-          "must_have": _to_str_list(rule.get("must_have")),
-          "optional": _to_str_list(rule.get("optional")),
-          "exclude": _to_str_list(rule.get("exclude")),
           "source_profile_id": profile.get("id"),
-          "source_rule_id": rule.get("id"),
-          "source": rule.get("source") or "manual",
+          "source_rule_id": source_rule_id,
+          "source": source,
           "or_soft_weight": OR_SOFT_WEIGHT,
         }
       )
@@ -225,47 +256,21 @@ def _build_from_profiles(subs: Dict[str, Any]) -> Dict[str, Any]:
           "type": "keyword",
           "tag": tag,
           "paper_tag": paper_tag_keyword,
-          "query_text": rewrite_for_embedding or expr,
+          "query_text": raw_query,
           "logic_cn": logic_cn,
           "source_profile_id": profile.get("id"),
-          "source_rule_id": rule.get("id"),
-          "source": rule.get("source") or "manual",
+          "source_rule_id": source_rule_id,
+          "source": source,
         }
       )
-      context_keywords.append({"tag": paper_tag_keyword, "keyword": expr, "logic_cn": logic_cn})
-
-    for item in profile.get("semantic_queries") or []:
-      if not item.get("enabled", True):
-        continue
-      text = _norm_text(item.get("text") or "")
-      if not text:
-        continue
-      logic_cn = _norm_text(item.get("logic_cn") or "")
-      bm25_queries.append(
+      context_keywords.append({"tag": paper_tag_keyword, "keyword": raw_text, "logic_cn": logic_cn})
+      context_queries.append(
         {
-          "type": "llm_query",
-          "tag": tag,
-          "paper_tag": paper_tag_query,
-          "query_text": text,
+          "tag": paper_tag_query,
+          "query": raw_query,
           "logic_cn": logic_cn,
-          "source_profile_id": profile.get("id"),
-          "source_query_id": item.get("id"),
-          "source": item.get("source") or "manual",
         }
       )
-      embedding_queries.append(
-        {
-          "type": "llm_query",
-          "tag": tag,
-          "paper_tag": paper_tag_query,
-          "query_text": text,
-          "logic_cn": logic_cn,
-          "source_profile_id": profile.get("id"),
-          "source_query_id": item.get("id"),
-          "source": item.get("source") or "manual",
-        }
-      )
-      context_queries.append({"tag": paper_tag_query, "query": text, "logic_cn": logic_cn})
 
   return {
     "profiles": profiles,
