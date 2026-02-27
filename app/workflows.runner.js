@@ -126,6 +126,33 @@ window.DPRWorkflowRunner = (function () {
     return res;
   };
 
+  const resolveWorkflowRunInputs = async (owner, repo, token, runId) => {
+    if (!owner || !repo || !runId || !token) return null;
+    const runUrl = `https://api.github.com/repos/${owner}/${repo}/actions/runs/${runId}`;
+    try {
+      const res = await ghFetch(token, runUrl);
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => null);
+      if (!data || typeof data !== 'object') return null;
+      if (data.inputs && typeof data.inputs === 'object') {
+        return data.inputs;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const resolveRecentRunTag = async (owner, repo, token, run) => {
+    if (!run) return 'daily-now';
+    const inputs = run.inputs && typeof run.inputs === 'object'
+      ? run.inputs
+      : (await resolveWorkflowRunInputs(owner, repo, token, run.id));
+    if (!inputs || typeof inputs !== 'object') return 'daily-now';
+    const fetchDays = String(inputs.fetch_days || '').trim();
+    return fetchDays === '30' ? 'daily-month-skims' : 'daily-now';
+  };
+
   const setStatus = (text, color) => {
     if (!statusEl) return;
     statusEl.textContent = text || '';
@@ -379,30 +406,57 @@ window.DPRWorkflowRunner = (function () {
       }
       const byWorkflow = {};
       const runsByWorkflowId = {};
+      const uniqueWorkflowIds = Array.from(
+        new Set(WORKFLOWS.map((wf) => String(wf.id || ''))),
+      );
 
-      for (const wf of WORKFLOWS) {
-        const wfId = String(wf.id || '');
-        if (!runsByWorkflowId[wfId]) {
-          // eslint-disable-next-line no-await-in-loop
-          const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${encodeURIComponent(
-            wfId,
-          )}/runs?per_page=3`;
-          // eslint-disable-next-line no-await-in-loop
-          const res = await ghFetch(token, url);
-          if (!res.ok) {
-            const txt = await res.text().catch(() => '');
-            throw new Error(
-              `读取最近运行失败(${wfId})：HTTP ${res.status} ${res.statusText} - ${txt}`,
-            );
-          }
-          // eslint-disable-next-line no-await-in-loop
-          const data = await res.json();
-          runsByWorkflowId[wfId] = Array.isArray(data.workflow_runs)
-            ? data.workflow_runs
-            : [];
+      for (const wfId of uniqueWorkflowIds) {
+        const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${encodeURIComponent(
+          wfId,
+        )}/runs?per_page=12`;
+        const res = await ghFetch(token, url);
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(
+            `读取最近运行失败(${wfId})：HTTP ${res.status} ${res.statusText} - ${txt}`,
+          );
         }
-        byWorkflow[String(wf.key || wfId)] = runsByWorkflowId[wfId];
+        const data = await res.json();
+        runsByWorkflowId[wfId] = Array.isArray(data.workflow_runs)
+          ? data.workflow_runs
+          : [];
       }
+
+      const dailyFileRuns = runsByWorkflowId['daily-paper-reader.yml'] || [];
+      const dailyNowRuns = [];
+      const dailyMonthRuns = [];
+      if (dailyFileRuns.length > 0) {
+        const tagged = await Promise.all(
+          dailyFileRuns.map((run) =>
+            resolveRecentRunTag(owner, repo, token, run).then((runTag) => ({ run, runTag })),
+          ),
+        );
+        tagged.forEach(({ run, runTag }) => {
+          if (runTag === 'daily-month-skims') {
+            dailyMonthRuns.push(run);
+          } else {
+            dailyNowRuns.push(run);
+          }
+        });
+      }
+
+      WORKFLOWS.forEach((wf) => {
+        const wfId = String(wf.id || '');
+        if (wf.id === 'daily-paper-reader.yml' && wf.key === 'daily-month-skims') {
+          byWorkflow[String(wf.key)] = dailyMonthRuns.slice(0, 3);
+          return;
+        }
+        if (wf.id === 'daily-paper-reader.yml' && wf.key === 'daily-now') {
+          byWorkflow[String(wf.key)] = dailyNowRuns.slice(0, 3);
+          return;
+        }
+        byWorkflow[String(wf.key || wfId)] = (runsByWorkflowId[wfId] || []).slice(0, 3);
+      });
 
       renderRecentRuns(owner, repo, byWorkflow, '');
     } catch (e) {
