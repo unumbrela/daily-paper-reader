@@ -31,14 +31,20 @@ window.SubscriptionsManager = (function () {
     '    },',
     '  ],',
     '  "intent_queries": [',
-    '    "满足用户意图的语义查询1",',
-    '    "满足用户意图的语义查询2"',
+    '    {',
+    '      "query": "满足用户意图的语义查询1",',
+    '      "query_cn": "对应中文直译（可选）",',
+    '    },',
+    '    {',
+    '      "query": "满足用户意图的语义查询2",',
+    '      "query_cn": "对应中文直译（可选）",',
+    '    }',
     '  ],',
     '}',
     '要求：',
     '1) keywords 为数组，请给出 5~12 条对象（keyword + query + 可选 keyword_cn），供用户多选；',
     '2) keywords 建议为短词组（1~4 个核心概念词，建议不超过 6 个词），优先输出可独立召回的短名词短语。',
-    '3) intent_queries 输出 3~8 条可落地的检索句。',
+    '3) intent_queries 输出 3~8 条可落地的检索句（可选 query_cn）。',
     '4) 不要返回 must_have/optional/exclude/rewrite_for_embedding/must_have 等额外字段。',
     '5) 只输出 JSON，不要输出其它文本。',
   ].join('\n');
@@ -128,6 +134,7 @@ window.SubscriptionsManager = (function () {
       return {
         id: `intent-q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
         query,
+        query_cn: '',
         enabled: true,
         source: 'manual',
       };
@@ -136,10 +143,12 @@ window.SubscriptionsManager = (function () {
 
     const query = normalizeText(item.query || item.text || item.keyword || item.expr || '');
     if (!query) return null;
+    const queryCn = normalizeText(item.query_cn || item.query_zh || item.zh || item.note || '');
 
     return {
       id: normalizeText(item.id) || `intent-q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
       query,
+      query_cn: queryCn,
       enabled: item.enabled !== false,
       source: normalizeText(item.source || 'manual'),
       note: normalizeText(item.note || ''),

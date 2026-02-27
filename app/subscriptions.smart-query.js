@@ -35,15 +35,21 @@ window.SubscriptionsSmartQuery = (function () {
     '    }',
     '  ],',
     '  "intent_queries": [',
-    '    "满足用户意图的语义查询1",',
-    '    "满足用户意图的语义查询2"',
+    '    {',
+    '      "query": "满足用户意图的语义查询1",',
+    '      "query_cn": "对应中文直译（可选）",',
+    '    },',
+    '    {',
+    '      "query": "满足用户意图的语义查询2",',
+    '      "query_cn": "对应中文直译（可选）",',
+    '    }',
     '  ],',
     '}',
     '要求：',
     '1) keywords 为数组，请输出 5~12 条对象（keyword + query + 可选 keyword_cn），供用户多选；',
     '2) keywords 建议为短词组（1~4 个核心概念词，建议不超过 6 个词）；',
     '3) keywords 建议为短词组（1~4 个核心概念词，建议不超过 6 个词），优先输出可独立召回的短名词短语。',
-    '4) intent_queries 输出 3~8 条可落地的检索句。',
+    '4) intent_queries 输出 3~8 条可落地的检索句（每条包含 query + 可选 query_cn）。',
     '5) 不要返回 must_have/optional/exclude/rewrite_for_embedding 等额外字段。',
     '6) 只输出 JSON，不要输出其它文本。',
   ].join('\n');
@@ -109,6 +115,7 @@ window.SubscriptionsSmartQuery = (function () {
           return {
             id: `gen-intent-${Date.now()}-${idx + 1}`,
             query,
+            query_cn: '',
             enabled: true,
             source: 'generated',
           };
@@ -116,9 +123,11 @@ window.SubscriptionsSmartQuery = (function () {
         if (!item || typeof item !== 'object') return null;
         const query = normalizeText(item.query || item.text || item.keyword || item.expr || '');
         if (!query) return null;
+        const queryCn = normalizeText(item.query_cn || item.query_zh || item.zh || item.note || '');
         return {
           id: normalizeText(item.id) || `gen-intent-${Date.now()}-${idx + 1}`,
           query,
+          query_cn: queryCn,
           enabled: item.enabled !== false,
           source: normalizeText(item.source || 'generated'),
           note: normalizeText(item.note || ''),
@@ -642,6 +651,7 @@ window.SubscriptionsSmartQuery = (function () {
         mergedIntentQueries.push({
           id: normalizeText(item.id) || `intent-q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           query,
+          query_cn: normalizeText(item.query_cn || item.query_zh || item.zh || ''),
           enabled: item.enabled !== false,
           source: normalizeText(item.source || 'generated'),
           note: normalizeText(item.note || ''),
@@ -688,6 +698,7 @@ window.SubscriptionsSmartQuery = (function () {
         mergedIntentQueries.push({
           id: normalizeText(queryObj.id) || `intent-q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           query,
+          query_cn: normalizeText(queryObj.query_cn || queryObj.query_zh || queryObj.zh || ''),
           enabled: queryObj.enabled !== false,
           source: normalizeText(queryObj.source || 'manual'),
           note: normalizeText(queryObj.note || ''),
@@ -1006,7 +1017,7 @@ window.SubscriptionsSmartQuery = (function () {
         (item, idx) => `
       <button type="button" class="dpr-pick-card ${item._selected ? 'selected' : ''}" data-action="toggle-intent-query-card" data-index="${idx}">
         <div class="dpr-pick-title">${escapeHtml(item.query || item.text || '')}</div>
-        <div class="dpr-pick-desc">${escapeHtml(item.note || item.source || '（意图检索句）')}</div>
+        <div class="dpr-pick-desc">${escapeHtml(item.query_cn || item.note || item.source || '（意图检索句）')}</div>
       </button>
         `,
       )
@@ -1108,8 +1119,9 @@ window.SubscriptionsSmartQuery = (function () {
     });
     const intentHtml = renderCloudCards(modalState.intent_queries || [], 'intent', {
       textField: 'query',
-      descField: 'note',
-      defaultDesc: '（待补充说明）',
+      descField: 'query_cn',
+      descFallbackField: 'note',
+      defaultDesc: '（待补充中文直译）',
     });
     const hasKeywords = Array.isArray(modalState.keywords) && modalState.keywords.length > 0;
     const hasIntentQueries = Array.isArray(modalState.intent_queries) && modalState.intent_queries.length > 0;
