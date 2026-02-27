@@ -87,7 +87,7 @@ window.SubscriptionsSmartQuery = (function () {
     return out;
   };
 
-  const cleanBooleanForEmbedding = (expr) => {
+  const normalizeKeywordText = (expr) => {
     let s = normalizeText(expr);
     if (!s) return '';
     s = s.replace(/\(/g, ' ').replace(/\)/g, ' ');
@@ -259,7 +259,7 @@ window.SubscriptionsSmartQuery = (function () {
           optional: uniqList(item.optional),
           exclude: uniqList(item.exclude),
           rewrite_for_embedding:
-            normalizeText(item.rewrite_for_embedding || '') || cleanBooleanForEmbedding(expr),
+            normalizeText(item.rewrite_for_embedding || '') || normalizeKeywordText(expr),
           enabled: true,
           source: 'generated',
           note: normalizeText(item.note || ''),
@@ -560,7 +560,7 @@ window.SubscriptionsSmartQuery = (function () {
           optional: uniqList(item.optional),
           exclude: uniqList(item.exclude),
           rewrite_for_embedding:
-            normalizeText(item.rewrite_for_embedding || '') || cleanBooleanForEmbedding(expr),
+            normalizeText(item.rewrite_for_embedding || '') || normalizeKeywordText(expr),
           enabled: true,
           source: normalizeText(item.source || 'generated'),
           note: normalizeText(item.note || ''),
@@ -627,7 +627,7 @@ window.SubscriptionsSmartQuery = (function () {
             optional: uniqList(item.optional),
             exclude: uniqList(item.exclude),
             rewrite_for_embedding:
-              normalizeText(item.rewrite_for_embedding || '') || cleanBooleanForEmbedding(normalizeText(item.expr || '')),
+              normalizeText(item.rewrite_for_embedding || '') || normalizeKeywordText(normalizeText(item.expr || '')),
             enabled: item.enabled !== false,
             source: normalizeText(item.source || 'manual'),
             note: normalizeText(item.note || ''),
@@ -670,7 +670,8 @@ window.SubscriptionsSmartQuery = (function () {
       optional: uniqList(k.optional),
       exclude: uniqList(k.exclude),
       rewrite_for_embedding:
-        normalizeText(k.rewrite_for_embedding || '') || cleanBooleanForEmbedding(normalizeText(k.expr || '')),
+        normalizeText(k.rewrite_for_embedding || '') ||
+        normalizeKeywordText(normalizeText(k.expr || '')),
       enabled: k.enabled !== false,
       source: normalizeText(k.source || 'manual'),
       note: normalizeText(k.note || ''),
@@ -1285,7 +1286,7 @@ window.SubscriptionsSmartQuery = (function () {
         item.expr = normalizeText(expr);
         item.logic_cn = normalizeText(logic || '');
         item.rewrite_for_embedding =
-          normalizeText(item.rewrite_for_embedding || '') || cleanBooleanForEmbedding(item.expr || '');
+          normalizeText(item.rewrite_for_embedding || '') || normalizeKeywordText(item.expr || '');
         profile.keyword_rules[i] = item;
       });
       return;
@@ -1341,7 +1342,7 @@ window.SubscriptionsSmartQuery = (function () {
           must_have: [],
           optional: [],
           exclude: [],
-          rewrite_for_embedding: cleanBooleanForEmbedding(expr),
+          rewrite_for_embedding: normalizeKeywordText(expr),
           enabled: true,
           source: 'manual',
           note: '',
@@ -1458,7 +1459,7 @@ window.SubscriptionsSmartQuery = (function () {
           must_have: [],
           optional: [],
           exclude: [],
-          rewrite_for_embedding: cleanBooleanForEmbedding(expr),
+          rewrite_for_embedding: normalizeKeywordText(expr),
           enabled: true,
           source: 'manual',
           note: '',

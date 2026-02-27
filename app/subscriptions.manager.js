@@ -86,13 +86,6 @@ window.SubscriptionsManager = (function () {
     return out;
   };
 
-  const hasBooleanSyntax = (text) => {
-    const s = normalizeText(text);
-    if (!s) return false;
-    if (s.includes('(') || s.includes(')')) return true;
-    return /\b(AND|OR|NOT)\b|&&|\|\||!/.test(s.toUpperCase());
-  };
-
   const fillQuickRunOptions = (yearSelectEl, confSelectEl) => {
     if (yearSelectEl && !yearSelectEl._dprQuickRunOptionsFilled) {
       yearSelectEl._dprQuickRunOptionsFilled = true;
@@ -147,7 +140,7 @@ window.SubscriptionsManager = (function () {
     }
   };
 
-  const cleanBooleanForEmbedding = (expr) => {
+  const normalizeKeywordText = (expr) => {
     let s = normalizeText(expr);
     if (!s) return '';
     s = s.replace(/\(/g, ' ').replace(/\)/g, ' ');
@@ -174,7 +167,7 @@ window.SubscriptionsManager = (function () {
             if (!expr) return null;
             const rewrite =
               normalizeText(k.rewrite_for_embedding || '') ||
-              (hasBooleanSyntax(expr) ? cleanBooleanForEmbedding(expr) : expr);
+              normalizeKeywordText(expr);
             return {
               id: normalizeText(k.id) || `${id}-kw-${kIdx + 1}`,
               expr,
@@ -256,9 +249,7 @@ window.SubscriptionsManager = (function () {
           must_have: [],
           optional: [],
           exclude: [],
-          rewrite_for_embedding: hasBooleanSyntax(kw)
-            ? cleanBooleanForEmbedding(kw)
-            : kw,
+          rewrite_for_embedding: normalizeKeywordText(kw),
           enabled: true,
           source: 'legacy',
           note: '',
@@ -277,9 +268,9 @@ window.SubscriptionsManager = (function () {
         must_have: uniqList(item.must_have),
         optional: uniqList(item.optional || item.related),
         exclude: uniqList(item.exclude),
-        rewrite_for_embedding:
-          normalizeText(item.rewrite || '') ||
-          (hasBooleanSyntax(kw) ? cleanBooleanForEmbedding(kw) : kw),
+          rewrite_for_embedding:
+            normalizeText(item.rewrite || '') ||
+            normalizeKeywordText(kw),
         enabled: item.enabled !== false,
         source: 'legacy',
         note: '',
@@ -331,7 +322,7 @@ window.SubscriptionsManager = (function () {
           related: uniqList(k.optional),
           rewrite:
             normalizeText(k.rewrite_for_embedding || '') ||
-            (hasBooleanSyntax(expr) ? cleanBooleanForEmbedding(expr) : expr),
+            normalizeKeywordText(expr),
           enabled: k.enabled !== false,
           source: normalizeText(k.source || 'manual'),
         });
