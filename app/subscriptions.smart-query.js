@@ -1191,7 +1191,8 @@ window.SubscriptionsSmartQuery = (function () {
 
     try {
       const candidates = await requestCandidatesByDesc(finalTag, finalDesc);
-      const nextCandidates = parseCandidatesForState(candidates, true);
+      const isFirstRound = !(Array.isArray(modalState.requestHistory) && modalState.requestHistory.length);
+      const nextCandidates = parseCandidatesForState(candidates, isFirstRound);
       const suggestedTag = normalizeText(candidates.tag);
       const suggestedDesc = normalizeText(candidates.description);
       if (!tag && suggestedTag) {
