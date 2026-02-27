@@ -427,6 +427,8 @@ def main() -> None:
                 f"embed_devices={args.embed_devices or '<auto>'}, batch={args.embed_batch_size}, "
                 f"max_length={args.embed_max_length}"
             )
+            log("[Embedding] 开始执行文本向量编码阶段")
+            emb_start = time.time()
             embed_devices = resolve_embed_devices(args.embed_devices, args.embed_device)
             attach_embeddings(
                 rows,
@@ -434,6 +436,10 @@ def main() -> None:
                 devices=embed_devices,
                 batch_size=int(args.embed_batch_size or 8),
                 max_length=int(args.embed_max_length or 0),
+            )
+            log(
+                f"[Embedding] 文本向量编码阶段结束，耗时 "
+                f"{(time.time() - emb_start):.1f}s"
             )
         else:
             log("[Embedding] 已禁用 embedding 同步（--no-embeddings）")
