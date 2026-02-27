@@ -74,7 +74,7 @@
 - 方式 1（推荐）：修改 `config.yaml` 并提交
 - 方式 2：站点后台改（需 GitHub Token）
 
-常见字段：`subscriptions.keywords`、`subscriptions.llm_queries`、`subscriptions.tracked_papers`
+常见字段：`subscriptions.intent_profiles`、`subscriptions.schema_migration`
 
 ## 版本迭代（请持续更新）
 

@@ -2,7 +2,6 @@ import unittest
 
 from src.subscription_plan import (
     build_pipeline_inputs,
-    compile_legacy_subscriptions_from_profiles,
     count_subscription_tags,
 )
 
@@ -39,8 +38,6 @@ class SubscriptionPlanTest(unittest.TestCase):
                         ],
                     }
                 ],
-                'keywords': [{'keyword': 'legacy kw', 'tag': 'SR'}],
-                'llm_queries': [{'query': 'legacy q', 'tag': 'SR'}],
             }
         }
 
@@ -55,6 +52,15 @@ class SubscriptionPlanTest(unittest.TestCase):
         self.assertEqual(kw_bm25.get('boolean_expr'), '')
         self.assertEqual(kw_bm25.get('query_text'), 'A B')
         self.assertEqual(kw_bm25.get('paper_tag'), 'keyword:SR')
+
+    def test_build_pipeline_inputs_without_profiles(self):
+        plan = build_pipeline_inputs({'subscriptions': {'keyword_recall_mode': 'or'}})
+        self.assertEqual(plan['stage'], 'A')
+        self.assertEqual(plan['source'], 'intent_profiles_required_but_missing')
+        self.assertEqual(plan['bm25_queries'], [])
+        self.assertEqual(plan['embedding_queries'], [])
+        self.assertEqual(plan['context_keywords'], [])
+        self.assertEqual(plan['context_queries'], [])
 
     def test_build_pipeline_inputs_boolean_mixed_mode(self):
         cfg = {
@@ -80,40 +86,6 @@ class SubscriptionPlanTest(unittest.TestCase):
         kw_bm25 = [q for q in plan['bm25_queries'] if q.get('type') == 'keyword'][0]
         self.assertEqual(kw_bm25.get('boolean_expr'), '')
         self.assertEqual(kw_bm25.get('query_text'), 'A B')
-
-    def test_compile_legacy_from_profiles(self):
-        subs = {
-            'intent_profiles': [
-                {
-                    'id': 'p1',
-                    'tag': 'SR',
-                    'enabled': True,
-                    'keyword_rules': [
-                        {
-                            'id': 'k1',
-                            'expr': 'A AND B',
-                            'logic_cn': '逻辑',
-                            'optional': ['B'],
-                            'rewrite_for_embedding': 'A B',
-                            'enabled': True,
-                        }
-                    ],
-                    'semantic_queries': [
-                        {
-                            'id': 'q1',
-                            'text': 'query text',
-                            'logic_cn': '语义',
-                            'enabled': True,
-                        }
-                    ],
-                }
-            ]
-        }
-        kws, qs = compile_legacy_subscriptions_from_profiles(subs)
-        self.assertEqual(len(kws), 1)
-        self.assertEqual(len(qs), 1)
-        self.assertEqual(kws[0]['tag'], 'SR')
-        self.assertEqual(qs[0]['tag'], 'SR')
 
     def test_count_tags(self):
         cfg = {

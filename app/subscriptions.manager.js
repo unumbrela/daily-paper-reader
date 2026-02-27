@@ -2,7 +2,7 @@
 // 负责：
 // 1) 维护本地草稿配置
 // 2) 统一渲染 intent_profiles
-// 3) 保存前双写兼容（自动镜像到 keywords / llm_queries）
+// 3) 保存前仅保留 intent_profiles
 
 window.SubscriptionsManager = (function () {
   let overlay = null;
@@ -298,55 +298,6 @@ window.SubscriptionsManager = (function () {
     return subs;
   };
 
-  const compileLegacyMirrorFromProfiles = (subs) => {
-    const profiles = normalizeProfiles(subs);
-    const keywords = [];
-    const llmQueries = [];
-
-    profiles.forEach((p) => {
-      if (p.enabled === false) return;
-      const tag = normalizeText(p.tag || '');
-      if (!tag) return;
-
-      (Array.isArray(p.keyword_rules) ? p.keyword_rules : []).forEach((k) => {
-        if (k.enabled === false) return;
-        const expr = normalizeText(k.expr || '');
-        if (!expr) return;
-        keywords.push({
-          keyword: expr,
-          tag,
-          logic_cn: normalizeText(k.logic_cn || ''),
-          must_have: uniqList(k.must_have),
-          optional: uniqList(k.optional),
-          exclude: uniqList(k.exclude),
-          related: uniqList(k.optional),
-          rewrite:
-            normalizeText(k.rewrite_for_embedding || '') ||
-            normalizeKeywordText(expr),
-          enabled: k.enabled !== false,
-          source: normalizeText(k.source || 'manual'),
-        });
-      });
-
-      (Array.isArray(p.semantic_queries) ? p.semantic_queries : []).forEach((q) => {
-        if (q.enabled === false) return;
-        const text = normalizeText(q.text || '');
-        if (!text) return;
-        llmQueries.push({
-          query: text,
-          tag,
-          logic_cn: normalizeText(q.logic_cn || ''),
-          enabled: q.enabled !== false,
-          source: normalizeText(q.source || 'manual'),
-        });
-      });
-    });
-
-    subs.keywords = keywords;
-    subs.llm_queries = llmQueries;
-    return subs;
-  };
-
   const normalizeSubscriptions = (config) => {
     const next = cloneDeep(config || {});
     if (!next.subscriptions) next.subscriptions = {};
@@ -372,7 +323,6 @@ window.SubscriptionsManager = (function () {
       subs.keyword_recall_mode = 'or';
     }
 
-    compileLegacyMirrorFromProfiles(subs);
     next.subscriptions = subs;
     return next;
   };
