@@ -2616,15 +2616,6 @@ article.markdown-section {
   transform: translateY(-1px);
 }
 
-.custom-quick-run-btn {
-  left: 78px;
-}
-
-.custom-quick-run-btn:hover {
-  background: rgba(0, 0, 0, 0.04);
-  transform: translateY(-1px);
-}
-
 /* 确保 Docsify 自带的 sidebar 折叠按钮在聊天浮层之上可见（尤其是小屏幕） */
 .sidebar-toggle {
   z-index: 1600;
@@ -2676,10 +2667,6 @@ article.markdown-section {
     bottom: 2px;
     left: 24px;
     font-size: 12px;
-  }
-
-  .custom-quick-run-btn {
-    display: none !important;
   }
 }
 

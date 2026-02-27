@@ -171,6 +171,7 @@
     document.body.appendChild(btn);
   }
 
+  // 左下角保留一个独立触发函数，暂不自动挂载按钮（防止重复入口）
   function createQuickRunButton() {
     if (document.getElementById('custom-quick-run-btn')) return;
 
@@ -213,9 +214,7 @@
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', createCustomButton);
-    document.addEventListener('DOMContentLoaded', createQuickRunButton);
   } else {
     createCustomButton();
-    createQuickRunButton();
   }
 })();
