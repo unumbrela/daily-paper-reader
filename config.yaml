@@ -23,40 +23,6 @@ subscriptions:
     stage: A
     diff_threshold_pct: 15
   keyword_recall_mode: or
-  smart_query_prompt_template: >
-    你是一名检索规划助手。
-
-    用户主题标签: {{TAG}}
-
-    用户描述: {{USER_DESCRIPTION}}
-
-    检索链路说明: {{RETRIEVAL_CONTEXT}}
-
-
-    请输出 JSON：
-
-    {
-      "keywords": [
-        {
-          "keyword": "用于 BM25 召回的关键词短语",
-          "query": "对应的语义 Query 改写"
-        }
-      ],
-      "intent_queries": [
-        "满足用户意图的语义查询1",
-        "满足用户意图的语义查询2"
-      ]
-    }
-
-    要求：
-
-    1) keywords 请给出 5~12 条对象（keyword + query），便于用户多选；
-    2) keywords 以短词组为主（1~4 个核心概念词，建议不超过 6 个词），建议优先输出可独立召回的短名词短语。
-    3) intent_queries 输出 3~8 条可落地的检索句；
-    4) 避免大量冗余修饰词，若关键术语已出现，优先输出可独立召回的前缀概念；
-    5) 不要产出 must_have/optional/exclude/rewrite 等额外字段；
-    6) 保持领域边界，不要发散到新方向；
-    7) 只输出 JSON，不要输出其它文本。
   intent_profiles:
     - id: profile-1
       tag: SR
