@@ -4,7 +4,37 @@
   const STORAGE_KEY_PASS = 'dpr_secret_password_v1';
   const SECRET_FILE_URL = 'secret.private';
   const SECRET_OVERLAY_ANIMATION_MS = 280;
+  const FORCE_GUEST_DOMAIN_TOKEN = 'ziwenhahaha';
   let secretOverlayHideTimer = null;
+  const isForceGuestDomain = (host) => {
+    const normalized = String(host || '').toLowerCase();
+    return normalized.includes(FORCE_GUEST_DOMAIN_TOKEN);
+  };
+  const FORCE_GUEST_MODE = isForceGuestDomain(window && window.location && window.location.hostname);
+
+  const setAccessMode = (mode, detail) => {
+    window.DPR_ACCESS_MODE = mode;
+    try {
+      const ev = new CustomEvent('dpr-access-mode-changed', {
+        detail: detail || { mode },
+      });
+      document.dispatchEvent(ev);
+    } catch {
+      // ignore
+    }
+  };
+
+  const enforceGuestMode = (overlayEl) => {
+    setAccessMode('guest', { mode: 'guest', reason: 'domain_force_guest' });
+    if (overlayEl) {
+      try {
+        overlayEl.classList.remove('show');
+        overlayEl.classList.add('secret-gate-hidden');
+      } catch {
+        // ignore
+      }
+    }
+  };
 
   const openSecretOverlay = (overlayEl) => {
     if (!overlayEl) return;
@@ -503,15 +533,11 @@
     }
 
     const setMode = (mode) => {
-      window.DPR_ACCESS_MODE = mode;
-      try {
-        const ev = new CustomEvent('dpr-access-mode-changed', {
-          detail: { mode },
-        });
-        document.dispatchEvent(ev);
-      } catch {
-        // ignore
+      if (FORCE_GUEST_MODE && mode !== 'guest') {
+        enforceGuestMode(overlay);
+        return;
       }
+      setAccessMode(mode);
     };
 
     const hide = () => {
@@ -1142,9 +1168,28 @@
 
   function init() {
     // 默认视为锁定状态，直到用户选择“解锁 / 游客”
-    window.DPR_ACCESS_MODE = 'locked';
+    window.DPR_ACCESS_MODE = FORCE_GUEST_MODE ? 'guest' : 'locked';
 
     const overlay = document.getElementById('secret-gate-overlay');
+    const registerGuestOnlySecretSetup = () => {
+      window.DPRSecretSetup = window.DPRSecretSetup || {};
+      window.DPRSecretSetup.openStep2 = function () {
+        enforceGuestMode(document.getElementById('secret-gate-overlay'));
+        alert('当前域名已启用游客模式，不支持解锁密码与密钥配置。');
+      };
+    };
+
+    if (FORCE_GUEST_MODE) {
+      if (!overlay) {
+        enforceGuestMode(null);
+        registerGuestOnlySecretSetup();
+        return;
+      }
+      registerGuestOnlySecretSetup();
+      enforceGuestMode(overlay);
+      return;
+    }
+
     if (!overlay) return;
 
     // 检查是否已经存在 secret.private（用于区分“解锁”与“初始化”）
@@ -1186,11 +1231,7 @@
               window.decoded_secret_private = secret;
               // 这里不在 setupOverlay 作用域内，直接标记全局访问模式为 full 并广播事件
               try {
-                window.DPR_ACCESS_MODE = 'full';
-                const ev = new CustomEvent('dpr-access-mode-changed', {
-                  detail: { mode: 'full' },
-                });
-                document.dispatchEvent(ev);
+                setAccessMode('full', { mode: 'full' });
               } catch {
                 // ignore
               }
