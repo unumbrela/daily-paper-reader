@@ -1222,6 +1222,18 @@ body.close .chat-footer {
   border-color: #cfe0ff;
 }
 
+.chat-quick-run-item--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-color: #e3e6ed;
+  background: #f7f8fb;
+}
+
+.chat-quick-run-item--disabled:hover {
+  background: #f7f8fb;
+  border-color: #e3e6ed;
+}
+
 .chat-quick-run-row {
   display: flex;
   flex-direction: column;

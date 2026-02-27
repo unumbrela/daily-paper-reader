@@ -10,6 +10,13 @@ window.SubscriptionsManager = (function () {
   let saveBtn = null;
   let closeBtn = null;
   let msgEl = null;
+  let quickRun7dBtn = null;
+  let quickRunTodayBtn = null;
+  let quickRun30dBtn = null;
+  let quickRunConferenceBtn = null;
+  let quickRunYearSelect = null;
+  let quickRunConferenceSelect = null;
+  let quickRunMsgEl = null;
 
   let draftConfig = null;
   let hasUnsavedChanges = false;
@@ -191,7 +198,30 @@ window.SubscriptionsManager = (function () {
     }
   };
 
+  const refreshQuickRunButtons = () => {
+    const blocked = hasUnsavedChanges;
+    [quickRun7dBtn, quickRunTodayBtn, quickRun30dBtn].forEach((btn) => {
+      if (!btn) return;
+      btn.disabled = blocked;
+      btn.classList.toggle('chat-quick-run-item--disabled', blocked);
+      btn.title = blocked
+        ? '请先点击“保存”后再发起快速抓取。'
+        : (btn.getAttribute('data-default-title') || btn.textContent || '');
+    });
+    if (blocked && quickRunMsgEl) {
+      quickRunMsgEl.textContent = '检测到未保存修改，请先保存后再发起快速抓取。';
+      quickRunMsgEl.style.color = '#c00';
+    }
+  };
+
   const runQuickFetch = (days, msgEl, tipText) => {
+    if (hasUnsavedChanges) {
+      if (msgEl) {
+        msgEl.textContent = '检测到未保存修改，请先点击“保存”后再发起快速抓取。';
+        msgEl.style.color = '#c00';
+      }
+      return;
+    }
     if (!window.DPRWorkflowRunner || typeof window.DPRWorkflowRunner.runQuickFetchByDays !== 'function') {
       if (msgEl) {
         msgEl.textContent = '工作流触发器未加载到当前页面。';
@@ -407,6 +437,7 @@ window.SubscriptionsManager = (function () {
       const { config } = await window.SubscriptionsGithubToken.loadConfig();
       draftConfig = normalizeSubscriptions(config || {});
       hasUnsavedChanges = false;
+      refreshQuickRunButtons();
       if (window.SubscriptionsSmartQuery && window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds) {
         window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds();
       }
@@ -444,6 +475,7 @@ window.SubscriptionsManager = (function () {
       );
       draftConfig = toSave;
       hasUnsavedChanges = false;
+      refreshQuickRunButtons();
       if (window.SubscriptionsSmartQuery && window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds) {
         window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds();
       }
@@ -477,6 +509,7 @@ window.SubscriptionsManager = (function () {
       }
       draftConfig = null;
       hasUnsavedChanges = false;
+      refreshQuickRunButtons();
     }
     reallyCloseOverlay();
   };
@@ -532,18 +565,25 @@ window.SubscriptionsManager = (function () {
       });
     }
 
-    const quickRun7dBtn = document.getElementById('arxiv-admin-quick-run-7d-btn');
-    const quickRunTodayBtn = document.getElementById('arxiv-admin-quick-run-today-btn');
-    const quickRun30dBtn = document.getElementById('arxiv-admin-quick-run-30d-btn');
-    const quickRunConferenceBtn = document.getElementById(
+    quickRun7dBtn = document.getElementById('arxiv-admin-quick-run-7d-btn');
+    quickRunTodayBtn = document.getElementById('arxiv-admin-quick-run-today-btn');
+    quickRun30dBtn = document.getElementById('arxiv-admin-quick-run-30d-btn');
+    quickRunConferenceBtn = document.getElementById(
       'arxiv-admin-quick-run-conference-run-btn',
     );
-    const quickRunYearSelect = document.getElementById('arxiv-admin-quick-run-year-select');
-    const quickRunConferenceSelect = document.getElementById(
+    quickRunYearSelect = document.getElementById('arxiv-admin-quick-run-year-select');
+    quickRunConferenceSelect = document.getElementById(
       'arxiv-admin-quick-run-conference-select',
     );
-    const quickRunMsgEl = document.getElementById('arxiv-admin-quick-run-msg');
+    quickRunMsgEl = document.getElementById('arxiv-admin-quick-run-msg');
     fillQuickRunOptions(quickRunYearSelect, quickRunConferenceSelect);
+    [quickRun7dBtn, quickRunTodayBtn, quickRun30dBtn].forEach((btn) => {
+      if (!btn) return;
+      if (!btn.dataset.defaultTitle) {
+        btn.setAttribute('data-default-title', btn.textContent || '');
+      }
+    });
+    refreshQuickRunButtons();
 
     if (quickRun7dBtn && !quickRun7dBtn._bound) {
       quickRun7dBtn._bound = true;
@@ -609,12 +649,14 @@ window.SubscriptionsManager = (function () {
     loadSubscriptions,
     markConfigDirty: () => {
       hasUnsavedChanges = true;
+      refreshQuickRunButtons();
     },
     updateDraftConfig: (updater) => {
       const base = draftConfig || {};
       const next = typeof updater === 'function' ? updater(cloneDeep(base)) || base : base;
       draftConfig = normalizeSubscriptions(next);
       hasUnsavedChanges = true;
+      refreshQuickRunButtons();
     },
     getDraftConfig: () => cloneDeep(draftConfig || {}),
   };
