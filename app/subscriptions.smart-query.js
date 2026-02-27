@@ -766,6 +766,31 @@ window.SubscriptionsSmartQuery = (function () {
     };
   };
 
+  const preserveSelections = (existingItems, incomingItems, keyField) => {
+    const normalizeKey = (item, field) =>
+      normalizeText(item && item[field]).toLowerCase().trim();
+    const stateMap = new Map();
+
+    (Array.isArray(existingItems) ? existingItems : []).forEach((item) => {
+      const key = normalizeKey(item, keyField);
+      if (!key || stateMap.has(key)) return;
+      stateMap.set(key, !!item._selected);
+    });
+
+    return (Array.isArray(incomingItems) ? incomingItems : []).map((item) => {
+      if (!item || typeof item !== 'object') return item;
+      const next = { ...item };
+      const key = normalizeKey(item, keyField);
+      if (!key) return next;
+      if (stateMap.has(key)) {
+        next._selected = stateMap.get(key);
+      } else {
+        next._selected = false;
+      }
+      return next;
+    });
+  };
+
   const toProfileSelectableCandidates = (profile) => {
     const rawKeywords = normalizeKeywordEntries(profile && profile.keywords);
     const keywords = rawKeywords.map((k) => ({
@@ -1191,8 +1216,13 @@ window.SubscriptionsSmartQuery = (function () {
 
     try {
       const candidates = await requestCandidatesByDesc(finalTag, finalDesc);
-      const isFirstRound = !(Array.isArray(modalState.requestHistory) && modalState.requestHistory.length);
-      const nextCandidates = parseCandidatesForState(candidates, isFirstRound);
+      const nextCandidates = parseCandidatesForState(candidates, false);
+      const nextKeywords = preserveSelections(modalState.keywords, nextCandidates.keywords, 'keyword');
+      const nextIntentQueries = preserveSelections(
+        modalState.intent_queries,
+        nextCandidates.intent_queries,
+        'query',
+      );
       const suggestedTag = normalizeText(candidates.tag);
       const suggestedDesc = normalizeText(candidates.description);
       if (!tag && suggestedTag) {
@@ -1206,8 +1236,6 @@ window.SubscriptionsSmartQuery = (function () {
       if (document.getElementById('dpr-chat-required-desc')) {
         document.getElementById('dpr-chat-required-desc').value = finalDescForProfile;
       }
-      const nextKeywords = nextCandidates.keywords;
-      const nextIntentQueries = nextCandidates.intent_queries;
       const roundLabel = requestHistoryLength(modalState);
       const history = Array.isArray(modalState.requestHistory) ? modalState.requestHistory.slice() : [];
       history.push({
