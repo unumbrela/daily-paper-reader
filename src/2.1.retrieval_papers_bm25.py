@@ -290,9 +290,6 @@ def build_bm25_index(papers: List[Paper], k1: float = 1.5, b: float = 0.75) -> B
 
 
 def _query_text_for_supabase_bm25(q: dict) -> str:
-  boolean_expr = str(q.get("boolean_expr") or "").strip()
-  if boolean_expr:
-    return clean_expr_for_embedding(boolean_expr) or boolean_expr
   q_text = str(q.get("query_text") or "").strip()
   return q_text
 
@@ -487,7 +484,7 @@ def rank_papers_for_queries(
   results_per_query: List[dict] = []
 
   for q in queries:
-    q_text = (q.get("query_text") or "").strip()
+    q_text = _query_text_for_supabase_bm25(q)
     paper_tag = q.get("paper_tag") or ""
     if not q_text:
       continue
@@ -497,27 +494,9 @@ def rank_papers_for_queries(
     scores: List[float] | None = None
     total_weight = 0.0
     query_terms = q.get("query_terms") or []
-    boolean_expr = (q.get("boolean_expr") or "").strip()
-    is_boolean_query = bool(boolean_expr) and (q.get("type") == "keyword")
     query_mode = "normal"
 
-    if is_boolean_query:
-      query_mode = "boolean_mixed"
-      scores = score_boolean_mixed_for_query(
-        bm25=bm25,
-        papers=papers,
-        expr=boolean_expr,
-        or_soft_weight=float(q.get("or_soft_weight") or DEFAULT_OR_SOFT_WEIGHT),
-        must_have=q.get("must_have") or [],
-        optional=q.get("optional") or [],
-        exclude=q.get("exclude") or [],
-      )
-      valid_candidates = sum(1 for s in scores if s >= 0)
-      log(
-        f"[INFO] BM25 布尔混合模式：valid_candidates={valid_candidates}/{len(scores)}"
-      )
-
-    if (not is_boolean_query) and isinstance(query_terms, list) and query_terms:
+    if isinstance(query_terms, list) and query_terms:
       for term in query_terms:
         if not isinstance(term, dict):
           continue
@@ -532,17 +511,13 @@ def rank_papers_for_queries(
           scores[i] += weight * s
         total_weight += weight
 
-    if (not is_boolean_query) and scores is None:
+    if scores is None:
       scores = bm25.score(tokenize(q_text))
       total_weight = 1.0
 
-    if (not is_boolean_query) and total_weight > 0:
+    if total_weight > 0:
       scores = [s / total_weight for s in scores]
-
-    if is_boolean_query:
-      candidate_indices = [i for i, s in enumerate(scores) if s >= 0]
-    else:
-      candidate_indices = list(range(len(scores)))
+    candidate_indices = list(range(len(scores)))
 
     if top_k <= 0 or top_k > len(candidate_indices):
       k = len(candidate_indices)
@@ -565,7 +540,7 @@ def rank_papers_for_queries(
         "paper_tag": q.get("paper_tag"),
         "query_text": q_text,
         "logic_cn": q.get("logic_cn") or "",
-        "boolean_expr": boolean_expr if is_boolean_query else "",
+        "boolean_expr": "",
         "bm25_mode": query_mode,
         "sim_scores": sim_scores,
       }

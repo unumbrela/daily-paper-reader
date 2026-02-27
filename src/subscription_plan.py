@@ -11,9 +11,9 @@ from typing import Any, Dict, List, Tuple
 import re
 
 try:
-  from query_boolean import clean_expr_for_embedding, has_boolean_syntax
+  from query_boolean import clean_expr_for_embedding
 except Exception:  # pragma: no cover - 兼容 package 导入路径
-  from src.query_boolean import clean_expr_for_embedding, has_boolean_syntax
+  from src.query_boolean import clean_expr_for_embedding
 
 
 MAIN_TERM_WEIGHT = 1.0
@@ -92,6 +92,10 @@ def get_keyword_recall_mode(config_or_subs: Dict[str, Any]) -> str:
   return mode
 
 
+def _normalize_keyword_expr(expr: str) -> str:
+  return clean_expr_for_embedding(_norm_text(expr)) or _norm_text(expr)
+
+
 def _normalize_profile(profile: Dict[str, Any], idx: int) -> Dict[str, Any]:
   pid = _norm_text(profile.get("id") or "")
   tag = _norm_text(profile.get("tag") or "")
@@ -114,9 +118,7 @@ def _normalize_profile(profile: Dict[str, Any], idx: int) -> Dict[str, Any]:
       if not expr:
         continue
       rid = _norm_text(rule.get("id") or f"{pid}-kw-{k_idx + 1}")
-      rewrite_for_embedding = _norm_text(rule.get("rewrite_for_embedding") or "")
-      if not rewrite_for_embedding:
-        rewrite_for_embedding = clean_expr_for_embedding(expr)
+      rewrite_for_embedding = _normalize_keyword_expr(rule.get("rewrite_for_embedding") or expr)
       kw_rules.append(
         {
           "id": rid,
@@ -163,8 +165,6 @@ def _normalize_profile(profile: Dict[str, Any], idx: int) -> Dict[str, Any]:
 
 
 def _build_from_profiles(subs: Dict[str, Any]) -> Dict[str, Any]:
-  keyword_recall_mode = get_keyword_recall_mode(subs or {})
-  boolean_enabled = keyword_recall_mode == "boolean_mixed"
   raw_profiles = subs.get("intent_profiles") or []
   profiles: List[Dict[str, Any]] = []
   if isinstance(raw_profiles, list):
@@ -195,11 +195,9 @@ def _build_from_profiles(subs: Dict[str, Any]) -> Dict[str, Any]:
       expr = _norm_text(rule.get("expr") or "")
       if not expr:
         continue
-      bm25_text = expr if boolean_enabled else (clean_expr_for_embedding(expr) or expr)
+      bm25_text = _normalize_keyword_expr(expr)
       logic_cn = _norm_text(rule.get("logic_cn") or "")
-      rewrite_for_embedding = _norm_text(rule.get("rewrite_for_embedding") or "")
-      if not rewrite_for_embedding:
-        rewrite_for_embedding = clean_expr_for_embedding(expr)
+      rewrite_for_embedding = _normalize_keyword_expr(rule.get("rewrite_for_embedding") or expr)
 
       query_terms = [{"text": bm25_text, "weight": MAIN_TERM_WEIGHT}]
       for x in _to_str_list(rule.get("optional")):
@@ -212,7 +210,7 @@ def _build_from_profiles(subs: Dict[str, Any]) -> Dict[str, Any]:
           "paper_tag": paper_tag_keyword,
           "query_text": bm25_text,
           "query_terms": query_terms,
-          "boolean_expr": expr if (boolean_enabled and has_boolean_syntax(expr)) else "",
+          "boolean_expr": "",
           "logic_cn": logic_cn,
           "must_have": _to_str_list(rule.get("must_have")),
           "optional": _to_str_list(rule.get("optional")),
@@ -281,8 +279,6 @@ def _build_from_profiles(subs: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _build_from_legacy(subs: Dict[str, Any]) -> Dict[str, Any]:
-  keyword_recall_mode = get_keyword_recall_mode(subs or {})
-  boolean_enabled = keyword_recall_mode == "boolean_mixed"
   bm25_queries: List[Dict[str, Any]] = []
   embedding_queries: List[Dict[str, Any]] = []
   context_keywords: List[Dict[str, str]] = []
@@ -297,11 +293,9 @@ def _build_from_legacy(subs: Dict[str, Any]) -> Dict[str, Any]:
       kw = _norm_text(item.get("keyword") or "")
       if not kw:
         continue
-      bm25_text = kw if boolean_enabled else (clean_expr_for_embedding(kw) or kw)
+      bm25_text = _normalize_keyword_expr(kw)
       tag = _norm_text(item.get("tag") or item.get("alias") or kw)
-      rewrite = _norm_text(item.get("rewrite") or "")
-      if not rewrite:
-        rewrite = clean_expr_for_embedding(kw) if has_boolean_syntax(kw) else kw
+      rewrite = _normalize_keyword_expr(item.get("rewrite") or kw)
 
       query_terms = [{"text": bm25_text, "weight": MAIN_TERM_WEIGHT}]
       related = item.get("related") or []
@@ -318,7 +312,7 @@ def _build_from_legacy(subs: Dict[str, Any]) -> Dict[str, Any]:
           "paper_tag": f"keyword:{tag}",
           "query_text": bm25_text,
           "query_terms": query_terms,
-          "boolean_expr": kw if (boolean_enabled and has_boolean_syntax(kw)) else "",
+          "boolean_expr": "",
           "logic_cn": _norm_text(item.get("logic_cn") or ""),
           "must_have": _to_str_list(item.get("must_have")),
           "optional": _to_str_list(item.get("optional")),

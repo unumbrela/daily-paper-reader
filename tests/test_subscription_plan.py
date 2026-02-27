@@ -78,8 +78,8 @@ class SubscriptionPlanTest(unittest.TestCase):
         }
         plan = build_pipeline_inputs(cfg)
         kw_bm25 = [q for q in plan['bm25_queries'] if q.get('type') == 'keyword'][0]
-        self.assertEqual(kw_bm25.get('boolean_expr'), 'A AND B')
-        self.assertEqual(kw_bm25.get('query_text'), 'A AND B')
+        self.assertEqual(kw_bm25.get('boolean_expr'), '')
+        self.assertEqual(kw_bm25.get('query_text'), 'A B')
 
     def test_compile_legacy_from_profiles(self):
         subs = {
