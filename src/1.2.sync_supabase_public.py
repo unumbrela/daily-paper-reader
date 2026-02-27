@@ -79,6 +79,15 @@ def resolve_embed_model(args_model: str) -> str:
     return model or DEFAULT_EMBED_MODEL
 
 
+def resolve_supabase_url(args_url: str) -> str:
+    direct = _norm(args_url)
+    if direct:
+        return direct
+    cfg = load_config()
+    sb = (cfg.get("supabase") or {}) if isinstance(cfg, dict) else {}
+    return _norm((sb or {}).get("url") or "")
+
+
 def build_embedding_text(row: Dict[str, Any]) -> str:
     title = _norm(row.get("title"))
     abstract = _norm(row.get("abstract"))
@@ -345,10 +354,10 @@ def main() -> None:
     parser.add_argument("--mode", type=str, default="standard")
     args = parser.parse_args()
 
-    url = _norm(args.url)
+    url = resolve_supabase_url(args.url)
     key = _norm(args.service_key)
     if not url or not key:
-        log("[INFO] SUPABASE_URL / SUPABASE_SERVICE_KEY 未配置，跳过同步。")
+        log("[INFO] 缺少 Supabase 连接信息（url 或 service key），跳过同步。")
         return
 
     raw_path = _norm(args.raw_input)

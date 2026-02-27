@@ -2,18 +2,9 @@ name: daily-paper-reader
 
 on:
   schedule:
-    - cron: "30 16 * * *" # maintainer 时段（北京时间次日 00:30，UTC 16:30）
-    - cron: "30 18 * * *" # user 时段（北京时间次日 02:30，UTC 18:30，延后 2 小时）
+    - cron: "30 18 * * *" # 北京时间次日 02:30（UTC 18:30）
   workflow_dispatch:
     inputs:
-      mode:
-        description: "运行入口（user: 仅本地流程，maintainer: 抓取并同步 Supabase）"
-        required: false
-        default: "user"
-        type: choice
-        options:
-          - user
-          - maintainer
       run_enrich:
         description: "Run 0.enrich_config_queries.py（默认关闭，按需开启）"
         required: false
@@ -40,77 +31,18 @@ jobs:
       BLT_REWRITE_MODEL: gemini-3-flash-preview
       BLT_RERANK_MODEL: qwen3-reranker-4b
       BLT_FILTER_MODEL: gemini-3-flash-preview-nothinking
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-      SUPABASE_PAPERS_TABLE: arxiv_papers
       PYTHONUNBUFFERED: "1"
-      MAINTAINER_CRON: "30 16 * * *"
-      USER_CRON: "30 18 * * *"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Decide run mode by key + schedule
-        id: decide_mode
-        shell: bash
-        run: |
-          SHOULD_RUN="false"
-          MODE="skip"
-          HAS_KEY="false"
-          if [ -n "${SUPABASE_URL}" ] && [ -n "${SUPABASE_SERVICE_KEY}" ]; then
-            HAS_KEY="true"
-          fi
-
-          INPUT_MODE="${{ github.event.inputs.mode || 'user' }}"
-
-          if [ -z "$INPUT_MODE" ]; then
-            INPUT_MODE="user"
-          fi
-
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "$INPUT_MODE" = "maintainer" ]; then
-              MODE="maintainer"
-              if [ "$HAS_KEY" = "true" ]; then
-                SHOULD_RUN="true"
-              else
-                SHOULD_RUN="false"
-                MODE="skip"
-                echo "[WARN] workflow_dispatch 选择 maintainer，但未配置 SUPABASE_URL/SUPABASE_SERVICE_KEY，已跳过。"
-              fi
-            else
-              MODE="user"
-              SHOULD_RUN="true"
-            fi
-          else
-            SCHEDULE="${{ github.event.schedule }}"
-            if [ "$HAS_KEY" = "true" ] && [ "$SCHEDULE" = "$MAINTAINER_CRON" ]; then
-              SHOULD_RUN="true"
-              MODE="maintainer"
-            elif [ "$HAS_KEY" = "false" ] && [ "$SCHEDULE" = "$USER_CRON" ]; then
-              SHOULD_RUN="true"
-              MODE="user"
-            fi
-          fi
-
-          echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
-          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
-          echo "has_key=$HAS_KEY" >> "$GITHUB_OUTPUT"
-          echo "[INFO] should_run=$SHOULD_RUN mode=$MODE has_key=$HAS_KEY event=${{ github.event_name }} schedule=${{ github.event.schedule }}"
-
-      - name: Skip current schedule window
-        if: ${{ steps.decide_mode.outputs.should_run != 'true' }}
-        run: |
-          echo "[INFO] 当前实例不在本时段执行窗口，已跳过。"
-
       - name: Setup Python
-        if: ${{ steps.decide_mode.outputs.should_run == 'true' }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Cache pip + torch
-        if: ${{ steps.decide_mode.outputs.should_run == 'true' }}
         uses: actions/cache@v4
         with:
           path: |
@@ -119,20 +51,18 @@ jobs:
           key: ${{ runner.os }}-dpr-hf-v2-${{ hashFiles('requirements.txt') }}
 
       - name: Install deps (skip sqlite3)
-        if: ${{ steps.decide_mode.outputs.should_run == 'true' }}
         run: |
           python - <<'PY'
           import re
           lines = open("requirements.txt", "r", encoding="utf-8").read().splitlines()
           lines = [l for l in lines if l.strip() and not re.match(r"^sqlite3\\b", l)]
-          open("/tmp/req.txt", "w", encoding="utf-8").write("\n".join(lines))
+          open("/tmp/req.txt", "w", encoding="utf-8").write("\\n".join(lines))
           PY
           python -m pip install --upgrade pip
           python -m pip install uv
           uv pip install --system -r /tmp/req.txt
 
       - name: Run Retrieval and Embedding
-        if: ${{ steps.decide_mode.outputs.mode == 'user' }}
         env:
           HF_HOME: ${{ github.workspace }}/hf_cache
           HUGGINGFACE_HUB_CACHE: ${{ github.workspace }}/hf_cache
@@ -208,28 +138,11 @@ jobs:
           echo "--- post-run cache symlink check ---"
           find "$HF_HOME" -xtype l | head -n 50 || true
 
-      - name: Run Maintainer Ingest (fetch + sync supabase)
-        if: ${{ steps.decide_mode.outputs.mode == 'maintainer' }}
-        run: |
-          FETCH_DAYS="${{ github.event.inputs.fetch_days }}"
-          ARGS="--disable-supabase-read"
-          if [ -n "$FETCH_DAYS" ]; then
-            ARGS="$ARGS --days $FETCH_DAYS"
-          fi
-          /opt/hostedtoolcache/Python/3.11.14/x64/bin/python src/1.fetch_paper_arxiv.py $ARGS
-
       - name: Cleanup non-recommend archives
-        if: ${{ steps.decide_mode.outputs.mode == 'user' }}
         run: |
           find archive -mindepth 2 -maxdepth 2 -type d \( -name raw -o -name filtered -o -name rank \) -exec rm -rf {} +
 
-      - name: Sync public metadata to Supabase
-        if: ${{ steps.decide_mode.outputs.mode == 'maintainer' }}
-        run: |
-          /opt/hostedtoolcache/Python/3.11.14/x64/bin/python src/1.2.sync_supabase_public.py
-
       - name: Commit results
-        if: ${{ steps.decide_mode.outputs.mode == 'user' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

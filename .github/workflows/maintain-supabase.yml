@@ -1,0 +1,83 @@
+name: maintain-supabase
+
+on:
+  schedule:
+    - cron: "30 0 * * *" # 北京时间次日 08:30（UTC 00:30）
+    - cron: "30 8 * * *" # 北京时间次日 16:30（UTC 08:30）
+    - cron: "30 16 * * *" # 北京时间次日 00:30（UTC 16:30）
+  workflow_dispatch:
+    inputs:
+      fetch_days:
+        description: "回溯抓取天数（例如 30）；留空则使用默认配置"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-paper-reader-maintain
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: github.repository == 'ziwenhahaha/daily-paper-reader'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SUPABASE_PAPERS_TABLE: arxiv_papers
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Decide run mode
+        id: decide_mode
+        run: |
+          if [ -z "${SUPABASE_SERVICE_KEY}" ]; then
+            echo "[WARN] 未配置 SUPABASE_SERVICE_KEY，已跳过维护同步。"
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Python
+        if: ${{ steps.decide_mode.outputs.should_run == 'true' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip + torch
+        if: ${{ steps.decide_mode.outputs.should_run == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/torch
+          key: ${{ runner.os }}-dpr-hf-v2-${{ hashFiles('requirements.txt') }}
+
+      - name: Install deps (skip sqlite3)
+        if: ${{ steps.decide_mode.outputs.should_run == 'true' }}
+        run: |
+          python - <<'PY'
+          import re
+          lines = open("requirements.txt", "r", encoding="utf-8").read().splitlines()
+          lines = [l for l in lines if l.strip() and not re.match(r"^sqlite3\\b", l)]
+          open("/tmp/req.txt", "w", encoding="utf-8").write("\\n".join(lines))
+          PY
+          python -m pip install --upgrade pip
+          python -m pip install uv
+          uv pip install --system -r /tmp/req.txt
+
+      - name: Run Maintainer Ingest (fetch + sync supabase)
+        if: ${{ steps.decide_mode.outputs.should_run == 'true' }}
+        run: |
+          FETCH_DAYS="${{ github.event.inputs.fetch_days }}"
+          ARGS="--disable-supabase-read"
+          if [ -n "$FETCH_DAYS" ]; then
+            ARGS="$ARGS --days $FETCH_DAYS"
+          fi
+          /opt/hostedtoolcache/Python/3.11.14/x64/bin/python src/1.fetch_paper_arxiv.py $ARGS
+          /opt/hostedtoolcache/Python/3.11.14/x64/bin/python src/1.2.sync_supabase_public.py
