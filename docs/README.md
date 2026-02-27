@@ -10,24 +10,21 @@
 
 ## 每次日报
 - 最新运行日期：2026-02-27
-- 运行时间：2026-02-27 09:51:52 UTC
+- 运行时间：2026-02-27 19:10:58 UTC
 - 运行状态：成功
-- 本次总论文数：1
+- 本次总论文数：0
 - 精读区：0
-- 速读区：1
+- 速读区：0
 
 ### 今日简报（AI）
-今日聚焦：高分论文探索如何利用贝叶斯神经符号学习，为科学发现提供具备约束感知的不确定性量化。
-核心突破：该方法通过融合物理约束与深度学习，解决了科学建模中预测可靠性与逻辑一致性的双重挑战。
-建议关注：推荐对 AI for Science 感兴趣的读者深入了解如何通过符号化约束提升模型的严谨性。
+> 今日无新推荐，系统未产出可展示论文。
 - 详情：[/202602/27/README](/202602/27/README)
 
 ### 精读区论文标签
 - 本次无精读推荐。
 
 ### 速读区论文标签
-1. [Constraint-Aware Neurosymbolic Uncertainty Quantification with Bayesian Deep Learning for Scientific Discovery](/202602/27/2601.12442v1-constraint-aware-neurosymbolic-uncertainty-quantification-with-bayesian-deep-learning-for-scientific-discovery)  
-   标签：评分：9.0/10、query:sr
+- 本次无速读推荐。
 
 
 <div class="dpr-home-promo-card">
