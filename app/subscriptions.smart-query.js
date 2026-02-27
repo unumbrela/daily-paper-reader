@@ -769,53 +769,6 @@ window.SubscriptionsSmartQuery = (function () {
     };
   };
 
-  const normalizeCandidatePhrase = (text) => {
-    const raw = normalizeText(text);
-    if (!raw) return '';
-    const compact = raw
-      .replace(/[，。！？；,.;:、!?()[\]{}]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (!compact) return '';
-    const words = compact.split(' ');
-    if (words.length > 8) {
-      return `${words.slice(0, 8).join(' ')}...`;
-    }
-    if (compact.length > 28) {
-      return `${compact.slice(0, 28).trim()}...`;
-    }
-    return compact;
-  };
-
-  const ensureUserWrappedKeyword = (keywords, sourceText) => {
-    const phrase = normalizeCandidatePhrase(sourceText);
-    if (!phrase) return;
-
-    const keyword = normalizeText(phrase);
-    const query = normalizeText(sourceText);
-    if (!keyword) return;
-
-    const normalizedList = Array.isArray(keywords) ? keywords : [];
-    const exists = normalizedList.some((item) => {
-      const k = normalizeText(item && item.keyword).toLowerCase();
-      const q = normalizeText(item && item.query).toLowerCase();
-      return k === keyword.toLowerCase() || k === query.toLowerCase() || q === query.toLowerCase();
-    });
-    if (exists) return;
-
-    normalizedList.unshift({
-      id: `user-kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-      keyword,
-      keyword_cn: normalizeText('用户检索需求'),
-      query,
-      logic_cn: '用户检索需求',
-      enabled: true,
-      source: 'user',
-      note: '',
-      _selected: true,
-    });
-  };
-
   const toProfileSelectableCandidates = (profile) => {
     const rawKeywords = normalizeKeywordEntries(profile && profile.keywords, 'manual');
     const keywords = rawKeywords.map((k) => ({
@@ -995,7 +948,6 @@ window.SubscriptionsSmartQuery = (function () {
 
   const openAddModal = (tag, description, candidates) => {
     const normalizedCandidates = parseCandidatesForState(candidates);
-    ensureUserWrappedKeyword(normalizedCandidates.keywords, description);
     const suggestedTag = normalizeText(candidates && candidates.tag) || normalizeText(tag);
     const suggestedDesc = normalizeText(candidates && candidates.description) || normalizeText(description);
     modalState = {
@@ -1272,7 +1224,6 @@ window.SubscriptionsSmartQuery = (function () {
     try {
       const candidates = await requestCandidatesByDesc(finalTag, finalDesc);
       const nextCandidates = parseCandidatesForState(candidates, true);
-      ensureUserWrappedKeyword(nextCandidates.keywords, finalDesc);
       const suggestedTag = normalizeText(candidates.tag);
       const suggestedDesc = normalizeText(candidates.description);
       if (!tag && suggestedTag) {
