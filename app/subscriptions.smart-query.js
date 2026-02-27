@@ -64,10 +64,10 @@ window.SubscriptionsSmartQuery = (function () {
   const normalizeText = (v) => String(v || '').trim();
 
   const normalizeProfileKeywords = (profile) => {
-    return normalizeKeywordEntries(profile && profile.keywords, 'manual');
+    return normalizeKeywordEntries(profile && profile.keywords);
   };
 
-  const normalizeKeywordEntries = (rawKeywords, fallbackTag) => {
+  const normalizeKeywordEntries = (rawKeywords) => {
     const items = Array.isArray(rawKeywords) ? rawKeywords : [];
     return items
       .map((item, idx) => {
@@ -75,14 +75,9 @@ window.SubscriptionsSmartQuery = (function () {
           const keyword = normalizeText(item);
           if (!keyword) return null;
           return {
-            id: `kw-${Date.now()}-${idx + 1}`,
             keyword,
             keyword_cn: '',
             query: keyword,
-            logic_cn: '',
-            source: fallbackTag === 'legacy' ? 'legacy' : 'manual',
-            enabled: true,
-            note: '',
           };
         }
         if (!item || typeof item !== 'object') return null;
@@ -96,16 +91,11 @@ window.SubscriptionsSmartQuery = (function () {
             item.keyword ||
             '',
         );
-        const keywordCn = normalizeText(item.keyword_cn || item.keyword_zh || item.zh || item.logic_cn || '');
+        const keywordCn = normalizeText(item.keyword_cn || item.keyword_zh || item.zh || '');
         return {
-          id: normalizeText(item.id),
           keyword,
           keyword_cn: keywordCn,
           query: query || keyword,
-          logic_cn: normalizeText(item.logic_cn || ''),
-          enabled: item.enabled !== false,
-          source: normalizeText(item.source || (fallbackTag === 'legacy' ? 'legacy' : 'manual')),
-          note: normalizeText(item.note || ''),
         };
       })
       .filter(Boolean);
@@ -355,19 +345,15 @@ window.SubscriptionsSmartQuery = (function () {
         const keywordCn = normalizeText(
           typeof item === 'string'
             ? ''
-            : normalizeText(item.keyword_cn || item.keyword_zh || item.zh || item.logic_cn || ''),
+            : normalizeText(item.keyword_cn || item.keyword_zh || item.zh || ''),
         );
         const query = normalizeText(
           typeof item === 'string' ? keyword : normalizeText(item.query || item.rewrite || keyword),
         );
         return {
-          id: `gen-kw-${Date.now()}-${idx + 1}`,
           keyword,
           keyword_cn: keywordCn,
           query: query || keyword,
-          logic_cn: shortZh(keywordCn || (typeof item === 'string' ? '' : item.logic_cn || '')),
-          enabled: true,
-          source: 'generated',
         };
       })
       .filter(Boolean);
@@ -411,7 +397,6 @@ window.SubscriptionsSmartQuery = (function () {
           return {
             ...k,
             keyword: prefixPlain,
-            logic_cn: shortZh(k.keyword_cn || '关键词直译'),
           };
         }
         return k;
@@ -651,14 +636,9 @@ window.SubscriptionsSmartQuery = (function () {
         if (kwSeen.has(key)) return;
         kwSeen.add(key);
         kwList.push({
-          id: normalizeText(item.id) || `kw-${Date.now()}-${idx + 1}`,
           keyword,
           keyword_cn: normalizeText(item.keyword_cn || item.keyword_zh || item.zh || ''),
           query: normalizeText(item.query || item.text || keyword),
-          logic_cn: normalizeText(item.logic_cn || item.keyword_cn || ''),
-          enabled: item.enabled !== false,
-          source: normalizeText(item.source || 'generated'),
-          note: normalizeText(item.note || ''),
         });
       });
 
@@ -673,12 +653,8 @@ window.SubscriptionsSmartQuery = (function () {
         if (intentSeen.has(qKey)) return;
         intentSeen.add(qKey);
         mergedIntentQueries.push({
-          id: normalizeText(item.id) || `intent-q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           query,
           query_cn: normalizeText(item.query_cn || item.query_zh || item.zh || ''),
-          enabled: item.enabled !== false,
-          source: normalizeText(item.source || 'generated'),
-          note: normalizeText(item.note || ''),
         });
       };
 
@@ -741,14 +717,9 @@ window.SubscriptionsSmartQuery = (function () {
           selectedKeywords.length > 0
             ? selectedKeywords
                 .map((item, idx) => ({
-                  id: normalizeText(item.id) || `kw-${Date.now()}-${idx + 1}`,
                   keyword: normalizeText(item.keyword || item.text || item.expr || ''),
                   keyword_cn: normalizeText(item.keyword_cn || item.keyword_zh || item.zh || ''),
                   query: normalizeText(item.query || item.text || item.keyword || ''),
-                  logic_cn: normalizeText(item.logic_cn || item.keyword_cn || ''),
-                  enabled: item.enabled !== false,
-                  source: normalizeText(item.source || 'generated'),
-                  note: normalizeText(item.note || ''),
                 }))
                 .filter((x) => x.keyword)
             : normalizeProfileKeywords(existedProfile),
@@ -770,16 +741,11 @@ window.SubscriptionsSmartQuery = (function () {
   };
 
   const toProfileSelectableCandidates = (profile) => {
-    const rawKeywords = normalizeKeywordEntries(profile && profile.keywords, 'manual');
+    const rawKeywords = normalizeKeywordEntries(profile && profile.keywords);
     const keywords = rawKeywords.map((k) => ({
-      id: normalizeText(k.id),
       keyword: normalizeText(k.keyword || ''),
       query: normalizeText(k.query || k.keyword || ''),
       keyword_cn: normalizeText(k.keyword_cn || ''),
-      logic_cn: normalizeText(k.logic_cn || ''),
-      enabled: k.enabled !== false,
-      source: normalizeText(k.source || 'manual'),
-      note: normalizeText(k.note || ''),
     }));
 
     const keywordState = parseCandidatesForState({ keywords }, false);
@@ -985,7 +951,7 @@ window.SubscriptionsSmartQuery = (function () {
       (k, idx) => `
       <button type="button" class="dpr-pick-card ${k._selected ? 'selected' : ''}" data-action="toggle-kw-card" data-index="${idx}">
         <div class="dpr-pick-title">${escapeHtml(k.keyword || k.text || '')}</div>
-        <div class="dpr-pick-desc">${escapeHtml(k.keyword_cn || k.logic_cn || '（待补充中文直译）')}</div>
+        <div class="dpr-pick-desc">${escapeHtml(k.keyword_cn || '（待补充中文直译）')}</div>
       </button>
         `,
       )
@@ -1352,14 +1318,9 @@ window.SubscriptionsSmartQuery = (function () {
           return;
         }
         modalState.keywords.push({
-          id: `manual-kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           keyword: kwText,
           keyword_cn: logic,
           query: query || kwText,
-          logic_cn: logic,
-          enabled: true,
-          source: 'manual',
-          note: '',
           _selected: true,
         });
         modalState.customKeyword = '';

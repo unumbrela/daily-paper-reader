@@ -85,14 +85,9 @@ window.SubscriptionsManager = (function () {
       const text = normalizeText(item);
       if (!text) return null;
       return {
-        id: `kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
         keyword: text,
         keyword_cn: '',
         query: text,
-        logic_cn: '',
-        enabled: true,
-        source: 'legacy',
-        note: '',
       };
     }
     if (!item || typeof item !== 'object') return null;
@@ -107,17 +102,12 @@ window.SubscriptionsManager = (function () {
         item.keyword ||
         '',
     );
-    const keywordCn = normalizeText(item.keyword_cn || item.keyword_zh || item.zh || item.logic_cn || '');
+    const keywordCn = normalizeText(item.keyword_cn || item.keyword_zh || item.zh || '');
 
     return {
-      id: normalizeText(item.id) || `kw-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
       keyword,
       keyword_cn: keywordCn,
       query: query || keyword,
-      logic_cn: normalizeText(item.logic_cn || ''),
-      enabled: item.enabled !== false,
-      source: normalizeText(item.source || 'manual'),
-      note: normalizeText(item.note || ''),
     };
   };
 
