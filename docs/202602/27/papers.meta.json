@@ -1,22 +1,9 @@
 {
   "label": "2026-02-27",
   "date": "2026-02-27",
-  "generated_at": "2026-02-27T09:37:31",
-  "count": 2,
+  "generated_at": "2026-02-27T09:52:06",
+  "count": 1,
   "papers": [
-    {
-      "paper_id": "202602/27/2602.22967v1-discovery-of-interpretable-physical-laws-in-materials-via-language-model-guided-symbolic-regression",
-      "section": "quick",
-      "title_en": "",
-      "authors": "",
-      "date": "",
-      "pdf": "",
-      "score": "",
-      "evidence": "",
-      "tldr": "",
-      "tags": "",
-      "abstract_en": "Discovering interpretable physical laws from high-dimensional data is a fundamental challenge in scientific research. Traditional methods, such as symbolic regression, often produce complex, unphysical formulas when searching a vast space of possible forms. We introduce a framework that guides the search process by leveraging the embedded scientific knowledge of large language models, enabling efficient identification of physical laws in the data. We validate our approach by modeling key properties of perovskite materials. Our method mitigates the combinatorial explosion commonly encountered in traditional symbolic regression, reducing the effective search space by a factor of approximately $10^5$. A set of novel formulas for bulk modulus, band gap, and oxygen evolution reaction activity are identified, which not only provide meaningful physical insights but also outperform previous formulas in accuracy and simplicity."
-    },
     {
       "paper_id": "202602/27/2601.12442v1-constraint-aware-neurosymbolic-uncertainty-quantification-with-bayesian-deep-learning-for-scientific-discovery",
       "section": "quick",

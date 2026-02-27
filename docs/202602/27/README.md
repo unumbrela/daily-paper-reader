@@ -1,21 +1,20 @@
 # 日报 · 2026-02-27
 
-- 生成时间：2026-02-27 09:36:18 UTC
-- 当次推荐总数：2
+- 生成时间：2026-02-27 09:51:52 UTC
+- 当次推荐总数：1
 - 精读区：0
-- 速读区：2
+- 速读区：1
 
 ## 今日简报（AI）
-今日聚焦 AI 赋能科学发现，重点攻克材料物理规律的自动化挖掘与高可靠性量化分析。
-核心突破在于利用大模型引导符号回归发现可解释规律，并结合贝叶斯深度学习提升科学发现的约束感知能力。
-建议科研人员关注神经符号系统在复杂物理场景下的应用，以提升 AI 预测的透明度与准确性。
+今日聚焦高分神经符号学习论文，探索如何通过贝叶斯深度学习实现科学发现中的约束感知不确定性量化。
+该研究成功将物理约束融入模型，为科学探索提供了更严谨、可靠的预测置信度评估方案。
+建议关注 AI for Science 的读者重点研读，掌握利用先验知识提升模型在复杂科研场景下可信度的方法。
 
 ## 精读区
 - 本次无精读推荐。
 
 ## 速读区
-1. [Discovery of Interpretable Physical Laws in Materials via Language-Model-Guided Symbolic Regression](/202602/27/2602.22967v1-discovery-of-interpretable-physical-laws-in-materials-via-language-model-guided-symbolic-regression) （10.0/10）
-2. [Constraint-Aware Neurosymbolic Uncertainty Quantification with Bayesian Deep Learning for Scientific Discovery](/202602/27/2601.12442v1-constraint-aware-neurosymbolic-uncertainty-quantification-with-bayesian-deep-learning-for-scientific-discovery) （9.0/10）
+1. [Constraint-Aware Neurosymbolic Uncertainty Quantification with Bayesian Deep Learning for Scientific Discovery](/202602/27/2601.12442v1-constraint-aware-neurosymbolic-uncertainty-quantification-with-bayesian-deep-learning-for-scientific-discovery) （9.0/10）
 
 ---
 使用键盘方向键可在日报/论文之间快速切换。

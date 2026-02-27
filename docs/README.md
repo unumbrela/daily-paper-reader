@@ -10,25 +10,23 @@
 
 ## 每次日报
 - 最新运行日期：2026-02-27
-- 运行时间：2026-02-27 09:36:18 UTC
+- 运行时间：2026-02-27 09:51:52 UTC
 - 运行状态：成功
-- 本次总论文数：2
+- 本次总论文数：1
 - 精读区：0
-- 速读区：2
+- 速读区：1
 
 ### 今日简报（AI）
-今日聚焦 AI 驱动的科学发现，重点探索大模型引导的物理规律挖掘与神经符号不确定性量化。
-核心突破在于利用 LLM 辅助符号回归发现可解释材料规律，并结合贝叶斯学习提升科学预测的可靠性。
-建议关注 AI 如何通过“符号化”桥梁，将深度学习的强大算力转化为人类可理解的物理公式。
+今日聚焦：高分论文探索如何利用贝叶斯神经符号学习，为科学发现提供具备约束感知的不确定性量化。
+核心突破：该方法通过融合物理约束与深度学习，解决了科学建模中预测可靠性与逻辑一致性的双重挑战。
+建议关注：推荐对 AI for Science 感兴趣的读者深入了解如何通过符号化约束提升模型的严谨性。
 - 详情：[/202602/27/README](/202602/27/README)
 
 ### 精读区论文标签
 - 本次无精读推荐。
 
 ### 速读区论文标签
-1. [Discovery of Interpretable Physical Laws in Materials via Language-Model-Guided Symbolic Regression](/202602/27/2602.22967v1-discovery-of-interpretable-physical-laws-in-materials-via-language-model-guided-symbolic-regression)  
-   标签：评分：10.0/10、query:sr
-2. [Constraint-Aware Neurosymbolic Uncertainty Quantification with Bayesian Deep Learning for Scientific Discovery](/202602/27/2601.12442v1-constraint-aware-neurosymbolic-uncertainty-quantification-with-bayesian-deep-learning-for-scientific-discovery)  
+1. [Constraint-Aware Neurosymbolic Uncertainty Quantification with Bayesian Deep Learning for Scientific Discovery](/202602/27/2601.12442v1-constraint-aware-neurosymbolic-uncertainty-quantification-with-bayesian-deep-learning-for-scientific-discovery)  
    标签：评分：9.0/10、query:sr
 
 
