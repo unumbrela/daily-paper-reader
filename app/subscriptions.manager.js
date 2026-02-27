@@ -43,10 +43,14 @@ window.SubscriptionsManager = (function () {
     '}',
     '要求：',
     '1) keywords 为数组，请给出 5~12 条对象（keyword + query + 可选 keyword_cn），供用户多选；',
-    '2) keywords 建议为短词组（1~4 个核心概念词，建议不超过 6 个词），优先输出可独立召回的短名词短语。',
-    '3) intent_queries 输出 3~8 条可落地的检索句（可选 query_cn）。',
-    '4) 不要返回 must_have/optional/exclude/rewrite_for_embedding/must_have 等额外字段。',
-    '5) 只输出 JSON，不要输出其它文本。',
+    '2) keywords 是用于召回的“原子词”。建议为 1~4 个核心概念词，尽量 1~3 个，避免出现 deep symbolic regression 这类耦合词；',
+    '3) 不要把“symbolic regression/强化学习/遗传规划/Transformer”等核心词重复拼接在其它长词中；当出现核心词时，keyword 优先输出独立核心词，query 负责承载完整语义（如 policy gradient + symbolic regression）。',
+    '4) 推荐示例：',
+    '   {"keyword":"symbolic regression","query":"deep symbolic regression methods"},{"keyword":"reinforcement learning","query":"policy gradient symbolic regression","keyword_cn":"强化学习","query_cn":"策略梯度在符号回归中的应用"}',
+    '   {"keyword":"genetic programming","query":"genetic programming for symbolic regression"},{"keyword":"MCTS","query":"MCTS for symbolic regression"}',
+    '5) intent_queries 输出 3~8 条可落地的检索句（可选 query_cn）。',
+    '6) 不要返回 must_have/optional/exclude/rewrite_for_embedding/must_have 等额外字段。',
+    '7) 只输出 JSON，不要输出其它文本。',
   ].join('\n');
 
   const QUICK_RUN_CONFERENCES = [
