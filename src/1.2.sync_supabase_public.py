@@ -24,11 +24,28 @@ ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 TODAY_STR = str(os.getenv("DPR_RUN_DATE") or "").strip() or datetime.now(timezone.utc).strftime("%Y%m%d")
 CONFIG_FILE = os.path.join(ROOT_DIR, "config.yaml")
 DEFAULT_EMBED_MODEL = "BAAI/bge-small-en-v1.5"
+SYNC_START_TS = time.time()
 
 
 def log(msg: str) -> None:
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{ts}] {msg}", flush=True)
+
+
+def _brief_row_ids(rows: List[Dict[str, Any]], limit: int = 3) -> str:
+    if not rows:
+        return "[]"
+    ids = []
+    for row in rows:
+        pid = _norm(row.get("id"))
+        if pid:
+            ids.append(pid)
+        if len(ids) >= limit:
+            break
+    suffix = ""
+    if len(rows) > limit:
+        suffix = ", ..."
+    return f"[{', '.join(ids)}{suffix}]"
 
 
 def _norm(v: Any) -> str:
@@ -201,7 +218,11 @@ def load_raw(path: str) -> List[Dict[str, Any]]:
         raise RuntimeError(f"读取原始文件失败：{path} ({e})") from e
     if not isinstance(data, list):
         raise RuntimeError(f"原始文件格式错误（期望 list）：{path}")
-    return [x for x in data if isinstance(x, dict)]
+    rows = [x for x in data if isinstance(x, dict)]
+    log(f"[INFO] 读取原始抓取文件：{path}，共 {len(rows)} 行")
+    if rows:
+        log(f"[INFO] 原始文件前 3 条 id：{_brief_row_ids(rows)}")
+    return rows
 
 
 def normalize_paper(x: Dict[str, Any]) -> Dict[str, Any] | None:
@@ -258,22 +279,36 @@ def upsert_papers(
     total = len(rows)
     if total == 0:
         return
+    log(
+        "[Supabase] 开始同步参数："
+        f" table={table}, schema={schema}, total={total}, "
+        f"batch_size={batch_size}, timeout={timeout}s, retries={retries}, retry_wait={retry_wait}s"
+    )
 
     max_attempts = max(int(retries or 0), 0) + 1
     uploaded = 0
+    batch_index = 0
+    batch_total = (total + batch_size - 1) // batch_size
 
     def _post_chunk(chunk: List[Dict[str, Any]]) -> int:
         last_error: Exception | None = None
         for attempt in range(1, max_attempts + 1):
             try:
+                payload_size = len(json.dumps(chunk, ensure_ascii=False, separators=(",", ":")))
+                start_t = time.time()
                 resp = requests.post(
                     endpoint,
                     headers=_headers(service_key, "resolution=merge-duplicates", schema=schema),
                     data=json.dumps(chunk, ensure_ascii=False, separators=(",", ":")),
                     timeout=max(int(timeout or 30), 1),
                 )
+                spent_ms = int((time.time() - start_t) * 1000)
                 if resp.status_code >= 300:
                     raise RuntimeError(f"HTTP {resp.status_code} {resp.text[:200]}")
+                log(
+                    f"[Supabase] upsert 成功: rows={len(chunk)}, bytes={payload_size}, "
+                    f"status={resp.status_code}, cost={spent_ms}ms"
+                )
                 return attempt
             except Exception as e:
                 last_error = e
@@ -281,7 +316,8 @@ def upsert_papers(
                     break
                 wait_s = max(float(retry_wait or 0.0), 0.0) * attempt
                 log(
-                    f"[WARN] upsert 批次失败，准备重试 "
+                    f"[WARN] upsert 批次失败（rows={len(chunk)}, batch_index={batch_index}, "
+                    f"sample_ids={_brief_row_ids(chunk)}），准备重试 "
                     f"(attempt={attempt}/{max_attempts}, wait={wait_s:.1f}s): {e}"
                 )
                 if wait_s > 0:
@@ -318,7 +354,15 @@ def upsert_papers(
             _upsert_with_split(right, depth + 1)
 
     for i in range(0, total, batch_size):
+        batch_index += 1
         chunk = rows[i : i + batch_size]
+        batch_start = i + 1
+        batch_end = min(i + batch_size, total)
+        if batch_size > 0:
+            log(
+                f"[Supabase] 上传进度：第 {batch_index}/{batch_total} 批，"
+                f"覆盖范围 {batch_start}-{batch_end}，ids={_brief_row_ids(chunk)}"
+            )
         try:
             _upsert_with_split(chunk, depth=0)
         except Exception as e:
@@ -326,6 +370,8 @@ def upsert_papers(
                 f"upsert papers 失败：offset={i}, batch={len(chunk)}, error={e}"
             ) from e
 
+    cost_sec = max(time.time() - SYNC_START_TS, 0.0)
+    log(f"[Supabase] 全量同步结束：成功上报 {uploaded} 条，共耗时 {cost_sec:.1f}s")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sync raw arXiv papers to Supabase public tables.")
@@ -376,6 +422,11 @@ def main() -> None:
     try:
         if args.with_embeddings:
             model_name = resolve_embed_model(args.embed_model)
+            log(
+                f"[Embedding] 配置：model={model_name}, embed_device={args.embed_device}, "
+                f"embed_devices={args.embed_devices or '<auto>'}, batch={args.embed_batch_size}, "
+                f"max_length={args.embed_max_length}"
+            )
             embed_devices = resolve_embed_devices(args.embed_devices, args.embed_device)
             attach_embeddings(
                 rows,
