@@ -23,29 +23,6 @@ subscriptions:
     stage: A
     diff_threshold_pct: 15
   keyword_recall_mode: or
-  smart_query_prompt_template: |-
-    你是一名检索规划助手。
-    用户主题标签: {{TAG}}
-    用户中文描述: {{USER_DESCRIPTION}}
-    检索链路说明: {{RETRIEVAL_CONTEXT}}
-
-    请输出 JSON：
-    {
-      "tag": "可选：建议的标签（用于页面自动回填）",
-      "description": "可选：建议的中文描述（用于页面自动回填）",
-      "keywords": [
-        { "keyword": "Symbolic Regression", "query": "Symbolic regression methods and applications" },
-        { "keyword": "Genetic Programming", "query": "Genetic programming for symbolic model discovery" },
-        { "keyword": "Reinforcement Learning", "query": "Reinforcement learning based symbolic regression" }
-      ]
-    }
-    要求：
-    1) tag 和 description 可以不填，但建议提供，便于前端回填；
-    2) keywords 请给出 5~12 条对象（keyword + query），便于用户多选；
-    3) keywords 以短词组为主（1~4 个核心概念词，建议不超过 6 个词），尽量避免长句式；
-    4) 避免输出大量“X + 核心术语”冗余形式（如 “deep symbolic regression”）。若核心术语已出现（如 “symbolic regression”），优先输出可独立召回的前缀概念（如 “machine learning”）；
-    5) 不要输出查询链路字段与重复改写；
-    6) 只输出 JSON，不要输出其它文本。
   intent_profiles:
     - id: profile-1
       tag: SR

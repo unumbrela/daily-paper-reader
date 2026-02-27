@@ -54,6 +54,7 @@ window.SubscriptionsManager = (function () {
     '5) intent_queries: output 3-8 actionable intent queries. Each item should include query and optional query_cn.',
     '6) Do not output extra fields like must_have / optional / exclude / rewrite_for_embedding / must_have.',
     '7) Return pure JSON only, no explanations.',
+    '8) Tag suggestion should be concise, preferably under 6 characters.',
   ].join('\n');
 
   const QUICK_RUN_CONFERENCES = [
