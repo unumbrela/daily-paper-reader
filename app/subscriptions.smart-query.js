@@ -781,44 +781,6 @@ window.SubscriptionsSmartQuery = (function () {
     };
   };
 
-  const mergeCloudSelections = (existingItems, incomingItems, keyField) => {
-    const normalizeCloudKey = (item, field) => normalizeText(item && item[field]).toLowerCase();
-    const existingList = Array.isArray(existingItems) ? existingItems : [];
-    const incomingList = Array.isArray(incomingItems) ? incomingItems : [];
-    const existingMap = new Map();
-    const retainedSelected = [];
-    const seen = new Set();
-    const merged = [];
-
-    existingList.forEach((item) => {
-      const k = normalizeCloudKey(item, keyField);
-      if (!k || existingMap.has(k)) return;
-      existingMap.set(k, { ...item });
-    });
-
-    existingList.forEach((item) => {
-      const k = normalizeCloudKey(item, keyField);
-      if (!k) return;
-      if (seen.has(k)) return;
-      const kept = existingMap.get(k);
-      if (!kept || !kept._selected) return;
-      retainedSelected.push({ ...kept, _selected: true });
-      seen.add(k);
-    });
-
-    incomingList.forEach((item) => {
-      const k = normalizeCloudKey(item, keyField);
-      if (!k || seen.has(k)) return;
-      const kept = existingMap.get(k);
-      const mergedItem = kept ? { ...kept, ...item, _selected: !!kept._selected } : { ...item, _selected: false };
-      merged.push(mergedItem);
-      seen.add(k);
-    });
-
-    merged.unshift(...retainedSelected);
-    return merged;
-  };
-
   const renderCloudCards = (items, kind, options = {}) => {
     const textField = options.textField || 'text';
     const descField = options.descField || 'logic_cn';
@@ -1243,12 +1205,8 @@ window.SubscriptionsSmartQuery = (function () {
       if (document.getElementById('dpr-chat-required-desc')) {
         document.getElementById('dpr-chat-required-desc').value = finalDescForProfile;
       }
-      const nextKeywords = mergeCloudSelections(modalState.keywords || [], nextCandidates.keywords, 'keyword');
-      const nextIntentQueries = mergeCloudSelections(
-        modalState.intent_queries || [],
-        nextCandidates.intent_queries,
-        'query',
-      );
+      const nextKeywords = nextCandidates.keywords;
+      const nextIntentQueries = nextCandidates.intent_queries;
       const roundLabel = requestHistoryLength(modalState);
       const history = Array.isArray(modalState.requestHistory) ? modalState.requestHistory.slice() : [];
       history.push({
@@ -1265,7 +1223,7 @@ window.SubscriptionsSmartQuery = (function () {
       modalState.lastTag = finalTag;
       modalState.lastDesc = finalDesc;
       modalState.requestHistory = history;
-      modalState.chatStatus = `已生成候选（关键词 ${nextCandidates.keywords.length} 条新增/共 ${nextKeywords.length} 条，意图 ${nextCandidates.intent_queries.length} 条新增/共 ${nextIntentQueries.length} 条）。`;
+      modalState.chatStatus = `已生成候选（关键词 ${nextKeywords.length} 条，意图 ${nextIntentQueries.length} 条）。`;
       if (document.getElementById('dpr-chat-desc-input')) {
         document.getElementById('dpr-chat-desc-input').value = '';
       }
@@ -1409,6 +1367,16 @@ window.SubscriptionsSmartQuery = (function () {
     list[idx]._selected = selected;
   };
 
+  const handleModalKeydown = (e) => {
+    if (!e || e.target?.id !== 'dpr-chat-desc-input') return;
+    if (e.key !== 'Enter') return;
+    if (e.shiftKey || e.isComposing) return;
+    e.preventDefault();
+    if (modalState && modalState.type === 'chat') {
+      askChatOnce();
+    }
+  };
+
   const requestHistoryLength = (state) => {
     const history = Array.isArray(state && state.requestHistory) ? state.requestHistory : [];
     if (!history.length) {
@@ -1523,6 +1491,7 @@ window.SubscriptionsSmartQuery = (function () {
       modalPanel._boundClick = true;
       modalPanel.addEventListener('click', handleModalClick);
       modalPanel.addEventListener('change', handleModalChange);
+      modalPanel.addEventListener('keydown', handleModalKeydown);
     }
   };
 
