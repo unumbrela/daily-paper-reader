@@ -2039,7 +2039,7 @@ article.markdown-section {
   display: flex;
   align-items: center;
   border-right: none;
-  --paper-item-text-end-pad: 14px;
+  --paper-item-text-end-pad: 0px;
   /* 统一行内边距与外边距，确保圆角背景完整填充整行 */
   margin-top: 0;
   margin-bottom: 0;
