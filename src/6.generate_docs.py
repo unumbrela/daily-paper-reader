@@ -9,6 +9,8 @@ import os
 import re
 import tempfile
 import time
+import xml.etree.ElementTree as ET
+from urllib.parse import quote_plus
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
@@ -134,6 +136,97 @@ def fetch_paper_markdown_via_jina(pdf_url: str, max_retries: int = 3) -> str | N
         time.sleep(2 * attempt)
     log("[JINA][ERROR] 多次请求失败，将回退到 PyMuPDF 抽取。")
     return None
+
+
+def normalize_arxiv_id(value: str) -> str:
+    """
+    统一将可能携带 URL 的 arXiv 输入转换为 id。
+    兼容：
+    - 1706.03762
+    - 1706.03762v1
+    - https://arxiv.org/abs/1706.03762v1
+    """
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    if raw.startswith("http://") or raw.startswith("https://"):
+        raw = raw.rsplit("/", 1)[-1]
+    raw = raw.split("?")[0]
+    if raw.startswith("abs/"):
+        raw = raw[len("abs/") :]
+    if raw.startswith("pdf/"):
+        raw = raw[len("pdf/") :].replace(".pdf", "")
+    return raw.strip().lower()
+
+
+def parse_arxiv_xml_feed(xml_text: str) -> Dict[str, Any]:
+    """
+    从 arXiv API XML feed 中解析第一条 paper 元数据，返回内部统一字典。
+    """
+    root = ET.fromstring(xml_text)
+    ns = {"atom": "http://www.w3.org/2005/Atom"}
+    entry = root.find("atom:entry", ns)
+    if entry is None:
+        raise RuntimeError("未从 arXiv 返回中解析到论文条目")
+
+    def _text(tag: str) -> str:
+        elem = entry.find(tag, ns)
+        return (elem.text or "").strip() if elem is not None else ""
+
+    arxiv_id = _text("atom:id")
+    if arxiv_id:
+        arxiv_id = arxiv_id.rsplit("/", 1)[-1]
+
+    title = " ".join(_text("atom:title").split())
+    abstract = " ".join(_text("atom:summary").split())
+    published = _text("atom:published")
+    published_date = ""
+    if published:
+        published_date = published.split("T", 1)[0].replace("-", "")
+
+    authors = []
+    for a in entry.findall("atom:author", ns):
+        name_elem = a.find("atom:name", ns)
+        if name_elem is not None:
+            name = (name_elem.text or "").strip()
+            if name and name not in authors:
+                authors.append(name)
+
+    pdf_url = ""
+    for link in entry.findall("atom:link", ns):
+        href = (link.attrib.get("href") or "").strip()
+        if href.endswith(".pdf"):
+            pdf_url = href
+            break
+        if link.attrib.get("title") == "pdf" and href:
+            pdf_url = href
+            break
+
+    return {
+        "id": arxiv_id,
+        "title": title,
+        "abstract": abstract,
+        "published": published_date,
+        "authors": authors,
+        "link": pdf_url,
+        "pdf_url": pdf_url,
+        "llm_tags": ["query:transformer", "query:attention"],
+    }
+
+
+def fetch_arxiv_paper_meta(arxiv_id: str) -> Dict[str, Any]:
+    """
+    通过 arXiv API 拉取单篇论文元数据，用于单篇补生成。
+    """
+    pid = normalize_arxiv_id(arxiv_id)
+    if not pid:
+        raise ValueError("paper id 不能为空")
+    url = f"https://export.arxiv.org/api/query?id_list={quote_plus(pid)}"
+    log(f"[INFO] 拉取 arXiv 元数据：{url}")
+    resp = requests.get(url, timeout=30)
+    if resp.status_code != 200:
+        raise RuntimeError(f"arXiv API 请求失败，status={resp.status_code}")
+    return parse_arxiv_xml_feed(resp.text)
 
 
 def translate_title_and_abstract_to_zh(title: str, abstract: str) -> Tuple[str, str]:
@@ -1963,6 +2056,30 @@ def main() -> None:
         action="store_true",
         help="仅修复已生成文章里的 `**Tags**`（移除“精读区/速读区”标签），不触发 LLM。",
     )
+    parser.add_argument(
+        "--paper-id",
+        type=str,
+        default=None,
+        help="单篇模式：填写 arXiv id（如 1706.03762v1 / https://arxiv.org/abs/1706.03762v1）。",
+    )
+    parser.add_argument(
+        "--paper-date",
+        type=str,
+        default="",
+        help="单篇模式：论文输出目录日期（YYYYMMDD），默认使用论文发布时间。",
+    )
+    parser.add_argument(
+        "--paper-section",
+        type=str,
+        default="quick",
+        help="单篇模式：deep 或 quick（默认 quick）。",
+    )
+    parser.add_argument(
+        "--paper-title",
+        type=str,
+        default=None,
+        help="单篇模式：可选，手动覆盖论文标题。",
+    )
     args = parser.parse_args()
 
     date_str = args.date or TODAY_STR
@@ -1978,6 +2095,41 @@ def main() -> None:
     created_reports = backfill_history_day_reports(docs_dir)
     if created_reports > 0:
         log(f"[INFO] 已补齐历史日报 README：{created_reports} 个")
+
+    if args.paper_id:
+        log_substep("6.p", "单篇论文生成", "START")
+        try:
+            paper = fetch_arxiv_paper_meta(args.paper_id)
+            if args.paper_title:
+                paper["title"] = args.paper_title.strip()
+            single_date = (args.paper_date or "").strip()
+            if not single_date:
+                single_date = (paper.get("published") or "").strip()
+            if not single_date:
+                single_date = TODAY_STR
+
+            section = (args.paper_section or "quick").strip().lower()
+            if section not in ("deep", "quick"):
+                section = "quick"
+
+            paper_id = str(paper.get("id") or args.paper_id).strip()
+            paper["paper_id"] = paper_id
+            _, paper_title = process_paper(
+                paper,
+                section,
+                single_date,
+                docs_dir,
+                glance_only=args.glance_only,
+                force_glance=args.force_glance,
+            )
+            log(f"[OK] 单篇论文已生成：{paper_title}（{paper_id}），date={single_date}，section={section}")
+            log_substep("6.p", "单篇论文生成", "END")
+            return
+        except Exception as e:
+            log(f"[ERROR] 单篇论文生成失败：{e}")
+            log_substep("6.p", "单篇论文生成", "END")
+            return
+
     archive_dir = os.path.join(ROOT_DIR, "archive", date_str, "recommend")
     recommend_path = os.path.join(archive_dir, f"arxiv_papers_{date_str}.{mode}.json")
     recommend_exists = os.path.exists(recommend_path)

@@ -21,6 +21,9 @@ GLOBAL_TOKENS = {
 # 单次实验级别的全局时间统计（秒）
 GLOBAL_TIME_SECONDS: float = 0.0
 
+PRIMARY_LLM_BASE_URL = "https://api.gptbest.vip/v1"
+DEFAULT_BLT_BASE_URL = "https://api.bltcy.ai/v1"
+
 
 def reset_global_tokens():
     """重置本次实验的全局 token 统计。"""
@@ -65,6 +68,7 @@ class LLMClient:
         self.api_key = api_key
         self.model = model
         self.base_url = base_url
+        self._base_urls = self._normalize_base_urls([base_url])
         # 实例级别的累计统计（无需显式 reset；通常每个实验构造一个 client）
         self._call_index = 0
         self._cum_tokens = {
@@ -85,13 +89,29 @@ class LLMClient:
             'stream': False,
         }
 
-    def _provider_name(self) -> str:
+    @staticmethod
+    def _normalize_base_urls(urls: List[str | None]) -> List[str]:
+        out: List[str] = []
+        for url in urls:
+            if not url:
+                continue
+            candidate = str(url).strip().rstrip("/")
+            if candidate and candidate not in out:
+                out.append(candidate)
+        return out
+
+    def _iter_request_bases(self) -> List[str]:
+        return self._normalize_base_urls(self._base_urls)
+
+    def _provider_name(self, base_url: str | None = None) -> str:
         try:
-            url = (self.base_url or '').lower()
+            url = (base_url or self.base_url or '').lower()
             if 'deepseek' in url:
                 return 'deepseek'
             if 'siliconflow' in url or 'siliconflow.cn' in url:
                 return 'siliconflow'
+            if 'gptbest' in url:
+                return 'blt'
             if 'bltcy' in url or 'blt' in url:
                 return 'blt'
             if 'ollama' in url or 'localhost' in url:
@@ -113,8 +133,6 @@ class LLMClient:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        request_url = f"{self.base_url.rstrip('/')}/chat/completions"
-
         model_name = self.model
         if 'qwen3' in model_name.lower():
             if '/think' in model_name:
@@ -149,113 +167,137 @@ class LLMClient:
         except Exception:
             pass
 
-        # 计时（用于统计每次调用与总耗时）
         start_time = time.time()
-        try:
-            response = requests.post(request_url, headers=headers, json=payload, timeout=120)
-            response.raise_for_status()
+        request_bases = self._iter_request_bases()
+        last_error: Exception | None = None
+        for attempt_idx, req_base in enumerate(request_bases, start=1):
+            request_url = f"{req_base.rstrip('/')}/chat/completions"
             try:
-                response_data = response.json()
-            except ValueError:
-                print("API 响应无法解析为 JSON，原始文本预览:", response.text[:500])
-                raise
-            debug_raw = os.getenv("BLT_DEBUG_RAW") == "1" or os.getenv("LLM_DEBUG_RAW") == "1"
-            if debug_raw and self._provider_name() == "blt":
-                print("[DEBUG] BLT 原始响应包:", response.text)
-
-            if isinstance(response_data, dict) and 'error' in response_data:
-                err = response_data.get('error') or {}
-                print("API 返回错误:", {
-                    'type': err.get('type'),
-                    'code': err.get('code'),
-                    'message': err.get('message') or err,
-                })
-                raise requests.exceptions.HTTPError(f"API error: {err}")
-
-            if 'choices' not in response_data or not response_data['choices']:
-                print("API 响应不包含 choices 字段或为空：", str(response_data)[:500])
-                raise requests.exceptions.HTTPError("API response missing choices")
-
-            message = response_data['choices'][0].get('message', {})
-            content = message.get('content', '') or ''
-            reasoning_content = message.get('reasoning_content', '') or ''
-
-            usage = response_data.get('usage', {})
-            prompt_tokens = usage.get('prompt_tokens', 0)
-            completion_tokens = usage.get('completion_tokens', 0)
-            total_tokens = usage.get('total_tokens', 0)
-            reasoning_tokens = 0
-            if 'completion_tokens_details' in usage:
-                reasoning_tokens = usage['completion_tokens_details'].get('reasoning_tokens', 0)
-
-            self.tokens['prompt'] += prompt_tokens
-            self.tokens['content'] += completion_tokens - reasoning_tokens
-            self.tokens['reasoning'] += reasoning_tokens
-            self.tokens['total'] += total_tokens
-
-            try:
-                GLOBAL_TOKENS['prompt'] += int(prompt_tokens)
-                GLOBAL_TOKENS['thinking'] += int(reasoning_tokens)
-                GLOBAL_TOKENS['content'] += int(completion_tokens - reasoning_tokens)
-                GLOBAL_TOKENS['total'] += int(total_tokens)
-            except Exception:
-                pass
-
-            try:
-                elapsed = time.time() - start_time
-                self._cum_time_seconds += float(elapsed)
+                response = requests.post(request_url, headers=headers, json=payload, timeout=120)
+                response.raise_for_status()
                 try:
-                    global GLOBAL_TIME_SECONDS
-                    GLOBAL_TIME_SECONDS += float(elapsed)
+                    response_data = response.json()
+                except ValueError:
+                    print("API 响应无法解析为 JSON，原始文本预览:", response.text[:500])
+                    raise
+
+                debug_raw = os.getenv("BLT_DEBUG_RAW") == "1" or os.getenv("LLM_DEBUG_RAW") == "1"
+                if debug_raw and self._provider_name(req_base) == "blt":
+                    print("[DEBUG] BLT 原始响应包:", response.text)
+
+                if isinstance(response_data, dict) and 'error' in response_data:
+                    err = response_data.get('error') or {}
+                    print("API 返回错误:", {
+                        'type': err.get('type'),
+                        'code': err.get('code'),
+                        'message': err.get('message') or err,
+                    })
+                    raise requests.exceptions.HTTPError(f"API error: {err}")
+
+                if 'choices' not in response_data or not response_data['choices']:
+                    print("API 响应不包含 choices 字段或为空：", str(response_data)[:500])
+                    raise requests.exceptions.HTTPError("API response missing choices")
+
+                message = response_data['choices'][0].get('message', {})
+                content = message.get('content', '') or ''
+                reasoning_content = message.get('reasoning_content', '') or ''
+
+                usage = response_data.get('usage', {})
+                prompt_tokens = usage.get('prompt_tokens', 0)
+                completion_tokens = usage.get('completion_tokens', 0)
+                total_tokens = usage.get('total_tokens', 0)
+                reasoning_tokens = 0
+                if 'completion_tokens_details' in usage:
+                    reasoning_tokens = usage['completion_tokens_details'].get('reasoning_tokens', 0)
+
+                self.tokens['prompt'] += prompt_tokens
+                self.tokens['content'] += completion_tokens - reasoning_tokens
+                self.tokens['reasoning'] += reasoning_tokens
+                self.tokens['total'] += total_tokens
+
+                try:
+                    GLOBAL_TOKENS['prompt'] += int(prompt_tokens)
+                    GLOBAL_TOKENS['thinking'] += int(reasoning_tokens)
+                    GLOBAL_TOKENS['content'] += int(completion_tokens - reasoning_tokens)
+                    GLOBAL_TOKENS['total'] += int(total_tokens)
                 except Exception:
                     pass
 
-                self._call_index += 1
-                self._cum_tokens['prompt'] += int(prompt_tokens)
-                self._cum_tokens['thinking'] += int(reasoning_tokens)
-                self._cum_tokens['content'] += int(completion_tokens - reasoning_tokens)
-                self._cum_tokens['total'] += int(total_tokens)
-
-                provider = self._provider_name()
-                header = f"[{provider}][{self.model}] 第{self._call_index}次"
-                line_cur = (
-                    f"本次 tokens：prompt={int(prompt_tokens)}, thinking={int(reasoning_tokens)}, "
-                    f"content={int(completion_tokens - reasoning_tokens)}, total={int(total_tokens)}"
-                )
-                line_cum = (
-                    f"累计 tokens：prompt={self._cum_tokens['prompt']}, thinking={self._cum_tokens['thinking']}, "
-                    f"content={self._cum_tokens['content']}, total={self._cum_tokens['total']}"
-                )
-                line_time = (
-                    f"本次用时：{elapsed:.2f}s，"
-                    f"累计用时：{self._cum_time_seconds:.2f}s"
-                )
-                print(header + "\n" + line_cur + "\n" + line_cum + "\n" + line_time)
-            except Exception:
-                pass
-
-            return {
-                "content": content,
-                "reasoning_content": reasoning_content,
-                "tokens": {
-                    "prompt": prompt_tokens,
-                    "content": completion_tokens - reasoning_tokens,
-                    "reasoning": reasoning_tokens,
-                    "total": total_tokens
-                }
-            }
-
-        except requests.exceptions.RequestException as e:
-            print(f"通过 requests 调用 API 时出错: {e}")
-            if e.response is not None:
                 try:
-                    print("错误详情(JSON):", e.response.json())
-                except ValueError:
+                    elapsed = time.time() - start_time
+                    self._cum_time_seconds += float(elapsed)
                     try:
-                        print("错误详情(TEXT):", e.response.text[:500])
+                        global GLOBAL_TIME_SECONDS
+                        GLOBAL_TIME_SECONDS += float(elapsed)
                     except Exception:
                         pass
-            raise
+
+                    self._call_index += 1
+                    self._cum_tokens['prompt'] += int(prompt_tokens)
+                    self._cum_tokens['thinking'] += int(reasoning_tokens)
+                    self._cum_tokens['content'] += int(completion_tokens - reasoning_tokens)
+                    self._cum_tokens['total'] += int(total_tokens)
+
+                    provider = self._provider_name(req_base)
+                    header = f"[{provider}][{self.model}] 第{self._call_index}次"
+                    line_cur = (
+                        f"本次 tokens：prompt={int(prompt_tokens)}, thinking={int(reasoning_tokens)}, "
+                        f"content={int(completion_tokens - reasoning_tokens)}, total={int(total_tokens)}"
+                    )
+                    line_cum = (
+                        f"累计 tokens：prompt={self._cum_tokens['prompt']}, thinking={self._cum_tokens['thinking']}, "
+                        f"content={self._cum_tokens['content']}, total={self._cum_tokens['total']}"
+                    )
+                    line_time = (
+                        f"本次用时：{elapsed:.2f}s，"
+                        f"累计用时：{self._cum_time_seconds:.2f}s"
+                    )
+                    print(header + "\n" + line_cur + "\n" + line_cum + "\n" + line_time)
+                except Exception:
+                    pass
+
+                return {
+                    "content": content,
+                    "reasoning_content": reasoning_content,
+                    "tokens": {
+                        "prompt": prompt_tokens,
+                        "content": completion_tokens - reasoning_tokens,
+                        "reasoning": reasoning_tokens,
+                        "total": total_tokens
+                    }
+                }
+
+            except Exception as e:
+                last_error = e
+                if attempt_idx < len(request_bases):
+                    next_base = request_bases[attempt_idx] if attempt_idx < len(request_bases) else ''
+                    print(
+                        f"请求失败（base={req_base}，第 {attempt_idx} 次），"
+                        f"将回退到 {next_base}"
+                    )
+                    if hasattr(e, "response") and e.response is not None:
+                        try:
+                            print("错误详情(JSON):", e.response.json())
+                        except ValueError:
+                            try:
+                                print("错误详情(TEXT):", e.response.text[:500])
+                            except Exception:
+                                pass
+                    continue
+                print(f"通过 requests 调用 API 时出错: {e}")
+                if hasattr(e, "response") and e.response is not None:
+                    try:
+                        print("错误详情(JSON):", e.response.json())
+                    except ValueError:
+                        try:
+                            print("错误详情(TEXT):", e.response.text[:500])
+                        except Exception:
+                            pass
+                raise
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("LLM 请求未命中可用 base")
 
     def rerank(
         self,
@@ -300,8 +342,15 @@ class OllamaClient(LLMClient):
 class BltClient(LLMClient):
     """BLT（柏拉图）网关，OpenAI Chat Completions 兼容接口。"""
     def __init__(self, api_key: str, model: str, base_url: str = None):
-        base_url = base_url or os.getenv('BLT_API_BASE', 'https://api.bltcy.ai/v1')
-        super().__init__(api_key=api_key, model=model, base_url=base_url)
+        legacy_base = base_url or os.getenv('BLT_API_BASE', DEFAULT_BLT_BASE_URL)
+        primary_base = (
+            os.getenv("LLM_PRIMARY_BASE_URL")
+            or os.getenv("BLT_PRIMARY_BASE_URL")
+            or os.getenv("GPTBEST_BASE_URL")
+            or PRIMARY_LLM_BASE_URL
+        ).strip() or PRIMARY_LLM_BASE_URL
+        super().__init__(api_key=api_key, model=model, base_url=primary_base)
+        self._base_urls = self._normalize_base_urls([primary_base, legacy_base])
 
     def rerank(
         self,
@@ -327,8 +376,6 @@ class BltClient(LLMClient):
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        request_url = f"{self.base_url.rstrip('/')}/rerank"
-
         payload: Dict[str, Any] = {
             "model": model or self.model,
             "query": query,
@@ -337,45 +384,61 @@ class BltClient(LLMClient):
         if top_n is not None:
             payload["top_n"] = int(top_n)
 
-        try:
-            response = requests.post(request_url, headers=headers, json=payload, timeout=120)
-            response.raise_for_status()
+        request_bases = self._iter_request_bases()
+        last_error: Exception | None = None
+        for attempt_idx, req_base in enumerate(request_bases, start=1):
+            request_url = f"{req_base.rstrip('/')}/rerank"
             try:
-                response_data = response.json()
-            except ValueError:
-                print("Rerank 响应无法解析为 JSON，原始文本预览:", response.text[:500])
+                response = requests.post(request_url, headers=headers, json=payload, timeout=120)
+                response.raise_for_status()
+                try:
+                    response_data = response.json()
+                except ValueError:
+                    print("Rerank 响应无法解析为 JSON，原始文本预览:", response.text[:500])
+                    raise
+
+                if isinstance(response_data, dict) and 'error' in response_data:
+                    err = response_data.get('error') or {}
+                    print("Rerank 返回错误:", {
+                        'type': err.get('type'),
+                        'code': err.get('code'),
+                        'message': err.get('message') or err,
+                    })
+                    raise requests.exceptions.HTTPError(f"Rerank API error: {err}")
+
+                return response_data
+            except Exception as e:
+                last_error = e
+                if attempt_idx < len(request_bases):
+                    next_base = request_bases[attempt_idx] if attempt_idx < len(request_bases) else ''
+                    print(
+                        f"Rerank 请求失败（base={req_base}，第 {attempt_idx} 次），"
+                        f"将回退到 {next_base}"
+                    )
+                    continue
+                print(f"通过 requests 调用 Rerank API 时出错: {e}")
+                print("Rerank 请求摘要:", {
+                    "url": request_url,
+                    "model": payload.get("model"),
+                    "query_len": len(query or ""),
+                    "documents": len(documents),
+                    "top_n": payload.get("top_n"),
+                })
+                if e.response is not None:
+                    try:
+                        print("错误详情(JSON):", e.response.json())
+                    except ValueError:
+                        try:
+                            print("错误详情(TEXT):", e.response.text[:500])
+                        except Exception:
+                            pass
+                else:
+                    print("错误详情: 未收到服务端响应（可能是网络/SSL问题）。")
                 raise
 
-            if isinstance(response_data, dict) and 'error' in response_data:
-                err = response_data.get('error') or {}
-                print("Rerank 返回错误:", {
-                    'type': err.get('type'),
-                    'code': err.get('code'),
-                    'message': err.get('message') or err,
-                })
-                raise requests.exceptions.HTTPError(f"Rerank API error: {err}")
-
-            return response_data
-        except requests.exceptions.RequestException as e:
-            print(f"通过 requests 调用 Rerank API 时出错: {e}")
-            print("Rerank 请求摘要:", {
-                "url": request_url,
-                "model": payload.get("model"),
-                "query_len": len(query or ""),
-                "documents": len(documents),
-                "top_n": payload.get("top_n"),
-            })
-            if e.response is not None:
-                try:
-                    print("错误详情(JSON):", e.response.json())
-                except ValueError:
-                    try:
-                        print("错误详情(TEXT):", e.response.text[:500])
-                    except Exception:
-                        pass
-            else:
-                print("错误详情: 未收到服务端响应（可能是网络/SSL问题）。")
-            raise
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("rerank 未命中可用 base")
 
 
 def parse_provider_model(model_str: str) -> Tuple[str, str]:
