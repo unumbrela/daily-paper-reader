@@ -23,6 +23,8 @@ window.SubscriptionsManager = (function () {
     '',
     'Return JSON only:',
     '{',
+    '  "tag": "optional tag suggestion (for user convenience)",',
+    '  "description": "optional Chinese description (for user convenience)",',
     '  "keywords": [',
     '    {',
       '      "keyword": "short keyword phrase for BM25 recall",',

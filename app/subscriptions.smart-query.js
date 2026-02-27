@@ -27,6 +27,8 @@ window.SubscriptionsSmartQuery = (function () {
     '',
     'Return JSON only:',
     '{',
+    '  "tag": "optional tag suggestion (for user convenience)",',
+    '  "description": "optional Chinese description (for user convenience)",',
     '  "keywords": [',
     '    {',
     '      "keyword": "short keyword phrase for BM25 recall",',
@@ -296,6 +298,8 @@ window.SubscriptionsSmartQuery = (function () {
     };
 
     const data = payload && typeof payload === 'object' ? payload : {};
+    const tag = normalizeText(data.tag || data.intent_tag || data.profile_tag || '');
+    const description = normalizeText(data.description || data.profile_desc || data.user_description || '');
     const rawKeywords = Array.isArray(data.keywords) ? data.keywords : [];
     const shortZh = (text, maxLen = 20) => {
       const t = normalizeText(text || '');
@@ -414,6 +418,8 @@ window.SubscriptionsSmartQuery = (function () {
     const intentQueries = normalizeIntentQueryEntries(rawIntentQueries);
 
     return {
+      tag,
+      description,
       keywords,
       intent_queries: intentQueries,
     };
@@ -977,10 +983,12 @@ window.SubscriptionsSmartQuery = (function () {
   const openAddModal = (tag, description, candidates) => {
     const normalizedCandidates = parseCandidatesForState(candidates);
     ensureUserWrappedKeyword(normalizedCandidates.keywords, description);
+    const suggestedTag = normalizeText(candidates && candidates.tag) || normalizeText(tag);
+    const suggestedDesc = normalizeText(candidates && candidates.description) || normalizeText(description);
     modalState = {
       type: 'add',
-      tag,
-      description,
+      tag: suggestedTag,
+      description: suggestedDesc,
       keywords: normalizedCandidates.keywords,
       intent_queries: (normalizedCandidates.intent_queries || []),
       customKeyword: '',
@@ -1235,8 +1243,8 @@ window.SubscriptionsSmartQuery = (function () {
     const topDesc = normalizeText(document.getElementById('dpr-chat-required-desc')?.value || '');
     const bottomDesc = normalizeText(document.getElementById('dpr-chat-desc-input')?.value || '');
     const desc = topDesc || bottomDesc;
-    const finalTag = tag || `SR-${new Date().toISOString().slice(0, 10)}`;
     const finalDesc = desc;
+    let finalTag = tag || `SR-${new Date().toISOString().slice(0, 10)}`;
 
     if (!finalDesc) {
       setChatStatus('请先填写中文描述。', '#c00');
@@ -1252,6 +1260,17 @@ window.SubscriptionsSmartQuery = (function () {
       const candidates = await requestCandidatesByDesc(finalTag, finalDesc);
       const nextCandidates = parseCandidatesForState(candidates, true);
       ensureUserWrappedKeyword(nextCandidates.keywords, finalDesc);
+      const suggestedTag = normalizeText(candidates.tag);
+      const suggestedDesc = normalizeText(candidates.description);
+      if (!tag && suggestedTag) {
+        finalTag = suggestedTag;
+      }
+      if (suggestedTag && !modalState.inputTag) {
+        modalState.inputTag = suggestedTag;
+      }
+      if (suggestedDesc && !modalState.inputDesc) {
+        modalState.inputDesc = suggestedDesc;
+      }
       const nextKeywords = mergeCloudSelections(modalState.keywords || [], nextCandidates.keywords, 'keyword');
       const nextIntentQueries = mergeCloudSelections(
         modalState.intent_queries || [],
@@ -1273,7 +1292,6 @@ window.SubscriptionsSmartQuery = (function () {
       modalState.inputTag = finalTag;
       modalState.lastTag = finalTag;
       modalState.lastDesc = finalDesc;
-      modalState.inputDesc = finalDesc;
       modalState.requestHistory = history;
       modalState.chatStatus = `已生成候选（关键词 ${nextCandidates.keywords.length} 条新增/共 ${nextKeywords.length} 条，意图 ${nextCandidates.intent_queries.length} 条新增/共 ${nextIntentQueries.length} 条）。`;
       if (document.getElementById('dpr-chat-desc-input')) {
