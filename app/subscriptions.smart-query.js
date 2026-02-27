@@ -259,7 +259,53 @@ window.SubscriptionsSmartQuery = (function () {
     }
   };
 
-  const normalizeGenerated = (payload) => {
+  const normalizeGenerated = (payload, options = {}) => {
+    const descHint = normalizeText(options.description || '');
+    const normalizeIntentSource = (obj) => {
+      if (!obj || typeof obj !== 'object') return [];
+      const rawList = [];
+      const pushArr = (v) => {
+        if (Array.isArray(v)) rawList.push(...v);
+      };
+      pushArr(obj.intent_queries);
+      pushArr(obj.intentQueries);
+      pushArr(obj.intent_query);
+      pushArr(obj.intentQuery);
+      pushArr(obj.intents);
+      pushArr(obj.queries);
+      pushArr(obj.llm_queries);
+      pushArr(obj.semantic_queries);
+      if (typeof obj.intent === 'string') rawList.push(obj.intent);
+      return rawList;
+    };
+
+    const fallbackIntentQueries = () => {
+      const out = [];
+      const pushFallback = (query, note) => {
+        const normalizedQuery = normalizeText(query);
+        if (!normalizedQuery) return;
+        out.push({
+          query: normalizeCandidatePhrase(normalizedQuery),
+          enabled: true,
+          source: 'fallback',
+          note,
+        });
+      };
+
+      if (descHint) {
+        pushFallback(descHint, '基于用户检索需求补齐');
+      }
+
+      keywords.slice(0, 3).forEach((kw) => {
+        const src = normalizeText((kw && (kw.query || kw.keyword || kw.text || kw.expr || '')) || '');
+        if (src) {
+          pushFallback(src, '基于关键词补齐');
+        }
+      });
+
+      return out;
+    };
+
     const data = payload && typeof payload === 'object' ? payload : {};
     const rawKeywords = Array.isArray(data.keywords) ? data.keywords : [];
     const shortZh = (text, maxLen = 20) => {
@@ -369,8 +415,9 @@ window.SubscriptionsSmartQuery = (function () {
       return true;
     });
 
-    const rawIntentQueries = Array.isArray(data.intent_queries) ? data.intent_queries : [];
-    const intentQueries = normalizeIntentQueryEntries(rawIntentQueries);
+    const rawIntentQueries = normalizeIntentSource(data);
+    const intentSource = rawIntentQueries.length ? rawIntentQueries : fallbackIntentQueries();
+    const intentQueries = normalizeIntentQueryEntries(intentSource);
 
     return {
       keywords,
@@ -556,7 +603,7 @@ window.SubscriptionsSmartQuery = (function () {
     const data = await res.json();
     const content = extractLlmJsonText(data);
     const parsed = loadJsonLenient(content);
-    const candidates = normalizeGenerated(parsed);
+    const candidates = normalizeGenerated(parsed, { description: finalDesc });
     if (!candidates.keywords.length) {
       throw new Error('模型未返回可用候选，请调整描述后重试。');
     }
