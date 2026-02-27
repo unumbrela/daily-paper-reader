@@ -262,6 +262,28 @@ window.DPRWorkflowRunner = (function () {
     return c || s || '';
   };
 
+  const formatRunTime = (isoTime) => {
+    if (!isoTime) return '';
+    try {
+      const d = new Date(isoTime);
+      if (Number.isNaN(d.getTime())) {
+        return String(isoTime).replace('T', ' ').replace('Z', '');
+      }
+      return d.toLocaleString('zh-CN', {
+        timeZone: 'Asia/Shanghai',
+        hour12: false,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    } catch {
+      return String(isoTime || '');
+    }
+  };
+
   const renderRecentRuns = (owner, repo, byWorkflow, errText) => {
     if (!recentEl) return;
     recentEl.classList.remove('is-loading');
@@ -280,9 +302,7 @@ window.DPRWorkflowRunner = (function () {
           const isActive =
             selectedRun &&
             String(selectedRun.runId || '') === String(r.id || '');
-          const createdAt = (r.created_at || '')
-            .replace('T', ' ')
-            .replace('Z', '');
+          const createdAt = formatRunTime(r.created_at);
           const badge = formatRunBadgeText(status, conclusion);
           const title = `#${r.run_number || r.id}${badge ? ` ${badge}` : ''}`;
           return `
@@ -579,7 +599,7 @@ window.DPRWorkflowRunner = (function () {
               ${escapeHtml(badgeText)}
             </span>
             <span style="margin-left:8px;">${escapeHtml(
-              (run.created_at || '').replace('T', ' ').replace('Z', ''),
+              formatRunTime(run.created_at),
             )}</span>
           </div>
         </div>
