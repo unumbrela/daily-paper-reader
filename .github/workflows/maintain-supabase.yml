@@ -5,12 +5,6 @@ on:
     - cron: "30 0 * * *" # 北京时间次日 08:30（UTC 00:30）
     - cron: "30 8 * * *" # 北京时间次日 16:30（UTC 08:30）
     - cron: "30 16 * * *" # 北京时间次日 00:30（UTC 16:30）
-  workflow_dispatch:
-    inputs:
-      fetch_days:
-        description: "回溯抓取天数（例如 30）；留空则使用默认配置"
-        required: false
-        default: ""
 
 permissions:
   contents: read
