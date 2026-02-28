@@ -10,7 +10,7 @@ window.SubscriptionsManager = (function () {
   let saveBtn = null;
   let closeBtn = null;
   let msgEl = null;
-  let quickRun7dBtn = null;
+  let quickRun10dBtn = null;
   let quickRun30dBtn = null;
   let quickRunConferenceBtn = null;
   let quickRunYearSelect = null;
@@ -199,7 +199,7 @@ window.SubscriptionsManager = (function () {
 
   const refreshQuickRunButtons = () => {
     const blocked = hasUnsavedChanges;
-    [quickRun7dBtn, quickRun30dBtn].forEach((btn) => {
+    [quickRun10dBtn, quickRun30dBtn].forEach((btn) => {
       if (!btn) return;
       btn.disabled = blocked;
       btn.classList.toggle('chat-quick-run-item--disabled', blocked);
@@ -366,7 +366,7 @@ window.SubscriptionsManager = (function () {
 
           <div id="arxiv-search-quick-run-side">
             <div class="chat-quick-run-title">快速抓取</div>
-            <button id="arxiv-admin-quick-run-7d-btn" class="chat-quick-run-item" type="button">立即搜寻十天内论文</button>
+            <button id="arxiv-admin-quick-run-10d-btn" class="chat-quick-run-item" type="button">立即搜寻十天内论文</button>
             <button id="arxiv-admin-quick-run-30d-btn" class="chat-quick-run-item" type="button">立即搜寻三十天内论文</button>
             <div class="chat-quick-run-divider" aria-hidden="true"></div>
             <div class="chat-quick-run-title">会议论文（先保留）</div>
@@ -560,7 +560,7 @@ window.SubscriptionsManager = (function () {
       });
     }
 
-    quickRun7dBtn = document.getElementById('arxiv-admin-quick-run-7d-btn');
+    quickRun10dBtn = document.getElementById('arxiv-admin-quick-run-10d-btn');
     quickRun30dBtn = document.getElementById('arxiv-admin-quick-run-30d-btn');
     quickRunConferenceBtn = document.getElementById(
       'arxiv-admin-quick-run-conference-run-btn',
@@ -571,7 +571,7 @@ window.SubscriptionsManager = (function () {
     );
     quickRunMsgEl = document.getElementById('arxiv-admin-quick-run-msg');
     fillQuickRunOptions(quickRunYearSelect, quickRunConferenceSelect);
-    [quickRun7dBtn, quickRun30dBtn].forEach((btn) => {
+    [quickRun10dBtn, quickRun30dBtn].forEach((btn) => {
       if (!btn) return;
       if (!btn.dataset.defaultTitle) {
         btn.setAttribute('data-default-title', btn.textContent || '');
@@ -579,9 +579,9 @@ window.SubscriptionsManager = (function () {
     });
     refreshQuickRunButtons();
 
-    if (quickRun7dBtn && !quickRun7dBtn._bound) {
-      quickRun7dBtn._bound = true;
-      quickRun7dBtn.addEventListener('click', () => {
+    if (quickRun10dBtn && !quickRun10dBtn._bound) {
+      quickRun10dBtn._bound = true;
+      quickRun10dBtn.addEventListener('click', () => {
         runQuickFetch(10, quickRunMsgEl);
       });
     }
