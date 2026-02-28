@@ -3,6 +3,16 @@ name: daily-paper-reader
 on:
   schedule:
     - cron: "30 18 * * *" # 北京时间次日 02:30（UTC 18:30）
+  workflow_dispatch:
+    inputs:
+      run_enrich:
+        description: "Run 0.enrich_config_queries.py（默认关闭，按需开启）"
+        required: false
+        default: "false"
+      fetch_days:
+        description: "回溯抓取天数（例如 30）；留空则使用默认配置"
+        required: false
+        default: ""
 
 permissions:
   contents: write
