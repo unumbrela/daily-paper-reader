@@ -1,0 +1,165 @@
+Title: To Retrieve or To Think? An Agentic Approach for Context Evolution
+
+URL Source: https://arxiv.org/pdf/2601.08747v2
+
+Published Time: Thu, 15 Jan 2026 01:19:48 GMT
+
+Number of Pages: 5
+
+Markdown Content:
+# To Retrieve or To Think ? An Agentic Approach for Context Evolution 
+
+Rubing Chen, Jian Wang, Wenjie Li, Xiao-Yong Wei * , Qing Li 
+
+Department of Computing, The Hong Kong Polytechnic University 
+
+rubing.chen@connect.polyu.hk jian51.wang@polyu.edu.hk cswjli@comp.polyu.edu.hk {cs007.wei,qing-prof.li}@polyu.edu.hk 
+
+Abstract 
+
+Current context augmentation methods, such as retrieval-augmented generation, are essen-tial for solving knowledge-intensive reasoning tasks. However, they typically adhere to a rigid, brute-force strategy that executes retrieval at every step. This indiscriminate approach not only incurs unnecessary computational costs but also degrades performance by saturating the context with irrelevant noise. To address these limitations, we introduce Agentic Con-text Evolution (ACE), a framework inspired by human metacognition that dynamically deter-mines whether to seek new evidence or reason with existing knowledge. ACE employs a cen-tral orchestrator agent to make decisions strate-gically via majority voting. It aims to alternate between activating a retriever agent for exter-nal retrieval and a reasoner agent for internal analysis and refinement. By eliminating redun-dant retrieval steps, ACE maintains a concise and evolved context. Extensive experiments on challenging multi-hop QA benchmarks demon-strate that ACE significantly outperforms com-petitive baselines in accuracy while achieving efficient token consumption. Our work pro-vides valuable insights into advancing context-evolved generation for complex, knowledge-intensive tasks. 
+
+1 Introduction 
+
+Large language models (LLMs) have demonstrated remarkable capabilities by conditioning generation on specific contexts, which blend user queries with auxiliary information such as instructions, few-shot demonstrations, or retrieved documents. Con-sequently, recent paradigms, including retrieval-augmented generation (RAG) (Lewis et al., 2020), in-context learning (ICL) (Song et al., 2023), and chain-of-thought (CoT) reasoning (Wei et al., 2022), can be viewed through a unified lens: con-text augmentation and refinement . From this per-
+
+> *Corresponding author.
+
+spective, the efficacy of an LLM-based system hinges not merely on the volume of available con-text, but critically on how this information is cu-rated, synthesized, and evolved throughout the solu-tion generation process, particularly in knowledge-intensive tasks. As a dominant strategy, conventional context augmented-generation approaches enhance LLMs via a single-step retrieval. However, this “retrieve-then-generate” paradigm often fails in complex, multi-hop scenarios where the information need is non-evident at the outset. To bridge this gap, iterative context-augmented generation meth-ods (Thompson et al., 2025; Verma et al., 2024) have been proposed to perform retrieval and gener-ation across multiple steps. Despite their improve-ments, these approaches often fall into the trap of blind accumulation , where they rigidly execute retrieval at every step (Trivedi et al., 2022; Shao et al., 2023; Yue et al., 2024). Such indiscriminate expansion leads to “contextual saturation,” where irrelevant noise and redundant snippets distract the model, increase inference latency, and ultimately result in reasoning hallucinations. To address these limitations, we draw inspiration from metacognition in human problem-solving (Si-mon, 1983; Ackerman and Thompson, 2017). Hu-mans do not gather information in a vacuum; they dynamically evaluate their own internal knowledge gaps. They alternate between seeking external evi-dence and pausing to think, synthesizing existing clues to decide whether further searching is even necessary. This suggests that a robust LLM sys-tem should adopt context evolution , treating con-text augmentation and refinement as a sequence of deliberate strategic decisions rather than a rigid, pre-defined schedule. Motivated by this principle, we propose Agentic Context Evolution (ACE ), a multi-agent frame-work that transforms context management from a static pipeline into an autonomous, state-aware 
+
+> arXiv:2601.08747v2 [cs.CL] 14 Jan 2026
+
+process. ACE employs a central orchestrator 
+
+agent to manage the context’s life cycle by strategi-cally selecting between two specialized actions: (i) 
+
+RETRIEVE : Activating a retriever agent to bridge specific knowledge gaps only when the current con-text is insufficient; (ii) THINK : Activating a rea-soner agent to distill internal insights and refine the context window, preventing information bloat. Through this interleaved “Retrieve-or-Think” loop, ACE ensures that the context evolves in both depth and relevance, rather than just growing in size. This avoids the pitfalls of noise accumulation from over-retrieval or hallucinations from under-reasoning. Our main contributions are as follows: • We introduce the concept of context evolution, moving beyond brute-force retrieval toward a metacognitive, decision-based strategy for context augmentation and refinement. • We propose Agentic Context Evolution (ACE), a multi-agent framework that dynami-cally balances external knowledge acquisition with internal reasoning, maintaining a com-pact yet high-utility context. • Experiments on multi-hop QA benchmarks show that ACE significantly outperforms state-of-the-art baseline methods in accuracy while achieving a significant reduction in token costs by bypassing redundant retrieval calls. 
+
+2 Methodology 
+
+In this section, we present the Agentic Context Evolution (ACE) framework, with an overview pro-vided in Figure 1. Unlike static RAG pipelines that follow a fixed retrieve-then-generate sequence, ACE adopts a dynamic, multi-agent paradigm. At each reasoning step, a committee of agents decides whether to retrieve new information from an exter-nal knowledge base or to deepen reasoning over the current context by generating a sub-query. This iterative process enables ACE to adaptively balance knowledge acquisition and internal reasoning, pro-gressively constructing a richer, focused context from which to derive the final answer. 
+
+2.1 Notation and Initialization 
+
+The state of the ACE process at the beginning of the i-th round can be formulated as a tuple given by: 
+
+Si = ( Mi, Q, A, O, K) (1) where each element is defined as follows: Question 
+
+> A1
+> A2
+> A3
+> Decide
+> Retriever Agent
+> Reasoner Agent
+> RAG Database
+> Sub-Query
+> Refine Contexts
+> Add Thinkings
+> xN
+> Answer
+> Retrieve
+> Think
+> Voting
+
+Figure 1: Overview of the proposed Agentic Context Evolution (ACE) framework. In each of the N iterative rounds, multiple agents vote to either retrieve external context or think by generating a sub-query. The selected action updates a shared context, which is then used in subsequent rounds and for final answer generation. 
+
+• Mi is the working memory, a set containing the accumulated contexts and thoughts from previous rounds. • Q is the initial user query. • A = {a1, a 2, . . . , a k} is the set of k agents. • O = {RETRIEVE , THINK } is the set of candi-date actions. • K is the external document corpus, serving as the knowledge source for retrieval. The process iterates for a total of N rounds. To begin the process, we initialize the working memory M0 with the user’s query. This ensures that the agents’ first decision is based on the initial question, given by: 
+
+M0 = {Q}. (2) 
+
+2.2 Interleaved Retrieve-Think Cycle 
+
+At each round, the ACE framework executes a decision-action cycle. This cycle consists of two main phases: collective decision-making and ac-tion execution. 
+
+Collective Decision-Making. Given the current working memory Mi and the initial query Q, each agent aj ∈ A independently decides on the optimal next action. This decision function, fdecide , for a single agent is: 
+
+fd : ( Mi, Q ) 7 → oj ∈ O (3) where oj is the vote of agent aj . The formulated prompt template for fd is given below: MultiHop-RAG HotpotQA 2WikiQA Method Acc. (%) Avg. Tokens Acc. (%) Avg. Tokens Acc. (%) Avg. Tokens                         
+
+> Vanilla 36.1 333 25.7 194 28.2 155 RAG 49.2 1,127 38.9 723 28.8 639 IterDRAG 47.0 18,196 38.9 723 27.2 9,760
+> ACE (Ours) 57.9 10,653 62.8 3,271 47.9 2,945
+> Table 1: Main results across three challenging multi-hop QA datasets. We report accuracy (Acc.) and average token consumption (Avg. Tokens). The best accuracy scores are highlighted in bold.
+
+fd(Mi, Q ): You are an expert question-answering system. Based on the origi-nal question { Q}, the current context, and the sub-queries { Mi}, decide whether to: (1) THINK : continue asking one sub-query which is needed to answer the question; (2) 
+
+RETRIEVE : retrieve more external documents from the context to gain more information. 
+
+The collective decision for the round, o∗ 
+
+> i
+
+, is de-termined by a majority voting among all agents: 
+
+o∗ 
+
+> i
+
+= MajorVote ({fd(Mi, Q ) for each aj ∈ A} ).
+
+(4) Once the collective decision o∗ 
+
+> i
+
+is made, the frame-work executes the chosen action. 
+
+RETRIEVE Action. If o∗ 
+
+> i
+
+= R, the system exe-cutes a retrieval function, fR, to fetch relevant infor-mation from the knowledge base K. This function uses the current memory Mi to formulate a search query. 
+
+fR : ( Mi, K) 7 → Cnew , (5) where Cnew is a set of new context passages re-trieved from the database. The working memory is then updated by adding these new contexts: 
+
+Mi+1 = Mi ∪ Cnew . (6) 
+
+THINK Action. If o∗ 
+
+> i
+
+= T , the system executes a thinking function, fT, which aims to break down the problem and explore it further. The model gen-erates a sub-query, Qsub , representing a necessary detail required to answer the main query Q. It then internally generates an answer, Asub , to this sub-query. 
+
+fT : ( Mi, Q ) 7 → Tnew = ( Qsub , A sub ). (7) This new thought-pair, Tnew , is then added to the working memory, enriching it with intermediate reasoning steps: 
+
+Mi+1 = Mi ∪ { Tnew }. (8) 
+
+2.3 Context-evolved Answer Generation 
+
+After N rounds of the interleaved retrieve-think cycle, the final working memory MN contains a rich set of retrieved contexts and intermediate reasoning thoughts. A final generation function, 
+
+fA, synthesizes this information to produce the final answer A, which is given by: 
+
+fA : ( MN , Q ) 7 → A. (9) 
+
+3 Experiments 
+
+We evaluate the effectiveness of our Agentic Con-text Evolving (ACE) framework on three chal-lenging multi-hop question-answering datasets: 
+
+MultiHop-RAG (Tang and Yang, 2024), Hot-potQA (Yang et al., 2018), and 2WikiQA (Ho et al., 2020). The backbone LLM is LLaMA-3.1-8B-Instruct (Grattafiori et al., 2024) for all meth-ods. We primarily adopt two evaluation metrics: Accuracy ( Acc. ), which measures the correctness of the final answers, and Average Token Consump-tion ( Avg. Tokens ), which serves as a proxy for computational cost and latency. This dual-metric approach allows us to assess both the quality and efficiency of each method. 
+
+3.1 Main Results 
+
+Table 1 presents a comprehensive comparison of ACE against several key baselines: 1) a Vanilla LLM without any retrieval, 2) a standard single-step RAG (Lewis et al., 2020), and 3) an iterative re-trieval method, IterDRAG (Shao et al., 2023). The results demonstrate ACE’s superior performance in terms of the following two aspects: 
+
+Accuracy. ACE establishes a new state-of-the-art across all three datasets. The performance gains are not merely incremental but substantial. For in-stance, on HotpotQA, ACE achieves an accuracy of 0.628, a remarkable improvement of over 23 ab-solute percentage points compared to RAG’s 0.389. Similarly, on 2WikiQA and MultiHop-RAG, ACE MultiHop-RAG HotpotQA 2WikiQA                                                                                  
+
+> NAcc. (%) Avg. Tokens Think (%) Acc. (%) Avg. Tokens Think (%) Acc. (%) Avg. Tokens Think (%)
+> 149.2 1,127 0.0 38.9 723 0.0 28.8 639 0.0 253.9 2,382 50.0 59.6 1,663 50.0 47.3 1,542 50.0 351.8 4,792 62.0 62.8 3,271 58.9 47.9 2,945 58.7 457.0 7,597 67.1 61.3 5,094 67.5 46.2 4,521 67.3 557.9 10,653 73.0 59.0 7,002 73.6 44.6 6,191 73.0 657.2 13,829 76.9 58.3 8,970 77.8 43.9 7,898 77.2 757.2 17,117 79.5 58.4 10,980 80.8 44.2 9,692 80.1 853.1 19,248 84.8 58.2 13042 83.0 44.5 11,516 82.3
+
+Table 2: Experimental results on the maximum number of steps ( N ) for our ACE ( k=5). The THINK action is not available when N = 1 . The best-performing configuration for each dataset is highlighted in bold. 
+
+outperforms the strongest baseline (RAG) by 19.1 and 8.7 points, respectively. This demonstrates that ACE’s ability to dynamically reason and retrieve is critical for solving complex, multi-step problems that overwhelm simpler methods. 
+
+Efficiency. While ACE’s iterative process natu-rally consumes more tokens than single-step RAG, it showcases remarkable efficiency when compared to the brute-force iterative baseline, IterDRAG. On the MultiHop-RAG dataset, ACE achieves its state-of-the-art accuracy while using nearly 42% fewer tokens than IterDRAG (10,653 vs. 18,196). Asimilar efficiency gain is observed on 2WikiQA. This highlights a key advantage of our framework: by strategically choosing to think internally, ACE avoids unnecessary and costly retrieval steps, pre-venting the runaway token consumption character-istic of naive iterative approaches. ACE strikes an effective balance, achieving maximal accuracy without sacrificing computational efficiency. 
+
+3.2 Impact of Iteration Depth 
+
+To analyse the behavior of ACE and understand the impact of its iteration depth, we report results varying by N , the maximum number of allowed iteration steps. The results presented in Table 2 provide the following findings. First, the case where N = 1 serves as a crucial sanity check. In this configuration, the agent has only one step and thus no opportunity to THINK 
+
+before producing a final answer. As such, the per-formance of ACE is identical to that of the standard RAG baseline, as presented in Table 1, demonstrat-ing that single-step ACE is equivalent to RAG. Second, the results reveal the existence of an optimal number of steps that is dataset-dependent. Accuracy generally increases with N up to a cer-tain point, after which it plateaus or even declines. We observe the peak performance at N = 5 for MultiHop-RAG, and N = 3 for both HotpotQA and 2WikiQA. This demonstrates that simply in-creasing the number of iterations is not an optimal strategy. Instead, it is crucial to seek the right bal-ance between the reasoning depth and the gathering of information. Most importantly, the Think % column validates our core hypothesis. This metric represents the pro-portion of REASON actions chosen by the orchestra-tor agent. There is a clear trend: as N increases, the agent increasingly opts to REASON with its existing context rather than RETRIEVE new information. For example, on MultiHop-RAG, the REASON action is chosen 50% of the time for N = 2 and climbs to over 73% for N = 5 . This is direct evidence of the model’s dynamic decision-making. Furthermore, the study exposes the downside of excessive itera-tion. On HotpotQA, increasing N from its optimal value of 3 to 4 causes a drop in accuracy (from 62.8% to 61.3%) while increasing token consump-tion by over 50%. This suggests that too many steps can introduce distracting information or lead the reasoning process astray, underscoring the im-portance of ACE’s adaptive and strategic approach to context evolution. 
+
+4 Conclusion 
+
+In this work, we introduced Agentic Context Evo-lution (ACE), a framework that views context aug-mentation and refinement as a sequence of delib-erate retrieve-or-think operations using multiple agents, rather than a fixed retrieve-then-generate pipeline. By orchestrating specialized retriever and reasoner agents, ACE dynamically balances exter-nal knowledge acquisition with internal reasoning, maintaining a concise yet progressively evolved context. Experiments on challenging multi-hop QA benchmarks demonstrate that ACE consistently out-performs competitive retrieval-augmented genera-tion baselines in both accuracy and computational efficiency. These results highlight the promise of agentic control over context for improving LLM-based systems. We believe that our ACE pro-vides valuable insights into addressing broader knowledge- and reasoning-intensive tasks. 
+
+References 
+
+Rakefet Ackerman and Valerie A Thompson. 2017. Meta-reasoning: Monitoring and control of think-ing and reasoning. Trends in cognitive sciences ,21(8):607–617. Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schel-ten, Alex Vaughan, Amy Yang, Angela Fan, Anirudh Goyal, Anthony Hartshorn, Aobo Yang, Archi Mi-tra, Archie Sravankumar, Artem Korenev, Arthur Hinsvark, and 542 others. 2024. The llama 3 herd of models. Preprint , arXiv:2407.21783. Xanh Ho, Anh-Khoa Duong Nguyen, Saku Sugawara, and Akiko Aizawa. 2020. Constructing a multi-hop QA dataset for comprehensive evaluation of reasoning steps. In Proceedings of the 28th Inter-national Conference on Computational Linguistics ,pages 6609–6625, Barcelona, Spain (Online). Inter-national Committee on Computational Linguistics. Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Hein-rich Küttler, Mike Lewis, Wen-tau Yih, Tim Rock-täschel, and 1 others. 2020. Retrieval-augmented gen-eration for knowledge-intensive nlp tasks. Advances in neural information processing systems , 33:9459– 9474. Zhihong Shao, Yeyun Gong, Yelong Shen, Minlie Huang, Nan Duan, and Weizhu Chen. 2023. Enhanc-ing retrieval-augmented large language models with iterative retrieval-generation synergy. arXiv preprint arXiv:2305.15294 .Herbert A. Simon. 1983. Search and reasoning in prob-lem solving. Artif. Intell.;(Netherlands) , 1. Chan Hee Song, Jiaman Wu, Clayton Washington, Brian M Sadler, Wei-Lun Chao, and Yu Su. 2023. Llm-planner: Few-shot grounded planning for em-bodied agents with large language models. In Pro-ceedings of the IEEE/CVF international conference on computer vision , pages 2998–3009. Yixuan Tang and Yi Yang. 2024. Multihop-rag: Bench-marking retrieval-augmented generation for multi-hop queries. arXiv preprint arXiv:2401.15391 .Travis Thompson, Seung-Hwan Lim, Paul Liu, Ruoy-ing He, and Dongkuan Xu. 2025. Inference scaled graphrag: Improving multi hop question answering on knowledge graphs. arXiv preprint arXiv:2506.19967 .Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, and Ashish Sabharwal. 2022. Interleav-ing retrieval with chain-of-thought reasoning for knowledge-intensive multi-step questions. arXiv preprint arXiv:2212.10509 .Prakhar Verma, Sukruta Prakash Midigeshi, Gaurav Sinha, Arno Solin, Nagarajan Natarajan, and Amit Sharma. 2024. Plan* rag: Efficient test-time plan-ning for retrieval augmented generation. arXiv preprint arXiv:2410.20753 .Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou, and 1 others. 2022. Chain-of-thought prompting elic-its reasoning in large language models. Advances in neural information processing systems , 35:24824– 24837. Zhilin Yang, Peng Qi, Saizheng Zhang, Yoshua Ben-gio, William W. Cohen, Ruslan Salakhutdinov, and Christopher D. Manning. 2018. HotpotQA: A dataset for diverse, explainable multi-hop question answer-ing. In Conference on Empirical Methods in Natural Language Processing (EMNLP) .Zhenrui Yue, Honglei Zhuang, Aijun Bai, Kai Hui, Rolf Jagerman, Hansi Zeng, Zhen Qin, Dong Wang, Xuan-hui Wang, and Michael Bendersky. 2024. Inference scaling for long-context retrieval augmented genera-tion. arXiv preprint arXiv:2410.04343 .

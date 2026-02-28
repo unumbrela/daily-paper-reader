@@ -23,3 +23,58 @@ subscriptions:
     stage: A
     diff_threshold_pct: 15
   keyword_recall_mode: or
+  intent_profiles:
+    - tag: SR-LLM
+      description: 大语言模型(LLM)相关论文检索计划
+      enabled: true
+      keywords:
+        - keyword: LLM
+          keyword_cn: 大语言模型
+          query: Large Language Models research papers and surveys
+        - keyword: Transformer
+          keyword_cn: Transformer架构
+          query: Transformer architecture for language modeling
+        - keyword: Pre-training
+          keyword_cn: 预训练
+          query: Self-supervised pre-training techniques for LLMs
+        - keyword: Fine-tuning
+          keyword_cn: 微调
+          query: Instruction fine-tuning and parameter-efficient tuning
+        - keyword: RAG
+          keyword_cn: 检索增强生成
+          query: Retrieval-Augmented Generation techniques and frameworks
+        - keyword: Chain of Thought
+          keyword_cn: 思维链
+          query: Chain of Thought reasoning in large language models
+      intent_queries:
+        - query: State-of-the-art large language models survey and taxonomy
+          query_cn: 大语言模型最新综述与分类
+          enabled: true
+          source: manual
+          note: ''
+        - query: Advances in LLM pre-training and instruction tuning
+          query_cn: 大语言模型预训练与指令微调进展
+          enabled: true
+          source: manual
+          note: ''
+        - query: LLM alignment techniques including RLHF and DPO
+          query_cn: 大语言模型对齐技术（含RLHF与DPO）
+          enabled: true
+          source: manual
+          note: ''
+        - query: Reasoning and problem solving capabilities of large language models
+          query_cn: 大语言模型的推理与问题解决能力
+          enabled: true
+          source: manual
+          note: ''
+        - query: Retrieval-augmented generation for knowledge intensive tasks
+          query_cn: 面向知识密集型任务的检索增强生成
+          enabled: true
+          source: manual
+          note: ''
+        - query: Efficient deployment and inference optimization of LLMs
+          query_cn: 大语言模型的高效部署与推理优化
+          enabled: true
+          source: manual
+          note: ''
+      updated_at: '2026-02-28T04:03:42.987Z'

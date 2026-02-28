@@ -1,0 +1,532 @@
+Title: Parallel Context-of-Experts Decoding for Retrieval Augmented Generation
+
+URL Source: https://arxiv.org/pdf/2601.08670v1
+
+Published Time: Wed, 14 Jan 2026 02:05:35 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Parallel Context-of-Experts Decoding for Retrieval Augmented Generation 
+
+Giulio Corallo 
+
+SAP Labs, France EURECOM, France 
+
+giulio.corallo@sap.com 
+
+Paolo Papotti 
+
+EURECOM, France 
+
+papotti@eurecom.fr 
+
+Abstract 
+
+Retrieval Augmented Generation faces a trade-off: concatenating documents in a long prompt enables multi-document reasoning but creates prefill bottlenecks, while encoding document KV caches separately offers speed but breaks cross-document interaction. We propose Par-allel Context-of-Experts Decoding (P CED ), a training-free framework that shifts evidence ag-gregation from the attention mechanism to the decoding. PCED treats retrieved documents as isolated "experts", synchronizing their pre-dictions via a novel retrieval-aware contrastive decoding rule that weighs expert logits against the model prior. This approach recovers cross-document reasoning capabilities without con-structing a shared attention across documents. 
+
+1 Introduction 
+
+Retrieval Augmented Generation (RAG) augments language models with external corpora to improve factuality and reduce hallucinations (Lewis et al., 2020; Gao et al., 2023; Fan et al., 2024). How-ever, standard pipelines concatenate many retrieved documents into a single long context prompt, mak-ing inference dominated by prefill latency (Kwon et al., 2023; Zhong et al., 2024; Cheng et al., 2025). Additionally, long contexts increase reasoning fail-ures, as models often struggle to integrate evidence spread across multiple documents (Liu et al., 2024). Parallel KV cache encoding mitigates prefill cost by encoding retrieved documents indepen-dently and reusing their cached states at inference time (Yang et al., 2025b,c). However, removing cross-document attention during encoding can sub-stantially degrade performance on multi-hop and reasoning-intensive queries (Yao et al., 2025). We propose Parallel Context-of-Experts De-coding (P CED ), a training-free framework that shifts document aggregation from attention to de-coding. As depicted in Figure 1, at each genera-tion step, P CED treats each document as a separate query                     
+
+> 𝑞
+> 𝑑 𝑁 ,𝑟 𝑁
+> 𝑑 1,𝑟 1
+> 𝑑 2,𝑟 2
+> …
+> Retrieved
+> docs & scores Expert 1
+> (𝐾 1,𝑞 )
+> Expert 2
+> (𝐾 2,𝑞 )
+> Expert N
+> (𝐾 𝑁 ,𝑞 )
+> Amateur
+> (𝐾 ∅,𝑞 )
+> LLM prefill Logits
+> 𝑠 1
+> 𝑠 2
+> 𝑠 𝑁
+> 𝑠 0
+> 1+𝛽 0𝑠 𝑘 −𝛽 0𝑠 0
+> +𝛾 log 𝑟 𝑘
+> Retrieval -aware
+> contrastive decoding Ƹ𝑠 2
+> 𝑦 𝑡
+> Next
+> Token
+> Ƹ
+> 𝑠 𝑁
+> Ƹ
+> 𝑠 1
+> 𝑎𝑟𝑔 𝑚𝑎𝑥 𝑚𝑎𝑥 (∙)
+
+Figure 1: Parallel Context-of-Experts Decoding (P CED )runs one expert per retrieved document (and a no-context, amateur prior) in parallel and chooses each next token based on retrieval support, enabling evidence to be stitched across documents without joint attention. 
+
+“expert”, which proposes a next-token distribution from its own KV cache, and then weights the best-supported token so evidence can be efficiently ag-gregated across documents without building a joint attention context. We make three contributions: (1) a parallel, modular KV cache framework with decode-time evidence aggregation; (2) token-level expert switching to recover cross-document reason-ing via dynamic expert selection at every token step without shared attention; and (3) retrieval-integrated priors that inject scalar scores into the contrastive decoding to gate noise from irrelevant experts. On benchmarks like LOFT and Long-Bench, P CED outperforms prior parallel methods by up to 70 points and often matches or outper-forms long context baselines, while delivering over 
+
+180 × speedup in time-to-first-token. 
+
+2 Related Work 
+
+We position our work at the intersection of (1) KV caching for parallel prefill, (2) cross-document in-teraction recovery under independent KV caches, and (3) context-aware decoding. 
+
+Parallel encoding eliminates prefill cost by pre-computing offline per-document KV caches that can be retrieved at inference time. Prior work in-cludes training-free masking for blockwise/paral-1
+
+> arXiv:2601.08670v1 [cs.AI] 13 Jan 2026
+
+lel attention (Ratner et al., 2023), fine-tuning to mitigate quality degradation under blocked atten-tion (Ma et al., 2025), and interfaces that decouple document encoding from generation (Yen et al., 2024). Systems work integrates KV cache retrieval into RAG pipelines (Lu et al., 2025). These ap-proaches assume documents as independently en-codable, while we study how to aggregate evidence across multiple cached documents at inference. 
+
+Cache merging techniques encode documents in-dependently and then aim to restore the cross-document attention, as simply concatenating per-document KV caches does not recover it (Yao et al., 2025). Recent methods achieve this via selective recomputation at merging (Yao et al., 2025), learned bridging tokens for inter-document interactions (Yang et al., 2025b), or training-free alignment to approximate sequential attention (APE) (Yang et al., 2025c). Our work preserves per-document modularity while enabling effective cross-document reasoning. 
+
+Context-aware decoding (CAD) (Shi et al., 2024) improves faithfulness by shifting probability mass toward tokens supported by context; it is related to contrastive decoding (Li et al., 2023) and classifier-free guidance in diffusion models (Ho and Sali-mans, 2021). However, most CAD formulations assume a single supportive context that defines the conditional distribution. DvD (Jin et al., 2024) ex-tends CAD to multiple documents but collapses them into a single input sequence, which conflicts with per-document KV cache reuse, where docu-ments must be encoded separately. 
+
+3 Methodology 
+
+We introduce Parallel Context-of-Experts Decod-ing (P CED ), a training-free framework for scal-able and faithful multi-document generation. RAG pipelines typically employ a two-stage process: re-trieving candidate documents using embeddings to maximize recall , followed by a cross-encoder reranker to reorder candidates and maximize pre-cision . Crucially, the scalar relevance scores pro-duced during these stages are used only for docu-ment selection and then discarded. We argue that this discards valuable evidence about how strongly each document should be trusted during decoding. PCED converts these scores into a document-level prior that controls how much each expert influences the next-token distribution , via a novel retrieval-aware contrastive decoding criterion. 
+
+Offline KV cache preparation. Following prior cache-augmented generation work (Chan et al., 2025; Lu et al., 2025; Yang et al., 2025c; Jin et al., 2025), we assume a datastore DB over a corpus D
+
+that stores, for each document di, an embedding ei
+
+for retrieval and its precomputed KV cache Ki:
+
+DB = {(di, ei, Ki)}|D| 
+
+> i=1
+
+. (1) 
+
+Retrieval and relevance scoring. Given a query 
+
+q, we retrieve the top-N documents and obtain re-trieval scores rret = ( rret  
+
+> 1
+
+, . . . , r ret  
+
+> N
+
+). We then rerank these documents with a cross-encoder, producing reranker scores rrer = ( rrer  
+
+> 1
+
+, . . . , r rer  
+
+> N
+
+). We map both score sets to the range [0 , 1) . Since rret primar-ily reflects recall and rrer precision, we fuse them into a single per-document relevance score via the harmonic mean rk = 2 rret   
+
+> krrer
+> k
+> rret
+> k+rrer
+> k
+
+, k ∈ { 1, . . . , N }.
+
+Parallel Context-of-Experts. As depicted in Fig-ure 1, P CED operates on N +1 parallel streams (experts ) in a single batched forward pass: one am-ateur expert with an empty cache K0 = ∅ (model prior) and N contextual experts, one per retrieved document, with caches K1: N and associated rel-evance scores r1: N . Given batch B = {Kk}Nk=0 ,processing the query q updates all experts’ caches in parallel. At each step, this yields per-expert logits sk ∈ R|V| over the vocabulary V.
+
+Retrieval-aware contrastive decoding. For each contextual expert k ∈ { 1, . . . , N }, we cal-ibrate logits against the amateur s0 and incorporate a retrieval-based prior: 
+
+ˆsk = (1 + β0) sk − β0 s0
+
+| {z }
+
+> Contrastive decoding
+
++ γ log rk
+
+| {z }
+
+> Retrieval prior
+
+(2) Here, β0 controls contrast strength between am-ateur and expert, and γ controls retrieval gating. We compute β0 dynamically as in AdaCAD (Wang et al., 2025) for the first generated token and keep it fixed thereafter. We empirically set γ = 2 .5 for all experiments (ablations in Appendix C.1 for β,C.2 for γ). Finally, the next token yt is the one with the highest score among all experts’ candidates. 
+
+yt = arg max 
+
+> v∈V
+
+
+
+max   
+
+> k∈{ 1,...,N }
+
+ˆsk(v)
+
+
+
+(3) The chosen token is appended to the shared gener-ation history for all experts at each step. 2Table 1: Main results on RAG and ICL benchmarks. We compare our Parallel Expert Decoding (P CED )framework, equipped with Sparse, Dense, or ColBERT experts, against KV merging (APE), agentic (MapReduce), and standard concatenation baselines. Corpus in Ctx (All) is the baseline with all retrieved candidates in context. 
+
+(a) M ISTRAL -N EMO -13B-I NSTRUCT                                                                
+
+> KV Merge Agentic PCED Corpus in Ctx Task Dataset APE MapRed. Sparse Dense ColBERT Single All
+> RAG
+> HOTPOT QA 27.0 56.0 65.0 66.0 66.0 54.0 64.0 MUSIQUE 11.0 26.0 36.0 34.0 35.0 17.0 28.0 NQ 38.0 62.0 80.0 81.0 81.0 60.0 76.0 QAMP AR I7.0 85.0 75.0 71.0 71.0 75.0 74.0 QUEST 1.0 42.0 55.0 54.0 54.0 38.0 19.0
+> ICL
+> Web 58.9 42.2 61.1 62.2 62.2 35.6 61.1 Tracking7 6.7 13.3 7.8 7.8 7.8 10.0 6.7 Date 40.0 55.6 57.8 57.8 57.8 57.8 54.4
+
+(b) L LAMA -3.1-8B-I NSTRUCT                                                                
+
+> KV Merge Agentic PCED Corpus in Ctx Task Dataset APE MapRed. Sparse Dense ColBERT Single All
+> RAG
+> HOTPOT QA 16.0 41.0 64.0 64.0 64.0 49.0 66.0 MUSIQUE 4.0 8.0 14.0 21.0 21.0 7.0 16.0 NQ 9.0 50.0 83.0 85.0 85.0 58.0 79.0 QAMP AR I7.0 68.0 77.0 76.0 76.0 72.0 86.0 QUEST 0.0 41.0 45.0 40.0 40.0 39.0 44.0
+> ICL
+> Web 61.1 56.7 62.2 64.4 63.3 57.8 57.8 Tracking7 3.3 13.3 11.1 11.1 11.1 11.1 7.8 Date 0.0 44.4 53.3 47.8 48.9 51.1 53.3
+
+4 Experimental Setup 
+
+We test P CED on RAG, In Context Learning (ICL), and long-context QA with distractors. For all meth-ods, we fix the LLM, prompts, and retrieved candi-dates; varying only how context is incorporated. 
+
+Datasets and Metrics. We use the LOFT bench-mark (Lee et al., 2024) for RAG and ICL. We re-trieve a fixed pool of the top-90 documents per query, shared across all baselines. Performance is measured via Subspan Exact Match for RAG tasks and Exact Match for ICL tasks. We also evalu-ate on the query-focused LongBench subsets (Bai et al., 2024) using official metrics. To test robust-ness to irrelevant context, we concatenate the gold 
+
+document with K=2 uniformly sampled distrac-tors from other test samples, keeping the corpus-in-context baseline under 128k tokens. 
+
+LLMs. We report main results with M ISTRAL -NEMO -13B-I NSTRUCT (Mistral AI) and L LAMA -3.1-8B-I NSTRUCT (Grattafiori et al., 2024), and LongBench results with Q WEN 3-8B (Yang et al., 2025a) extended to 128k tokens with Y ARN (Peng et al., 2024). Decoding is greedy for all methods. 
+
+PCED variants. We evaluate three scoring variants: 
+
+Sparse , Dense , and ColBERT . The set of retrieved documents is identical for all methods. These vari-ants differ only in the relevance signal rk extracted from bge-m3 to weight experts in Eq. 2. 
+
+Baselines. We compare against three baseline families. Standard concatenation ( Corpus in Ctx )conditions on either the Single top-1 document retrieved or All retrieved documents in a single prompt (e.g., top-90 for LOFT). KV cache merg-ing (APE ), prefills each document independently and merges the resulting KV caches. Agentic ag-gregation (MAP REDUCE ) performs per-document summarization (map) followed by a final QA ag-gregation step (reduce) (Zhou et al., 2025). 
+
+5 Results and Discussion 
+
+We analyze our results around three main themes: (1) multi-document RAG and ICL with many can-didate documents/exemplars, (2) single-document with query-focused understanding and generation tasks (including QA, summarization, code comple-tion, and few-shot inference), and (3) efficiency. 
+
+Cross-Document Reasoning Emerges at Decode Time. In Table 1, P CED consistently outperforms KV cache merging (APE) in QA benchmarks that require aggregating evidence across multiple docu-ments (e.g., H OTPOT QA, M USIQUE , QAMP AR I, QUEST ), and in ICL settings where exemplars must be used jointly. For instance, on L LAMA -3.1-8B QAMP AR I, P CED improves from 7 (APE) to 77 (P CED -S PARSE ), and yields up to +23 points over M AP REDUCE (e.g., H OTPOT QA). Moreover, PCED variants often match or exceed full-context concatenation: P CED -D ENSE outperforms Corpus in Ctx (All) in 11/16 settings despite encoding each document independently. These results suggest that much of the benefit of cross-document interaction can be recovered at decode time .Jeff 
+
+> Wood
+> made
+> his
+> CART
+> debut
+> at
+> the
+> Ca
+> es
+> ars
+> Palace
+> Grand
+> Prix
+> in
+> 198
+> 3
+> .
+> <|eot_id|>
+> Generated Tokens
+> Other Experts
+> Expert 0
+> (Gold)
+> Expert 1
+> (Gold)
+> Q: At which 1983 race did Jeff Wood make his CART debut?
+> Expert Type
+> Gold Context
+> Irrelevant
+
+Figure 2: HotpotQA expert trace. Green dots illustrate the model hopping between multiple gold documents. 
+
+3Table 2: Results on LongBench using Q WEN 3-8B. PCED against the full-context baseline Corpus in Ctx (All).                                                         
+
+> Single-Doc QA Multi-Doc QA Summ. Few-Shot Code Method NAR QA QASPER MULTI FHOTPOT 2W IKI MUSIQUE QMS UM TRIVIA QA REPO B-P Corpus in Ctx (All) 21.1 25.2 52.8 56.3 44.2 25.3 22.0 84.0 51.1 PCED (Sparse) 25.1 24.2 53.0 62.1 49.4 33.4 22.7 88.8 59.7 PCED (Dense) 25.4 25.7 52.6 62.6 49.4 33.3 22.9 88.2 60.1
+> PCED (ColBERT) 25.4 25.7 52.6 62.6 49.4 33.3 22.9 88.2 60.1 24816 32 64
+> Top-kValue
+> 0
+> 10
+> 20
+> Time to First Token (s)
+> TTFT
+> Pced
+> Vanilla
+> Pced Vanilla
+> 0
+> 10
+> 20
+> 30
+> Latency (s)
+> End-to-End Latency
+> (65k ctx, 512 gen)
+
+Figure 3: Latency Benchmarks. Comparison of TTFT scalability across Top-k values (left) and total end-to-end latency with 65k context (right). 
+
+Figure 2 illustrates this mechanism: to resolve a multi-hop query, the model first locks onto an expert containing the bridging entity, then pivots to a second expert for the final answer. By appending the chosen token to all experts’ shared generation histories, P CED effectively stitches evidence across isolated documents without shared attention. We note that M AP REDUCE remains superior on some settings (e.g., QAMP AR I with Mistral), suggesting cases where global synthesis across many docu-ments is beneficial. However, M AP REDUCE relies on multiple LLM calls (per-document summariza-tion and an aggregation pass), while P CED aggre-gates evidence within a single decoding procedure. 
+
+Less Noise, More Accuracy. PCED also improves performance on tasks where the answer is primarily supported by a single document, but must be recov-ered from a large candidate pool. In these settings, full-context concatenation can degrade because rel-evant evidence is diluted by many near-miss doc-uments and distractors, making attention noisier. By contrast, P CED isolates evidence by treating each document as an independent expert and ex-plicitly emphasizing per-document relevance via retrieval-aware contrastive decoding (Eq. 2), which downweights irrelevant experts. Table 1 shows that this yields strong gains on NQ under LOFT: with Llama, P CED -D ENSE improves from 58 (Corpus in Ctx Single) and 79 (All) to 85, similarly with MISTRAL from 60 (Single) and 76 (All) to 81. We observe the same trend in LongBench (Table 2): when the gold evidence is surrounded by irrelevant context, P CED benefits from expert isolation. 
+
+Efficiency at Scale. Unlike context concatenation, which incurs high prefill costs, P CED leverages of-fline, reusable KV caches to reduce Time-To-First-Token (TTFT). As shown in Figure 3, P CED con-sistently achieves substantially lower TTFT across all top-K, with gains that scale to over 180 × faster TTFT (0.14s vs. 25.50s). On long-context work-loads (65k context tokens, 512 generated tokens), it yields a ∼1.7 × reduction in end-to-end latency. All results use a high-throughput setup with con-tinuous batching and PagedAttention (Kwon et al., 2023) for both methods, validating the method’s efficiency under realistic conditions. 
+
+Table 3: Component Analysis. Disentangling benefits of Contrastive Decoding vs. Retrieval Prior.                 
+
+> Only Contrastive Only Retrieval PCED (γ= 0 )(β= 0 )LLAMA -8B HOTPOT QA 46 53 64
+> NQ 52 70 85
+> MISTRAL -13B HOTPOT QA 57 65 66
+> NQ 71 80 81
+
+Ablations. We verify that both terms in Eq. 2 are important: removing the retrieval prior ( γ=0 ) or the contrastive calibration ( β=0 ) leads to large ac-curacy drops (Table 3). We further find that Max aggregation best supports token-level expert switch-ing in multi-hop QA, whereas soft mixtures can help in single-doc settings. Full sweeps over β, γ ,aggregation rules, and top-k are in Appendix §C. 
+
+6 Conclusion 
+
+We presented P CED , a training-free decoding framework that enables efficient, multi-document reasoning under parallel, cache-native condition-ing. PCED replaces long-context attention with retrieval-aware expert logit fusion at decode time, preserving KV cache modularity while recovering cross-document reasoning. Empirically, it matches or surpasses full-context baselines and is more ro-bust to distractors. This offers an exciting alterna-tive to long context models, allowing the number of documents to scale flexibly with batch size rather than being limited by the training context window. 4Limitations 
+
+Despite its strong empirical performance and effi-ciency benefits, P CED has several limitations. 
+
+Dependence on access to model logits. PCED 
+
+relies on per-expert token-level logits to perform retrieval-aware contrastive decoding, explicitly cal-ibrating contextual experts against the amateur (prior) expert at each decoding step. This require-ment assumes full access to the model’s output logits. As a result, P CED cannot be directly applied to closed-source or API-only language models that expose only sampled tokens or log-probabilities for a limited subset of candidates. While this constraint is shared by many contrastive and guidance-based decoding methods, it currently restricts the applica-bility of P CED to open or self-hosted models. 
+
+Sensitivity to retrieval quality. Like most RAG approaches, P CED depends on the quality of the retrieved documents and their associated relevance scores. If relevant evidence is not retrieved or is assigned low relevance, the corresponding expert may be underweighted or never selected during decoding. Although retrieval-aware contrastive de-coding mitigates noise from weak or irrelevant doc-uments, it cannot recover evidence that is entirely absent from the candidate set. That said, our formu-lation highlights an interesting direction for future work: rather than relying on external retrieval and reranking models, one could explicitly train lan-guage models to accept parallel contextual inputs and to learn, at each next token, which input to attend to. Such an approach could reduce reliance on external retrieval pipelines and enable end-to-end learning of expert selection and aggregation, enabling parallelization at inference. 
+
+Storage-Computation Trade-offs. PCED accel-erates inference by effectively offloading online computation to offline storage. By persisting pre-computed KV caches, the framework eliminates runtime encoding latency; however, this imposes a storage footprint that scales linearly with both corpus size and hidden state dimensionality. For instance, storing FP16 KV caches for the LOFT HOTPOT QA corpus (1,222 passages of 74 tokens on average) using L LAMA -3.1-8B necessitates ap-proximately 11.04 GB of storage. Consequently, PCED is optimally deployed in read-heavy, write-rare settings involving static corpora—such as en-terprise knowledge bases—where the amortized storage cost is justified by the substantial reduction in query-time latency. 
+
+References 
+
+Yushi Bai, Xin Lv, Jiajie Zhang, Hongchang Lyu, Jiankai Tang, Zhidian Huang, Zhengxiao Du, Xiao Liu, Aohan Zeng, Lei Hou, Yuxiao Dong, Jie Tang, and Juanzi Li. 2024. LongBench: A bilingual, multi-task benchmark for long context understanding. In 
+
+Proceedings of the 62nd Annual Meeting of the As-sociation for Computational Linguistics (Volume 1: Long Papers) , pages 3119–3137, Bangkok, Thailand. Association for Computational Linguistics. Brian J. Chan, Chao-Ting Chen, Jui-Hung Cheng, and Hen-Hsen Huang. 2025. Don’t do rag: When cache-augmented generation is all you need for knowledge tasks. In Companion Proceedings of the ACM on Web Conference 2025 , WWW ’25, page 893–897, New York, NY, USA. Association for Computing Machinery. Yihua Cheng, Yuhan Liu, Jiayi Yao, Yuwei An, Xiaokun Chen, Shaoting Feng, Yuyang Huang, Samuel Shen, Kuntai Du, and Junchen Jiang. 2025. Lmcache: An efficient kv cache layer for enterprise-scale llm infer-ence. arXiv preprint arXiv:2510.09665 .Wenqi Fan, Yujuan Ding, Liangbo Ning, Shijie Wang, Hengyun Li, Dawei Yin, Tat-Seng Chua, and Qing Li. 2024. A survey on rag meeting llms: Towards retrieval-augmented large language models. In Pro-ceedings of the 30th ACM SIGKDD Conference on Knowledge Discovery and Data Mining , KDD ’24, page 6491–6501, New York, NY, USA. Association for Computing Machinery. Yunfan Gao, Yun Xiong, Xinyu Gao, Kangxiang Jia, Jinliu Pan, Yuxi Bi, Yixin Dai, Jiawei Sun, Haofen Wang, and Haofen Wang. 2023. Retrieval-augmented generation for large language models: A survey. 
+
+arXiv preprint arXiv:2312.10997 , 2(1). Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten, Alex Vaughan, and 1 others. 2024. The llama 3 herd of models. arXiv preprint arXiv:2407.21783 .Jonathan Ho and Tim Salimans. 2021. Classifier-free diffusion guidance. In NeurIPS 2021 Workshop on Deep Generative Models and Downstream Applica-tions .Chao Jin, Zili Zhang, Xuanlin Jiang, Fangyue Liu, Shu-fan Liu, Xuanzhe Liu, and Xin Jin. 2025. Ragcache: Efficient knowledge caching for retrieval-augmented generation. ACM Trans. Comput. Syst. , 44(1). Jing Jin, Houfeng Wang, Hao Zhang, Xiaoguang Li, and Zhijiang Guo. 2024. DVD: Dynamic con-trastive decoding for knowledge amplification in 
+
+5multi-document question answering. In Proceed-ings of the 2024 Conference on Empirical Methods in Natural Language Processing , pages 4624–4637, Miami, Florida, USA. Association for Computational Linguistics. Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin Zheng, Cody Hao Yu, Joseph Gon-zalez, Hao Zhang, and Ion Stoica. 2023. Efficient memory management for large language model serv-ing with pagedattention. In Proceedings of the 29th Symposium on Operating Systems Principles , SOSP ’23, page 611–626, New York, NY, USA. Association for Computing Machinery. Jinhyuk Lee, Anthony Chen, Zhuyun Dai, Dheeru Dua, Devendra Singh Sachan, Michael Boratko, Yi Luan, Sébastien M. R. Arnold, Vincent Perot, Siddharth Dalmia, Hexiang Hu, Xudong Lin, Panupong Pasu-pat, Aida Amini, Jeremy R. Cole, Sebastian Riedel, Iftekhar Naim, Ming-Wei Chang, and Kelvin Guu. 2024. Can long-context language models subsume retrieval, rag, sql, and more? ArXiv , abs/2406.13121. Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Hein-rich Küttler, Mike Lewis, Wen-tau Yih, Tim Rock-täschel, Sebastian Riedel, and Douwe Kiela. 2020. Retrieval-augmented generation for knowledge-intensive nlp tasks. In Advances in Neural Infor-mation Processing Systems , volume 33, pages 9459– 9474. Curran Associates, Inc. Xiang Lisa Li, Ari Holtzman, Daniel Fried, Percy Liang, Jason Eisner, Tatsunori Hashimoto, Luke Zettle-moyer, and Mike Lewis. 2023. Contrastive decod-ing: Open-ended text generation as optimization. In 
+
+Proceedings of the 61st Annual Meeting of the As-sociation for Computational Linguistics (Volume 1: Long Papers) , pages 12286–12312, Toronto, Canada. Association for Computational Linguistics. Nelson F. Liu, Kevin Lin, John Hewitt, Ashwin Paran-jape, Michele Bevilacqua, Fabio Petroni, and Percy Liang. 2024. Lost in the middle: How language mod-els use long contexts. Transactions of the Association for Computational Linguistics , 12:157–173. Songshuo Lu, Hua Wang, Yutian Rong, Zhi Chen, and Yaohua Tang. 2025. TurboRAG: Accelerating retrieval-augmented generation with precomputed KV caches for chunked text. In Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing , pages 6599–6612, Suzhou, China. Association for Computational Linguistics. Dongyang Ma, Yan Wang, and Tian Lan. 2025. Block-attention for efficient prefilling. In The Thirteenth International Conference on Learning Representa-tions .Mistral AI. Mistral nemo. Bowen Peng, Jeffrey Quesnelle, Honglu Fan, and Enrico Shippole. 2024. YaRN: Efficient context window ex-tension of large language models. In The Twelfth International Conference on Learning Representa-tions .Nir Ratner, Yoav Levine, Yonatan Belinkov, Ori Ram, Inbal Magar, Omri Abend, Ehud Karpas, Amnon Shashua, Kevin Leyton-Brown, and Yoav Shoham. 2023. Parallel context windows for large language models. In Proceedings of the 61st Annual Meet-ing of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 6383–6402, Toronto, Canada. Association for Computational Linguistics. Weijia Shi, Xiaochuang Han, Mike Lewis, Yulia Tsvetkov, Luke Zettlemoyer, and Wen-tau Yih. 2024. Trusting your evidence: Hallucinate less with context-aware decoding. In Proceedings of the 2024 Confer-ence of the North American Chapter of the Associ-ation for Computational Linguistics: Human Lan-guage Technologies (Volume 2: Short Papers) , pages 783–791, Mexico City, Mexico. Association for Com-putational Linguistics. Han Wang, Archiki Prasad, Elias Stengel-Eskin, and Mohit Bansal. 2025. AdaCAD: Adaptively decoding to balance conflicts between contextual and paramet-ric knowledge. In Proceedings of the 2025 Confer-ence of the Nations of the Americas Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) ,pages 11636–11652, Albuquerque, New Mexico. As-sociation for Computational Linguistics. An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang Gao, Chengen Huang, Chenxu Lv, and 1 others. 2025a. Qwen3 technical report. arXiv preprint arXiv:2505.09388 .Jingbo Yang, Bairu Hou, Wei Wei, Yujia Bao, and Shiyu Chang. 2025b. KVLink: Accelerating large language models via efficient KV cache reuse. In The Thirty-ninth Annual Conference on Neural Information Pro-cessing Systems .Xinyu Yang, Tianqi Chen, and Beidi Chen. 2025c. APE: Faster and longer context-augmented generation via adaptive parallel encoding. In The Thirteenth Inter-national Conference on Learning Representations .Jiayi Yao, Hanchen Li, Yuhan Liu, Siddhant Ray, Yihua Cheng, Qizheng Zhang, Kuntai Du, Shan Lu, and Junchen Jiang. 2025. Cacheblend: Fast large lan-guage model serving for rag with cached knowledge fusion. In Proceedings of the Twentieth European Conference on Computer Systems , EuroSys ’25, page 94–109, New York, NY, USA. Association for Com-puting Machinery. Howard Yen, Tianyu Gao, and Danqi Chen. 2024. Long-context language modeling with parallel context en-coding. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Vol-ume 1: Long Papers) , pages 2588–2610, Bangkok, Thailand. Association for Computational Linguistics. 
+
+6Yinmin Zhong, Shengyu Liu, Junda Chen, Jianbo Hu, Yibo Zhu, Xuanzhe Liu, Xin Jin, and Hao Zhang. 2024. Distserve: disaggregating prefill and decoding for goodput-optimized large language model serv-ing. In Proceedings of the 18th USENIX Conference on Operating Systems Design and Implementation ,OSDI’24, USA. USENIX Association. Zihan Zhou, Chong Li, Xinyi Chen, Shuo Wang, Yu Chao, Zhili Li, Haoyu Wang, Qi Shi, Zhixing Tan, Xu Han, Xiaodong Shi, Zhiyuan Liu, and Maosong Sun. 2025. LLM ×MapReduce: Simplified long-sequence processing using large language models. In Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 27664–27678, Vienna, Austria. Association for Computational Linguistics. 
+
+A Evaluation Setup 
+
+This appendix details the prompt templates and in-stantiation protocols for each dataset. To ensure a fair comparison across all methods (Concate-nation, KV-merge, MapReduce, and P CED ), we fix the underlying dataset fields, system prompt, context template, question template, and answer prefix, and vary only the mechanism of context in-corporation. All experiments were executed with a fixed random seed (42) to ensure deterministic results. Unless otherwise stated, all reported num-bers correspond to a single deterministic run per method. 
+
+Prompt Definitions. Each dataset instance is composed of four standardized fields: a
+
+system_prompt containing high-level instructions; a context_template which wraps the retrieved text; and a question_template applied to the user query. 
+
+A.1 LOFT Benchmark 
+
+We utilize the LOFT benchmark (Lee et al., 2024). Dataset statistics (e.g., number of examples, con-text lengths, and task distributions) are reported in Table 1 of the original LOFT paper (Lee et al., 2024). 
+
+A.1.1 LOFT-RAG Templates 
+
+For RAG tasks, all methods utilize the prompt con-figuration defined in Figure 4. The {context} slot is populated according to the specific method. 
+
+A.1.2 LOFT-ICL Templates 
+
+For In-Context Learning (ICL) tasks, we enforce a strict output format to facilitate automated parsing. The templates are defined in Figure 5.  
+
+> System Prompt
+> You will be given a list of documents. You need to read carefully and understand all of them. Then you will be given a query, and your goal is to answer the query based on the documents you have read.
+> Context Template
+> {context}
+> Question Template
+> Based on the documents above, can you answer the follow-ing query? Write a concise answer. query: {question}
+
+Figure 4: Prompt template configuration for LOFT-RAG tasks. 
+
+> System Prompt
+> Please answer the following questions and ensure you fol-low a consistent format. In particular, ensure your final answer always looks like ‘Output: [’your_answer_here’]‘ After Output write ONLY the best option following the example(s). Do NOT write anything else.
+> Context Template
+> Example(s):
+> {context}
+> Question Template
+> Now begin!
+> {question}
+
+Figure 5: Prompt template configuration for LOFT-ICL tasks. 
+
+A.2 Method-Specific Instantiations PCED . PCED treats retrieved documents (RAG) or exemplars (ICL) as independent contextual ex-perts. Concretely, for each query we create N
+
+contextual expert inputs by applying the dataset 
+
+system_prompt and context_template to doc-uments, yielding N separate (system, context) prompt instances. At decoding time, each expert produces logits conditioned on its own KV cache. We additionally include an amateur expert that represents the model prior: it is instantiated using 
+
+system_prompt only. All experts share the identi-cal question_template .
+
+MapReduce. This method involves a two-stage process. First, the map stage summarizes individ-ual documents using the fixed instruction: "Sum-marize the given documents concisely, focusing on the key points and main ideas." 
+
+The resulting summaries are concatenated into a single prompt. In the subsequent reduce stage, the standard dataset templates (Figure 4 or 5) are used, with the concatenated summaries substituting the raw documents in the {context} slot. 7A.3 LongBench 
+
+For LongBench (Bai et al., 2024), we strictly ad-here to the official task instructions and question templates outlined in the original paper’s Appendix B. Dataset statistics (e.g., number of examples, con-text lengths, and task distributions) are reported in Table 1 of the original LongBench paper (Bai et al., 2024). 
+
+A.4 Synthetic Dataset 
+
+To benchmark TTFT and end-to-end latency (Fig-ure 3) under controlled context length, we construct a small synthetic dataset with fixed formatting and token budgets. Each instance contains N =64 doc-uments; exactly one gold document includes a “se-cret code” string, while the remaining documents are distractors. We enforce an exact document length of 2048 tokens via padding/truncation. The query asks the model to output the secret code ver-batim. We include a warmup sample to eliminate one-time initialization effects and stabilize latency measurements. 
+
+B Normalization of Retrieval and Reranker Scores 
+
+Motivation. PCED uses retrieval and reranker scores as a document-level prior (Eq. 2), where the prior enters as log rk. We therefore map all relevance signals to a common range rk ∈ [0 , 1) 
+
+(and clip away from 0 to avoid log 0 ). 
+
+Retrieval scores (BGE-M3). Let sk denote the raw retrieval score produced by bge-m3 for expert 
+
+k under a given scoring mode. Different modes have different score ranges, so we normalize as follows: 
+
+Dense / ColBERT. For the dense and colbert 
+
+modes, similarity scores are bounded in [−1, 1] .We apply an affine rescaling: 
+
+rret  
+
+> k
+
+= clip 
+
+ sk + 1 2 , 0, 1 − ϵ
+
+
+
+, (4) which maps [−1, 1] 7 → [0 , 1] , followed by clipping to [0 , 1 − ϵ).
+
+Sparse. For the sparse mode, scores are non-negative and unbounded. Following standard prac-tice for normalizing unbounded similarity/distance values into [0 , 1] (e.g., arctan-based normalization used in hybrid reranking), we apply a saturating arctan transform: 
+
+rret  
+
+> k
+
+= clip 
+
+ 2
+
+π arctan(max( sk, 0)) , 0, 1 − ϵ
+
+
+
+.
+
+(5) This preserves monotonicity while smoothly com-pressing large sparse scores. 
+
+Reranker scores (BGE reranker). We use 
+
+BAAI/bge-reranker-v2-m3 via FlagReranker .With normalize=True , the reranker applies a sig-moid to map raw logits to [0 , 1] :
+
+rrer  
+
+> k
+
+= σ(zk) = 11 + exp( −zk) . (6) As above, we clip to [0 , 1 − ϵ) before using the values in log rk.
+
+Score fusion. After normalization, we combine retrieval and reranker signals into a single relevance score using the harmonic mean: 
+
+rk = 2 rret  
+
+> k
+
+rrer 
+
+> k
+
+rret  
+
+> k
+
++ rrer  
+
+> k
+
++ ϵ . (7) In all experiments we set ϵ = 10 −8.
+
+C Ablations 
+
+In this section, we provide a detailed analysis of the hyperparameters governing P CED . Unless otherwise stated, all ablations are performed us-ing the PCED -Dense variant on the H OTPOT QA and N ATURAL QUESTIONS (NQ) datasets, using both L LAMA -3.1-8B-I NSTRUCT and M ISTRAL -NEMO -13B-I NSTRUCT .
+
+C.1 Impact of Contrastive Strength ( β)
+
+The contrastive strength parameter β determines how aggressively the expert distribution ( sk) is sharpened against the amateur prior ( s0). We compare our default dynamic β strategy (de-rived from AdaCAD) against fixed values β ∈{0.25 , 0.5, 0.75 , 1.0}. Additionally, we evaluate the setting β = 0 , which effectively removes the contrastive component and relies solely on the re-trieval prior and raw expert logits. Results are presented in Table 4. We observe three key trends: 1. Necessity of Contrastive Decoding ( β > 0): 
+
+Setting β = 0 generally degrades perfor-mance compared to the best contrastive set-tings, confirming that subtracting the amateur logit helps isolate the specific knowledge pro-vided by the retrieved document. 82. Instability of Fixed β: While specific fixed values can achieve high scores on individ-ual tasks (e.g., β = 0 .25 on Llama-NQ or 
+
+β = 0 .75 on Llama-HotpotQA), they are in-consistent. A value that works well for one dataset may fail on another (e.g., β = 0 .75 
+
+drops significantly on Mistral-HotpotQA com-pared to lower values). 3. Robustness of Dynamic β: The dynamic strategy consistently delivers competitive per-formance across all models and datasets with-out requiring per-task tuning. We therefore select Dynamic as the default to ensure stabil-ity across diverse retrieval scenarios. 
+
+Table 4: Ablation of Contrastive Strength ( β). We compare fixed β values against our Dynamic strategy. The column β = 0 represents standard decoding with-out the contrastive penalty (only retrieval prior). Bold 
+
+denotes the best result.                                      
+
+> No CD Fixed βOurs Model Dataset β= 0 0.25 0.50 0.75 1.0 Dynamic
+> LLAMA -8B HOTPOT QA 53 65 61 67 59 64 NQ 70 88 65 84 62 85 MISTRAL -13B HOTPOT QA 65 62 62 58 54 66
+> NQ 80 83 82 78 80 81
+
+C.2 Sensitivity to Retrieval Prior ( γ)
+
+The parameter γ controls the influence of the retrieval/reranker scores on expert selection via the term γ log rk. We perform a sweep over 
+
+γ ∈ {0.5, 1.0, 1.5, 2.0, 3.0, 4.0} and compare these with our chosen default γ = 2 .5.Results are shown in Table 5. We observe the following: • Under-weighting ( γ < 1.5): Lower values often degrade performance (e.g., Llama-NQ drops significantly to 75 at γ = 0 .5). This confirms that expert selection cannot rely on internal perplexity alone; strong external rel-evance signals are necessary to suppress dis-tractors. • Over-weighting ( γ ≥ 4.0): High values yield inconsistent results. While Llama-NQ peaks at γ = 4 .0 (87), Llama-HotpotQA degrades compared to lower values (64 vs 66). Exces-sive gating forces the model to rigidly follow the retriever’s ranking, potentially overriding valid reasoning from lower-ranked experts on complex queries. • γ = 2 .5: The range γ ∈ [2 .0, 3.0] represents a stable "sweet spot" across both models and datasets. We select γ = 2 .5 as the default be-cause it offers the best trade-off: it maximizes performance on difficult tasks like NQ (match-ing the high scores of γ = 2 .0 − 3.0) while avoiding the instability seen at the extremes. 
+
+Table 5: Sensitivity sweep for Retrieval Prior weight (γ). We use Dynamic β for all runs. The main paper uses γ = 2 .5.                                        
+
+> Gamma (γ)Default Model Dataset 0.5 1.0 1.5 2.0 3.0 4.0 2.5
+> LLAMA -8B HOTPOT QA 65 66 66 65 63 64 64 NQ 75 84 86 85 85 87 85 MISTRAL -13B HOTPOT QA 64 65 66 65 67 66 66 NQ 78 79 80 81 81 81 81
+
+C.3 Contrastive Signal vs. Retrieval Score Only 
+
+Finally, we isolate the contribution of the two core components of Equation 2: the contrastive signal (β) and the retrieval prior ( γ). Table 6 compares the full P CED method against two ablations: 1. Only Retrieval Scores ( β = 0 ): Expert logits are boosted by retrieval scores but not cali-brated against the amateur. 2. Only Contrastive ( γ = 0 ): Expert logits are calibrated via contrastive decoding, but all experts are treated as equally likely (flat prior), ignoring retrieval ranking. The results reveal two distinct findings: • Retrieval Prior is Foundational ( γ > 0): 
+
+The "Only Contrastive" setting fails catas-trophically across all benchmarks (e.g., Llama NQ drops to 52). This confirms that without the external guidance of the retriever to gate irrelevant experts, the model is overwhelmed by noise from distractors. • Contrastive Signal is an Amplifier ( β > 0): 
+
+The impact of the contrastive term is model-dependent. For L LAMA -3.1, it is critical: re-moving it ("Only Retrieval") causes a massive drop (e.g., NQ falls from 85 to 70), suggest-ing that Llama requires the amateur subtrac-tion to suppress its own priors and hallucina-tions. Conversely, M ISTRAL is more robust, 98 16 32 64 128                 
+
+> Top-k
+> 50
+> 60
+> 70
+> Subspan EM Score  HotpotQA
+> 816 32 64 128
+> Top-k
+> 70
+> 80
+> 90
+> 100
+> NQ
+> 816 32 64 128
+> Top-k
+> 10
+> 20
+> 30
+> MuSiQue
+> 816 32 64 128
+> Top-k
+> 70
+> 80
+> 90
+> QAMPARI
+> 816 32 64 128
+> Top-k
+> 30
+> 40
+> 50
+> QuEST
+
+Figure 6: Performance Stability across Top-k. PCED maintains consistent accuracy from k = 8 to 128 , confirming that the retrieval prior effectively suppresses noise from additional distractors. 
+
+achieving strong performance with retrieval scores alone, though the full P CED framework still secures the highest absolute scores in all cases. 
+
+Table 6: Component Analysis. We disentangle the benefits of the Contrastive Decoding signal versus the Retrieval Prior.                       
+
+> Only Contrastive Only Retrieval Full
+> (No Prior, γ= 0 )(No CD, β= 0 )PCED
+> LLAMA -8B HOTPOT QA 46 53 64
+> NQ 52 70 85
+> MISTRAL -13B HOTPOT QA 57 65 66
+> NQ 71 80 81
+
+C.4 Ablation of Expert Aggregation Rule 
+
+PCED aggregates experts via a token-wise Max op-eration. We compare this against two probability-space alternatives: Mixture-of-Experts (MoE, weighted sum) and Product-of-Experts (PoE, weighted product), where weights are derived from retrieval scores. Table 7 shows that Max aggregation is criti-cal for multi-hop reasoning (H OTPOT QA), outper-forming MoE by 8 points (64 vs. 56). We hypoth-esize that Max enables sharper token-level expert switching , allowing different documents to domi-nate different generation steps without their distri-butions needing to agree. Conversely, on single-document tasks like NQ, MoE performs slightly better (87 vs. 85), suggesting that soft averaging can be beneficial when evidence is concentrated in one expert and retrieval priors are accurate. 
+
+Table 7: Aggregation Rule Ablation. Comparison of PCED (Max) vs. probabilistic aggregation (MoE, PoE). 
+
+Aggregation HOTPOT QA NQ 
+
+Max (Ours) 64 85 Mixture (MoE) 56 87 
+
+Product (PoE) 46 85 
+
+C.5 Robustness to Candidate Pool Size ( k)
+
+We evaluate the stability of P CED (Dense, Llama-3.1-8B) as we scale the number of retrieved experts from k = 8 to k = 128 . Results are visualized in Figure 6. We observe two trends: • Noise Tolerance: Performance remains nearly constant across all datasets despite a 
+
+16 × increase in experts. For instance, NQ scores stay flat at ∼85, while H OTPOT QA fluctuates only marginally (63–65). This con-firms that the retrieval prior ( γ log rk) effec-tively gates low-relevance experts, preventing distractor accumulation. • Recall without Penalty: While low k is often sufficient, the lack of degradation at k = 128 
+
+allows users to maximize recall for difficult queries without sacrificing generation quality. 10

@@ -1,0 +1,754 @@
+Title: SGHA-Attack: Semantic-Guided Hierarchical Alignment for Transferable Targeted Attacks on Vision-Language Models
+
+URL Source: https://arxiv.org/pdf/2602.01574v1
+
+Published Time: Tue, 03 Feb 2026 03:15:39 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+> 1
+
+# SGHA-Attack: Semantic-Guided Hierarchical Alignment for Transferable Targeted Attacks on Vision-Language Models 
+
+Haobo Wang, Weiqi Luo, Senior Member, IEEE, Xiaojun Jia, Xiaochun Cao, Senior Member, IEEE 
+
+Abstract —Large vision–language models (VLMs) are vulner-able to transfer-based adversarial perturbations, enabling at-tackers to optimize on surrogate models and manipulate black-box VLM outputs. Prior targeted transfer attacks often overfit surrogate-specific embedding space by relying on a single refer-ence and emphasizing final-layer alignment, which underutilizes intermediate semantics and degrades transfer across heteroge-neous VLMs. To address this, we propose SGHA-Attack, aSemantic-Guided Hierarchical Alignment framework that adopts multiple target references and enforces intermediate-layer consis-tency. Concretely, we generate a visually grounded reference pool by sampling a frozen text-to-image model conditioned on the tar-get prompt, and then carefully select the Top-K most semantically relevant anchors under the surrogate to form a weighted mixture for stable optimization guidance. Building on these anchors, SGHA-Attack injects target semantics throughout the feature hierarchy by aligning intermediate visual representations at both global and spatial granularities across multiple depths, and by synchronizing intermediate visual and textual features in a shared latent subspace to provide early cross-modal supervision before the final projection. Extensive experiments on open-source and commercial black-box VLMs show that SGHA-Attack achieves stronger targeted transferability than prior methods and remains robust under preprocessing and purification defenses. 
+
+Index Terms —Adversarial attack, Cross-modal synchroniza-tion, Hierarchical alignment, Vision-language models. 
+
+I. I NTRODUCTION 
+
+# LARGE Vision-Language Models [1] have emerged as a foundational technology, powering critical applica-tions from autonomous agents to content moderation [2]– [4]. As these systems are increasingly entrusted with high-stakes decision-making [5], [6], their inherent vulnerability to adversarial perturbations poses severe security risks [7]. Beyond causing benign classification errors [8], imperceptible perturbations can effectively hijack a model’s semantic under-standing, enabling adversaries to circumvent safety guardrails (i.e., jailbreaking) and elicit policy-violating outputs [9]. In the black-box scenario, targeted transfer-based attacks [10] represent a particularly practical threat. By optimizing on an accessible surrogate, attackers can precisely steer proprietary 
+
+Haobo Wang and Weiqi Luo are with Guangdong Province Key Lab of Information Security Technology, and School of Computer Sci-ence and Engineering, Sun Yat-sen University, Guangdong 510006, China (e-mail:wanghb69@mail2.sysu.edu.cn; luoweiqi@mail.sysu.edu.cn.) Corre-sponding author: Weiqi Luo. Xiaojun Jia is with Nanyang Technological University, Singapore (e-mail: jiaxiaojunqaq@gmail.com). Xiaochun Cao is with the School of Cyber Science and Technology, Shenzhen Campus, Sun Yat-sen University, Shenzhen 518107, China. (e-mail:caoxiaochun@mail.sysu.edu.cn) Clean I mage Adversarial I mage 
+
+SGHA-Attack  
+
+> Surrogate CLIP
+> Target Text: A black curly
+> haired dog plays with a frisbee
+
+Attack Process 
+
+Attack Evaluation    
+
+> BLIP-2 LL aVA GPT-4 o
+> a black dog
+> catching a frisbee
+> in the air
+> a black dog playing
+> with a frisbee in a
+> grassy field
+> a black dog
+> jumping up to
+> catch a frisbee in
+> its mouth
+> Open-Source VLMs Closed-Source VLMs
+
+Fig. 1: Illustration of the proposed SGHA-Attack framework targeting diverse VLMs. commercial APIs to generate specific target captions without knowledge of the victim’s internal parameters. This trans-ferability threatens the integrity of downstream ecosystems, including automated decision support [11] and tool-augmented agentic systems [12]. To unveil the severity of this threat, we introduce SGHA-Attack, as illustrated in Fig. 1, a novel framework designed to effectively mislead diverse black-box VLMs to generate attacker-specified target captions. Existing transfer-based attacks can be broadly catego-rized into perturbation-constrained methods and unrestricted diffusion-based approaches. In the constrained category, meth-ods like AttackVLM [13] optimize adversarial perturbations by aligning global image embeddings with a target text embedding within a restricted ℓ∞ budget. Chain-of-Attack (COA) [14] further enhances this by incorporating modal-ity fusion and iterative optimization strategies to improve semantic consistency. M-Attack [15] introduces robust input transformations, such as random resizing and cropping, to bypass the preprocessing pipelines of commercial models. In the unrestricted category, approaches like AdvDiffVLM [16] leverage latent diffusion models to generate adversarial ex-amples. Specifically, they utilize attention-guided masking to preserve critical features, fundamentally operating by recon-structing image content rather than adding imperceptible noise. Despite different designs, these transfer-based attacks have two common limitations. First, they rely on a single target reference, which can be sensitive to the surrogate model and thus transfer poorly to other VLMs. Second, they match embedding similarity only at the surrogate encoder’s final 
+
+> arXiv:2602.01574v1 [cs.CV] 2 Feb 2026 2
+
+layer, ignoring intermediate features, this can cause overfitting to the surrogate and weaken targeted transfer to instruction-tuned or proprietary VLMs. To address these limitations, we propose SGHA-Attack, a Semantic-Guided Hierarchical Alignment framework that enforces target consistency across intermediate-layer repre-sentations rather than only at the final output. To tackle the single-target limitation, we introduce Semantic-Guided Anchor Injection (SGAI). Instead of optimizing toward one target reference, SGAI uses multiple semantic anchors that capture diverse realizations of the target concept and forms a weighted mixture of these anchors as the optimization target, making the guidance more stable and improving targeted transfer across different VLMs. To address the second lim-itation of relying on final-layer matching, we further perform hierarchical alignment over intermediate representations: Hier-archical Visual Structure Alignment (HVSA) constrains layer-wise visual features at multiple intermediate depths, aligning both global and spatial structure, while Cross-Modal Latent Space Synchronization (CLSS) provides intermediate cross-modal supervision in a shared latent subspace by encouraging projected visual features to remain aligned with the evolving textual semantics rather than only at the final output. Together, these designs provide multi-layer supervision and yield adver-sarial examples with stronger targeted transferability across a wide range of open-source and commercial black-box VLMs. Our main contributions are summarized as follows:  
+
+> •
+
+We propose SGHA-Attack, a Semantic-Guided Hierarchi-cal Alignment framework for transfer-based targeted at-tacks on VLMs that moves beyond late-stage embedding matching by enforcing hierarchical, multi-granularity se-mantic consistency.  
+
+> •
+
+We introduce SGAI to build multiple target references through generation and careful selection (generate an an-chor pool and select Top-K), and leverage HVSA/CLSS to align intermediate visual features and synchronize intermediate cross-modal tokens.  
+
+> •
+
+Extensive experiments on open-source and commercial black-box VLMs show that SGHA-Attack improves tar-geted transferability over prior methods and remains robust under preprocessing and purification defenses. II. R ELATED WORK 
+
+A. Vision–Language Models 
+
+VLMs have evolved from task-specific architectures to more general-purpose, generative foundation models [1], [17], [18]. Prior to the widespread adoption of large language models (LLMs), many VLMs emphasized learning joint visual–textual representations for discriminative objectives, including image– text retrieval [19], [20] and visual question answering [21], [22]. More recently, the emergence of strong LLMs has shifted the dominant paradigm toward leveraging an LLM as a language and reasoning backbone while introducing a visual front-end that enables the model to condition on images [23], [24]. Under this paradigm, a central technical challenge is modality alignment: mapping visual representations into a form that an LLM can effectively consume and integrate with text [25], [26]. In practice, modality alignment is commonly implemented via a learnable projector (or adapter) that connects the visual encoder to the LLM. Two representative design families are widely adopted. The first family, exemplified by LLaVA [3] and MiniGPT-4 [27], uses lightweight mappings such as linear layers or MLPs to project visual tokens into the LLM embedding space, offering simplicity and computational ef-ficiency. The second family, used by BLIP-2 [28] and In-structBLIP [29], introduces a query-based module (e.g., Q-Former) that employs learnable queries and cross-attention to selectively aggregate visual information before interfacing with the LLM. In this work, we study adversarial transfer-ability across these architectures, with particular attention to how their alignment modules and intermediate representations influence vulnerability and generalization of attacks. 
+
+B. Adversarial Attacks on VLMs 
+
+Adversarial attacks aim to mislead models via imperceptible input perturbations. Depending on the adversary’s knowledge, they are classified as white-box (full parameter access) [30], [31] or black-box (no access to model parameters or gra-dients) [32], [33]. Regarding objectives, attacks distinguish between untargeted ones that merely degrade performance and targeted ones that steer outputs toward specific malicious goals, posing greater safety risks. In realistic black-box scenar-ios, transfer-based attacks [34]–[36] have emerged as the dom-inant paradigm over query-based methods [37], as the latter are often impractical for large VLMs due to prohibitive inference latency and API costs. Consequently, our work focuses on transfer-based targeted attacks, which optimize perturbations on an accessible surrogate (e.g., CLIP) to compromise unseen victim VLMs via cross-model transferability. Early research on VLM robustness primarily focused on un-targeted degradation [38]–[42]. Recently, significant progress has been made in targeted transfer-based attacks. Represen-tative works like AttackVLM [13] craft targeted examples by aligning global image embeddings with a specific tar-get reference. Subsequent methods such as Chain-of-Attack (COA) [14] improve semantic consistency through iterative optimization and modality fusion, while IPGA [43] exploits in-termediate projector representations (e.g., Q-Former) for fine-grained alignment. Others, including AdvDiffVLM [16] and M-Attack [15], further enhance transferability via diffusion-based generation or robust input transformations. However, these methods predominantly operate on the encoder’s output or the subsequent projection stage, treating the visual backbone itself as a monolithic feature extractor. This strategy over-looks the rich hierarchical representations within the visual encoder, where features evolve from low-level structures to high-level semantics. In contrast, our work explicitly opens the visual backbone and synchronizes its intermediate hierarchical features with corresponding textual representations, thereby enforcing deep semantic consistency throughout the entire feature extraction process. 3Target Text  
+
+> {a bla ck dog ...}
+> Hierarchical Visual Structure Alignment (HVSA)
+> Semantic-Guided Anchor Injection (SGAI)
+> Reference Pool ref
+
+X
+
+> Top-K Anchors
+> ...
+> Surrogate CLIP Image Encoder
+> Intermediate Layers
+> Final
+> Layers
+
+
+
+> ...
+> Surrogate CLIP Text Encoder
+> Intermediate Layers
+> Final
+> Layers
+
+ Cross-Modal Latent Space Synchronization (CLSS) 
+
+> Anchor Weights
+> tgt
+
+T
+
+> CLS Token
+> Spatial Token
+> CLS Token
+> Spatial Token
+
+D
+
+D
+
+> Intermediate Visual Feature
+> Visual Projection
+> Text Projection
+> proj
+
+W
+
+> txt
+
+P
+
+> Shared Latent
+> Subspace
+> Intermediate Alignment
+> Total
+> Loss
+> Final E mbedding
+
+D 
+
+> Perturbation
+> Clean Image
+
+x
+
+> Iter : t
+
+Gradient BackPropagation （Update perturbation within the budget ） 
+
+> Trainable
+> Frozen
+> DCosine Similarity
+> Adversarial Image
+> adv
+
+x
+
+> IF: t = N
+> Output
+> IF: t < N
+> t
+
+
+
+> SD
+> T2I Model
+> 1
+
+{ }k K 
+
+> anc k
+
+x 
+
+> k
+
+w   
+
+> tgt T
+> anc ref xX
+
+# 
+
+## 
+
+Temperature 
+
+> l
+> cls
+
+f l
+
+> cls
+
+f
+
+> l
+> spa
+
+F  l
+
+> spa
+
+F
+
+> l
+> l
+> l
+> cls
+
+f
+
+> l
+> eos
+
+t
+
+> D
+> txt
+
+L
+
+> mid
+
+L
+
+> feat
+
+L
+
+> anc
+
+L
+
+# ò   
+
+> ()t
+> adv x
+> 
+> ()tgt T
+> 
+> ...
+> ...
+> ...
+> ... ...
+
+Fig. 2: Overview of the proposed SGHA-Attack framework for generating transferable targeted adversarial examples. The framework consists of three key components: SGAI, HVSA, and CLSS. III. M ETHODOLOGY 
+
+As illustrated in Fig. 2, we present SGHA-Attack, a transfer-based targeted attack framework designed to craft an ad-versarial example xadv by injecting a human-imperceptible perturbation δ into a clean image x (i.e., xadv = x + δ
+
+subject to ∥δ∥∞ ≤ ϵ), aiming to mislead victim VLMs into generating attacker-specified outputs. The pipeline commences by constructing a visually grounded reference pool Xref via a frozen Text-to-Image (T2I) model conditioned on the target text Ttgt , from which the Top-K most semantically relevant instances are adaptively selected as anchors. Subsequently, we perform iterative optimization on a CLIP surrogate, where the perturbation δ is updated via gradient backpropagation to strictly align the hierarchical features of xadv with these weighted anchor references while synchronizing visual and textual tokens across multiple depths, ultimately yielding the final transferable adversarial image. In the following subsec-tions, we systematically elaborate on the three synergistic components that constitute this framework. 
+
+A. Semantic-Guided Anchor Injection 
+
+AttackVLM [13] shows that transfer-based targeted attacks can be driven by either text–image matching or image–image matching on a surrogate model. For text–image matching, we align the surrogate embedding of the adversarial image with the target text embedding. Let ϕ(·) and ψ(·) denote the surrogate image and text encoders, respectively, and define cosine distance as D(a, b) = 1 − cos( a, b). Here, ϕ(·)
+
+produces a global image embedding used for the following matching objectives. A standard objective is 
+
+Ltxt = D ϕ(xadv ), ψ (Ttgt ). (1) For image–image matching, the adversarial image is guided toward a reference image by matching their surrogate embed-dings, which provides more visually grounded supervision. However, existing methods [13]–[16] often rely on a single reference instance, leading to narrow guidance: one image may capture only one appearance of the target concept, and the optimization can become sensitive to that particular target. This sensitivity makes targeted transfer less reliable when the victim model differs in backbone, alignment module, or processing pipeline. To address this single-target limitation, we propose SGAI. Instead of using one target reference, SGAI constructs a set of semantic anchors that represent diverse visual realizations of the target concept, and uses them jointly as guidance via a weighted mixture. Concretely, we first build a reference pool 4
+
+Xref by sampling from a text-to-image generator conditioned on Ttgt (e.g., a diffusion model). Given the target text em-bedding ψ(Ttgt ), we select the Top-K anchors according to cosine similarity under the surrogate: 
+
+{xkanc }Kk=1 = TopK x∈X ref cos  ϕ(x), ψ (Ttgt ). (2) We then compute importance weights using a temperature-scaled softmax: 
+
+wk = exp  cos( ϕ(xkanc ), ψ (Ttgt )) /τ PKj=1 exp 
+
+
+
+cos( ϕ(xjanc ), ψ (Ttgt )) /τ 
+
+ . (3) Finally, we define an anchor-guided objective that aligns the adversarial embedding with a weighted mixture of anchor embeddings: 
+
+Lanc = 1 −
+
+> K
+
+X
+
+> k=1
+
+wk · cos  ϕ(xadv ), ϕ (xkanc ). (4) Compared with a single reference, the weighted anchor mixture provides richer and more stable guidance: different anchors cover different appearances of the same target concept, while the weights automatically emphasize the most relevant anchors. In practice, this reduces sensitivity to a single target and improves targeted transfer across diverse victim VLMs. From an efficiency perspective, SGAI introduces limited overhead. Anchor features ϕ(xkanc ) can be computed once and detached, and the iterative optimization only requires computing ϕ(xadv ) each iteration. We report the runtime in Table VII. 
+
+B. Hierarchical Visual Structure Alignment 
+
+SGAI provides a robust target guidance at the global em-bedding level, but many transfer-based attacks still impose constraints only on the final-layer embedding of the surro-gate visual encoder. For ViT encoders, representations evolve progressively across layers: shallow layers capture low-level patterns, while deeper layers encode higher-level semantics. Consequently, restricting supervision to the final embedding may underutilize intermediate representations that influence transferability, especially when victim models vary in depth, patch size, or projector design. To address this, we propose HVSA, which aligns intermediate visual representations of 
+
+xadv to anchor-derived targets at multiple layers. Let L denote a set of selected transformer layers. Denote by ϕl(·) the intermediate feature map extracted at layer l ∈ L .Using the anchor weights {wk} from Sec. III-A, we construct a layer-wise weighted anchor target: 
+
+ˆFlanc =
+
+> K
+
+X
+
+> k=1
+
+wk · ϕl(xkanc ). (5) This anchor-derived target provides a clear intermediate-layer reference based on the anchor images, making the supervision at each layer well-defined. We further distinguish the roles of different ViT tokens. Let 
+
+Fladv = ϕl(xadv ) ∈ R(N +1) ×D be the feature map at layer l,where the first token corresponds to CLS and the remaining N
+
+tokens correspond to spatial patches. We decompose Fladv and 
+
+ˆFlanc into global tokens (f lcls , ˆf lcls ) ∈ RD and spatial tokens 
+
+(Flspa , ˆFlspa ) ∈ RN ×D . We mean-pool patch tokens to obtain a single spatial descriptor per layer: Flspa = 1
+
+> N
+
+PNi=1 Flspa [i]
+
+(and similarly for ˆFlspa ). Mean pooling provides a compact spatial summary without requiring strict patch-to-patch corre-spondence, making the alignment more robust to differences in patch size and common preprocessing (e.g., resizing or cropping) across models. The HVSA loss is then defined as:           
+
+> Lf eat =X
+> l∈L
+> 
+> λcls D(flcls ,ˆflcls ) + λspa D(Flspa ,ˆFlspa )
+> 
+> .(6)
+
+The term weighted by λcls aligns the CLS token, en-couraging the adversarial example to match the target at a global, image-level semantics across selected layers. The term weighted by λspa aligns the pooled patch tokens, encouraging consistency in spatial cues related to the target. We separate these two terms to provide complementary supervision: the CLS term focuses on global semantics, while the spatial term preserves coarse spatial cues, leading to a more balanced alignment signal. 
+
+C. Cross-Modal Latent Space Synchronization 
+
+SGAI and HVSA mainly constrain the visual stream: SGAI provides target-guided anchors, and HVSA aligns intermediate visual features to anchor-derived targets across layers. How-ever, a VLM produces outputs based on cross-modal interac-tions between vision and language. Thus, beyond final-layer matching, we enforce intermediate cross-modal alignment so that the intermediate visual features of xadv are aligned with the target text features. A key challenge is that intermediate visual and textual features are not directly comparable before projection, since they may differ in dimension and representation space. To make them comparable, we map intermediate features into a shared latent subspace using projection heads available in the surrogate. For each layer l ∈ L , we extract the intermediate CLS visual token f lcls from the surrogate image encoder, and an intermediate text feature tleos from the surrogate text encoder, taken from the EOS token at the corresponding depth. We then apply the visual and text projections and minimize the distance between them: 
+
+Lmid = X
+
+> l∈L
+
+D
+
+
+
+f lcls Wproj , tleos Ptxt 
+
+
+
+, (7) where Wproj and Ptxt are the surrogate’s original visual and textual projection heads used for image–text alignment, mapping features into a shared latent subspace. CLSS imposes cross-modal alignment at intermediate lay-ers: after projection into the shared latent subspace, interme-diate adversarial visual features are aligned with the target text features, instead of relying only on final-layer matching. During optimization, Lmid provides cross-modal gradients at multiple depths, which improves targeted transfer when victim VLMs use different projection modules or cross-modal alignment schemes. 5
+
+Algorithm 1 The overall algorithm of SGHA-Attack 
+
+Input: Clean image x, target text Ttgt , text-to-image model 
+
+T2I , surrogate image encoder ϕ, text encoder ψ, vi-sual projection Wproj , text projection Ptxt , perturbation budget ϵ, step size α, steps N , layer set L, weights 
+
+λanc , λ f eat , λ cls , λ spa , λ mid , temperature τ .
+
+Output: Adversarial image xadv .
+
+Phase 1: Pre-processing 
+
+1: Generate reference pool Xref ← T2I( Ttgt )
+
+2: Select Top-K anchors {xkanc }Kk=1 ⊂ X ref by Eq. (2) 
+
+3: Compute anchor weights wk via Eq. (3) with temperature 
+
+τ , forming a softmax mixture // SGAI 
+
+4: for each selected layer l ∈ L do 
+
+// Extract weighted anchor features 
+
+5: ˆf lcls , ˆFlspa ← PKk=1 wk · ϕl(xkanc )
+
+// Extract target text features 
+
+6: tleos ← ψl(Ttgt )
+
+7: end for Phase 2: Adversarial Optimization 
+
+8: Initialize perturbation δ0 ← 0
+
+9: for t = 0 to N − 1 do 
+
+10: xtadv ← x + δt
+
+11: Ltxt ← D  ϕ(xtadv ), ψ (Ttgt ) // Final embedding 
+
+12: Lanc ← 1 − PKk=1 wk · cos  ϕ(xtadv ), ϕ (xkanc )
+
+13: Lf eat ← 0, Lmid ← 0
+
+14: for each selected layer l ∈ L do 
+
+// Extract adversarial features 
+
+15: f lcls , Flspa ← ϕl(xtadv )
+
+// HVSA: Align intermediate visual features 
+
+16: Lf eat ← Lf eat + λcls D(f lcls , ˆf lcls ) +
+
+λspa D(Flspa , ˆFlspa )
+
+// CLSS: Synchronize cross-modal features 
+
+17: Lmid ← L mid + D f lcls Wproj , tleos Ptxt 
+
+
+
+18: end for 
+
+19: Ltotal ← L txt + λanc Lanc + λf eat Lf eat + λmid Lmid 
+
+20: gt ← ∇ xtadv Ltotal // Gradient backpropagation 
+
+21: δt+1 ← Clip [−ϵ,ϵ ]
+
+ δt − α · sign( gt) // Update 
+
+22: end for 
+
+23: xadv ← Clip [−ϵ,ϵ ](x + δN )
+
+24: return xadv 
+
+D. Total Objective and Optimization Procedure 
+
+We integrate the three modules, SGAI, HVSA, and CLSS, into a unified objective function: 
+
+Ltotal = Ltxt + λanc Lanc + λf eat Lf eat + λmid Lmid , (8) where λanc , λf eat , and λmid balance anchor guidance, hi-erarchical visual alignment, and intermediate cross-modal synchronization. We optimize xadv using projected gradient descent under an ℓ∞ budget ϵ. At each iteration, the adversarial image is updated using the sign of the gradient and projected back to the feasible ℓ∞ ball around x, pixel values are also clipped to the valid range. Algorithm 1 summarizes the complete procedure. TABLE I: Configurations of the victim VLMs.                          
+
+> Category Model Params Vision Module Text Module / LLM Open-Source
+> UniDiffuser [47] 1.4B CLIP ViT-B/32 UViT-H (Diffusion) BLIP-2 [28] 12.1B ViT-G/14 (EVA-CLIP) FLAN-T5 XXL InstructBLIP [29] 14.2B ViT-G/14 (EVA-CLIP) Vicuna-13B MiniGPT-4 [27] 14.2B ViT-G/14 (EVA-CLIP) Vicuna-13B LLaVA [3] 13.3B CLIP ViT-L/14 Vicuna-13B LLaVA-NeXT [48] 72.3B CLIP ViT-L/14-336px Qwen1.5-72B-Chat
+> Closed-Source
+> OpenAI GPT-4o Undisclosed Google Gemini-2.0 Undisclosed Anthropic Claude-3.5 Undisclosed
+
+IV. E XPERIMENTS 
+
+A. Experimental Settings 
+
+Datasets. We follow the evaluation protocol in [13], [14]. Specifically, we sample 1,000 images from ImageNet-1K [44] as clean inputs and sample 1,000 text descriptions from MS-COCO [45] as target prompts. Each ImageNet image is randomly paired with one MS-COCO description, which typically yields a semantic mismatch between the source image and the target text, forming a challenging targeted setting. Following [13], we further use Stable Diffusion [46] to synthesize text-conditioned target reference images from the target descriptions. 
+
+Victim VLMs. We select a diverse set of victim models to evaluate the effectiveness of our attack, including six state-of-the-art open-source VLMs and three leading closed-source commercial models. The detailed configurations are summarized in Table I. It is worth noting that certain models (e.g., MiniGPT-4 and InstructBLIP) share identical vision backbones and parameter scales but employ distinct cross-modal alignment mechanisms (e.g., linear projection vs. Q-Former), thereby serving as diverse testbeds for evaluating transferability. Regarding the black-box attack setting, we follow the attack protocols in [13] and [15] for open-source and closed-source commercial models, respectively. 
+
+Baselines. We benchmark against state-of-the-art transfer-based targeted attacks categorized into two groups: VLM-specific approaches, including MF-it [13], MF-ii [13], COA [14], AdvDiffVLM [16], and M-Attack [15]. Follow-ing [16], we also adapt representative SOTA image classifi-cation methods BSR [49] and OPS [32] for the VLM task by replacing their classification loss with a target-embedding alignment loss. 
+
+Evaluation metrics. Following standard protocols [13], [14], we employ CLIP-Score [13] to measure semantic consistency and the LLM-based (GPT-4) Attack Success Rate (ASR) [14] to assess effectiveness, specifically utilizing ASR fool for untar-geted attack success and ASR target for targeted attack success. Additionally, we utilize Structural Similarity (SSIM) [50] and Peak Signal-to-Noise Ratio (PSNR) to evaluate the visual imperceptibility of the generated adversarial examples. 
+
+Implementation Details. 1 We utilize PGD [51] with a maxi-mum perturbation of ϵ = 8 /255 and 100 iterations under the 
+
+L∞ norm across all methods to ensure fair comparison. For SGHA-Attack, we set anchor parameters to K = 5 , τ = 5 , and 
+
+λanc = 1 . To determine the intermediate layers L, we adopt a 
+
+> 1
+
+Code available at: https://github.com/BiiiGerrr/SGHA-Attack 6
+
+TABLE II: Quantitative comparison of transfer-based targeted attacks against black-box VLMs. We report the CLIP Score ( ↑)to measure semantic consistency across various text encoders and their ensemble average, alongside the LLM-based ASR evaluated by GPT-4. In the following tables, highlighted, underlined, and gray-shaded values indicate the best, second-best, and our method’s results, respectively, for each case. 
+
+VLM Model Attack Method Text Encoder for Evaluation (CLIP Score ↑) ASR ( ↑)
+
+RN50 RN101 ViT-B/16 ViT-B/32 ViT-B/14 Ensemble ASR fool ASR target 
+
+UniDiffuser [47] Clean Image 0.4417 0.4275 0.4504 0.4690 0.3215 0.4220 0.00% 0.00% BSR [49] 0.5415 0.5244 0.5542 0.5728 0.4382 0.5262 72.30% 18.00% OPS [32] 0.6470 0.6284 0.6592 0.6748 0.5635 0.6345 94.40% 52.30% M-Attack [15] 0.5620 0.5454 0.5747 0.5908 0.4617 0.5469 73.30% 23.10% AdvDiffVLM [16] 0.6465 0.6289 0.6582 0.6748 0.5630 0.6343 90.20% 51.90% MF-it [13] 0.6768 0.6577 0.6909 0.7065 0.5933 0.6650 91.10% 48.20% MF-ii [13] 0.7061 0.6929 0.7188 0.7324 0.6353 0.6970 98.00% 72.10% COA [14] 0.7100 0.6880 0.7217 0.7398 0.6284 0.6976 98.80% 73.20% 
+
+Ours 0.7793 0.7647 0.7891 0.7998 0.7197 0.7705 99.80% 89.40% BLIP2 [28] Clean Image 0.4663 0.4526 0.4763 0.4954 0.3491 0.4480 0.00% 0.00% BSR [49] 0.5874 0.5659 0.5991 0.6162 0.4858 0.5709 55.00% 20.80% OPS [32] 0.6475 0.6255 0.6582 0.6743 0.5581 0.6327 72.10% 34.80% M-Attack [15] 0.5376 0.5161 0.5498 0.5669 0.4292 0.5199 30.80% 9.90% AdvDiffVLM [16] 0.6333 0.6133 0.6450 0.6616 0.5440 0.6194 63.70% 32.90% MF-it [13] 0.7607 0.7446 0.7715 0.7813 0.6943 0.7505 93.50% 70.60% MF-ii [13] 0.7676 0.7529 0.7773 0.7896 0.7041 0.7583 97.80% 82.80% COA [14] 0.7754 0.7598 0.7852 0.7959 0.7110 0.7654 99.30% 80.20% 
+
+Ours 0.8359 0.8228 0.8438 0.8525 0.7861 0.8282 99.40% 94.70% InstructBLIP [29] Clean Image 0.4639 0.4544 0.4756 0.4934 0.3442 0.4463 0.00% 0.00% BSR [49] 0.5801 0.5635 0.5903 0.6060 0.4775 0.5635 55.20% 22.00% OPS [32] 0.6367 0.6196 0.6484 0.6626 0.5444 0.6224 71.70% 34.10% M-Attack [15] 0.5337 0.5161 0.5435 0.5601 0.4209 0.5148 32.00% 9.30% AdvDiffVLM [16] 0.6333 0.6167 0.6455 0.6587 0.5405 0.6189 66.80% 35.20% MF-it [13] 0.7603 0.7456 0.7700 0.7803 0.6948 0.7502 94.10% 73.70% MF-ii [13] 0.7695 0.7544 0.7783 0.7886 0.7036 0.7589 98.40% 84.00% COA [14] 0.7720 0.7583 0.7832 0.7920 0.7075 0.7626 99.10% 81.30% 
+
+Ours 0.8345 0.8223 0.8423 0.8501 0.7827 0.8264 99.30% 95.70% MiniGPT-4 [27] Clean Image 0.2871 0.3916 0.3252 0.3569 0.2131 0.3148 0.00% 0.00% BSR [49] 0.3696 0.4873 0.4229 0.4458 0.3196 0.4090 55.20% 20.30% OPS [32] 0.3945 0.5288 0.4536 0.4724 0.3596 0.4418 71.80% 35.60% M-Attack [15] 0.3311 0.4446 0.3792 0.4063 0.2703 0.3663 29.90% 7.90% AdvDiffVLM [16] 0.3982 0.5269 0.4561 0.4773 0.3630 0.4443 63.70% 31.50% MF-it [13] 0.4929 0.6270 0.5591 0.5737 0.4793 0.5464 94.60% 72.00% MF-ii [13] 0.5112 0.6431 0.5781 0.5898 0.4998 0.5644 98.10% 81.00% COA [14] 0.5161 0.6445 0.5850 0.5962 0.5054 0.5694 99.60% 78.70% 
+
+Ours 0.5850 0.7061 0.6519 0.6602 0.5801 0.6366 99.70% 95.60% LLaVA [3] Clean Image 0.3413 0.4395 0.3770 0.4021 0.2341 0.3588 0.00% 0.00% BSR [49] 0.4734 0.5444 0.5171 0.5308 0.3901 0.4912 64.80% 25.30% OPS [32] 0.5064 0.5767 0.5503 0.5635 0.4277 0.5249 72.50% 39.70% M-Attack [15] 0.4233 0.5015 0.4609 0.4802 0.3252 0.4382 40.40% 11.10% AdvDiffVLM [16] 0.4800 0.5513 0.5205 0.5396 0.3945 0.4972 60.70% 25.40% MF-it [13] 0.4922 0.5640 0.5366 0.5523 0.4209 0.5132 67.70% 27.60% MF-ii [13] 0.5625 0.6274 0.6128 0.6211 0.5000 0.5848 88.00% 61.00% COA [14] 0.5200 0.5913 0.5679 0.5786 0.4495 0.5415 88.90% 42.40% 
+
+Ours 0.6821 0.7246 0.7358 0.7324 0.6460 0.7042 99.10% 96.40% LLaVA-NeXT [48] Clean Image 0.2673 0.3809 0.3054 0.3120 0.1897 0.2911 0.00% 0.00% BSR [49] 0.3723 0.4729 0.4143 0.4097 0.2869 0.3912 56.50% 14.80% OPS [32] 0.3662 0.4727 0.4067 0.4019 0.2791 0.3853 53.60% 14.90% M-Attack [15] 0.3181 0.4268 0.3567 0.3562 0.2300 0.3375 29.80% 4.40% AdvDiffVLM [16] 0.3306 0.4382 0.3706 0.3713 0.2441 0.3510 37.90% 5.80% MF-it [13] 0.3325 0.4377 0.3674 0.3711 0.2417 0.3501 33.70% 4.10% MF-ii [13] 0.3738 0.4780 0.4104 0.4104 0.2874 0.3920 49.90% 15.60% COA [14] 0.3650 0.4648 0.4031 0.4019 0.2703 0.3810 60.30% 10.60% 
+
+Ours 0.5391 0.6338 0.5869 0.5835 0.4944 0.5675 92.60% 73.40% 
+
+Deep-Layer Uniform Sampling strategy, specifically selecting layers {7, 9, 11 } for the base ViT-B/32 model. The balancing weights {λf eat , λ cls , λ spa , λ mid } are scaled according to the backbone architecture, for instance, they are set to 1.5, 1.0, 0.7, 2.5 for ViT-B/32. For larger models like ViT-L and ViT-G, we proportionally increase the feature alignment weights and apply the corresponding layer mappings to accommodate their higher-dimensional feature spaces and deeper architectures. 
+
+B. Comprehensive Evaluation on Open-Source VLMs 
+
+In this section, we present a comprehensive evaluation of our proposed method against state-of-the-art transfer-based targeted attacks. We conduct experiments across six represen-tative open-source VLMs ranging from 1.4B to 72.3B parame-ters, including UniDiffuser, BLIP-2, InstructBLIP, MiniGPT-4, LLaVA, and LLaVA-NeXT. To ensure a consistent evaluation setting, we employ a unified prompt: “ What is the content of the image? ” during the inference phase. 
+
+Quantitative Attack Performance. We first conduct a quan-titative comparison to assess the attack effectiveness. As reported in Table II, our method demonstrates superior per-formance across all metrics. 1) Our method consistently achieves state-of-the-art per-formance in both ASR fool and ASR target metrics across 7Clean BSR OPS M-Attack AdvDiffVLM MF-it MF-ii COA Ours 
+
+Fig. 3: Visual comparison of adversarial examples generated by various attack methods. all evaluated models. Specifically, regarding the chal-lenging ASR target which measures the targeted semantic accuracy, SGHA-Attack demonstrates substantial im-provements over the strongest baselines. For instance, on the 12.1B parameter BLIP-2 model, we achieve an ASR target of 94.70%, significantly surpassing MF-ii (82.80%) and COA (80.20%). This indicates that our approach not only successfully misleads the VLMs but also precisely steers them toward the target semantics, reducing irrelevant outputs. 2) In terms of semantic consistency, our approach yields significant gains in Ensemble CLIP Scores. High CLIP scores imply that the generated adversarial captions are semantically aligned with the target prompts across diverse vision encoders. As shown in Table II, SGHA-Attack obtains the highest scores on all six victim models (e.g., 0.8282 on BLIP-2 compared to 0.7654 for COA). This confirms that our hierarchical align-ment generates generalizable semantic features rather than overfitting to surrogate-specific biases and artifacts, ensuring the adversarial perturbations remain effective across different feature extractors. 3) Regarding robustness across model scales and architec-tures, our method exhibits strong generalization from the lightweight 1.4B UniDiffuser to the 72.3B LLaVA-NeXT. Regardless of the underlying cross-modal align-ment mechanisms (e.g., linear projection or Q-Former), our attack maintains high efficacy. Notably, on LLaVA-NeXT where standard methods struggle due to stronger robustness, SGHA-Attack maintains a high success rate of 73.40%. This validates that our multi-granularity strategy effectively generalizes across architectures de-fenses to establish robust semantic control. 
+
+Visual Quality Performance. We evaluate the visual quality and targeted effectiveness of the generated adversarial exam-ples through both quantitative metrics reported in Table III and qualitative visualizations presented in Fig. 3 and Fig. 4. 1) As shown in Table III, performance varies significantly by attack category. Unrestricted methods like AdvD-iffVLM suffer from noticeable structural degradation (SSIM 0.69) due to their diffusion-based generation pro-cess. In contrast, perturbation-constrained methods oper-ate under a standard budget ( ϵ = 8 /255 ) and consistently TABLE III: Quantitative evaluation of visual quality.                       
+
+> Category Method SSIM ↑PSNR ↑
+> Unrestricted AdvDiffVLM [16] 0.69 23.06 Perturbation Constrained BSR [49] 0.83 31.65 OPS [32] 0.83 31.26 M-Attack [15] 0.89 33.78 MF-it [13] 0.89 33.98 MF-ii [13] 0.90 34.28
+> COA [14] 0.89 33.68
+> Ours 0.89 33.71
+
+maintain high structural integrity. Our method achieves an SSIM of 0.89 and PSNR of 33.71, demonstrating that our approach yields visual quality comparable to state-of-the-art constrained baselines (e.g., MF-ii) while significantly surpassing unrestricted approaches. This imperceptibility is qualitatively supported by Fig. 3, while unrestricted approaches introduce observable blur-ring artifacts, our method produces perturbations that are virtually imperceptible to the human eye, preserving texture details and color consistency. 2) We further demonstrate the practical effectiveness of these attacks in Fig. 4. Despite keeping the perturba-tion nearly imperceptible, our method can reliably steer the model’s interpretation toward the target semantics. For instance, in Fig. 4(a), although the image clearly shows “three white wolves”, UniDiffuser is induced to describe it as a “bathroom with tiled walls”. Even for the more robust LLaVA-NeXT (Fig. 4(f)), our method drives the model to generate “laptop computers” from an image of a salamander. These examples show that our approach achieves precise targeted control by enforcing target-aligned semantics, causing the model’s generated descriptions to follow the target prompt rather than the original visual content. 
+
+C. Evaluation on Closed-Source Commercial VLMs 
+
+In this section, we assess the practical threat of our method in real-world black-box scenarios by extending our evaluation to three leading commercial VLMs: OpenAI GPT-4o, Google Gemini-2.0, and Anthropic Claude-3.5. Due to the high infer-ence costs and rate limits associated with commercial APIs, we 8(adv) a man laying on the       
+
+> ground next to a cat
+> (ori) three white wolves
+> standing on top of rocks
+> (adv) The image shows a
+> collection of laptop
+> computers and computer
+> parts. There are several
+> laptops with their screens
+> open, and some appear to be
+> in various states of disrepair
+> or disassembly
+> (ori) a herd of goats grazing
+> on a rocky hillside
+> (adv) a bathroom with tiled
+> walls, toilet, sink and bathtub
+> (ori) The image features a
+> close-up view of a yellow
+> mushroom growing in a
+> grassy area. The mushroom is
+> surrounded by dry grass and
+> appears to be growing on a
+> tree branch
+> (adv) a wooden tray with
+> meat and rice on it
+> (ori) a yellow taxi cab parked
+> on the street
+> Target ：There are many different laptop computers
+> around the table
+> Target ：A wooden table holding a black tray of meat and
+> rice
+> Target ：A bathroom with white tile and a beige toilet Target ：a man is laying on the floor playing with a cat
+> (a) UniDiffuser (b) BLIP2 (c) InstructBLIP
+> Target ：A young child smiles while brushing his teeth
+> (ori) The image shows a
+> close up of a car wheel with
+> a white background
+> (adv) The image shows a
+> child holding a toothbrush
+> and looking at the camera
+> with a smile on their face
+> Target ：A horse with a blue saddle is at a race track
+> (adv) The image features a
+> horse with a jockey riding it,
+> possibly in a race or
+> training session. The horse
+> is wearing a saddle and is
+> positioned on a track
+> (ori) The image shows a
+> salamander with bright
+> orange skin, which is likely
+> an Eastern Redback
+> Salamander (Plethodon
+> cinereus)
+> (d) MiniGPT-4 (e) LLaVA (f) LLaVA-NeXT
+
+Fig. 4: Qualitative results of our attack on multiple open-source VLMs. The target text prompt is shown above each image pair. For each example, the left image is the clean original with its caption, and the right image is the adversarial example generated by our method ( ϵ = 8 /255 ) with the model-generated caption. The adversarial captions closely align with the target texts, while the images remain visually similar to the originals. conduct this evaluation on a subset of 100 randomly sampled image-text pairs. To ensure a fair and rigorous assessment against these strongly aligned models, we adopt the exper-imental protocols established in M-Attack [15], utilizing an ensemble of three CLIP visual encoders as surrogates. 
+
+Quantitative Attack Performance. We report the quantitative performance in Table IV, covering both standard ( ϵ = 8 /255 )and enhanced ( ϵ = 16 /255 ) perturbation settings to demon-strate performance gains when integrating our strategy into the M-Attack framework. 1) Our method exhibits stronger effectiveness in both breaking model recognition (ASR fool ) and achieving targeted semantics (ASR target ). Under the “Enhanced Set-ting” ( ϵ = 16 /255 ), we achieve a 97% ASR fool on GPT-4o (vs. 87% for M-Attack), demonstrating our ability to reliably disrupt the model’s visual understanding. More importantly, we translate this disruption into targeted control, boosting ASR target from 47% to 79%. This superiority extends to the robust Claude-3.5, where we surpass M-Attack in both fooling rate (67% vs 52%) and targeted success (26% vs 7%). Notably, our constrained attack even outperforms the unrestricted AdvDiffVLM (12% success on GPT-4o) significantly, highlighting the efficiency of our semantic-guided optimization. 2) Beyond success rates, our method consistently achieves the highest Ensemble CLIP Scores, supporting the gen-erality of the learned hierarchical semantic alignment. For instance, under the Enhanced setting for GPT-4o, we reach an Ensemble Score of 0.6098, surpassing M-Attack (0.5714). This confirms that our hierarchical alignment ensures the target semantics are robustly recognized across diverse visual encoders, rather than overfitting to a specific surrogate. 
+
+Visual Quality Performance. We further provide visual evi-dence and imperceptibility analysis based on Figure 5 and the visual metrics in Table IV. 1) As shown in the Visual Metrics column of Table IV, our method maintains high structural integrity. Under the standard setting, we achieve an SSIM of 0.89 com-parable to the clean baseline. Even in the enhanced setting, our method (SSIM 0.75) preserves significantly better visual quality than the unrestricted AdvDiffVLM (SSIM 0.69), which suffers from severe distortions. This quantitatively demonstrates that our method avoids the blurring artifacts typical of diffusion-based attacks while delivering stronger transferability. 2) Figure 5 provides qualitative evidence of our attack’s precision. We successfully decouple semantic interpreta-9
+
+TABLE IV: Quantitative performance comparison on commercial black-box VLMs. We compare methods under Standard (ϵ = 8 /255 ), Unrestricted, and Enhanced ( ϵ = 16 /255 ) settings. Ens. denotes the Ensemble CLIP Score.                                                                                                                             
+
+> Setting Method Visual Metrics GPT-4o Gemini-2.0 Claude-3.5 SSIM PSNR Ens. ASR fool ASR target Ens. ASR fool ASR target Ens. ASR fool ASR target
+> Clean No Attack 1.00 Inf 0.3078 0% 0% 0.2345 0% 0% 0.2558 0% 0%
+> Standard
+> 100 iter
+> ϵ= 8 /255
+> MF-ii [13] 0.90 34.32 0.3559 8% 0% 0.3651 7% 0% 0.2812 12% 0% M-Attack [15] 0.89 33.82 0.4166 32% 4% 0.4096 25% 3% 0.2913 19% 1%
+> Ours 0.89 33.71 0.4699 61% 20% 0.4466 37% 8% 0.3120 25% 3%
+> Unrestricted AdvDiffVLM [16] 0.69 23.41 0.5101 61% 12% 0.4853 46% 8% 0.3466 41% 9%
+> Enhanced
+> 300 iter
+> ϵ= 16 /255
+> MF-ii [13] 0.74 28.79 0.3759 14% 0% 0.3715 9% 0% 0.2874 19% 0% M-Attack [15] 0.75 28.79 0.5714 87% 47% 0.5516 79% 45% 0.3502 52% 7%
+> Ours 0.75 28.73 0.6098 97% 79% 0.6104 89% 67% 0.4065 67% 26% Target ：abaseball player
+> gets ready to throw a pitch .
+> Claude
+> Prom pt ：What is the content
+> of the image?
+> ChatGPT
+> The image appears to depict a baseball player in
+> the act of pitching . The player is likely wearing a
+> baseball uniform and holding a baseball. The
+> background suggests a baseball field.
+> Target ：A man flies his kite
+> in a grassy park .
+> Gemini
+> Here's a description of the image content:
+> Overall Impression: The image appears to show
+> a person preparing or launching a kite . The
+> scene is outdoors, likely in a grassy field ......
+> Target ：Acat sitting between
+> awindow and blinds.
+> The image appears to be a stylized or glitchy
+> digital rendering of a cat sitting near a window
+> or glass door. The scene has a distorted, almost
+> 3D or anaglyph-like visual effect with .......
+> (a) GPT-4o (b) Gemini-2.0 (c) Claude-3 .5
+> Prom pt ：What is the content
+> of the image?
+> Prom pt ：What is the content
+> of the image?
+
+Fig. 5: Visualization of targeted adversarial attacks on commercial black-box VLMs. We display the adversarial image, the target text, and the actual response generated by the model. tion from visual content without arousing suspicion. For instance, in Figure 5(a), GPT-4o incorrectly describes a monkey as a “baseball player” preparing to pitch. Simi-larly, Gemini-2.0 describes a box as a person “launching a kite”, and Claude-3.5 perceives a “cat sitting” near a window. These examples confirm that our method can induce targeted descriptions while preserving the visual realism of the original images. 
+
+D. Robustness Against Adversarial Defenses 
+
+To evaluate robustness against preprocessing-based de-fenses, we test our method against Bit Reduction (4-bit) [52], JPEG Compression (QF=75) [53], ComDefend [54], and DiffPure [55]. As shown in Table V, our method consis-tently outperforms baselines in maintaining high ASR target 
+
+and Ensemble CLIP Scores. Notably, under quantization and compression, our method significantly surpasses both MF-ii and COA across all victim models. This robustness indicates that our hierarchical alignment strategy encourages robust target-aligned representations features into the deep semantic structure of the image, allowing target semantics to survive input transformations and signal purification mechanisms that typically filter out superficial perturbations. In comparison, while COA exhibits comparable fooling rates, its performance in targeted attacks decreases markedly under defense mechanisms. We attribute this to COA’s reliance on high-frequency priors from an auxiliary network, which tends to yield high-frequency noise patterns. While effective at disrupting recognition (high ASR fool ), these patterns are less robust semantically and are easily smoothed out by purifica-tion. In contrast, our method focuses on semantic robustness through cross-modal synchronization. By constructing a robust semantic skeleton rather than relying on fragile noise, our adversarial features remain effective even after purification, yielding significantly higher targeted attack success rates com-pared to COA across diverse defense settings. 
+
+E. Ablation of the Three Proposed Modules 
+
+We conduct ablation studies on UniDiffuser, BLIP-2, and LLaVA to examine the contribution of each component. We use MF-it as the baseline, which optimizes Ltxt only. As shown in Table VI, enabling SGAI, HVSA, and CLSS cor-responds to adding Lanc , Lf eat , and Lmid , respectively, and the full model uses all three terms together with Ltxt .Overall, adding any single component on top of MF-it consistently improves targeted control and semantic con-sistency. In particular, introducing SGAI ( +Lanc ) yields a large gain across all three models, e.g., on LLaVA, ASR target 
+
+increases from 27.60% to 66.10%. HVSA ( +Lf eat ) provides the strongest boost on the challenging instruction-tuned model, raising ASR target on LLaVA to 92.90%, and combining SGAI and HVSA further improves it to 96.20%. CLSS ( +Lmid )offers complementary cross-modal guidance, improving the overall balance of Ensemble CLIP Score and targeted suc-cess when combined with the other terms. Finally, the full objective achieves the best overall performance across models, 10 
+
+TABLE V: Defense-aware black-box attacks against victim VLMs. We evaluate Ens., ASR fool , and ASR target under four preprocessing-based defenses: Bit Reduction, JPEG Compression, ComDefend, and DiffPure. 
+
+VLM Model Attack Bit Reduction [52] JPEG Compression [53] ComDefend [54] DiffPure [55] Ens. ASR fool ASR target Ens. ASR fool ASR target Ens. ASR fool ASR target Ens. ASR fool ASR target 
+
+AdvDiffVLM [16] 0.5422 69.20% 21.60% 0.5497 72.20% 24.00% 0.4900 62.50% 10.50% 0.5110 62.80% 14.40% MF-ii [13] 0.6599 94.40% 60.00% 0.6316 91.30% 51.20% 0.5611 79.10% 28.70% 0.5061 56.00% 13.20% COA [14] 0.6833 98.40% 65.60% 0.6551 98.40% 56.80% 0.5823 93.30% 34.50% 0.5447 83.40% 20.30% UniDiffuser 
+
+Ours 0.7452 97.30% 81.70% 0.7225 97.10% 77.10% 0.6505 91.00% 56.00% 0.5686 70.10% 27.20% 
+
+AdvDiffVLM [16] 0.5675 45.90% 19.60% 0.5281 42.50% 11.90% 0.5098 32.30% 8.10% 0.5512 41.50% 13.70% MF-ii [13] 0.6532 75.50% 42.60% 0.5169 37.40% 12.40% 0.5095 31.40% 9.00% 0.5158 27.40% 7.10% COA [14] 0.6912 90.50% 56.40% 0.5446 60.20% 15.60% 0.5413 55.60% 14.40% 0.5337 48.00% 11.60% BLIP-2 
+
+Ours 0.7575 91.90% 73.90% 0.5882 56.40% 27.40% 0.5738 51.80% 24.30% 0.5600 43.30% 18.50% 
+
+AdvDiffVLM [16] 0.5645 48.70% 19.30% 0.5123 38.70% 11.50% 0.5173 34.30% 8.90% 0.5453 43.00% 15.00% MF-ii [13] 0.6412 77.00% 43.50% 0.5098 33.70% 10.60% 0.5161 32.80% 9.70% 0.5126 27.40% 7.60% COA [14] 0.6830 92.20% 56.00% 0.5403 59.30% 15.70% 0.5420 55.50% 14.60% 0.5318 47.80% 11.60% InstructBLIP 
+
+Ours 0.7484 93.30% 74.40% 0.5747 54.00% 25.10% 0.5766 51.70% 23.30% 0.5610 44.90% 18.20% 
+
+AdvDiffVLM [16] 0.3901 44.70% 15.80% 0.3813 38.80% 9.80% 0.3833 31.40% 6.00% 0.3899 38.50% 10.80% MF-ii [13] 0.4547 76.30% 39.30% 0.3776 35.50% 8.90% 0.3970 31.10% 7.30% 0.3759 25.00% 6.40% COA [14] 0.4946 92.70% 52.80% 0.3991 62.60% 14.10% 0.4213 57.60% 13.00% 0.3910 48.80% 9.50% MiniGPT-4 
+
+Ours 0.5574 93.90% 73.40% 0.4325 54.70% 24.20% 0.4498 50.30% 22.40% 0.4202 42.50% 16.20% 
+
+AdvDiffVLM [16] 0.4247 34.00% 6.60% 0.4313 34.40% 6.80% 0.4054 26.10% 2.10% 0.4248 31.60% 5.20% MF-ii [13] 0.5160 66.20% 30.30% 0.4450 39.40% 11.40% 0.4063 24.50% 4.40% 0.4131 18.10% 2.60% COA [14] 0.4986 76.70% 23.20% 0.4137 40.60% 3.80% 0.4104 35.10% 2.60% 0.4437 41.60% 10.80% LLaVA 
+
+Ours 0.6402 93.50% 76.40% 0.5380 70.10% 38.10% 0.4710 46.20% 18.00% 0.4520 37.40% 11.90% 
+
+AdvDiffVLM [16] 0.3413 27.40% 1.30% 0.3267 26.90% 1.90% 0.3417 27.70% 0.40% 0.3294 24.80% 1.20% MF-ii 0.3301 39.50% 9.50% 0.3622 26.50% 3.50% 0.3276 20.90% 1.30% 0.3172 15.20% 0.80% COA [14] 0.3701 58.50% 6.10% 0.3326 32.60% 1.70% 0.3358 31.90% 1.00% 0.3375 30.20% 3.30% LLaVA-NeXT 
+
+Ours 0.4843 78.50% 44.40% 0.3954 49.20% 15.80% 0.3660 37.50% 7.40% 0.3423 25.60% 3.80% 
+
+TABLE VI: Ablation of the three proposed modules (SGAI, HVSA, and CLSS). We report Ens., ASR fool , and ASR target on multiple VLMs. Ltxt is the baseline, adding Lanc , Lf eat , and Lmid activates SGAI, HVSA, and CLSS, respectively. 
+
+Loss Terms UniDiffuser BLIP-2 LLaVA 
+
+Ltxt Lanc Lf eat Lmid Ens. ASR fool ASR target Ens. ASR fool ASR target Ens. ASR fool ASR target 
+
+✓ 0.6650 91.10% 48.20% 0.7505 93.50% 70.60% 0.5132 67.70% 27.60% 
+
+✓ ✓ 0.7545 99.40% 83.20% 0.7844 95.70% 83.30% 0.6107 87.70% 66.10% 
+
+✓ ✓ 0.7393 99.30% 84.90% 0.8049 99.30% 92.30% 0.6825 99.90% 92.90% 
+
+✓ ✓ 0.7375 98.20% 78.20% 0.7770 96.30% 83.30% 0.6076 86.80% 62.60% 
+
+✓ ✓ ✓ 0.7675 99.60% 88.80% 0.8244 99.30% 95.70% 0.7025 99.80% 96.20% 
+
+✓ ✓ ✓ 0.7551 99.50% 83.70% 0.8049 97.10% 85.10% 0.6149 88.10% 65.30% 
+
+✓ ✓ ✓ ✓ 0.7705 99.80% 89.40% 0.8282 99.40% 94.70% 0.7042 99.60% 96.40% 
+
+confirming that SGAI, HVSA, and CLSS are complementary for crafting transferable targeted adversarial examples. 
+
+F. Hyperparameter Selection 
+
+Anchor Settings ( K and τ ). We investigate the influence of the anchor count K and temperature τ on the UniDiffuser. As shown in Fig. 6, introducing even a single anchor ( K = 1 )boosts the Ensemble CLIP Score from the baseline 0.6970 to 0.7418. The performance peaks at K = 5 but degrades slightly with larger K, as excessive anchors introduce less relevant anchors. Regarding τ , extreme values lead to suboptimal weighting: small τ yields an overly sharp distribution that underutilizes the semantic diversity of the anchor set, while large τ produces an overly uniform distribution, failing to emphasize the most semantically relevant anchors. The results find τ = 5 as the optimal balance. Thus, we adopt K = 5 and 
+
+τ = 5 as the default settings. 
+
+Hierarchical Structure (Layers). We evaluate layer selection on UniDiffuser (ViT-B) in Fig. 7. Multi-layer alignment con-sistently outperforms single-layer baselines, among the tested combinations, using 3-layers achieves the best performance. 1 3 5 8 10 12                
+
+> Number of Anchors ( K)
+> 0.68
+> 0.70
+> 0.72
+> 0.74
+> 0.76
+> Ensemble CLIP Score
+> 0.7418
+> 0.7479
+> 0.7545 0.7534 0.7527 0.7513
+> Impact of Anchor Count K
+> Baseline
+> SGAI (Ours)
+> 0.5 1.0 2.5 5.0 10.0 50.0
+> Temperature ( )
+> 0.68
+> 0.70
+> 0.72
+> 0.74
+> 0.76 0.7522 0.7516 0.7526 0.7545 0.7530 0.7497
+> Impact of Temperature
+> Baseline
+> SGAI (Ours)
+
+Fig. 6: Impact of hyperparameter K and τ settings on attack performance evaluated on UniDiffuser. Aligning only the deepest consecutive layers is suboptimal, whereas selecting layers from the latter half of the network yields the best transferability, in particular, {7, 9, 11 } achieves the highest score. Motivated by this, we adopt a deep-layer uniform sampling strategy that selects uniformly spaced layers in the upper blocks (e.g., {7, 9, 11 } for ViT-B, {14, 18, 22 } for ViT-L, and {23, 30, 37 } for ViT-G). Additional experiments on BLIP-2 and LLaVA (Fig. 8) show that these selections 11 0.745 0.750 0.755 0.760 0.765 0.770 
+
+Ensemble CLIP Score 
+
+> {4}
+> {6}
+> {5, 11}
+> {4, 11}
+> {10}
+> {5, 8, 11}
+> {9, 10, 11}
+> {6, 11}
+> {6, 9, 11}
+> {5, 7, 9, 11}
+> {8}
+> {6, 8, 10, 11}
+> {8, 10, 11}
+> {6, 8, 10}
+> {8, 9, 10}
+> {7, 9, 11}
+
+Impact of Layer Selection (UniDiffuser) 
+
+> 1 Layer
+> 2 Layers
+> 3 Layers
+> 4 Layers
+
+Fig. 7: Ablation study on layer selection. 0.805 0.810 0.815 0.820 0.825 0.830      
+
+> Ensemble CLIP Score
+> {35, 37, 39}
+> {23, 25, 30}
+> {20, 25, 30}
+> {23, 30, 37}
+> BLIP-2 (ViT-G/14)
+> 0.645 0.650 0.655 0.660 0.665 0.670
+> Ensemble CLIP Score
+> {10, 16, 22}
+> {18, 20, 22}
+> {19, 21, 23}
+> {14, 18, 22}
+> LLaVA (ViT-L/14)
+
+Fig. 8: Validation of the strategy on different architectures. consistently outperform other heuristic choices, validating the generality of our strategy across architectures. 
+
+G. Efficiency Analysis 
+
+We conduct a runtime efficiency comparison to evaluate the computational cost of our method against state-of-the-art base-lines using a single NVIDIA A100 GPU. As shown in Table VII, our method achieves a favorable trade-off between attack performance and efficiency during the optimization phase. Specifically, generating an adversarial image requires only 6.58 seconds. While slightly slower than the more efficient baselines MF-it and MF-ii due to the additional computations from hierarchical alignment, our method is significantly faster than other strong baselines, being approximately 2.8 × faster than COA (18.36s) and nearly 10 × faster than OPS (65.33s). This indicates that our method delivers state-of-the-art trans-ferability with a modest computational overhead. V. C ONCLUSION 
+
+This work demonstrates that targeted, surrogate-driven per-turbations can reliably steer the outputs of diverse VLMs, and that improving cross-modal control requires going beyond final-layer embedding matching. Existing targeted transfer attacks commonly narrow guidance to a single target reference and focus optimization on the final layer, which makes the optimization sensitive to the surrogate-specific embedding space and leaves intermediate semantics underutilized when transferring across heterogeneous VLMs. TABLE VII: Average attack runtime (seconds) per optimization step and per adversarial image. 
+
+Category Method Time/step (s) Time/image (s) 
+
+Unrestricted AdvDiffVLM [16] – 60.0219 Perturbation Constrained BSR [49] 0.1249 12.5132 OPS [32] 0.6527 65.3270 M-Attack [15] 0.0729 7.3433 MF-it [13] 0.0249 2.5007 
+
+MF-ii [13] 0.0287 2.8812 COA [14] 0.1829 18.3643 
+
+Ours 0.0656 6.5801 
+
+To overcome these issues, we develop SGHA-Attack by combining anchor-based guidance with multi-granularity alignment. Rather than optimizing toward a single reference, the attack constructs a visually grounded reference pool and uses a weighted mixture to provide stable target guidance. To enforce hierarchical consistency, the attack aligns intermediate visual features at both global and spatial granularities across multiple depths, and further synchronizes visual and textual features within a shared latent subspace. This ensures that cross-modal supervision is injected early in the pipeline rather than being restricted to the final projection. Evaluations on both open-source and commercial black-box VLMs confirm that this design yields stronger targeted transferability and maintains robustness under common pre-processing and purification defenses. While highly effective, the improvements can be less pronounced on advanced com-mercial systems that incorporate proprietary defense policies and complex transformations, motivating future work on more adaptive transfer strategies for such policy-rich black-box set-tings. Ultimately, these results highlight the need for defenses that explicitly safeguard internal feature hierarchies against semantic-level hijacking. REFERENCES [1] J. Zhang, J. Huang, S. Jin et al. , “Vision-language models for vision tasks: A survey,” IEEE Transactions on Pattern Analysis and Machine Intelligence , vol. 46, no. 8, pp. 5625–5644, 2024. [2] J. Li, D. Li, C. Xiong et al. , “BLIP: bootstrapping language-image pre-training for unified vision-language understanding and generation,” in International Conference on Machine Learning , 2022, pp. 12 888– 12 900. [3] H. Liu, C. Li, Q. Wu et al. , “Visual instruction tuning,” in Advances in Neural Information Processing Systems , 2023. [4] J. Zhou, T. Lu, S. Mishra et al. , “Instruction-following evaluation for large language models,” arXiv preprint arXiv:2311.07911 , 2023. [5] Z. Xu, Y. Zhang, E. Xie et al. , “Drivegpt4: Interpretable end-to-end autonomous driving via large language model,” IEEE Robotics and Automation Letters , vol. 9, no. 10, pp. 8186–8193, 2024. [6] M. Moor, O. Banerjee, Z. S. H. Abad et al. , “Foundation models for generalist medical artificial intelligence,” Nature , vol. 616, no. 7956, pp. 259–265, 2023. [7] D. Liu, M. Yang, X. Qu et al. , “A survey of attacks on large vision-language models: Resources, advances, and future trends,” IEEE Trans-actions on Neural Networks and Learning Systems , vol. 36, no. 11, pp. 19 525–19 545, 2025. [8] Y. Dong, H. Chen, J. Chen et al. , “How robust is google’s bard to adversarial image attacks?” arXiv preprint arXiv:2309.11751 , 2023. [9] X. Qi, K. Huang, A. Panda et al. , “Visual adversarial examples jailbreak aligned large language models,” in AAAI Conference on Artificial Intelligence , 2024, pp. 21 527–21 536. 12 
+
+[10] J. Gu, X. Jia, P. de Jorge et al. , “A survey on transferability of adversarial examples across deep neural networks,” Transactions on Machine Learning Research , vol. 2024, 2024. [11] K. Greshake, S. Abdelnabi, S. Mishra, et al. , “Not what you’ve signed up for: Compromising real-world llm-integrated applications with indirect prompt injection,” in ACM Workshop on Artificial Intelligence and Security , 2023, pp. 79–90. [12] C. H. Wu, J. Y. Koh, R. Salakhutdinov et al. , “Adversarial attacks on multimodal agents,” arXiv preprint arXiv:2406.12814 , 2024. [13] Y. Zhao, T. Pang, C. Du et al. , “On evaluating adversarial robustness of large vision-language models,” in Advances in Neural Information Processing Systems , vol. 36, 2023, pp. 54 111–54 138. [14] P. Xie, Y. Bie, J. Mao et al. , “Chain of attack: On the robustness of vision-language models against transfer-based adversarial attacks,” in 
+
+IEEE/CVF Conference on Computer Vision and Pattern Recognition ,2025, pp. 14 679–14 689. [15] Z. Li, X. Zhao, D.-D. Wu et al. , “A frustratingly simple yet highly effective attack baseline: Over 90% success rate against the strong black-box models of gpt-4.5/4o/o1,” arXiv preprint arXiv:2503.10635 , 2025. [16] Q. Guo, S. Pang, X. Jia et al. , “Efficient generation of targeted and transferable adversarial examples for vision-language models via diffu-sion models,” IEEE Transactions on Information Forensics and Security ,vol. 20, pp. 1333–1348, 2025. [17] J. Achiam, S. Adler, S. Agarwal et al. , “GPT-4 technical report,” arXiv preprint arXiv:2303.08774 , 2023. [18] G. Team, R. Anil, S. Borgeaud et al. , “Gemini: A family of highly capable multimodal models,” arXiv preprint arXiv:2312.11805 , 2023. [19] K.-H. Lee, X. Chen, G. Hua et al. , “Stacked cross attention for image-text matching,” in European Conference on Computer Vision , 2018, pp. 212–228. [20] Y.-C. Chen, L. Li, L. Yu et al. , “UNITER: universal image-text repre-sentation learning,” in European Conference on Computer Vision , 2020, pp. 104–120. [21] P. Anderson, X. He, C. Buehler et al. , “Bottom-up and top-down atten-tion for image captioning and visual question answering,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2018, pp. 6077–6086. [22] Y. Goyal, T. Khot, D. Summers-Stay et al. , “Making the V in VQA matter: Elevating the role of image understanding in visual question answering,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2017, pp. 6325–6334. [23] W. X. Zhao, K. Zhou, J. Li et al. , “A survey of large language models,” 
+
+arXiv preprint arXiv:2303.18223 , 2023. [24] C. Zhou, Q. Li, C. Li et al. , “A comprehensive survey on pretrained foundation models: A history from BERT to chatgpt,” International Journal of Machine Learning and Cybernetics , vol. 16, no. 12, pp. 9851– 9915, 2025. [25] H. Touvron, T. Lavril, G. Izacard et al. , “Llama: Open and efficient foundation language models,” arXiv preprint arXiv:2302.13971 , 2023. [26] W.-L. Chiang, Z. Li, Z. Lin et al. , “Vicuna: An open-source chatbot im-pressing gpt-4 with 90%* chatgpt quality,” See https://vicuna.lmsys.org ,2023. [27] D. Zhu, J. Chen, X. Shen et al. , “Minigpt-4: Enhancing vision-language understanding with advanced large language models,” in International Conference on Learning Representations , 2024. [28] J. Li, D. Li, S. Savarese et al. , “BLIP-2: bootstrapping language-image pre-training with frozen image encoders and large language models,” in International Conference on Machine Learning , 2023, pp. 19 730– 19 742. [29] W. Dai, J. Li, D. Li et al. , “Instructblip: Towards general-purpose vision-language models with instruction tuning,” in Advances in Neural Information Processing Systems , 2023. [30] I. J. Goodfellow, J. Shlens, and C. Szegedy, “Explaining and harnessing adversarial examples,” in International Conference on Learning Repre-sentations , 2015. [31] N. Carlini and D. A. Wagner, “Towards evaluating the robustness of neural networks,” in IEEE Symposium on Security and Privacy , 2017, pp. 39–57. [32] Y. Guo, W. Liu, Q. Xu et al. , “Boosting adversarial transferability through augmentation in hypothesis space,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2025, pp. 19 175–19 185. [33] X. Wang, X. He, J. Wang et al. , “Admix: Enhancing the transferabil-ity of adversarial attacks,” in IEEE/CVF International Conference on Computer Vision , 2021, pp. 16 138–16 147. [34] C. Xie, Z. Zhang, Y. Zhou et al. , “Improving transferability of ad-versarial examples with input diversity,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2019, pp. 2730–2739. [35] H. Wang, W. Luo, X. Xie et al. , “Adv-inversion: Stealthy adversarial attacks via gan-inversion for facial privacy protection,” IEEE Transac-tions on Information Forensics and Security , vol. 20, pp. 11 892–11 906, 2025. [36] X. Jia, S. Gao, S. Qin et al. , “Adversarial attacks against closed-source mllms via feature optimal alignment,” arXiv preprint arXiv:2505.21494 ,2025. [37] Z. Chen, B. Li, S. Wu et al. , “Query-efficient decision-based black-box patch attack,” IEEE Transactions on Information Forensics and Security ,vol. 18, pp. 5522–5536, 2023. [38] H. Wang, K. Dong, Z. Zhu et al. , “Transferable multimodal attack on vision-language pre-training models,” in IEEE Symposium on Security and Privacy , 2024, pp. 1722–1740. [39] X. Cui, A. Aparcedo, Y. K. Jang et al. , “On the robustness of large multimodal models against image adversarial attacks,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2024, pp. 24 625–24 634. [40] J. Zhang, Q. Yi, and J. Sang, “Towards adversarial attack on vision-language pre-training models,” in ACM International Conference on Multimedia , 2022, pp. 5005–5013. [41] D. Lu, Z. Wang, T. Wang et al. , “Set-level guidance attack: Boosting adversarial transferability of vision-language pre-training models,” in 
+
+IEEE/CVF International Conference on Computer Vision , 2023, pp. 102–111. [42] Y. Wang, C. Liu, Y. Qu et al. , “Break the visual perception: Adversarial attacks targeting encoded visual tokens of large vision-language models,” in ACM International Conference on Multimedia , 2024, pp. 1072–1081. [43] Y. Cao, Y. Li, K. Liang et al. , “Enhancing targeted adversarial attacks on large vision-language models via intermediate projector,” arXiv preprint arXiv:2508.13739 , 2025. [44] J. Deng, W. Dong, R. Socher et al. , “Imagenet: A large-scale hierarchical image database,” in IEEE Conference on Computer Vision and Pattern Recognition , 2009, pp. 248–255. [45] T.-Y. Lin, M. Maire, S. J. Belongie et al. , “Microsoft COCO: common objects in context,” in European Conference on Computer Vision , 2014, pp. 740–755. [46] R. Rombach, A. Blattmann, D. Lorenz et al. , “High-resolution image synthesis with latent diffusion models,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2022, pp. 10 674–10 685. [47] F. Bao, S. Nie, K. Xue et al. , “One transformer fits all distributions in multi-modal diffusion at scale,” in International Conference on Machine Learning , 2023, pp. 1692–1717. [48] H. Liu, C. Li, Y. Li et al. , “Llava-next: Improved reasoning, ocr, and world knowledge,” 2024. [Online]. Available: https://llava-vl.github.io/ blog/2024-01-30-llava-next/ [49] K. Wang, X. He, W. Wang et al. , “Boosting adversarial transferability by block shuffle and rotation,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2024, pp. 24 336–24 346. [50] Z. Wang, A. C. Bovik, H. R. Sheikh et al. , “Image quality assessment: from error visibility to structural similarity,” IEEE Transactions on Image Processing , vol. 13, no. 4, pp. 600–612, 2004. [51] A. Madry, A. Makelov, L. Schmidt et al. , “Towards deep learning models resistant to adversarial attacks,” in International Conference on Learning Representations , 2018. [52] W. Xu, D. Evans, and Y. Qi, “Feature squeezing: Detecting adversarial examples in deep neural networks,” in Annual Network and Distributed System Security Symposium , 2018. [53] G. K. Dziugaite, Z. Ghahramani, and D. M. Roy, “A study of the effect of JPG compression on adversarial images,” arXiv preprint arXiv:1608.00853 , 2016. [54] X. Jia, X. Wei, X. Cao et al. , “Comdefend: An efficient image compres-sion model to defend adversarial examples,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2019, pp. 6084–6092. [55] W. Nie, B. Guo, Y. Huang et al. , “Diffusion models for adversarial purification,” in International Conference on Machine Learning , 2022, pp. 16 805–16 827.
