@@ -1,0 +1,748 @@
+Title: Empowering LLMs for Structure-Based Drug Design via Exploration-Augmented Latent Inference
+
+URL Source: https://arxiv.org/pdf/2601.15333v2
+
+Published Time: Tue, 27 Jan 2026 01:58:23 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# Empowering LLMs for Structure-Based Drug Design via Exploration-Augmented Latent Inference 
+
+# Xuanning Hu 
+
+College of Computer Science and Technology, Jilin University Key Laboratory of Symbolic Computation and Knowledge Engineering of Ministry of Education, Jilin University Changchun, Jilin, China huxn24@mails.jlu.edu.cn 
+
+# Anchen Li 
+
+Department of Computer Science, Aalto University Espoo, Finland anchen.li@aalto.fi 
+
+# Qianli Xing ∗
+
+College of Computer Science and Technology, Jilin University Key Laboratory of Symbolic Computation and Knowledge Engineering of Ministry of Education, Jilin University Changchun, Jilin, China qianlixing@jlu.edu.cn 
+
+# Jinglong Ji 
+
+College of Artificial Intelligence, Jilin University Key Laboratory of Symbolic Computation and Knowledge Engineering of Ministry of Education, Jilin University Changchun, Jilin, China jijl22@mails.jlu.edu.cn 
+
+# Hao Tuo 
+
+College of Computer Science and Technology, Jilin University Key Laboratory of Symbolic Computation and Knowledge Engineering of Ministry of Education, Jilin University Changchun, Jilin, China tuohao25@mails.jlu.edu.cn 
+
+# Bo Yang ∗
+
+College of Computer Science and Technology, Jilin University Key Laboratory of Symbolic Computation and Knowledge Engineering of Ministry of Education, Jilin University Changchun, Jilin, China ybo@jlu.edu.cn 
+
+## Abstract 
+
+Large Language Models (LLMs) possess strong representation and reasoning capabilities, but their application to structure-based drug design (SBDD) is limited by insufficient understanding of protein structures and unpredictable molecular generation. To address these challenges, we propose Exploration-Augmented Latent Inference for LLMs (ELILLM), a framework that reinterprets the LLM genera-tion process as an encoding, latent space exploration, and decod-ing workflow. ELILLM explicitly explores portions of the design problem beyond the model’s current knowledge while using a de-coding module to handle familiar regions, generating chemically valid and synthetically reasonable molecules. In our implemen-tation, Bayesian optimization guides the systematic exploration of latent embeddings, and a position-aware surrogate model effi-ciently predicts binding affinity distributions to inform the search. Knowledge-guided decoding further reduces randomness and ef-fectively imposes chemical validity constraints. We demonstrate ELILLM on the CrossDocked2020 benchmark, showing strong con-trolled exploration and high binding affinity scores compared with seven baseline methods. These results demonstrate that ELILLM can effectively enhance LLMs’ capabilities for SBDD. Our code is available at https://github.com/hxnhxn/ELILLM. 
+
+## CCS Concepts 
+
+• Computing methodologies → Natural language processing ;
+
+Search methodologies ; • Applied computing → Computational biology .
+
+> ∗Corresponding author.
+
+## Keywords 
+
+Structure-Based Drug Design, Large Language Models, Latent Space, Bayesian Optimization 
+
+## 1 Introduction 
+
+Structure-Based Drug Design (SBDD), which aims to design novel compounds conditioned on structural information specific to the protein binding site, is a fundamental problem in drug discovery and biomedical research, and has been widely applied in tasks such as virtual screening and lead compound identification. Early approaches adopted variational autoencoders (VAEs) [ 5, 26 ], au-toregressive models [ 21 , 23 , 25 ], and more recently, diffusion mod-els [ 9 – 11 , 13 ]—all of which have shown strong performance in generating valid and diverse molecules. However, unlike human experts who iteratively refine molecular designs based on accumu-lated feedback, these models typically follow a generation process that lacks intermediate feedback and relies heavily on the training data distribution, which makes their generation less flexible and prevents them from dynamically incorporating new experience. Large Language Models (LLMs), with their strong generalization and reasoning abilities, offer a promising way to address these lim-itations. Equipped with good understanding of natural language, strong representation skills, and flexible generation abilities, LLMs are suitable for step-by-step molecular design guided by interme-diate feedback. This allows more intuitive interactions and the possibility to follow expert-like, iterative design processes, making AI-assisted drug discovery easier to use. Their success in complex reasoning tasks such as code generation [ 27 ], theorem proving [ 34 ], and strategic planning [ 32 ] shows that these abilities can also be applied to more interactive molecular design. 
+
+> arXiv:2601.15333v2 [cs.LG] 25 Jan 2026 Xuanning Hu et al.
+
+However, LLMs face significant challenges in SBDD. Shen et al .[29] point out that LLMs do not have enough understanding of protein sequences, likely because their pretraining data does not include enough relevant information. Kristiadi et al . [15] report that LLMs are less accurate than traditional models in predicting molecu-lar properties. These results suggest that current LLMs are unlikely to generate target molecules reliably. Brahmavar et al . [4] tried to guide LLMs for targeted generation using logical feedback, but the generated molecules were often similar to the input compounds and appeared almost random, showing weak targeting performance. To address this problem, some studies avoid using general LLMs and instead train specialized chemical GPT models on large pro-tein–ligand datasets [ 35 , 37 , 42 ]. However, this approach reduces the natural language capabilities of LLMs and still faces the same limitations as traditional deep learning models, being restricted by the distribution of training data. Therefore, finding effective ways to guide LLMs for SBDD remains an important and meaningful research direction. To this end, we propose Exploration-Augmented Latent In-ference for Large Language Models (ELILLM) , a framework that reinterprets the LLM generation process as an encoding, ex-ploration, and decoding workflow for SBDD. ELILLM leverages the latent space of LLMs to explicitly explore portions of the de-sign problem that fall outside the model’s current understanding, such as generating molecules with optimized binding to the tar-get protein, while allowing the model to handle familiar regions effectively through the decoding module, producing chemically valid and synthetically reasonable molecules. Specifically, Bayesian optimization is applied in the latent space to systematically ex-plore latent embeddings, enhancing the LLM’s ability to generate molecules aligned with the structural information of the target protein. To handle variable-length embeddings in the latent space, we introduce a position-aware surrogate model . By using a position-invariant aggregation strategy, this model efficiently predicts the affinity distribution corresponding to latent embeddings, guiding exploration in the latent space. Finally, we develop a knowledge-guided LLM decoding strategy that repairs candidate embeddings using chemical knowledge, reducing the randomness in LLM de-coding and producing ligand molecules that satisfy task-specific requirements. Our main contributions are summarized as follows. 
+
+• We propose a novel framework, ELILLM , that enhances LLMs for structure-based drug design by explicitly explor-ing the latent space. The framework reinterprets the LLM generation process as an encoding, exploration, and de-coding workflow, allowing targeted exploration of regions outside the LLM’s current understanding while leveraging its strengths for familiar regions. The workflow is clearly defined, making it easy to apply ELILLM to SBDD tasks. 
+
+• We implement this framework for SBDD using a Bayesian optimization-based exploration strategy. The approach con-sists of three main processes: Molecular-Guided LLM Encod-ing, BO-Based Latent Space Exploration, and Knowledge-Guided LLM Decoding. This implementation demonstrates how ELILLM can efficiently simulate expert-like iterative molecular design with interpretability and control. 
+
+• We perform a comprehensive evaluation on the CrossDocked2020 benchmark, ensuring consistent Vina docking scores for identical SMILES. The results show that ELILLM improves LLMs’ ability to perform controlled exploration in the latent space, generating molecules with higher predicted binding affinity. Our method achieves strong performance, surpass-ing seven baseline approaches, highlighting its effectiveness for challenging SBDD tasks. 
+
+## 2 Methodology 
+
+In this section, we describe the framework of ELILLM, which en-ables exploration in the latent space of LLM. The structure of this framework is illustrated in Figure 1 (A). To address SBDD tasks, we formulate the generation process of LLM as three main processes, including encoding, exploring, and decoding. Firstly, the encoding process is formulated as 𝑓 enc :
+
+𝑓 enc (𝑠 ) = 𝐸 [tokenizer (𝑠 )] , 𝑓 enc : String → R𝑙 ×𝑑 . (1) The tokenizer (𝑠 ) ∈ N𝑙 is the tokenized input sequence, and 𝐸 ∈
+
+R𝑉 ×𝑑 is the embedding matrix that maps tokens to 𝑑 -dimensional vectors. Then, we introduce the latent-space exploring process 
+
+𝑓 explore , which can systematically explore a continuum of possibile entities with desired properties. It is defined as: 
+
+𝑓 explore (·) : X → R𝑙 ′ ×𝑑 , (2) where X denotes an unconstrained input space that can include prompt embeddings, prior knowledge, task-specific conditions, or any other information source. The only requirement is that the out-put of 𝑓 explore lies in the LLM’s latent space, i.e., it must be a valid embedding in R𝑙 ′ ×𝑑 . Since this process transforms one latent em-bedding into another through exploration and effectively performs a step of reasoning in the latent space, we refer to it as exploration-augmented latent inference . Such embeddings can then be directly consumed by the decoder 𝑓 dec for autoregressive generation. Next, the decoding process is denoted by 𝑓 dec as follows: 
+
+𝑓 dec (𝑧 ) = LLM (𝑧 ), 𝑓 dec : R𝑙 ×𝑑 → String . (3) The decoding process represents the autoregressive generation process of an LLM. 𝑓 dec consumes the embedding vectors 𝑧 ∈ R𝑙 ×𝑑 ,and proceeds with autoregressive generation one token at a time, until an end-of-sequence token is produced. Overall, a single itera-tion of the ELILLM framework can be formalized as: ELILLM (prompt ) = 𝑓 dec 
+
+ 𝑓 explore (𝑓 enc (prompt ), ★) , (4) where ★ denotes any additional input that conditions the explo-ration process, such as task-specific prior knowledge, optimization signals, or structural constraints. The decoder 𝑓 dec directly con-sumes the latent representation produced by 𝑓 explore , and generates an output sequence autoregressively. 
+
+## 3 Method Details 
+
+In this section, we present the concrete implementation of the ELILLM framework. The detailed modeling based on the ELILLM framework are provided in the following. Empowering LLMs for Structure-Based Drug Design via Exploration-Augmented Latent Inference ELILLM 
+
+> SMILES:{C=CC, CCO,…,CCNCC}
+
+…
+
+𝑓 𝑒 n𝑐   
+
+> Docking Score: 𝒚 𝒊 𝒊 =𝟏
+> 𝑵
+
+𝒟 𝑜𝑏𝑠   
+
+> Source:
+> Known ligands
+> Random select
+> Deep Generate
+> 𝑠 𝑖 𝑖 =1
+> 𝑁
+> Docking with
+> target protein T
+> 𝑦 𝑖 𝑖 =1
+> 𝑁
+> init
+
+Ⅰ.  Molecular -Guided LLM Encoding 
+
+Embeddings:  𝑧 𝑖 𝑖 =1
+
+> 𝑁
+
+t𝑜𝑝𝑀 
+
+𝑎  ෝ𝜇 , ො𝜎 
+
+Ⅱ.  BO -based Exploration      
+
+> Docking Score
+> Latent Space Sampling Strategy
+> Prediction
+> predict ǁ𝑧 𝑖
+> 𝑗
+> Position -Aware Surrogate Model Acquisition Function
+> ෝ𝜇 ,ො𝜎
+> Observed docking scores Predicted docking scores
+
+Exploring  
+
+> Observed embeddings Perturbed embeddings
+> Candidate embeddings
+
+ǁ
+
+𝑧 𝑖  
+
+> 𝑗
+
+= 𝒛 𝒊 ⊙ 𝜖 𝑖 
+
+> 𝑗
+
+𝜖 𝑖  
+
+> 𝑗
+
+~𝒩 1, λperturb  
+
+> 𝑛 𝑖 ×𝑑
+
+𝒛 𝒊 , 𝒚 𝒊 𝒊 =𝟏 
+
+> 𝑵
+> train
+
+𝑓 𝑑𝑒𝑐 
+
+> Check
+> {C#CC, CCN, …, CCCOC} Docking
+
+𝑦 𝑖 𝑖 =1
+
+> 𝑀
+> Role: SMILES repair engine
+> Knowledge: how to repair?…
+
+𝑓 𝑑𝑒𝑐  SMILES 
+
+Ⅲ.  Knowledge -Guided LLM Decoding 
+
+> SMILES
+
+𝑍 𝑐𝑎𝑛𝑑 
+
+𝑓 𝑑𝑒𝑐 𝑓 𝑒𝑛𝑐 SMILES  SMILES 
+
+> ⇔
+
+𝑍 𝑐𝑎𝑛𝑑 
+
+𝒁 𝒄𝒂𝒏𝒅  
+
+> union 𝒟 𝒐𝒃𝒔
+> output
+> Tokenizer(string)
+> Embedding(token)
+> embedding
+> explore
+> candidate
+> embeddings
+> LLM Encoding  Latent Space Exploration  LLM Decoding
+
+ELILLM 
+
+> Knowledge -Guide
+> prompt
+> answer
+> LLM decoder
+> token
+> Position -Aware
+> Aggregation + DKGP
+
+（A） （B）
+
+> Variable length sequence
+
+Figure 1: Overview of the ELILLM framework. (A) The abstract framework of ELILLM. (B) A concrete instantiation of ELILLM, illustrating how the framework operates in a single iteration. Specifically, molecules in the observed dataset 𝐷 obs are first encoded into embeddings. Next, the Latent Space Sampling Strategy samples a large set of candidate points to be evaluated. Simultaneously, the Position-Aware Surrogate Model is trained using the molecular embeddings as inputs and the corresponding docking scores as labels. The trained surrogate model is then used to predict the docking score distribution of the candidate points, and the acquisition function balances exploitation and exploration to select the most promising embeddings. Finally, through Knowledge-Guided LLM Decoding, chemical knowledge is used to constrain the LLM’s decoding behavior, converting candidate embeddings into the closest valid molecular SMILES to form a candidate molecule set. The candidate molecules are evaluated with black-box docking software, and the resulting molecule–score pairs are incorporated back into 𝐷 obs .
+
+## 3.1 Problem Definition 
+
+SBDD plays a pivotal role in drug discovery, aiming to create ligand molecules with high affinity for a specific protein binding pocket. In this work, we use 𝑠 ∈ S to denote a ligand molecule and 𝑡 ∈ T to represent the target protein and its binding pocket. To evaluate the binding affinity between 𝑠 and 𝑡 , we employ a black-box docking score function Dock : S×T → R, which leverages the 3D structural information. A lower docking score indicates a stronger binding affinity. Given an observed dataset denoted as: 
+
+Dobs = {( 𝑠 𝑖 , 𝑦 𝑖 )} 𝑁 𝑖 =1, (5) where each 𝑠 𝑖 ∈ S is a symbolic molecular sequence and 𝑦 𝑖 =
+
+Dock (𝑠 𝑖 , 𝑡 ) is its associated docking score, our objective is to find a new subset Stop ⊆ S \ { 𝑠 𝑖 }𝑁 𝑖 =1 of size 𝑘 :
+
+Stop = argmin  
+
+> S′⊆Srem
+
+∑︁ 𝑠 ∈ S ′
+
+Dock (𝑠, 𝑡 ), (6) where Srem = S \ { 𝑠 𝑖 }𝑁 𝑖 =1 and |S ′ | = 𝑘 .
+
+## 3.2 Overview 
+
+In the SBDD task, we model three processes of the ELILLM frame-work, which is depicted in Figure 1(B). The process of Molecular-Guided LLM Encoding encodes observed molecules into the seman-tic latent space of the LLM, resulting in their corresponding latent embeddings. The process of BO-based Exploration in LLM Latent Embedding Space aims to identify embeddings that are expected to yield improved docking scores, which leverages the advantage of Bayesian optimization in efficiently searching black-box objectives under limited samples. It consists of three submodels, including Latent Space Sampling Strategy Model, Position-Aware Surrogate Model and Acquisition Function Model. Specifically, the Latent Space Sampling Strategy Model perturbs known molecular embed-dings with multiplicative Gaussian noise to progressively generate a large set of exploratory points in each round based on the idea of spatial locality. The Position-Aware Surrogate Model employs a position-aware aggregation mechanism that is capable of handling variable-length embedding sequences while perceiving positional information, and efficiently computes the predictive distribution of binding affinities. Finally, the Acquisition Function Model exploits the predictive distribution to balance exploitation and exploration, selecting candidate embeddings with high exploration potential. Xuanning Hu et al. 
+
+The process of Knowledge-Guided LLM Decoding guides the LLM to perform robust decoding by incorporating basic chemical knowl-edge and defining its role as a SMILES repair engine. Each candidate embedding is decoded into a valid molecular SMILES, evaluated us-ing the black-box docking score, and added to the observed data to complete one iteration. The pseudocode is provided in Appendix A. 
+
+## 3.3 Molecular-Guided LLM Encoding 
+
+We first introduce the construction of observed dataset. For targets with known high-affinity ligands, existing ligands can be directly utilized. In novel drug discovery scenarios, we may either randomly sample molecules from existing chemical libraries or employ ex-isting deep generative models as tools to produce initial ligand candidates that satisfy basic requirements for the given target pro-tein. Given the observed dataset Dobs = {( 𝑠 𝑖 , 𝑦 𝑖 )} 𝑁 𝑖 =1, we compute latent embeddings 𝑧 𝑖 = 𝑓 enc (𝑠 𝑖 ) ∈ R𝑛 𝑖 ×𝑑 , where 𝑛 𝑖 denotes the length of the token sequence corresponding to 𝑠 𝑖 , and 𝑑 is the hidden dimension of the embedding space. The set of latent embeddings of observed molecules is denoted as: 
+
+Zobs = {𝑧 𝑖 }𝑁 𝑖 =1. (7) 
+
+## 3.4 BO-based Exploration 
+
+3.4.1 Latent Space Sampling Strategy. To enable local exploration in the latent space, we apply multiplicative Gaussian perturba-tions to each 𝑧 𝑖 , generating perturbed embeddings via element-wise noise: 
+
+˜𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+= 𝑧 𝑖 ⊙ 𝜖 ( 𝑗 ) 
+
+> 𝑖
+
+, 𝜖 ( 𝑗 ) 
+
+> 𝑖
+
+∼ N ( 1, 𝜆 perturb )𝑛 𝑖 ×𝑑 , (8) where 𝑗 = 1, . . . , 𝑀 . 𝜆 perturb is a tunable hyperparameter that con-trols the magnitude of perturbation. A larger 𝜆 perturb results in wider exploration around the original embedding, while a smaller value enforces more localized sampling. The set of perturbed embeddings is denoted by: 
+
+Zexplore =
+
+n
+
+˜𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+𝑖 = 1, . . . , 𝑁 ; 𝑗 = 1, . . . , 𝑀 
+
+o
+
+. (9) 
+
+3.4.2 Position-Aware Surrogate Model. While recent studies have proposed expressive molecular representation learning methods based on graph neural networks [ 17 , 18 ], these approaches are primarily designed for supervised or self-supervised learning on explicit molecular graphs. In contrast, our surrogate model operates directly on the latent representations of a pretrained LLM and must be trained online with a limited number of evaluated samples, where reliable uncertainty estimation and sample efficiency are critical. As a result, we adopt a lightweight, position-aware surrogate that aligns with the requirements of iterative black-box optimization in latent space. A key requirement for the surrogate model is to provide well-calibrated uncertainty estimates, which are essential for balanc-ing exploration and exploitation during latent space optimization. Gaussian Processes (GPs) [ 40 ] are a natural choice due to their principled Bayesian formulation and inherent uncertainty quan-tification. However, modern LLMs such as LLaMA 3.1 [ 8 ] typically produce high-dimensional molecular embeddings (e.g., 𝑑 = 4096 ), which pose significant challenges for standard GPs. In such high-dimensional spaces, data sparsity severely degrades kernel expres-siveness, leading to unreliable predictive uncertainty [24]. To address these challenges, we employ a Deep Kernel Gaussian Process (DKGP) [ 41 ] as our surrogate model. DKGP integrates a learnable neural projection that maps high-dimensional LLM em-beddings into a lower-dimensional, task-adaptive feature space, enabling effective uncertainty-aware modeling while preserving the Bayesian advantages of GPs. This design allows the surrogate to remain both expressive and sample-efficient under the constraints of online latent-space optimization. Additionally, each molecular embedding e𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+∈ R𝑛 𝑖 ×𝑑 is a variable-length sequence, where 𝑛 𝑖 differs across molecules. Although mod-els like Transformers and LSTMs are capable of directly processing such sequences, their computational demands become impractical for the evaluation of thousands of candidates in iterative searches. To preserve positional information during aggregation, we com-pute a position-aware embedding as: 
+
+¯𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+= 1
+
+𝑛 𝑖 𝑛 𝑖 ∑︁ 
+
+> 𝑡 =1
+
+concat  𝑝 𝑡 e𝑧 ( 𝑗 ) 
+
+> 𝑖,𝑡
+
+, (𝑙 max − 𝑝 𝑡 )e𝑧 ( 𝑗 )
+
+> 𝑖,𝑡
+
+
+
+𝑙 max 
+
+, (10) where 𝑝 𝑡 denotes the positional index of the token embedding e𝑧 ( 𝑗 ) 
+
+> 𝑖,𝑡
+
+,and 𝑙 max is the predefined maximum number of generated tokens per molecule. Thus, ¯𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+encodes both the absolute and relative position of each token, which can enhance the surrogate model’s ability to capture structural information in the latent space. Our position-aware aggregation introduces a novel form of po-sition sensitivity by reweighting token embeddings according to their positions. Moreover, under our setting where token embed-dings are obtained without positional encoding (Theorem 3.1), the embeddings are independent of their positions. Combined with the proposed aggregation operation, this ensures that the resulting aggregated embeddings are positionally unbiased (Theorem 3.2). The detailed proofs are provided in Appendix A. 
+
+Theorem 3.1 (Independence of Token Embeddings and Posi-tions). Let 𝑠 = (𝑥 1, 𝑥 2, . . . , 𝑥 𝑙 ) be a token sequence, and let tokenizer (𝑠 )
+
+map 𝑠 to discrete token indices (𝑡 1, 𝑡 2, . . . , 𝑡 𝑙 ). Let 𝐸 be an embedding matrix mapping each token 𝑡 to a vector 𝐸 [𝑡 ] ∈ R𝑑 , and define the token embeddings as 
+
+e𝑧 𝑡 = 𝐸 [𝑡 ].
+
+If no positional encoding is added (e.g., no sinusoidal or learned po-sitional embedding), then for each sequence 𝑠 the embedding e𝑧 𝑡 of token 𝑡 is independent of its positional index 𝑝 𝑡 ∈ { 1, . . . , 𝑙 }.
+
+Theorem 3.2 (Positional Unbiasedness of Aggregation). As-sume the token embeddings e𝑧 ( 𝑗 ) 
+
+> 𝑖,𝑡
+
+are obtained via a tokenizer and embedding matrix without any positional encoding, so that by Theo-rem 3.1, they are independent of their positional indices 𝑝 𝑡 . Then, the position-aware aggregation defined in Eq. (10) is statistically unbi-ased with respect to position, i.e., the expected aggregated embedding 
+
+E[ ¯𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+] treats all token positions equally. 
+
+The aggregated embedding ¯𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+∈ R2𝑑 is then passed through a multilayer perceptron (MLP), yielding a transformed feature vector: 
+
+ˆ𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+= 𝑓 MLP ( ¯𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+). (11) Empowering LLMs for Structure-Based Drug Design via Exploration-Augmented Latent Inference 
+
+We denote this overall transformation as 𝜙 𝜽 (·) , including the position-aware aggregation and dimensionality-reducing through an MLP. 𝜙 𝜽 (·) maps a variable-length embedding sequence to a fixed-length vector: 𝜙 𝜽 : R𝑛 𝑖 ×𝑑 → R𝑑 ′
+
+, where 𝑑 is the embedding dimension (e.g., 4096) and 𝑑 ′ is a predefined lower dimension (e.g., 20). The GP is defined over the transformed inputs, giving the surrogate model: 
+
+ˆ𝑓 𝜽 (𝑧 ) ∼ GP ( 0, 𝑘 GP (𝜙 𝜽 (𝑧 ), 𝜙 𝜽 (𝑧 ′))) , (12) where 𝑘 GP is the learnable kernel function in the transformed space and the detailed construction of the kernel function is provided in Appendix B. For any explored embeddings ˜𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+, the model produces a predictive distribution with mean ˆ𝜇 ( ˜𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+) and variance ˆ𝜎 2 ( ˜𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+),representing the predicted docking score and the model uncertainty, respectively: 
+
+ˆ𝑓 𝜽 
+
+
+
+˜𝑧 ( 𝑗 )
+
+> 𝑖
+
+
+
+∼ N 
+
+
+
+ˆ𝜇 
+
+
+
+˜𝑧 ( 𝑗 )
+
+> 𝑖
+
+
+
+, ˆ𝜎 2 
+
+˜𝑧 ( 𝑗 )
+
+> 𝑖
+
+ 
+
+(13) 
+
+3.4.3 Hierarchical Training Strategy. We adopt a hierarchical train-ing strategy for the surrogate model. The training dataset Dtrain =
+
+{( 𝑧 𝑖 , 𝑦 𝑖 )} 𝑁 𝑖 =1 is constructed from the latent embeddings Zobs and their associated docking scores. In the first stage, we train a composite predictor that maps each latent input 𝑧 𝑖 to a scalar prediction using a transformation 𝜙 𝜽 
+
+followed by a regression head ℎ. The entire model is optimized by minimizing the mean squared error loss: 
+
+LMSE = 1
+
+𝑁 
+
+> 𝑁
+
+∑︁ 
+
+> 𝑖 =1
+
+(ℎ (𝜙 𝜽 (𝑧 𝑖 )) − 𝑦 𝑖 )2 . (14) After convergence, the regression head is discarded and 𝜙 𝜽 is frozen. In the second stage, a Gaussian process is trained on the transformed embeddings by minimizing the negative log marginal likelihood: 
+
+LGP = − log 𝑝 (y | 𝜙 𝜽 (Z)) , (15) where Z = Zobs and y = {𝑦 𝑖 }𝑁 𝑖 =1.This two-stage design decouples representation learning from uncertainty modeling, allowing the model to first focus on effective feature extraction and then on principled uncertainty quantification. Such separation enhances training stability and improves predic-tive performance, particularly under the data-scarce conditions commonly encountered in surrogate modeling. 
+
+3.4.4 Acquisition Function. We adopt the lower confidence bound (LCB) acquisition function to guide exploration in the latent space. This acquisition function balances the predictive mean and uncer-tainty of the surrogate model, and is defined as: 
+
+𝛼 LCB (𝑧 ) = ˆ𝜇 (𝑧 ) − 𝜅 𝑡 · ˆ𝜎 (𝑧 ), (16) where ˆ𝜇 (𝑧 ) and ˆ𝜎 (𝑧 ) denote the predictive mean and standard deviation, respectively, predicted by the surrogate model given the latent input 𝑧 .We follow the schedule proposed by Srinivas et al. [ 30 ], due to its strong theoretical guarantees in the Bayesian optimization setting. Specifically, the exploration coefficient 𝜅 𝑡 is dynamically updated as: 
+
+𝜅 𝑡 =√︄ 2 log 
+
+ 𝑡 2𝜋 2
+
+6𝛿 
+
+
+
+, (17) where 𝛿 ∈ ( 0, 1) is a confidence parameter. In our setup, we set 𝑡 =
+
+|D train | + 1, such that the exploration strength naturally increases with the amount of observed data. After computing the acquisition scores for all perturbed latent embeddings Zexplore , we select the top candidates for further evalu-ation. Specifically, we choose the 𝑛 cand latent embeddings with the lowest acquisition scores, forming the candidate set: 
+
+Zcand = argmin _top 𝑛 cand  
+
+> 𝑧 ∈ Z explore
+
+𝛼 LCB (𝑧 ). (18) 
+
+## 3.5 Knowledge-Guided LLM Decoding 
+
+The current problem is how to design the LLM decoding function 
+
+𝑓 dec that transforms 𝑍 cand into valid ligand molecules. However, reliably implementing this function in practice presents significant challenges. Due to the randomness of LLM generation, the same in-put can yield different outputs if not properly constrained, leading to instability in decoding. Moreover, since candidate embeddings are derived via E.q. 8, they may partially lie outside the valid chem-ical embedding space Z𝑠 , increasing the likelihood of producing invalid or off-target molecules. To address these issues, we employ knowledge-guided, role-based prompting to guide the LLM. First, we define the LLM’s role as a SMILES repair engine, prompting it to minimally adjust candidate embeddings into chemically plausible structures. Building on this, we provide chemically informed instructions (e.g. complete missing ring numbers: C1CC → C1CC1) to handle common error types, further constraining the generation process. The entire decoding process is formulated as follows: 
+
+Scand = {𝑓 dec (𝑧, prompt ) | 𝑧 ∈ Z cand }, (19) where Scand denotes the set of SMILES strings generated from the latent candidates. Afterwards, we will store Scand and their docking scores in Dobs to guide the generation of subsequent iterations. 
+
+Dobs ← D obs ∪ {( 𝑠, Dock (𝑠, 𝑡 )) | 𝑠 ∈ S cand } (20) 
+
+## 4 Experiments 
+
+In this section, we evaluate our ELILLM on the SBDD task to answer two main questions: (Q1) can the ELILLM framework achieve the expected generation performance on domain-specific tasks? (Q2) how does ELILLM perform efficient exploration in high-affinity regions? In addition, we conduct ablation studies and visualization experiments to further demonstrate the effectiveness of our frame-work. Owing to space constraints, supplementary experiments (e.g., the Wilcoxon signed-rank test) are included in Appendix D. 
+
+## 4.1 Experiment Setup 
+
+4.1.1 Dataset and Settings. We evaluate ELILLM using the Cross-Docked2020 dataset[ 7 ]. In line with standard practice [ 9, 42 ], the dataset includes 65K drug–target pairs for training and 100 target proteins for testing. Unlike most methods that train on the entire training set, we consider two settings for constructing the observed dataset Dobs : (1) randomly selecting 100 ligands from the training set, docking them against the test targets, and using the resulting ligand–score pairs; and (2) directly adopting the sampled ligands and their docking scores against the 100 test targets as provided by Xuanning Hu et al. 
+
+Table 1: Evaluation of generated molecules is primarily based on the Vina docking score (Top 1, 5, 10, and 20), with QED , SA ,and diversity serving as auxiliary metrics. We report both average (Avg.) and median (Med.) values across targets; for most metrics, Med. denotes the mean of per-target medians, while for diversity—yielding one value per target—Med. denotes the median of the 100 target-level scores. The best and second-best results are highlighted in bold and underlined, respectively. Methods Top1 Dock ↓ Top5 Dock ↓ Top10 Dock ↓ Top20 Dock ↓ QED SA Diversity 
+
+Avg. Med. Avg. Med. Avg. Med. Avg. Med. Avg. Med. Avg. Med. Avg. Med. Random Init -8.62 -8.62 -8.19 -8.14 -7.90 -7.81 -6.38 -7.42 0.53 0.53 0.76 0.77 0.78 0.77 AR (2021) -8.41 -8.41 -8.08 -8.03 -7.88 -7.82 -7.64 -7.56 0.51 0.50 0.63 0.63 0.70 0.70 Pocket2Mol (2022) -9.15 -9.15 -8.85 -8.82 -8.64 -8.60 -8.38 -8.32 0.56 0.57 0.74 0.75 0.69 0.71 liGAN (2022) -8.13 -8.13 -7.78 -7.73 -7.58 -7.53 -7.34 -7.26 0.39 0.39 0.59 0.57 0.66 0.67 TargetDiff (2023) -9.38 -9.38 -8.86 -8.78 -8.53 -8.43 -8.13 -8.00 0.48 0.48 0.58 0.58 0.72 0.71 ALIDIFF (2024) -9.37 -9.37 -8.85 -8.80 -8.52 -8.40 -8.11 -8.01 0.50 0.50 0.57 0.56 0.73 0.71 TamGen (2024) -8.53 -8.53 -8.11 -8.05 -7.72 -7.65 -7.70 -7.62 0.56 0.56 0.77 0.78 0.75 0.74 LMLF-rand (2024) -8.66 -8.66 -8.17 -8.10 -7.87 -7.78 -7.50 -7.40 0.57 0.59 0.77 0.79 0.81 0.80 LMLF-diff (2024) -9.05 -9.05 -8.52 -8.43 -8.19 -8.11 -7.79 -7.67 0.53 0.53 0.64 0.63 0.78 0.77 
+
+ELILLM-rand -9.33 -9.33 -8.98 -8.93 -8.74 -8.68 -8.44 -8.36 0.46 0.45 0.63 0.63 0.69 0.70 
+
+ELILLM-diff -9.80 -9.80 -9.37 -9.31 -9.09 -9.03 -8.74 -8.65 0.49 0.49 0.57 0.56 0.67 0.68 
+
+Figure 2: Top1 Vina docking score for different generated molecules (TargetDiff, ALIDIFF, ELILLM-rand) across 100 testing targets, sorted by Vina docking score of TargetDiff result. Trend lines are least-squares linear fits for each method. 
+
+Figure 3: Average Tanimoto similarity between every 10 newly generated molecules and the initial Dobs , including both the average of all pairwise similarities ( mean similarity ) and the average of per-molecule maximum similarity to Dobs (max similarity ). Results are averaged across 100 targets to show overall trends under two Dobs construction strategies. 
+
+ALIDIFF [ 9]. The first setting, referred to as ELILLM-rand , is de-signed to evaluate the effectiveness of our method when initialized from a random chemical space. The second setting, termed ELILLM-diff , demonstrates that our framework can be effectively integrated with existing deep learning–based generation approaches. Mean-while, based on the conclusions of Sadeghi et al . [28] , we choose to use LLaMAs 3.1 as the basic LLM underlying both our method and related baseline approaches. 
+
+4.1.2 Baselines. We compare ELILLM with the following base-lines: Random Init refers to the randomly constructed Dobs men-tioned earlier, which is used by both ELILLM-rand and LMLF-rand. 
+
+liGAN [ 26 ] is a conditional VAE model based on 3D voxelized rep-resentations. AR [23 ] and Pocket2Mol [25 ] are 3D autoregressive models at the atom level. TargetDiff [ 10 ] and ALIDiff [9] are diffusion-based approaches designed for target-conditioned molec-ular generation. Among them, ALIDiff is a recent SOTA method that fine-tunes a pretrained diffusion model through preference op-timization. TamGen [ 42 ] is a GPT-based chemical language model that generates ligand SMILES conditioned on a given target protein. 
+
+LMLF [ 4] is a method that leverages logical feedback to constrain a general-purpose LLM for SBDD, producing ligand molecules in the form of SMILES string under the given Dobs . Correspondingly, we also implement a variant of LMLF, referred to as LMLF-diff .Empowering LLMs for Structure-Based Drug Design via Exploration-Augmented Latent Inference 
+
+4.1.3 Evaluation Metrics. To evaluate the quality of generated molecules in the context of virtual screening, we generate 100 candidate molecules for each of the 100 target proteins in the test set. The generated molecules are evaluated primarily in terms of binding affinity, estimated by the Vina docking score, which di-rectly reflects the LLM’s targeted generation ability. Importantly, in our experiments, only the Vina docking score is used as the opti-mization guidance, while auxiliary metrics, including drug-likeness (QED) [ 3 ], reversed normalized synthetic accessibility (SA) [ 6], and molecular diversity, are reported for reference to illustrate general molecular properties. Internal diversity, which can be simply mea-sured as the average pairwise Tanimoto distance between generated molecules, may slightly decrease when exploration is concentrated in regions of high docking affinity. In our experiments, the diversity remains above 0.5, which is considered a reasonable range to ensure meaningful coverage of chemical space. QED and SA often exhibit a negative correlation with docking scores and therefore cannot serve as direct indicators of targeted binding affinity. To ensure a fair comparison, we eliminate the influence of vary-ing 3D coordinates. 3D deep generative models may produce dif-ferent conformations for the same molecule, potentially leading to inconsistent docking scores. Therefore, we extract the SMILES representation of each generated molecule and reconstruct its 3D conformation using RDKit’s rule-based coordinate generation. The conformations are then optimized via a molecular force field to improve geometric quality. The resulting structures are used for docking with smina to estimate binding affinity scores. In this setup, by controlling the random seed, we ensure that the same SMILES corresponds to the same Vina Docking Score. Due to space limitations, more detailed experimental settings are provided in Appendix C. 
+
+## 4.2 Performance of SBDD 
+
+To answer Q1, we compare ELILLM with baseline methods in a sim-plified virtual screening scenario, aiming to identify candidate sets of size 1, 5, 10, and 20 with the lowest Vina docking scores for sub-sequent lead optimization. The results are presented in Table 1. As shown, ELILLM-rand outperforms all baseline methods in SBDD, achieving superior performance under the Top 5, 10, and 20 candi-date settings despite using only 100 randomly selected Dobs samples from the full 65K training dataset. While ELILLM-rand demon-strates strong performance, ELILLM-diff further achieves SOTA binding affinity by integrating our framework with a pretrained diffusion model. Specifically, ALIDiff serves as the base generative model. ELILLM-diff outperforms ALIDiff by 4.59%, 5.88%, 6.69%, and 7.77% in the Top 1, 5, 10, and 20 candidate settings, respectively, in terms of binding affinity, showcasing the strong compatibility and enhancement our framework brings to existing deep generative approaches. Moreover, as shown in Appendix Table S1, a Wilcoxon signed-rank test significantly rejects the one-sided hypotheses that ELILLM-diff is weaker than TargetDiff and ALIDIFF (p < 0.01), indi-cating that our results are statistically significant. Notably, although LMLF achieves lower binding affinity com-pared to the provided molecules, it shows consistently strong perfor-mance in terms of QED, SA, and molecular diversity. This pattern reflects a commonly observed empirical trade-off: QED and SA 
+
+Table 2: Ablation study on the first 10 targets from the test set using ALIDIFF-generated Dobs 
+
+Methods Top1 Dock ↓ Top20 Dock ↓ Diversity 
+
+Avg. Med. Avg. Med. Avg. Med. ELILLM -9.86 -9.86 -8.79 -8.71 0.69 0.69 w/o guide -9.08 -9.08 -8.01 -7.90 0.76 0.75 
+
+w/o position -9.80 -9.80 -8.52 -8.38 0.73 0.72 w/o knowledge -9.40 -9.40 -8.30 -8.04 0.74 0.74 w/o role -8.20 -8.20 - - 0.48 0.60 ALIDIFF -9.10 -9.10 -8.17 -8.04 0.75 0.72 scores often exhibit a negative correlation with binding affinity. From an encoder–decoder perspective, QED, SA, and diversity fall within the part of the task that LLMs can handle natively via their internal representations and decoding strategies. In contrast, op-timizing docking affinity corresponds to the component that lies beyond the LLM’s direct capability and is addressed by our ELILLM framework, which performs controlled exploration in the latent space guided by domain knowledge. The entities generated through this exploration effectively act as intermediate reasoning steps that augment the LLM’s decoding, enabling more targeted generation of high-affinity molecules. These results underscore the importance of incorporating domain knowledge to guide the reasoning and exploration process in the LLM latent space. As shown in Figure 2, although the mean Top 1 Vina docking score of ELILLM-rand is slightly higher than those of ALIDIFF and TargetDiff, the three methods actually demonstrate comparable performance under this setting. We further observe that the two diffusion-based methods produce nearly identical trend lines, likely due to reliance on the same training distribution. By contrast, our methods, conditioning on a small number of molecules, enable more flexible generation with potential advantages on targets possibly dissimilar to the training set (e.g., Targets 79 and 96). 
+
+## 4.3 Performance of Chemical Space Exploration 
+
+To answer Q2, we aim to evaluate whether our method progres-sively explores the chemical space or merely remains confined to the region anchored by the initial Dobs . We measure the distance between generated molecules and the initial space using changes in Tanimoto similarity[ 2] during the iterative generation process. Fig-ure 3 illustrates the chemical space exploration capabilities of our method and LMLF in two settings. It is observed that our method generates molecules progressively farther from the initial space, whereas LMLF is significantly limited to the initial region and even tends to move closer over iterations, despite achieving the highest diversity. Furthermore, by jointly examining subfigures (a) and (b), we observe that in the early stages of generation, our method exhibits an increase in mean similarity while the max simi-larity decreases, followed by a consistent downward trend in both metrics. These observations indicate that ELILLM behaves like a human expert: initially leveraging existing knowledge to design new molecules by moving away from the most similar instances and instead exploring directions aligned with other diverse exam-ples. It then dynamically incorporates newly acquired knowledge to discover new directions for molecular design. Xuanning Hu et al. 
+
+Figure 4: Visualizations of generated ligands for protein pock-ets 2jjg generated by ALIDIFF and ELILLM-diff. 
+
+## 4.4 Ablation Study 
+
+To better understand the contribution of each component in our framework, we conduct an ablation study on the first 10 test targets using ALIDiff-generated Dobs as initial observations. We evaluate four variants: w/o guide, w/o position, w/o role, and w/o knowl-edge. The w/o guide variant randomly samples Zcand from Zexplore ;w/o position uses simple average aggregation with concatenated vectors; w/o role has the LLM output the input string directly; and w/o knowledge includes role information only, without chemical knowledge. As shown in Table 2, w/o guide fails to achieve targeted gener-ation, highlighting the importance of our guidance strategy. w/o position performs slightly worse, confirming that position-aware aggregation captures latent-space patterns more effectively. w/o role exhibits unacceptable performance, generating fewer than 20 distinct molecules across all 10 targets, emphasizing the necessity of role-specific prompting for effective exploration. w/o knowledge shows weaker targeted generation but higher diversity, indicat-ing that prior knowledge helps constrain LLM decoding towards high-affinity regions. 
+
+## 4.5 Visualization 
+
+We visualize the generated ligand for the protein pocket 2jjg to further demonstrate our expert-like exploratory generation pro-cess. As shown in Figure 4, without any human guidance (such as identifying key functional groups or scaffolds), our method ex-plores the latent space and designs a new molecule that combines the “O=C1CC=C” fragment from ligand 1 and the “O[PH](O)(O)O” group from ligand 2, and completes the rest using other learned structural knowledge. 
+
+## 5 Related Work 
+
+LLM generation as encoder–decoder pipelines. LLM-based gen-eration can be viewed as an encoder–decoder process, where the encoder maps inputs into latent representations and the decoder autoregressively generates outputs. Prior work mainly enhances either the encoder, e.g., through knowledge-enhanced pretraining or soft prompts [ 16 , 33 , 36 , 46 ], or the decoder via prompt engineer-ing and feedback-based refinement [ 4 , 14 , 27 , 38 ]. In contrast, our method enables explicit exploration and control within the latent space constructed by the encoder, supporting more structured and efficient scientific generation. 
+
+SBDD and LLM.. With the increasing availability of protein–ligand structural data, structure-based drug design (SBDD) has become a central application scenario for generative molecular modeling, with a wide range of 3D-aware generative approaches proposed in prior work. LLMs have shown promising capabilities across a variety of tasks beyond molecular generation, including rea-soning, graph-based learning, and iterative feedback-guided op-timization [ 12 , 27 , 43 ]. These successes highlight the versatility of pretrained LLMs as knowledge sources that can be leveraged without task-specific finetuning. Building on this idea, models such as MolGPT [ 1], LMLF [ 4 ], Token-Mol [ 35 ], TamGen [ 42 ]and DrugLLM [ 22 ] leverage textual and structural representations learned during pretraining to generate molecules. However, these methods often require task-specific finetuning or large domain datasets to capture complex protein-ligand interactions effectively. In contrast, our framework addresses this challenge in a plug-in 
+
+fashion, without retraining the LLM. ELILLM explicitly explores the latent space of pretrained LLMs using domain knowledge and a position-aware surrogate model to handle aspects of SBDD that the model alone cannot fully capture. By performing controlled latent space exploration, ELILLM generates candidate embeddings that augment the LLM’s decoding process, enabling targeted molecular generation while preserving the pretrained knowledge. 
+
+## 6 Conclusion 
+
+In this work, we present ELILLM, a novel exploration-augmented la-tent inference framework tailored for SBDD. ELILLM reformulates the LLM generation process into a three-stage pipeline of encod-ing, exploration, and decoding, explicitly leveraging the expressive power of latent spaces to address the challenge of systematic latent space navigation. We instantiate this framework for SBDD with three key components: Molecular-Guided LLM Encoding, BO-based Exploration, and Knowledge-Guided LLM Decoding. Our evaluation on the CrossDocked2020 benchmark demon-strates that ELILLM achieves superior performance in binding affin-ity scores, surpassing seven baseline methods. Importantly, ELILLM shows strong compatibility with pretrained models, enabling it to be seamlessly integrated with existing LLM-based molecular gener-ation approaches. By simulating human-like research workflows with interpretability and efficiency, ELILLM offers a principled and effective approach for optimizing docking-based molecular design. Future work will focus on generalizing the proposed techniques to broader scenarios beyond SBDD. In particular, we aim to ex-plore applications in graph representation learning [ 44 , 45 ] and recommender systems [ 19 , 20 ], where latent space exploration and uncertainty-aware modeling could provide similar benefits. 
+
+## Acknowledgments 
+
+This work is supported by the National Natural Science Foundation of China under Grant Nos. U22A2098, 62172185, 62206105, 62202200, and 62406127; the KeyScience and Technology Development Plan of Jilin Province under Grant No.20240302078GX. 
+
+## References       
+
+> [1] Viraj Bagal, Rishal Aggarwal, PK Vinod, and U Deva Priyakumar. 2021. MolGPT: molecular generation using a transformer-decoder model. Journal of chemical information and modeling 62, 9 (2021), 2064–2076. [2] Dávid Bajusz, Anita Rácz, and Károly Héberger. 2015. Why is Tanimoto index an appropriate choice for fingerprint-based similarity calculations? Journal of cheminformatics 7 (2015), 1–13.
+
+Empowering LLMs for Structure-Based Drug Design via Exploration-Augmented Latent Inference 
+
+[3] G Richard Bickerton, Gaia V Paolini, Jérémy Besnard, Sorel Muresan, and An-drew L Hopkins. 2012. Quantifying the chemical beauty of drugs. Nature chemistry 4, 2 (2012), 90–98. [4] Shreyas Bhat Brahmavar, Ashwin Srinivasan, Tirtharaj Dash, Sowmya Ra-maswamy Krishnan, Lovekesh Vig, Arijit Roy, and Raviprasad Aduri. 2024. Gen-erating novel leads for drug discovery using LLMs with logical feedback. In 
+
+Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 38. 21–29. [5] Vijil Chenthamarakshan, Payel Das, Samuel Hoffman, Hendrik Strobelt, Inkit Padhi, Kar Wai Lim, Benjamin Hoover, Matteo Manica, Jannis Born, Teodoro Laino, et al . 2020. CogMol: Target-specific and selective drug design for COVID-19 using deep generative models. Advances in Neural Information Processing Systems 33 (2020), 4320–4332. [6] Peter Ertl and Ansgar Schuffenhauer. 2009. Estimation of synthetic accessibil-ity score of drug-like molecules based on molecular complexity and fragment contributions. Journal of cheminformatics 1 (2009), 1–11. [7] Paul G Francoeur, Tomohide Masuda, Jocelyn Sunseri, Andrew Jia, Richard B Iovanisci, Ian Snyder, and David R Koes. 2020. Three-dimensional convolutional neural networks and a cross-docked data set for structure-based drug design. 
+
+Journal of chemical information and modeling 60, 9 (2020), 4200–4215. [8] Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Ab-hishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schel-ten, Alex Vaughan, et al . 2024. The llama 3 herd of models. arXiv preprint arXiv:2407.21783 (2024). [9] Siyi Gu, Minkai Xu, Alexander Powers, Weili Nie, Tomas Geffner, Karsten Kreis, Jure Leskovec, Arash Vahdat, and Stefano Ermon. 2024. Aligning target-aware molecule diffusion models with exact energy optimization. Advances in Neural Information Processing Systems 37 (2024), 44040–44063. [10] Jiaqi Guan, Wesley Wei Qian, Xingang Peng, Yufeng Su, Jian Peng, and Jianzhu Ma. 2023. 3D Equivariant Diffusion for Target-Aware Molecule Generation and Affinity Prediction. In International Conference on Learning Representations .[11] Jiaqi Guan, Xiangxin Zhou, Yuwei Yang, Yu Bao, Jian Peng, Jianzhu Ma, Qiang Liu, Liang Wang, and Quanquan Gu. 2023. DecompDiff: Diffusion Models with Decomposed Priors for Structure-Based Drug Design. In International Conference on Machine Learning . PMLR, 11827–11846. [12] Jiao Huang, Qianli Xing, Jinglong Ji, and Bo Yang. 2025. Code-Generated Graph Representations Using Multiple LLM Agents for Material Properties Prediction. In Forty-second International Conference on Machine Learning .[13] Zhilin Huang, Ling Yang, Xiangxin Zhou, Zhilong Zhang, Wentao Zhang, Xiawu Zheng, Jie Chen, Yu Wang, Bin Cui, and Wenming Yang. 2024. Protein-ligand interaction prior for binding-aware 3d molecule diffusion models. In The Twelfth International Conference on Learning Representations .[14] Takeshi Kojima, Shixiang Shane Gu, Machel Reid, Yutaka Matsuo, and Yusuke Iwasawa. 2022. Large language models are zero-shot reasoners. Advances in neural information processing systems 35 (2022), 22199–22213. [15] Agustinus Kristiadi, Felix Strieth-Kalthoff, Marta Skreta, Pascal Poupart, Alan Aspuru-Guzik, and Geoff Pleiss. 2024. A Sober Look at LLMs for Material Discovery: Are They Actually Good for Bayesian Optimization Over Molecules?. In International Conference on Machine Learning . PMLR, 25603–25622. [16] Brian Lester, Rami Al-Rfou, and Noah Constant. 2021. The Power of Scale for Parameter-Efficient Prompt Tuning. In Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing . Association for Computational Linguistics. [17] Anchen Li, Elena Casiraghi, and Juho Rousu. 2024. Chemical reaction enhanced graph learning for molecule representation. Bioinformatics 40, 10 (2024), btae558. [18] Anchen Li, Elena Casiraghi, and Juho Rousu. 2025. CSGL: chemical synthesis graph learning for molecule representation. Bioinformatics 41, 7 (2025), btaf355. [19] Anchen Li, Jinglong Ji, Riting Xia, and Bo Yang. 2025. Diffusion Multi-behavior Recommender Model. In International Conference on Database Systems for Ad-vanced Applications . Springer, 202–217. [20] Anchen Li, Bo Yang, Huan Huo, Farookh Hussain, and Guandong Xu. 2025. Hy-percomplex knowledge graph-aware recommendation. In Proceedings of the 48th international ACM SIGIR conference on research and development in information retrieval . 2017–2026. [21] Meng Liu, Youzhi Luo, Kanji Uchino, Koji Maruhashi, and Shuiwang Ji. 2022. Generating 3D Molecules for Target Protein Binding. In International Conference on Machine Learning . PMLR, 13912–13924. [22] Xianggen Liu, Yan Guo, Haoran Li, Jin Liu, Shudong Huang, Bowen Ke, and Jiancheng Lv. 2024. Drugllm: Open large language model for few-shot molecule generation. arXiv preprint arXiv:2405.06690 (2024). [23] Shitong Luo, Jiaqi Guan, Jianzhu Ma, and Jian Peng. 2021. A 3D generative model for structure-based drug design. Advances in Neural Information Processing Systems 34 (2021), 6229–6239. [24] Sergei Manzhos and Manabu Ihara. 2023. The loss of the property of locality of the kernel in high-dimensional Gaussian process regression on the example of the fitting of molecular potential energy surfaces. The Journal of Chemical Physics 158, 4 (2023). [25] Xingang Peng, Shitong Luo, Jiaqi Guan, Qi Xie, Jian Peng, and Jianzhu Ma. 2022. Pocket2mol: Efficient molecular sampling based on 3d protein pockets. In 
+
+International Conference on Machine Learning . PMLR, 17644–17655. [26] Matthew Ragoza, Tomohide Masuda, and David Ryan Koes. 2022. Generating 3D molecules conditional on receptor binding sites with deep generative models. 
+
+Chemical science 13, 9 (2022), 2701–2713. [27] Bernardino Romera-Paredes, Mohammadamin Barekatain, Alexander Novikov, Matej Balog, M Pawan Kumar, Emilien Dupont, Francisco JR Ruiz, Jordan S Ellenberg, Pengming Wang, Omar Fawzi, et al . 2024. Mathematical discoveries from program search with large language models. Nature 625, 7995 (2024), 468–475. [28] Shaghayegh Sadeghi, Alan Bui, Ali Forooghi, Jianguo Lu, and Alioune Ngom. 2024. Can large language models understand molecules? BMC bioinformatics 25, 1 (2024), 225. [29] Yiqing Shen, Zan Chen, Michail Mamalakis, Luhan He, Haiyang Xia, Tianbin Li, Yanzhou Su, Junjun He, and Yu Guang Wang. 2024. A fine-tuning dataset and benchmark for large language models for protein understanding. In 2024 IEEE International Conference on Bioinformatics and Biomedicine (BIBM) . IEEE, 2390–2395. [30] Niranjan Srinivas, Andreas Krause, Sham Kakade, and Matthias Seeger. 2010. Gaussian Process Optimization in the Bandit Setting: No Regret and Experimental Design. In Proceedings of the 27th International Conference on Machine Learning .Omnipress, 1015–1022. [31] Michael L Stein. 1999. Interpolation of spatial data: some theory for kriging .Springer Science & Business Media. [32] Haotian Sun, Yuchen Zhuang, Lingkai Kong, Bo Dai, and Chao Zhang. 2023. Adaplanner: Adaptive planning from feedback with language models. Advances in neural information processing systems 36 (2023), 58202–58245. [33] Tu Vu, Brian Lester, Noah Constant, Rami Al-Rfou’, and Daniel Cer. 2022. SPoT: Better Frozen Model Adaptation through Soft Prompt Transfer. In Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , Smaranda Muresan, Preslav Nakov, and Aline Villavicencio (Eds.). Association for Computational Linguistics, Dublin, Ireland, 5039–5059. doi:10.18653/v1/2022.acl-long.346 [34] Haiming Wang, Huajian Xin, Chuanyang Zheng, Zhengying Liu, Qingxing Cao, Yinya Huang, Jing Xiong, Han Shi, Enze Xie, Jian Yin, et al . 2024. LEGO-Prover: Neural Theorem Proving with Growing Libraries. In 12th International Conference on Learning Representations (ICLR 2024) . International Conference on Learning Representations, ICLR. [35] Jike Wang, Rui Qin, Mingyang Wang, Meijing Fang, Yangyang Zhang, Yuchen Zhu, Qun Su, Qiaolin Gou, Chao Shen, Odin Zhang, et al . 2025. Token-Mol 1.0: tokenized drug design with large language models. Nature Communications 16, 1 (2025), 1–19. [36] Xiaozhi Wang, Tianyu Gao, Zhaocheng Zhu, Zhengyan Zhang, Zhiyuan Liu, Juanzi Li, and Jian Tang. 2021. KEPLER: A unified model for knowledge embed-ding and pre-trained language representation. Transactions of the Association for Computational Linguistics 9 (2021), 176–194. [37] Ye Wang, Honggang Zhao, Simone Sciabola, and Wenlu Wang. 2023. cMolGPT: a conditional generative pre-trained transformer for target-specific de novo molecular generation. Molecules 28, 11 (2023), 4430. [38] Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou, et al . 2022. Chain-of-thought prompting elicits reason-ing in large language models. Advances in neural information processing systems 
+
+35 (2022), 24824–24837. [39] Frank Wilcoxon. 1992. Individual comparisons by ranking methods. In Break-throughs in statistics: Methodology and distribution . Springer, 196–202. [40] Christopher KI Williams and Carl Edward Rasmussen. 2006. Gaussian processes for machine learning . Vol. 2. MIT press Cambridge, MA. [41] Andrew Gordon Wilson, Zhiting Hu, Ruslan Salakhutdinov, and Eric P Xing. 2016. Deep kernel learning. In Artificial intelligence and statistics . PMLR, 370–378. [42] Kehan Wu, Yingce Xia, Pan Deng, Renhe Liu, Yuan Zhang, Han Guo, Yumeng Cui, Qizhi Pei, Lijun Wu, Shufang Xie, et al . 2024. TamGen: drug design with target-aware molecule generation through a chemical language model. Nature Communications 15, 1 (2024), 9360. [43] Riting Xia, Rucong Wang, Yulin Liu, Anchen Li, Xueyan Liu, and Yan Zhang. 2025. When Noisy Labels Meet Class Imbalance on Graphs: A Graph Augmentation Method with LLM and Pseudo Label. arXiv preprint arXiv:2507.18153 (2025). [44] Riting Xia, Chunxu Zhang, Xueyan Liu, Anchen Li, and Yan Zhang. 2025. GraphIAM: Two-Stage Algorithm for Improving Class-Imbalanced Node Classifi-cation on Attribute-Missing Graphs. In Proceedings of the 34th ACM International Conference on Information and Knowledge Management . 3478–3487. [45] Xuan Zang, Bo Yang, Xueyan Liu, and Anchen Li. 2021. Dnea: Dynamic net-work embedding method for anomaly detection. In International conference on knowledge science, engineering and management . Springer, 236–248. [46] Taolin Zhang, Chengyu Wang, Nan Hu, Minghui Qiu, Chengguang Tang, Xi-aofeng He, and Jun Huang. 2022. DKPLM: decomposable knowledge-enhanced pre-trained language model for natural language understanding. In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 36. 11703–11711. Xuanning Hu et al. 
+
+## A Proof A.1 Proof of Theorem 3.1 
+
+Proof. By definition, the embedding of token 𝑡 is given by 
+
+e𝑧 𝑡 = 𝐸 [𝑡 ],
+
+which depends solely on the token identity 𝑡 and does not involve the positional index 𝑝 𝑡 .Formally, for any measurable function 𝑓 of the embedding, 
+
+P 𝑓 (e𝑧 𝑡 ) ≤ 𝑥 𝑝 𝑡 
+
+ = P 𝑓 (e𝑧 𝑡 ) ≤ 𝑥 ,
+
+because the distribution of e𝑧 𝑡 is completely determined by 𝑡 and does not involve 𝑝 𝑡 .Hence, the embedding e𝑧 𝑡 is independent of its positional index 
+
+𝑝 𝑡 . □
+
+## A.2 Proof of Theorem 3.2 
+
+Proof. Let 𝜇 = E[e𝑧 ( 𝑗 ) 
+
+> 𝑖,𝑡
+
+] denote the mean embedding vector. The aggregation is defined as 
+
+¯𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+= 1
+
+𝑛 𝑖 𝑛 𝑖 ∑︁ 
+
+> 𝑡 =1
+
+Concat  𝑝 𝑡 e𝑧 ( 𝑗 ) 
+
+> 𝑖,𝑡
+
+, (𝑙 max − 𝑝 𝑡 )e𝑧 ( 𝑗 )
+
+> 𝑖,𝑡
+
+
+
+𝑙 max 
+
+.
+
+Since the aggregation is linear in e𝑧 ( 𝑗 ) 
+
+> 𝑖,𝑡
+
+and by Theorem 3.1 the embeddings are independent of 𝑝 𝑡 , taking expectation gives 
+
+E[ ¯𝑧 ( 𝑗 ) 
+
+> 𝑖
+
+] = 1
+
+𝑛 𝑖 𝑙 max 
+
+> 𝑛 𝑖
+
+∑︁ 
+
+> 𝑡 =1
+
+Concat  𝑝 𝑡 𝜇, (𝑙 max − 𝑝 𝑡 )𝜇 .
+
+Here, the expected aggregated vector depends only on the po-sitional indices 𝑝 𝑡 through the linear coefficients, and not on the actual embedding values. Therefore, each position contributes pro-portionally in expectation, and no single position 𝑝 𝑡 receives undue influence. This establishes that the aggregation is statistically unbi-ased with respect to position. □
+
+## B Appendix For Method Details B.1 Algorithm Pseudocode 
+
+We present the pseudocode of ELILLM in Algorithm 1. 
+
+## B.2 GP Kernel Details 
+
+In our surrogate model ˆ𝑓 𝜃 , we adopt a composite kernel that com-bines the Matérn-1.5 and Matérn-2.5 kernels [ 31 ] to better capture both local variations and global smoothness in the latent space. The resulting kernel is defined as: 
+
+𝑘 (z, z′) = 𝜆 1 · 𝑘 Matern -1.5 (z, z′) + 𝜆 2 · 𝑘 Matern -2.5 (z, z′),
+
+where 𝜆 1 and 𝜆 2 are learnable weights. The Matérn-1.5 kernel is given by 
+
+𝑘 Matern -1.5 (z, z′) = 𝜎 2
+
+
+
+1 +√3∥z − z′ ∥
+
+ℓ
+
+
+
+exp 
+
+
+
+−√3∥z − z′ ∥
+
+ℓ
+
+
+
+,
+
+and the Matérn-2.5 kernel is 
+
+𝑘 Matern -2.5 (z, z′) = 𝜎 2 1 +√5∥z − z′ ∥
+
+ℓ
+
++ 5∥z − z′ ∥2
+
+3ℓ2
+
+!
+
+exp 
+
+
+
+−√5∥z − z′ ∥
+
+ℓ
+
+
+
+where ℓ is the length-scale and 𝜎 2 is the output variance, both of which are learnable hyperparameters. The combination of Matérn-1.5 and Matérn-2.5 allows the model to benefit from the flexibility of the former in capturing sharp local transitions and the smoothness of the latter in modeling broader trends. 
+
+## B.3 Prompt 
+
+We present the prompts used in our study in Figures S1–S3: Fig-ure S1 shows the prompt designed for Knowledge-Guided LLM Decoding, Figure S2 shows the prompt used in the w/o knowledge ablation study, and Figure S3 shows the prompt used in the w/o role ablation setting. 
+
+## C Detailed Experimental Settings C.1 Hyperparameter Settings 
+
+For our method, we explored a series of hyperparameter ranges across architecture design, surrogate model training, and generation-time settings. In terms of architecture , we adopted an MLP structure of 8192-256-256-256-20, corresponding to three hidden layers. The hid-den layer size was searched over {128 , 256 , 512 }, and 256 was se-lected as the final choice. The latent dimension was chosen from 
+
+{10 , 15 , 20 , 50 }, with 20 providing the best performance. For the Gaussian Process (GP) component, we tested several kernel types including RBF, linear, Matérn, and their combinations, and finally selected a hybrid of Matérn-1.5 and Matérn-2.5 kernels. For sur-rogate model training , the MLP was trained for 100 epochs in ELILLM-rand and 200 epochs in ELILLM-diff, while the GP model was trained for 100 epochs. The learning rate for the MLP was searched over {0.001 , 0.005 , 0.01 }, and 0.001 was chosen. For the GP, the learning rate was tuned within {0.05 , 0.1}, and 0.1 was se-lected. The Adam optimizer was used throughout training. Regard-ing generation-time parameters , the perturbation scale 𝜆 perturb 
+
+was tuned over {0.3, 0.4, 0.5}, with 0.4 adopted as the final value. The maximum token length 𝑙 max was selected from {60 , 80 , 100 },and set to 80. The number of candidates 𝑛 candidate was fixed at 5. The sampling temperature of the LLM was tuned over {0.4, 0.5},with 0.4 selected, and the acquisition function threshold 𝛿 was set to 0.1. All LLM-based generation was performed using a locally deployed LLaMA 3.1 8B model. For the baselines, we followed the default hyperparameters pro-vided in their original papers or official implementations. To ensure a fair comparison, we re-implemented LMLF based on LLama 3.1 8B. To guarantee that LMLF can run successfully on the task of generating 100 ligands, we set the docking threshold to −6.5, and the threshold increment frequency to 50, meaning the threshold decreases by 1 every 50 iterations. In line with our setup, the num-ber of ligands generated per round was capped at 5. All generated molecules, including those from baselines, were evaluated using our docking pipeline to ensure fair comparison. Specifically, we used RDKit to parse the generated SMILES strings, construct initial 3D coordinates via molecular embedding, and optimize them using the MMFF94 force field. Vina docking scores were then computed using Smina with the default scoring function (vina). The exhaustiveness was set to 32, the number of poses was kept at the default value of 9, and the binding pocket was determined based on the known Empowering LLMs for Structure-Based Drug Design via Exploration-Augmented Latent Inference 
+
+Algorithm 1 Procedure of ELILLM 
+
+Input : Observed dataset Dobs = {( 𝑠 𝑖 , 𝑦 𝑖 )} 𝑛 𝑖 =1, prompt 𝑝 , protein pocket 𝑡 , generation count 𝑘 
+
+Output : Generated molecule set Sout  
+
+> 1:
+
+Initialize Sout ← ∅  
+
+> 2:
+
+while |S out | < 𝑘 do  
+
+> 3:
+
+Update latent observations Zobs using Equation 7 /** Project Dobs into latent embedding space **/ 4: Train surrogate model ˆ𝑓 𝜃 on {( 𝑧 𝑖 , 𝑦 𝑖 )} using Equations 14 and 15 /** Fit surrogate model based on latent embeddings **/ 5: Sample exploration embedding set Zexplore using Equations 8 and 9 /** Generate candidate embeddings in latent space **/ 6: Simulate evaluation of Zexplore using surrogate model with Equation 12 /** Simulated assessment via surrogate model **/ 7: Select candidate embedding set Zcand based on Equation 18 /** Choose promising embeddings for generation **/ 8: Decode candidates to molecules using Equation 19 /** Generate candidate molecules from embeddings **/ 9: Check validity and remove duplicates in Scand /** Filter invalid or repeated molecules **/ 10: Evaluate filtered Scand with docking score 𝑦 = Dock (𝑠, 𝑡 ) /** Compute true docking scores using molecule 𝑠 and protein pocket 𝑡 **/ 11: Update Sout ← S out ∪ S cand /** Add new valid molecules to output set **/ 12: Update Dobs ← D obs ∪ {( 𝑠, 𝑦 ) | 𝑠 ∈ S cand , 𝑦 = Dock (𝑠, 𝑡 )} /** Augment observed data with new molecules and docking scores **/ 13: end while  
+
+> 14:
+
+return Sout 
+
+ELILLM Prompt 
+
+Instructions: You are a SMILES repair engine that must always generate the closest valid SMILES approximation for any input, never returning an empty string. You may use the following rules as appropriate, including but not limited to: Basic Repairs: Complete missing ring numbers: C1CC → C1CC1 Balance parentheses: C(=O)(O → C(=O)O Fix atom formatting: na → [Na] Error Tolerance: Illegal characters → replace with carbon or other atoms that you think are most likely: [X]C → CC Uncloseable rings → convert to chains: C1CC2 → CCC Hypervalent atoms → remove excess bonds: C(C)(C)(C)(C) → C(C)(C)C Final Safeguard: When completely unrecognizable: Keep all valid atoms and single bonds: A*B → CB Minimal output: /. → CExamples: (ring closure)Input: C1CC → Output: C1CC1 (invalid atom → C)Input: [X][Na+] → Output: C[Na+] (remove unparseable stereochemistry)Input: C(/N)=C/F → Output: C(N)=CF (wildcard → C)Input: *C(=O)O → Output: CC(=O)O (keep only valid atoms)Input: A1B2 → Output: CC Output Specification: Only return the repaired SMILES string, nothing else. No explanations, no confirmations, just the valid SMILES. If input is already valid, return it unchanged. 
+
+Figure S1: ELILLM prompt Table S1: One-sided Wilcoxon signed-rank test 𝑝 -values assessing the statistical significance that ELILLM-diff achieves signifi-cantly lower docking scores compared to some baseline methods across Top-K results Methods Top1 Dock 𝑝 Top5 Dock 𝑝 Top10 Dock 𝑝 Top20 Dock 𝑝 
+
+LiGAN 1.33e-14 5.70e-15 5.40e-15 1.42e-14 Pocket2Mol 2.71e-5 1.70e-4 4.37e-4 1.45e-3 TargetDiff 7.72e-4 1.21e-6 3.85e-8 1.01e-9 ALIDIFF 1.13e-5 1.19e-9 3.41e-12 6.50e-14 Xuanning Hu et al. 
+
+w/o knowledge Prompt 
+
+Output a SMILES string only! You are a SMILES repair engine that must always generate the closest valid SMILES approximation for any input, never returning an empty string. If the input string is already a valid SMILES, output this SMILES only!! 
+
+Figure S2: w/o knowledge prompt w/o role Prompt 
+
+Output a SMILES string only! Input a SMILES string to you, and your task is to output this SMILES string. 
+
+Figure S3: w/o role prompt 
+
+co-crystallized ligand of the target protein. The autobox-add pa-rameter was set to 1 Å to define the docking box around the pocket. Among all generated poses, we selected the one with the lowest docking score as the final Vina score. 
+
+## C.2 System and Software Configuration 
+
+The experiments under the ELILLM-rand and ELILLM-diff set-tings were conducted on two separate machines, both equipped with NVIDIA RTX 3090 GPUs .For the ELILLM-rand setting, the system was configured with an Intel(R) Xeon(R) CPU E5-2673 v4 @ 2.30GHz and ran on Ubuntu 20.04.6 LTS. For the ELILLM-diff setting, the hardware setup in-cluded an Intel(R) Xeon(R) Silver 4310 CPU @ 2.10GHz, also running Ubuntu 20.04.6 LTS. Both experiments shared the same major software environment, including Python 3.10, PyTorch 2.3.1, HuggingFace Transformers 4.51.3, RDKit 2024.9.6, Smina 2020.12.10, and CUDA 12.1. 
+
+## C.3 Code and Reproducibility 
+
+To ensure reproducibility, we include all code and scripts necessary for training, evaluation, and visualization in an anonymous online repository at https://github.com/hxnhxn/ELILLM. All experiments are conducted under controlled settings with fixed random seeds (e.g., seed = 1) to minimize randomness and ensure consistency. 
+
+## D Supplementary Experiment D.1 One-sided Wilcoxon Signed-Rank Test 
+
+To assess the statistical significance of our method’s performance improvement, we conduct one-sided Wilcoxon signed-rank [ 39 ]tests on the average docking scores (lower is better) across 100 target proteins under Top-1, Top-5, Top-10, and Top-20 candidate settings. Specifically, we compare our method against several strong baseline methods with the best reported performance. The null hypothesis for each test is that our method does not achieve significantly lower docking scores than the compared base-line (i.e., the paired differences are symmetrically distributed around zero or skewed in the opposite direction). The alternative hypothe-sis is that our method achieves significantly lower scores, indicating superior binding affinity. The test is non-parametric and appropriate for our setting where paired scores are compared across the same set of protein targets, but normality of differences cannot be assumed. Reported p-values reflect the confidence with which we can reject the null hypothesis and support the superiority of our method. As shown in Table S1, the 𝑝 -values in all settings are below the 0.05 significance threshold, indicating that our method is significantly better than the selected baselines across all Top-𝐾 docking score evaluations. 
+
+## D.2 Additional Visualization ALIDIFF  ELILLM 
+
+> CC1C=CC2=CC(O)(O)C3C4C(=O)OC5=C4C(CCCCCC5)C
+> C3C2C1C
+> CC1CC=CC2=CC(O)(O)C3C4C(=O)OC5=C4C(CCCCCC5
+> )CC3C21
+> Vina:
+> -9. 8
+> Vina:
+> -11.7
+
+Figure S4: Visualizations of generated ligands for protein pockets 3nfb generated by ALIDIFF and ELILLM-diff. 
+
+While the visualizations in the main paper highlight the explo-ration capability of ELILLM, its ability to exploit existing molecular structures is equally important. As shown in Figure S4, ELILLM achieves substantial improvements in binding affinity by making slight modifications to the original structure while preserving its overall scaffold.

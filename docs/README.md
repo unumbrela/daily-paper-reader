@@ -9,56 +9,55 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-02-19 ~ 2026-02-28
-- 运行时间：2026-02-28 04:15:57 UTC
+- 最新运行日期：2026-02-20 ~ 2026-02-28
+- 运行时间：2026-02-28 19:06:54 UTC
 - 运行状态：成功
 - 本次总论文数：17
 - 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-本期精选 17 篇前沿论文，深度聚焦 RAG 架构优化与大模型高效部署方案。
-重点关注 CIRAG 框架在多跳问答中的自适应生成能力，以及如何通过透明化处理解决检索增强生成中的知识冲突问题。
-建议优先研读两篇满分精读论文，并参考 Blackwell GPU 部署指南探索低成本私有化落地路径。
-- 详情：[/20260219-20260228/README](/20260219-20260228/README)
+今日精选 17 篇前沿论文，深度解析大模型从“自我演化推理”到“结构化知识检索”的技术跨越。
+核心突破在于揭示了长链推理（Co
+- 详情：[/20260220-20260228/README](/20260220-20260228/README)
 
 ### 精读区论文标签
-1. [CIRAG: Construction-Integration Retrieval and Adaptive Generation for Multi-hop Question Answering](/20260219-20260228/2601.06799v1-cirag-construction-integration-retrieval-and-adaptive-generation-for-multi-hop-question-answering)  
+1. [Dual-Phase LLM Reasoning: Self-Evolved Mathematical Frameworks](/20260220-20260228/2601.05616v1-dual-phase-llm-reasoning-self-evolved-mathematical-frameworks)  
    标签：评分：10.0/10、query:sr-llm
-2. [Seeing through the Conflict: Transparent Knowledge Conflict Handling in Retrieval-Augmented Generation](/20260219-20260228/2601.06842v1-seeing-through-the-conflict-transparent-knowledge-conflict-handling-in-retrieval-augmented-generation)  
+2. [The Molecular Structure of Thought: Mapping the Topology of Long Chain-of-Thought Reasoning](/20260220-20260228/2601.06002v2-the-molecular-structure-of-thought-mapping-the-topology-of-long-chain-of-thought-reasoning)  
    标签：评分：10.0/10、query:sr-llm
-3. [Forward versus Backward: Comparing Reasoning Objectives in Direct Preference Optimization](/20260219-20260228/2601.07199v1-forward-versus-backward-comparing-reasoning-objectives-in-direct-preference-optimization)  
+3. [Ministral 3](/20260220-20260228/2601.08584v1-ministral-3)  
    标签：评分：10.0/10、query:sr-llm
-4. [ViDoRe V3: A Comprehensive Evaluation of Retrieval Augmented Generation in Complex Real-World Scenarios](/20260219-20260228/2601.08620v1-vidore-v3-a-comprehensive-evaluation-of-retrieval-augmented-generation-in-complex-real-world-scenarios)  
+4. [Fast KVzip: Efficient and Accurate LLM Inference with Gated KV Eviction](/20260220-20260228/2601.17668v1-fast-kvzip-efficient-and-accurate-llm-inference-with-gated-kv-eviction)  
    标签：评分：10.0/10、query:sr-llm
-5. [Parallel Context-of-Experts Decoding for Retrieval Augmented Generation](/20260219-20260228/2601.08670v1-parallel-context-of-experts-decoding-for-retrieval-augmented-generation)  
+5. [Native LLM and MLLM Inference at Scale on Apple Silicon](/20260220-20260228/2601.19139v2-native-llm-and-mllm-inference-at-scale-on-apple-silicon)  
    标签：评分：10.0/10、query:sr-llm
-6. [To Retrieve or To Think? An Agentic Approach for Context Evolution](/20260219-20260228/2601.08747v2-to-retrieve-or-to-think-an-agentic-approach-for-context-evolution)  
+6. [AttentionRetriever: Attention Layers are Secretly Long Document Retrievers](/20260220-20260228/2602.12278v1-attentionretriever-attention-layers-are-secretly-long-document-retrievers)  
    标签：评分：10.0/10、query:sr-llm
 
 ### 速读区论文标签
-1. [RIFT: Repurposing Negative Samples via Reward-Informed Fine-Tuning](/20260219-20260228/2601.09253v1-rift-repurposing-negative-samples-via-reward-informed-fine-tuning)  
+1. [Structured Knowledge Representation through Contextual Pages for Retrieval-Augmented Generation](/20260220-20260228/2601.09402v1-structured-knowledge-representation-through-contextual-pages-for-retrieval-augmented-generation)  
    标签：评分：10.0/10、query:sr-llm
-2. [Private LLM Inference on Consumer Blackwell GPUs: A Practical Guide for Cost-Effective Local Deployment in SMEs](/20260219-20260228/2601.09527v1-private-llm-inference-on-consumer-blackwell-gpus-a-practical-guide-for-cost-effective-local-deployment-in-smes)  
+2. [Reasoning in Trees: Improving Retrieval-Augmented Generation for Multi-Hop Question Answering](/20260220-20260228/2601.11255v1-reasoning-in-trees-improving-retrieval-augmented-generation-for-multi-hop-question-answering)  
    标签：评分：10.0/10、query:sr-llm
-3. [Advancing Model Refinement: Muon-Optimized Distillation and Quantization for LLM Deployment](/20260219-20260228/2601.09865v1-advancing-model-refinement-muon-optimized-distillation-and-quantization-for-llm-deployment)  
+3. [Neural Chain-of-Thought Search: Searching the Optimal Reasoning Path to Enhance Large Language Models](/20260220-20260228/2601.11340v1-neural-chain-of-thought-search-searching-the-optimal-reasoning-path-to-enhance-large-language-models)  
    标签：评分：10.0/10、query:sr-llm
-4. [Long-Chain Reasoning Distillation via Adaptive Prefix Alignment](/20260219-20260228/2601.10064v1-long-chain-reasoning-distillation-via-adaptive-prefix-alignment)  
+4. [Predict the Retrieval! Test time adaptation for Retrieval Augmented Generation](/20260220-20260228/2601.11443v1-predict-the-retrieval-test-time-adaptation-for-retrieval-augmented-generation)  
    标签：评分：10.0/10、query:sr-llm
-5. [Reasoning Models Generate Societies of Thought](/20260219-20260228/2601.10825v1-reasoning-models-generate-societies-of-thought)  
+5. [Utilizing Metadata for Better Retrieval-Augmented Generation](/20260220-20260228/2601.11863v1-utilizing-metadata-for-better-retrieval-augmented-generation)  
    标签：评分：10.0/10、query:sr-llm
-6. [PruneRAG: Confidence-Guided Query Decomposition Trees for Efficient Retrieval-Augmented Generation](/20260219-20260228/2601.11024v1-prunerag-confidence-guided-query-decomposition-trees-for-efficient-retrieval-augmented-generation)  
+6. [Agentic Reasoning for Large Language Models](/20260220-20260228/2601.12538v1-agentic-reasoning-for-large-language-models)  
    标签：评分：10.0/10、query:sr-llm
-7. [GIFT: Games as Informal Training for Generalizable LLMs](/20260219-20260228/2601.05633v1-gift-games-as-informal-training-for-generalizable-llms)  
+7. [Augmenting Question Answering with A Hybrid RAG Approach](/20260220-20260228/2601.12658v2-augmenting-question-answering-with-a-hybrid-rag-approach)  
+   标签：评分：10.0/10、query:sr-llm
+8. [Improving Large Molecular Language Model via Relation-aware Multimodal Collaboration](/20260220-20260228/2601.12256v1-improving-large-molecular-language-model-via-relation-aware-multimodal-collaboration)  
    标签：评分：7.0/10、query:sr-llm
-8. [How Context Shapes Truth: Geometric Transformations of Statement-level Truth Representations in LLMs](/20260219-20260228/2601.06599v1-how-context-shapes-truth-geometric-transformations-of-statement-level-truth-representations-in-llms)  
+9. [The Side Effects of Being Smart: Safety Risks in MLLMs' Multi-Image Reasoning](/20260220-20260228/2601.14127v1-the-side-effects-of-being-smart-safety-risks-in-mllms-multi-image-reasoning)  
    标签：评分：7.0/10、query:sr-llm
-9. [PlaM: Training-Free Plateau-Guided Model Merging for Better Visual Grounding in MLLMs](/20260219-20260228/2601.07645v1-plam-training-free-plateau-guided-model-merging-for-better-visual-grounding-in-mllms)  
+10. [HELIOS: Hierarchical Graph Abstraction for Structure-Aware LLM Decompilation](/20260220-20260228/2601.14598v2-helios-hierarchical-graph-abstraction-for-structure-aware-llm-decompilation)  
    标签：评分：7.0/10、query:sr-llm
-10. [Coordinated Cooling and Compute Management for AI Datacenters](/20260219-20260228/2601.08113v1-coordinated-cooling-and-compute-management-for-ai-datacenters)  
+11. [Empowering LLMs for Structure-Based Drug Design via Exploration-Augmented Latent Inference](/20260220-20260228/2601.15333v2-empowering-llms-for-structure-based-drug-design-via-exploration-augmented-latent-inference)  
    标签：评分：7.0/10、query:sr-llm
-11. [SGHA-Attack: Semantic-Guided Hierarchical Alignment for Transferable Targeted Attacks on Vision-Language Models](/20260219-20260228/2602.01574v1-sgha-attack-semantic-guided-hierarchical-alignment-for-transferable-targeted-attacks-on-vision-language-models)  
-   标签：评分：6.0/10、query:sr-llm
 
 
 <div class="dpr-home-promo-card">

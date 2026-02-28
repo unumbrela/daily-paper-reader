@@ -1,0 +1,344 @@
+Title: Dual-Phase LLM Reasoning: Self-Evolved Mathematical Frameworks
+
+URL Source: https://arxiv.org/pdf/2601.05616v1
+
+Published Time: Mon, 12 Jan 2026 01:29:40 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+# Dual-Phase LLM Reasoning: Self-Evolved Mathematical Frameworks 
+
+# ShaoZhen Liu 1,2 , Xinting Huang 3, Houwen Peng 3, Xin Chen 3, Xinyang Song 1,2 , Qi Li 2, Zhenan Sun 1,2 , 
+
+> 1
+
+School of Artificial Intelligence, University of Chinese Academy of Sciences  
+
+> 2
+
+Institute of Automation, Chinese Academy of Sciences  
+
+> 3
+
+Tencent Hunyuan Team liushaozhen2025@ia.ac.cn 
+
+Abstract 
+
+In recent years, large language models (LLMs) have demon-strated significant potential in complex reasoning tasks like mathematical problem-solving. However, existing research predominantly relies on reinforcement learning (RL) frame-works while overlooking supervised fine-tuning (SFT) meth-ods. This paper proposes a new two-stage training framework that enhances models’ self-correction capabilities through self-generated long chain-of-thought (CoT) data. During the first stage, a multi-turn dialogue strategy guides the model to generate CoT data incorporating verification, backtrack-ing, subgoal decomposition, and backward reasoning, with predefined rules filtering high-quality samples for supervised fine-tuning. The second stage employs a difficulty-aware re-jection sampling mechanism to dynamically optimize data distribution, strengthening the model’s ability to handle com-plex problems. The approach generates reasoning chains ex-tended over 4× longer while maintaining strong scalability, proving that SFT effectively activates models’ intrinsic rea-soning capabilities and provides a resource-efficient pathway for complex task optimization. Experimental results demon-strate performance improvements on mathematical bench-marks including GSM8K and MATH500, with the fine-tuned model achieving a substantial improvement on competition-level problems like AIME24. Code will be open-sourced. 
+
+# Introduction 
+
+Large language models (LLMs) have demonstrated remark-able capabilities in reasoning-related tasks such as math-ematics and coding. Notable examples include ChatGPT (Achiam et al. 2023), Claude (Anthropic 2025), and Gem-ini (Team et al. 2023). Following the release of GPT-o1 (Jaech et al. 2024) and DeepSeek-r1 (Guo et al. 2025), LLMs with strong reasoning abilities have attracted even more attention, along with inference methods that enhance reasoning. These models exhibit four capabilities: verifica-tion (systematic error-checking), backtracking (abandoning failing approaches), subgoal setting (decomposing problems into manageable steps), and backward chaining (reasoning from desired outcomes to initial inputs) (Gandhi et al. 2025). The technical details disclosed by DeepSeek-r1 (Guo et al. 2025) have revealed a critical step in developing long-chain reasoning models: rule-based reward reinforcement 
+
+Copyright © 2026, Association for the Advancement of Artificial Intelligence (www.aaai.org). All rights reserved. Stage 1: Long  CoT  Data Construction and Fine -tuning 
+
+> Math
+> Dataset
+
+Base Model  
+
+> High quality
+> CoT Data
+
+Multi -Turn Long  CoT  Generation 
+
+> A1
+
+Rule -Based  Flitering 
+
+& Construction 
+
+SFT  πsft   
+
+> Y1A2Y2
+
+Stage 2: Difficulty -Aware Rejection Sampling  
+
+> Math
+> Dataset
+
+πsft  Long Reasoning Trajectories 
+
+> Difficult -Aware
+> Rejection Sampling
+
+SFT 
+
+πrej 
+
+Figure 1: A two-stage self-improvement framework for en-hancing LLMs’ mathematical reasoning. Stage 1 generates high-quality CoT data via multi-turn reasoning and rule-based filtering for SFT ( πsft ). Stage 2 employs difficulty-aware rejection sampling on πsft ’s outputs to refine reasoning on complex problems, yielding an optimized model πrej 
+
+learning. Consequently, current research directions primar-ily focus on enhancing mathematical and coding perfor-mance through reinforcement learning for long reasoning chains (Hu et al. 2025; Face 2025; Zeng et al. 2025). Meanwhile, supervised fine-tuning as a more fundamen-tal approach has often been overlooked. Some paper has al-ready discuss about the relationship between reinforcement learning (RL) and supervised fine-tuning (SFT) (Xiong et al. 2025a), but they are mainly based on RL. In this paper, we propose a SFT method for developing long-reasoning mod-els that only requires the model’s own generated data for it-erative improvement. Building on these insights, this work introduces a method to enhance LLM reasoning through synthesized long CoT data. Our approach generates multi-step reasoning trajectories that inherently embed four critical 
+
+> arXiv:2601.05616v1 [cs.LG] 9 Jan 2026
+
+capabilities. This data synthesis leverages model-generated content to reduce computational requirements compared to large-model distillation. The method employs a new two-stage framework, as il-lustrated in Figure 1, to generate and utilize self-synthesized long CoT data, relying on the model’s own outputs without external dependencies. In the first stage, a multi-turn dia-logue strategy guides the model to iteratively generate and refine responses through self-evaluation and correction, as exemplified in Figure 2, which demonstrates how the model identifies errors through backtracking and strategic factor-ization, then revises its approach to achieve a refined solu-tion. The process repeats over multiple turns to build ex-tended reasoning chains that naturally incorporate all four target capabilities. The generated data is filtered using prede-fined rules to prioritize high-quality samples, and then used for supervised fine-tuning to enhance the model’s intrinsic reasoning abilities. In the second stage, a difficulty-aware rejection sampling mechanism dynamically optimizes data distribution through iterative focus on harder problems, in-creasing sampling attempts for unsolved questions to collect additional high-quality responses. This refined data is com-bined with the initial dataset for further fine-tuning, strength-ening the model’s capacity for complex problem-solving while minimizing computational resource demands. • Synthesis Method for Long Chain-of-Thought Data :Our novel data generation technique produces long rea-soning chains containing all four target capabilities with substantially reduced computational overhead compared to large-model distillation. The resulting dataset will be open-sourced. • Supervised Fine-Tuning Framework for Long-Reasoning Models : We introduce a dual-phase fine-tuning approach where models first train on self-generated reasoning traces, then iteratively improve using filtered high-quality outputs. • Empirical Validation : Experiments demonstrate that models trained with our approach match the performance of those using distilled data from larger models, while ex-hibiting positive scaling with increased data volume. 
+
+# Related Works 
+
+Math Data Synthesis 
+
+Recent advances in LLM mathematical reasoning predom-inantly rely on GPT-distilled Chain-of-Thought (CoT) data synthesized by frontier models like GPT-4 (Yu et al. 2024; Wang et al. 2024), as exemplified by NuminaMath (LI et al. 2024) and OpenMathInstruct-2 (Toshniwal et al. 2025). While effective, this paradigm inherently limits reasoning capability to the teacher LLM’s capacity, as unsolvable problems are excluded from training data. Although rejec-tion sampling methods (Ahn et al. 2024; Brown et al. 2024) can improve data quality, this limitation remained unre-solved. We propose difficulty-aware rejection sampling to further address this limitation. Assistant:                                                                                        
+
+> To simplify the expression 12
+> 11 ∙15
+> 28 ∙44
+> 45 ,we can follow these
+> steps …Final Answer :4
+> While effective, this approach to simplifying the expression 12
+> 11 ∙
+> 15
+> 28 ∙44
+> 45 through …This suggests optimizing through amore
+> strategic cancellation of common factors at each step, rather
+> than waiting until the end .
+> To illustrate, consider the following intermediate steps that
+> highlight this optimization ... Thus, the simplified form of the
+> expression is :4
+> 7(Second Try)
+> Let’s validate the given answers .Answer 1:4... Answer 2:4
+> 7...
+> Final Decision :4
+> 7
+> User: Simplify 12
+> 11 ∙15
+> 28 ∙44
+> 45
+
+Figure 2: Demonstration of multi-turn self-correction. The model first produces an incorrect answer “4” through subop-timal cancellation, then performs backtracking and strategic factorization to identify intermediate optimization opportu-nities. After recalculating, it verifies correctness and com-mits to the final refined answer “ 47 ”, showcasing activation of intrinsic reasoning capabilities. 
+
+Self-improvement Training. 
+
+Self-improvement training currently includes two primary approaches: external reward-based methods (Guan et al. 2025; Shafayat et al. 2025; Zhang et al. 2025) using iterative training via Process Reward Models (Lightman et al. 2023) or Outcome Reward Models (Yang et al. 2024), and intrinsic reward-based methods that leverage self-generated signals as rewards (Taubenfeld et al. 2025; Kang, Zhao, and Song 2025; Yuan et al. 2024). Our approach utilizes self-generated data to foster four reasoning capabilities previously demon-strated to facilitate complex reasoning. 
+
+LLMs for Supervised Fine-Tuning 
+
+Large-scale supervised fine-tuning (SFT) (Radford et al. 2018; Brown et al. 2020; Wei et al. 2022; Chung et al. 2024) constitutes a fundamental approach for enhancing model performance during post-training. SFT adapts pre-trained models to downstream tasks using task-specific datasets, typically formatted as instructions. Unlike prior works that primarily employ SFT as a foundation for reinforcement learning (RL) (Bai et al. 2024; Zhai et al. 2024; Wu et al. 2025), our work strategically utilizes SFT to capture post-RL reasoning patterns. Building on insights from RL out-comes, we develop novel SFT methodologies. 
+
+# Methodology 
+
+We propose a new multi-turn reasoning strategy that tran-scends traditional single-turn approaches. This strategy it-eratively refines answers through self-verification and back-tracking over multiple reasoning turns, enabling systematic error correction. The model synthesizes reasoning history via unified reflection and naturally learns subgoal decom-position for complex problem-solving. 
+
+Multi-turn Reasoning Strategy 
+
+The multi-turn dialogue strategy operates as follows. After observing the initial prompt p1, the LLM generates its first response: 
+
+LLM (p1) → r1. (1) Subsequently, the LLM performs self-evaluation of its anal-ysis process to produce an evaluation text: 
+
+LLM (p1, r 1) → e1. (2) Following this analysis, the LLM generates a revised re-sponse with further self-correction and evaluation: 
+
+LLM (p2) → (r2, e 2), (3) where p2 = ( p1, r 1, e 1). This iterative process continues for 
+
+h steps: 
+
+LLM (p1) → r1,
+
+LLM (p1, r 1) → e1,
+
+LLM (p2) → (r2, e 2) (p2 = ( p1, r 1, e 1)) ,
+
+LLM (p3) → (r3, e 3) (p3 = ( p2, r 2, e 2)) ,
+
+...
+
+LLM (ph) → (rh, e final  
+
+> h
+
+) (ph = ( ph−1, r h−1, e h−1)) .
+
+(4) Here, ph represents the result after h iterations (with h be-ing predefined), and efinal  
+
+> h
+
+serves as the summary text that analyzes ph to either accept it as the final answer or select the most reliable answer from previous responses through backward verification. 
+
+Two-Stage Training Framework 
+
+We propose a two-stage post-training approach for LLMs, which is shown in Figure 1: 
+
+Stage 1: Long CoT Data Construction and Fine-tuning. 
+
+Starting from a base LLM π, we collect high-quality multi-turn dialogue data Dmulti through our reasoning strategy. This data is used to fine-tune π into πsft , enhancing four key capabilities: verification, backtracking, subgoal construc-tion, and backward reasoning. 
+
+Stage 2: Difficulty-Aware Rejection Sampling Optimiza-tion. We employ improved rejection sampling to collect high-quality responses from πsft , filtering them into Drej .Combining Drej with Dmulti , we fine-tune π again to obtain 
+
+πsft+rej , further boosting model performance. 
+
+Long CoT Data Construction and Fine-tuning 
+
+After understanding the new multi-turn reasoning strategy and the two-stage post-training framework, the next step is to introduce the first stage of the two-stage framework. In this stage, we synthesizes high-quality, long CoT data Problem 
+
+Answer 1
+
+Modified 
+
+Answer  
+
+> Ground Truth
+> Answer
+
+Answer 2
+
+# First part 
+
+Transition Text 
+
+Evaluation 
+
+# Second  part 
+
+Summary  Text 
+
+Summary 
+
+# Third  part 
+
+Figure 3: Flow diagram for self-generating Long Chain-of-Thought data. Dual-step answers (Answer 1, Answer 2) are derived from Problem and Ground Truth. Evaluation pro-duces Transition Text through answer analysis; Summary yields synthetic verification. through multi-turn dialogues. This process systematically captures essential reasoning patterns. The generated data serves as the foundation for supervised fine-tuning, enabling the model to internalize both formal solution structures and underlying problem-solving logics. 
+
+Long CoT Data Construction. Our long CoT construc-tion strategy is designed based on the multi-turn reasoning strategy introduced earlier, aiming to emulate four logical patterns of mathematical experts: verification, backtracking, subgoal setting, and backward chaining. The long CoT con-struction involves two main steps: 1) generating candidate texts through multi-turn dialogues with a base model to syn-thesize long CoT, and 2) refining these responses into high-quality long CoT data using predefined rules. 
+
+Phase 1: Generating Candidate Texts via Multi-Turn Di-alogues. Since logical patterns such as verification, back-tracking, subgoal setting, and backward chaining rarely emerge spontaneously in base models, single-turn dialogues often fail to capture these reasoning chains. Unlike conven-tional data synthesis methods, we employ iterative prompt-ing to guide the model to generate distinct reasoning steps independently. These outputs are then combined to form high-quality long CoT data incorporating the four target log-ical patterns. Our approach intentionally diverges from the strict se-quential generation sequence p1 → r1 → e1 → · · · → 
+
+rh → efinal  
+
+> h
+
+typical of prior strategies. This adaptation ad-dresses base models’ inherent limitations in logical consis-tency—enforcing rigid sequences often induces context for-getting or instruction deviations. Instead, we implement a structured two-phase synthesis, visualized in Figure 3, where Problem initiates Answer 1
+
+generation, followed by instruction-triggered Answer 2 pro-duction and subsequent Transition Text (Y 1) and Summary (Y final  
+
+> 2
+
+) derivation. For more details about this part, see Ap-pendix. While theoretically extensible to more turns, strong inter-turn dependencies impede scalable decomposition. Thus, our method strategically limits reasoning to two turns, en-abling iterative candidate text synthesis for long CoT con-struction without external models. This design balances fea-sibility with the systematic integration of verification and backtracking mechanisms. 
+
+Phase 2: Constructing High-Quality Long CoT Data. 
+
+After obtaining candidate texts, we filter and refine them to build the final dataset Dmulti . Each candidate chain 
+
+(Problem , Answer 1, Y1, Answer 2, Yfinal  
+
+> 2
+
+) is classified into four categories based on the correctness of Answer 1 and Answer 2 (denoted as a1 and a2): • True-to-True: Both a1 and a2 are correct. • True-to-False: a1 is correct, but a2 is incorrect. • False-to-True: a1 is incorrect, but a2 is correct. • False-to-False: Both a1 and a2 are incorrect. Among these, True-to-True and False-to-False are com-mon, True-to-False is undesirable, and False-to-True repre-sents the ideal learning target. Following the methodology in this paper (Xiong et al. 2025a), our work constructs the fine-tuning dataset with a balanced ratio of a1-correct to a1-incorrect samples (1:1). Specifically: 1. Extract False-to-True data, count the total number sum 1.2. Extract True-to-False data, count the total number sum 2.3. Supplement with True-to-True data to achieve sum 1 −
+
+sum 2.Our data construction employs distinct processing strate-gies for three data types: True-to-True, True-to-False, and False-to-True, rather than uniformly concatenating compo-nents as Problem + Answer 1 + Y1 + Answer 2 + Yfinal  
+
+> 2
+
+. Addi-tionally, we implemented data filtering concurrently during the concatenation process. Refer to Appendix for implemen-tation details. It should be noted that the concatenation operator “ +” de-notes logical continuation within this context, as opposed to representing simple string concatenation. All filtering thresholds (e.g., 20-character minimum) were determined through experiments conducted on the validation set within the research. The symbol follows mathematical notation conventions for final answer presentation. 
+
+Fine-Tuning with Long Chain-of-Thought Data. Based on the aforementioned methodology, we generated a large corpus of text data and retained only high-quality samples meeting predefined criteria. We then fine-tuned the model using the long CoT dataset Dmulti . The fine-tuning process follows standard practices, aiming to maximize the follow-ing objective: 
+
+Ex∼Dmulti [log P (Y1|x, A 1)+ log P (A2|x, A 1, Y 1)+ log P (Y final  
+
+> 2
+
+|x, A 1, Y 1, A 2) .
+
+(5) Notably, prior study (Xiong et al. 2025b) observed that such strategies may induce reward hacking behaviors, where models deliberately generate incorrect initial answers A1
+
+to artificially improve corrections in A2, thereby degrading 
+
+A1’s reliability. However, our experiments revealed minimal occurrence of this phenomenon. We attribute this to the bal-anced data ratio ( a1-correct : a1-incorrect = 1:1), which mit-igates skewed optimization incentives. Detailed configurations of the long CoT fine-tuning pro-cess, including hyperparameters and training protocols, are elaborated in Section . 
+
+Rejection Sampling 
+
+Following the previous stage, we obtained a fine-tuned model πsft capable of generating long CoT outputs using the high-quality dataset Dmulti . In this phase, we further op-timize the model’s performance via an improved rejection sampling algorithm tailored for mathematical reasoning. Traditional rejection sampling methods typically gener-ate multiple responses per problem and retain only correct solutions. However, prior studies (Tong et al. 2024) iden-tified limitations in this approach: it disproportionately fa-vors easier problems, as harder ones are rarely answered cor-rectly within limited trials. For instance, DeepSeekMath-7B achieves 90% accuracy on MATH500 with 100 samples per problem, indicating that stronger open-source models can generate correct answers for most problems if sufficiently sampled. This motivates our improved strategy to address the underrepresentation of challenging problems. 
+
+Difficulty-Aware Rejection Sampling. To prioritize sam-pling correct responses for difficult problems, we propose an iterative, difficulty-aware rejection sampling algorithm. The workflow for a dataset D0 is as follows: 1. For each problem S ∈ D0, generate n1 responses x using the LLM. 2. Retain correct responses and reject incorrect ones. 3. Aggregate all retained responses. 4. Filter D0 to create D1, containing only problems with zero correct responses in n1 trials. 5. Repeat steps 1–4 for D1 with n2 samples per problem. 6. Iterate this process h times, progressively focusing on harder problems. This approach ensures harder problems receive exponen-tially more sampling attempts (e.g., n1 = 2, n2 = 10 ,
+
+n3 = 100 for h = 3 ), balancing acceptance rates between easy and hard problems. For retained responses, we select medium-length answers to avoid overly concise (potentially incomplete) or verbose (redundant) reasoning chains. De-tailed hyperparameters are provided in Section . 
+
+Merging Rejection Sampling and Multi-Turn Dialogue Data. The rejection sampling dataset Drej is combined with Dmulti to form an augmented dataset Dmulti+rej . To dis-tinguish data sources, we append specific markers to each problem: • For Dmulti : Append \n\nUsing the solution style from multi-turns data. • For Drej : Append \n\nUsing the solution style from rejection data. 
+
+These markers help the model learn distinct distributions while focusing on their inherent logical patterns. Following previous paper (Zelikman et al. 2022), we fine-tune the base model π on Dmulti+rej using standard protocols. Although fine-tuning πmulti directly on Drej showed marginal gains, our merged approach yields superior results. Comparative analyses of alternative fine-tuning strategies (e.g., sequen-tial fine-tuning on Dmulti followed by Drej ) are detailed in the Experimental Section. 
+
+# Experiments 
+
+Experimental Setup 
+
+Dataset Selection. We employ the publicly available DeepScaleR dataset (Luo et al. 2025), which originates from the DeepScaleR project and contains a substantial collec-tion of annotated mathematical problem-answer pairs. After preliminary inspection and quality-based filtering, we obtain approximately 15k high-quality data points: specifically 10k for long CoT data synthesis, and 5k exclusively for rejec-tion sampling data synthesis. Detailed preprocessing steps are provided in the Appendix. 
+
+Model Evaluation. We conduct comprehensive out-of-domain (OOD) assessments across seven benchmarks: AIME24 (LI et al. 2024), AMC23 (LI et al. 2024), GSM8K (Cobbe et al. 2021), MATH500 (Lightman et al. 2023), SVAMP (Patel, Bhattamishra, and Goyal 2021), TabMWP (Lu et al. 2023), and Gaokao2023en. Detailed descriptions of these datasets are provided in Appendix. Our evaluation framework is built upon Qwen2.5-Math’s official implemen-tation , utilizing the vLLM inference engine with generation parameters set to temperature=0.6 and top p=1.0. For the more challenging AMC23 and AIME24 datasets, we adopt a robust evaluation strategy of sampling 8 responses per prob-lem, while other benchmarks employ single sampling. A distinctive aspect of our evaluation protocol involves test-ing three interaction formats: direct problem-solving, multi-turn dialogue with rejection sampling, and multi-turn dia-logue with rejection sampling through specialized tagging, ensuring comprehensive analysis of the model’s adaptabil-ity across diverse scenarios. 
+
+Baselines. We establish rigorous performance baselines through multiple approaches. First, we define the competi-tive baseline by fine-tuning the Qwen2.5-7B-Instruct (Qwen et al. 2024) model with 15,000 high-quality samples dis-tilled from the r1-distilled-32b model (Guo et al. 2025) us-ing DeepScaleR (Luo et al. 2025). This distillation process aims to simulate long-chain reasoning patterns while main-taining parameter efficiency. For comparative analysis, we reproduce state-of-the-art methods including self-rewarding (Xiong et al. 2025a), implemented through its official code-base, and think twice (Tian et al. 2025), faithfully recon-structed according to the original specifications. Addition-ally, we integrate results from Dmulti fine-tuning into our main experiments for direct comparison. To ensure fairness, all experiments share identical random seeds, with engineer-ing optimizations applied to accelerate think twice’s multi-round reasoning in zero-shot settings. 
+
+Main Results 
+
+The primary experimental outcomes are presented in Table 1, where all values exhibit a potential rounding error margin of ±0.1%. The response length for each experimental re-sult is detailed in Table 2. The distilled method establishes a soft upper bound for fine-tuning performance (bolded val-ues), consistently outperforming the Qwen2.5-7B-Instruct baseline across all benchmarks. Underlined entries in the 
+
+Dmulti rows indicate superior accuracy compared to both self-rewarding and think twice approaches. The following analysis is based on the results shown in Tables 1 and 2. 
+
+Analysis of Dmulti Fine-tuning. The Dmulti approach demonstrates consistent performance improvements over the baseline model across six of seven benchmarks, par-ticularly showing 149% relative improvement on AIME24 (6.70% → 16.70%). This enhancement stems from the method’s capacity to integrate diverse reasoning patterns during training, enabling better knowledge transfer between symbolic and numerical domains. The cross-task general-ization is most evident in MATH500 (74.20% → 75.40%) and TabMWP (90.60% → 95.40%), where tabular reason-ing benefits from structured data representations. Crucially, these performance gains are mirrored in re-sponse length dynamics. The Dmulti fine-tuning induces sub-stantial increases in token counts across all benchmarks, with averages reaching 4-14× the baseline (e.g., 303.91 →
+
+1141.43 on GSM8K). This expansion stems from explicit modeling of diverse reasoning pathways, where complex tabular data (TabMWP: 659.14 vs baseline 227.487) and symbolic proofs (MATH500: 2016.7 vs 581.53) require ex-tended step-by-step explanations. The dramatic growth in AIME24 responses (1246.33 → 4257.62 tokens) particu-larly reflects the method’s capacity for generating detailed olympiad-level proofs. 
+
+Analysis of Dmulti+rej Enhancement. The integration of rejection sampling with Dmulti (Dmulti+rej ) yields additional gains in complex reasoning tasks. The rejection mechanism particularly enhances MATH500 performance (75.40% →
+
+76.00%) by filtering low-confidence solutions during train-ing. Test-time marker injection reveals distinct behav-ioral patterns: rejection markers boost symbolic reasoning (MATH500: 76.60%), while multi-turn markers improve interactive problem-solving (AMC23: 57.50%). This di-chotomy suggests complementary strengths in different rea-soning modalities. This accuracy refinement naturally extends to efficiency metrics. Incorporating rejection sampling achieves 21-68% length reduction compared to Dmulti while maintaining competitive accuracy. The rejection mechanism effectively prunes redundant reasoning branches, as evidenced by MATH500 (1230.42 vs Dmulti ’s 2016.7) and Gaokao2023en (1465.27 vs 2148.56). Notably, marker-specific variations reveal task-dependent optimization: multi-turn markers Method AIME24 AMC23 GSM8K MATH500 SVAMP TabMWP Gaokao2023en Qwen2.5-7B-Instruct 6.70 50.00 91.70 74.20 94.30 90.60 62.60 + self-rewarding 6.70 52.50 89.50 72.00 93.00 91.20 61.30 + think twice 10.00 50.00 90.10 73.40 93.50 90.50 62.60 + Dmulti (Ours) 16.70 52.50 90.60 75.40 94.80 95.40 62.90 + Dmulti+rej (Ours) 13.30 50.00 91.10 76.00 94.10 96.30 64.40 + multi-turn marker 13.30 57.50 91.80 75.20 94.00 95.00 64.90 
+
++ rejection marker 16.70 52.50 91.70 76.60 95.10 96.20 63.40 + distilled 26.70 67.50 93.00 84.20 94.40 96.30 75.10 
+
+Table 1: Performance Comparison Across Mathematical Reasoning Benchmarks (Accuracy %) Method AIME24 AMC23 GSM8K MATH500 SVAMP TabMWP Gaokao2023en Qwen2.5-7B-Instruct 1246.33 965.87 303.91 581.53 199.34 227.49 632.43 + self-rewarding 2934.47 2119.48 500.72 1262.80 360.83 319.92 1624.54 + think twice 1305.32 986.58 298.37 601.51 210.37 258.40 625.48 + Dmulti (Ours) 4257.62 3214.51 1141.43 2016.70 852.12 659.14 2148.56 + Dmulti+rej (Ours) 3946.01 2114.83 378.64 1230.42 276.38 284.28 1465.27 + multi-turn marker 3709.35 2395.91 444.42 1141.43 372.35 290.77 1364.86 + rejection marker 4004.06 2463.98 401.69 1442.39 326.63 282.60 1211.20 + distilled 19327.74 11962.26 2043.77 5869.80 1693.42 1290.40 6645.41 Table 2: Response Length Analysis Across Benchmarks (Average Tokens) streamline interactive reasoning (AMC23: 2395.91 vs re-jection marker’s 2463.98), while rejection markers en-hance conciseness in symbolic tasks (MATH500: 1442.39 vs multi-turn’s 1141.43). 
+
+Comparative Analysis with Other Method. When com-pared to self-rewarding and think twice approaches, Dmulti 
+
+variants show superior parameter efficiency and task adapt-ability. While self-rewarding suffers from reward hacking in formal proofs (GSM8K: 89.50% vs Dmulti ’s 90.60%), think twice’s iterative reasoning introduces computational over-head without proportional accuracy gains (AMC23: 50.00% vs Dmulti+rej ’s 57.50%). The distilled baseline’s exceptional performance (Gaokao2023en: 75.10%) highlights the un-tapped potential of high-quality synthetic data generation. These accuracy advantages are further reinforced when examining response efficiency. The Dmulti variants demon-strate superior length-accuracy trade-offs compared to al-ternatives: While self-rewarding generates 2.6× longer re-sponses than Dmulti+rej on GSM8K (500.72 vs 378.64) with lower accuracy (89.50% vs 91.10%), think twice’s minimal length increase (AMC23: 986.58 vs baseline 965.87) accom-panies negligible performance gains. The distilled method’s extreme verbosity (AIME24: 19327.74 tokens) highlights 
+
+Dmulti+rej ’s practical advantage in balancing detail and con-ciseness - achieving 75-91% of distilled’s accuracy with merely 16-24% of its response length. 
+
+Supplementary Experiments 
+
+Study on Using Rejection Sampling Data. The experi-mental matrix examines different strategies for integrating rejection sampling data. Here, the base model π is Qwen2.5-7B-Instruct. The results are shown in Table 3. Row 1 shows the baseline πsft model fine-tuned with Dmulti , while Row 2 demonstrates subsequent fine-tuning with Drej data. Row 3 presents direct fine-tuning of the base model π using Drej 
+
+alone. Row 4 evaluates Dmulti+rej without test-time markers, with Rows 5-7 detailing our proposed method variants. 
+
+Analysis of Base Model Fine-tuning Strategy. The su-perior performance of Dmulti+rej with markers (Rows 5-7) over the sequential fine-tuning approach (Rows 1-2) reveals critical insights. For instance, as evidenced by AMC23, our method achieves 57.50% accuracy with multi-turn markers versus 47.50% in Row 2, indicating a substantial 21% rela-tive improvement. This outcome suggests that joint training with marker-aware supervision better preserves model plas-ticity compared to sequential multi-stage fine-tuning. 
+
+Analysis of Combined Dmulti and Drej Usage. Compar-ing analysis between Row 3 ( π+Drej ) and Row 4 ( Dmulti+rej 
+
+w/o marker) reveals the synergy of combined datasets. The MATH500 accuracy increases from 74.40% to 76.40%, demonstrating that integrating Dmulti ’s multi-format reason-ing with Drej ’s confidence calibration creates complemen-tary learning signals. However, the Gaokao2023en perfor-mance drop (62.80% → 63.00%) suggests domain-specific tuning requirements. 
+
+Analysis of Marker-based Data Merging. The marker-enhanced Dmulti+rej (Rows 5-7) outperforms markerless in-tegration (Row 4) across all benchmarks, most notably in AIME24 (16.70% vs 10.00%). This 67% relative improve-ment confirms that explicit marker tokens during training en-Method AIME24 AMC23 GSM8K MATH500 SVAMP TabMWP Gaokao2023en 
+
+πsft (Dmulti ) 16.70 52.50 90.60 75.40 94.80 95.40 62.90 
+
+πsft + Drej 10.00 47.50 91.10 76.40 94.70 95.60 64.30 
+
+π + Drej 10.00 42.50 90.60 74.40 94.10 95.10 62.80 
+
+Dmulti+rej (w/o marker) 10.00 45.50 90.70 73.00 94.00 95.70 63.00 
+
+Dmulti+rej 13.30 50.00 91.10 76.00 94.10 96.30 64.40 + multi-turn marker 13.30 57.50 91.80 75.20 94.00 95.00 64.90 
+
++ rejection marker 16.70 52.50 91.70 76.60 95.10 96.20 63.40 Table 3: Impact of Data Composition in Rejection Sampling (Accuracy %) Training Data Size GSM8K MATH500 0.5k 91.30 75.00 1k 90.40 75.20 2k 91.20 73.20 4k 91.10 75.20 8k 92.30 76.00 Table 4: Performance Scaling with Training Data Volume Accuracy (%) able better test-time adaptation. The rejection marker’s par-ticular effectiveness on MATH500 (76.60% vs 73.00%) in-dicates its role in eliciting structured mathematical proofs. As a result, our experiments demonstrate that joint fine-tuning with Dmulti and Drej combined with marker-aware training achieves optimal performance. The multi-turn marker configuration excels in interactive scenarios (AMC23: 57.50%), while rejection markers boost formal proof generation (MATH500: 76.60%). This validates our hypothesis that explicit task markers during both training and inference phases enable more effective knowledge trans-fer between reasoning modalities. 
+
+Scaling Behaviors. The scaling analysis examines perfor-mance patterns under progressively varying training data sizes (0.5k-8k samples) ranging from minimal to substan-tial scales for Dmulti+rej fine-tuning, maintaining strictly fixed 1-epoch training duration and consistent hyperparameters across all trials. Evaluation deliberately focuses on two es-tablished GSM8K and MATH500 benchmarks. The results are shown in Table 4 for accuracy and Table 5 for computa-tional average tokens length. 
+
+Accuracy Trend Analysis. Accuracy demonstrates non-linear growth with increasing data volume. The GSM8K per-formance improves from 91.30% (0.5k) to 92.30% (8k), de-spite temporary dips at intermediate sizes (90.40% at 1k). MATH500 shows similar progression, peaking at 76.00% with full 8k data after fluctuating between 73.20-75.20%. This pattern suggests gradual knowledge integration over-coming initial overfitting tendencies. 
+
+Response Length Analysis. Average token counts ex-hibit inverse scaling relationships. Starting from 348.93 to-kens (GSM8K) and 894.87 (MATH500) at 0.5k data point, lengths peak dramatically at 11,695.97/15,375.14 tokens Training Data Size GSM8K MATH500 0.5k 348.93 894.87 1k 11,695.97 15,375.14 2k 857.27 2,687.33 4k 819.71 1,892.91 8k 941.94 2,032.73 Table 5: Response Length Scaling with Training Data Vol-ume (Average Tokens) with 1k data samples before subsequently stabilizing near the 800-2,000 tokens range band for larger datasets. Sig-nificantly, the 8k configuration achieves 941.94/2,032.73 to-kens, reflecting improved conciseness despite utilizing 5.3× more training data than 1k. The method demonstrates positive scaling laws: larger datasets enhance both accuracy (GSM8K: +1.00%, MATH500: +1.00% from 0.5k to 8k) and response effi-ciency (GSM8K length reduction: 11,695.97 → 941.94 tokens). This dual improvement confirms the approach’s capacity to leverage expanded training data for simultaneous performance gains and output optimization. 
+
+# Conclusion 
+
+This study demonstrates that SFT with multi-turn dialogue strategies can effectively enhance LLMs’ long-chain reason-ing capabilities for mathematical tasks. Our approach inte-grates verification, backtracking, subgoal setting, and back-ward chaining into synthesized CoT data, enabling base models to achieve performance comparable to distillation-based methods without external models, while reducing computational costs. Key innovations include activating intrinsic reasoning through autonomous error-correction chains and a difficulty-aware rejection sampling mechanism that mitigates bias toward simple problems. Experiments confirm the effectiveness of our approach. 
+
+Limitations. However, several limitations of our method warrant further investigation. These involve dependence on manual template design and the two-turn constraint’s inad-equacy for deep multi-step reasoning (e.g., AIME24). Fu-ture directions include developing automated template gen-eration through meta-learning, integrating symbolic reason-ing engines for rigorous proofs, and creating adaptive sam-pling algorithms with interpretable difficulty metrics to fur-ther advance complex reasoning capabilities while maintain-ing methodological efficiency. 
+
+# References 
+
+Achiam, J.; Adler, S.; Agarwal, S.; Ahmad, L.; Akkaya, I.; Aleman, F. L.; Almeida, D.; Altenschmidt, J.; Altman, S.; Anadkat, S.; et al. 2023. Gpt-4 technical report. arXiv preprint arXiv:2303.08774 .Ahn, J.; Verma, R.; Lou, R.; Liu, D.; Zhang, R.; and Yin, W. 2024. Large Language Models for Mathematical Reasoning: Progresses and Challenges. In Proceedings of the European Chapter of the Association for Computational Linguistics: Student Research Workshop , 225–237. Anthropic. 2025. Introducing Claude. https://www. anthropic.com/news/introducing-claude. Bai, H.; Zhou, Y.; Pan, J.; Cemri, M.; Suhr, A.; Levine, S.; and Kumar, A. 2024. Digirl: Training in-the-wild device-control agents with autonomous reinforcement learning. 
+
+Advances in Neural Information Processing Systems , 37: 12461–12495. Brown, B.; Juravsky, J.; Ehrlich, R.; Clark, R.; Le, Q. V.; R´ e, C.; and Mirhoseini, A. 2024. Large language monkeys: Scaling inference compute with repeated sampling. arXiv preprint arXiv:2407.21787 .Brown, T.; Mann, B.; Ryder, N.; Subbiah, M.; Kaplan, J. D.; Dhariwal, P.; Neelakantan, A.; Shyam, P.; Sastry, G.; Askell, A.; et al. 2020. Language models are few-shot learners. 
+
+Advances in Neural Information Processing Systems , 33: 1877–1901. Chung, H. W.; Hou, L.; Longpre, S.; Zoph, B.; Tay, Y.; Fe-dus, W.; Li, Y.; Wang, X.; Dehghani, M.; Brahma, S.; et al. 2024. Scaling instruction-finetuned language models. Jour-nal of Machine Learning Research , 25(70): 1–53. Cobbe, K.; Kosaraju, V.; Bavarian, M.; Chen, M.; Jun, H.; Kaiser, L.; Plappert, M.; Tworek, J.; Hilton, J.; Nakano, R.; et al. 2021. Training verifiers to solve math word problems. 
+
+arXiv preprint arXiv:2110.14168 .Face, H. 2025. Open R1: A fully open reproduction of DeepSeek-R1. https://github.com/huggingface/open-r1. Gandhi, K.; Chakravarthy, A.; Singh, A.; Lile, N.; and Good-man, N. D. 2025. Cognitive behaviors that enable self-improving reasoners, or, four habits of highly effective stars. 
+
+arXiv preprint arXiv:2503.01307 .Guan, X.; Zhang, L. L.; Liu, Y.; Shang, N.; Sun, Y.; Zhu, Y.; Yang, F.; and Yang, M. 2025. rStar-Math: Small LLMs Can Master Math Reasoning with Self-Evolved Deep Thinking. In International Conference on Machine Learning .Guo, D.; Yang, D.; Zhang, H.; Song, J.; Zhang, R.; Xu, R.; Zhu, Q.; Ma, S.; Wang, P.; Bi, X.; et al. 2025. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 .Hu, J.; Zhang, Y.; Han, Q.; Jiang, D.; Zhang, X.; and Shum, H.-Y. 2025. Open-reasoner-zero: An open source approach to scaling up reinforcement learning on the base model. 
+
+arXiv preprint arXiv:2503.24290 .Jaech, A.; Kalai, A.; Lerer, A.; Richardson, A.; El-Kishky, A.; Low, A.; Helyar, A.; Madry, A.; Beutel, A.; Carney, A.; et al. 2024. Openai o1 system card. arXiv preprint arXiv:2412.16720 .Kang, Z.; Zhao, X.; and Song, D. 2025. Scalable best-of-n selection for large language models via self-certainty. arXiv preprint arXiv:2502.18581 .LI, J.; Beeching, E.; Tunstall, L.; Lipkin, B.; Soletskyi, R.; Huang, S. C.; Rasul, K.; Yu, L.; Jiang, A.; Shen, Z.; Qin, Z.; Dong, B.; Zhou, L.; Fleureau, Y.; Lample, G.; and Polu, S. 2024. NuminaMath. https://huggingface.co/datasets/AI-MO/NuminaMath-CoT. Lightman, H.; Kosaraju, V.; Burda, Y.; Edwards, H.; Baker, B.; Lee, T.; Leike, J.; Schulman, J.; Sutskever, I.; and Cobbe, K. 2023. Let’s verify step by step. In International Confer-ence on Learning Representations .Lu, P.; Qiu, L.; Chang, K.-W.; Wu, Y. N.; Zhu, S.-C.; Ra-jpurohit, T.; Clark, P.; and Kalyan, A. 2023. Dynamic Prompt Learning via Policy Gradient for Semi-structured Mathematical Reasoning. In International Conference on Learning Representations .Luo, M.; Tan, S.; Wong, J.; Shi, X.; Tang, W. Y.; Roongta, M.; Cai, C.; Luo, J.; Li, L. E.; Popa, R. A.; and Stoica, I. 2025. DeepScaleR: Surpass-ing O1-Preview with a 1.5B Model by Scaling RL. https://pretty-radio-b75.notion.site/DeepScaleR-Surpassing-O1-Preview-with-a-1-5B-Model-by-Scaling-RL-19681902c1468005bed8ca303013a4e2. Patel, A.; Bhattamishra, S.; and Goyal, N. 2021. Are NLP Models really able to Solve Simple Math Word Problems? In 
+
+Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies , 2080–2094. Qwen; Yang, A.; Yang, B.; Zhang, B.; Hui, B.; Zheng, B.; Yu, B.; Li, C.; Liu, D.; and OTHERS. 2024. Qwen2.5 Tech-nical Report. arXiv preprint arXiv:2412.15115 .Radford, A.; Narasimhan, K.; Salimans, T.; Sutskever, I.; et al. 2018. Improving language understanding by gener-ative pre-training. Shafayat, S.; Tajwar, F.; Salakhutdinov, R.; Schneider, J.; and Zanette, A. 2025. Can Large Reasoning Models Self-Train? arXiv preprint arXiv:2505.21444 .Taubenfeld, A.; Sheffer, T.; Ofek, E.; Feder, A.; Goldstein, A.; Gekhman, Z.; and Yona, G. 2025. Confidence improves self-consistency in llms. arXiv preprint arXiv:2502.06233 .Team, G.; Anil, R.; Borgeaud, S.; Alayrac, J.-B.; Yu, J.; Sori-cut, R.; Schalkwyk, J.; Dai, A. M.; Hauth, A.; Millican, K.; et al. 2023. Gemini: a family of highly capable multimodal models. arXiv preprint arXiv:2312.11805 .Tian, X.; Zhao, S.; Wang, H.; Chen, S.; Ji, Y.; Peng, Y.; Zhao, H.; and Li, X. 2025. Think twice: Enhancing llm reasoning by scaling multi-round test-time thinking. arXiv preprint arXiv:2503.19855 .Tong, Y.; Zhang, X.; Wang, R.; Wu, R.; and He, J. 2024. Dart-math: Difficulty-aware rejection tuning for mathemati-cal problem-solving. Advances in Neural Information Pro-cessing Systems , 37: 7821–7846. Toshniwal, S.; Du, W.; Moshkov, I.; Kisacanin, B.; Ayrapetyan, A.; and Gitman, I. 2025. OpenMathInstruct-2: Accelerating AI for Math with Massive Open-Source In-struction Data. In International Conference on Learning Representations .Wang, K.; Ren, H.; Zhou, A.; Lu, Z.; Luo, S.; Shi, W.; Zhang, R.; Song, L.; Zhan, M.; and Li, H. 2024. Math-Coder: Seamless Code Integration in LLMs for Enhanced Mathematical Reasoning. In International Conference on Learning Representations .Wei, J.; Bosma, M.; Zhao, V.; Guu, K.; Yu, A. W.; Lester, B.; Du, N.; Dai, A. M.; and Le, Q. V. 2022. Finetuned Language Models are Zero-Shot Learners. In International Conference on Learning Representations .Wu, J.; Guan, J.; Feng, K.; Liu, Q.; Wu, S.; Wang, L.; Wu, W.; and Tan, T. 2025. Reinforcing spatial reasoning in vision-language models with interwoven thinking and visual drawing. arXiv preprint arXiv:2506.09965 .Xiong, W.; Yao, J.; Xu, Y.; Pang, B.; Wang, L.; Sahoo, D.; Li, J.; Jiang, N.; Zhang, T.; Xiong, C.; et al. 2025a. A min-imalist approach to llm reasoning: from rejection sampling to reinforce. arXiv preprint arXiv:2504.11343 .Xiong, W.; Zhang, H.; Ye, C.; Chen, L.; Jiang, N.; and Zhang, T. 2025b. Self-rewarding correction for mathemati-cal reasoning. arXiv preprint arXiv:2502.19613 .Yang, A.; Zhang, B.; Hui, B.; Gao, B.; Yu, B.; Li, C.; Liu, D.; Tu, J.; Zhou, J.; Lin, J.; et al. 2024. Qwen2. 5-math tech-nical report: Toward mathematical expert model via self-improvement. arXiv preprint arXiv:2409.12122 .Yu, L.; Jiang, W.; Shi, H.; YU, J.; Liu, Z.; Zhang, Y.; Kwok, J.; Li, Z.; Weller, A.; and Liu, W. 2024. MetaMath: Boot-strap Your Own Mathematical Questions for Large Lan-guage Models. In International Conference on Learning Representations .Yuan, W.; Pang, R. Y.; Cho, K.; Li, X.; Sukhbaatar, S.; Xu, J.; and Weston, J. 2024. Self-rewarding language models. In Proceedings of the 41st International Conference on Ma-chine Learning , 57905–57923. Zelikman, E.; Wu, Y.; Mu, J.; and Goodman, N. 2022. Star: Bootstrapping reasoning with reasoning. Advances in Neu-ral Information Processing Systems , 35: 15476–15488. Zeng, W.; Huang, Y.; Liu, Q.; Liu, W.; He, K.; Ma, Z.; and He, J. 2025. Simplerl-zoo: Investigating and taming zero re-inforcement learning for open base models in the wild. arXiv preprint arXiv:2503.18892 .Zhai, S.; Bai, H.; Lin, Z.; Pan, J.; Tong, P.; Zhou, Y.; Suhr, A.; Xie, S.; LeCun, Y.; Ma, Y.; et al. 2024. Fine-tuning large vision-language models as decision-making agents via rein-forcement learning. Advances in Neural Information Pro-cessing Systems , 37: 110935–110971. Zhang, K.; Yao, Q.; Liu, S.; Wang, Y.; Lai, B.; Ye, J.; Song, M.; and Tao, D. 2025. Consistent Paths Lead to Truth: Self-Rewarding Reinforcement Learning for LLM Reason-ing. arXiv preprint arXiv:2506.08745 .

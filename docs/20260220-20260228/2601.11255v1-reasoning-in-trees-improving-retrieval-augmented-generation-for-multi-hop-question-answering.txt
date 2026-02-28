@@ -1,0 +1,398 @@
+Title: Reasoning in Trees: Improving Retrieval-Augmented Generation for Multi-Hop Question Answering
+
+URL Source: https://arxiv.org/pdf/2601.11255v1
+
+Published Time: Mon, 19 Jan 2026 01:44:25 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Reasoning in Trees: Improving Retrieval-Augmented Generation for Multi-Hop Question Answering 
+
+# Yuling Shi †
+
+yuling.shi@sjtu.edu.cn Shanghai Jiao Tong University Shanghai, China 
+
+# Maolin Sun †
+
+202200800286@mail.sdu.edu.cn Shandong University Jinan, China 
+
+# Zijun Liu 
+
+liuzijun@iauto.com iAuto Shanghai, China 
+
+# Mo Yang 
+
+yangm289@mail2.sysu.edu.cn Sagenic Tech Guangzhou, China 
+
+# Yixiong Fang 
+
+yixiongf@cs.cmu.edu Carnegie Mellon University Pittsburgh, PA, USA 
+
+# Tianran Sun 
+
+Seriousss@sjtu.edu.cn Shanghai Jiao Tong University Shanghai, China 
+
+# Xiaodong Gu 
+
+xiaodong.gu@sjtu.edu.cn Shanghai Jiao Tong University Shanghai, China 
+
+## Abstract 
+
+Retrieval-Augmented Generation (RAG) has demonstrated signifi-cant effectiveness in enhancing large language models (LLMs) for complex multi-hop question answering (QA). For multi-hop QA tasks, current iterative approaches predominantly rely on LLMs to self-guide and plan multi-step exploration paths during retrieval, leading to substantial challenges in maintaining reasoning coher-ence across steps from inaccurate query decomposition and error propagation. To address these issues, we introduce Reasoning Tree Guided RAG (RT-RAG), a novel hierarchical framework for complex multi-hop QA. RT-RAG systematically decomposes multi-hop ques-tions into explicit reasoning trees, minimizing inaccurate decompo-sition through structured entity analysis and consensus-based tree selection that clearly separates core queries, known entities, and unknown entities. Subsequently, a bottom-up traversal strategy employs iterative query rewriting and refinement to collect high-quality evidence, thereby mitigating error propagation. Compre-hensive experiments show that RT-RAG substantially outperforms state-of-the-art methods by 7.0% F1 and 6.0% EM, demonstrating the effectiveness of RT-RAG in complex multi-hop QA. 1
+
+## CCS Concepts 
+
+• Computing methodologies → Natural language generation .
+
+## Keywords 
+
+Retrieval Augmented Generation, Large Language Models, Ques-tion Answering 
+
+## 1 Introduction 
+
+While Large Language Models (LLMs) have achieved remarkable capabilities across numerous domains such as generation, transla-tion, and summarization [ 12 , 13 , 32 , 33 , 40 , 48 , 51 ], tackling com-plex multi-hop question answering (QA) remains a significant chal-lenge [ 3, 15 , 45 ]. This challenge is particularly critical for Web-based          
+
+> 1Code available at https://github.com/sakura20221/RT-RAG Final Answer: The Year Of The Rabbit
+> Sub Question 1: Which director of 'The Year Of The
+> Rabbit' died first?
+> Answer :Fernando Ayala died first on 11 September 1997
+> Sub Question 2: Which director of 'Monster On The
+> Campus' died first?
+> Answer :Jack Arnold have passed away, but date unknown.
+
+Question : Which film has the director who died first, 
+
+The Year Of The Rabbit or Monster On The Campus? 
+
+Decomposition Inaccuracy      
+
+> Final Answer: We cannot determine
+> Iteration 1: Directors are Ayala for The Year... and Arnold
+> for Monster... Arnold worked into the 1980s, Ayala’s last
+> work was in 1987.
+> Answer :So Ayala likely died earlier.
+> Iteration 2: Director unknown for The Year..., Arnold for
+> Monster... Arnold was active in 1958, no death date given.
+> Answer :Can't tell who died first.
+
+Error Propagation 
+
+Iterative Retrieval 
+
+Query Decomposition 
+
+Figure 1: Examples of two common challenges in multi-hop QA: error propagation and inaccurate query decomposition .
+
+information retrieval systems, where users increasingly rely on AI agents to navigate vast, distributed Web knowledge sources and synthesize coherent answers from multiple Web documents [ 18 , 23 ]. Existing LLMs, even when augmented with retrieval (RAG) [ 11 , 18 ], often struggle with multi-hop QA due to two critical failure modes illustrated in Figure 1: (1) inaccurate query decomposition , the generation of poorly structured or imprecise sub-questions that fail to correctly reflect the logical requirements of the original ques-tion [ 39 , 52 ]; (2) error propagation , where an early incorrect step leads to flawed synthesis and invalidates the final answer [ 1, 3 ]. These challenges are amplified in Web-scale retrieval scenarios  
+
+> arXiv:2601.11255v1 [cs.CL] 16 Jan 2026 WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates Shi et al.
+
+where the quality and relevance of retrieved information directly impact the reliability of AI-generated responses. Current multi-hop QA methodologies predominantly follow two strategic directions: iterative processing and structured decom-position. Iterative approaches [ 30 , 36 , 38 ], relying on sequential retrieval and reasoning without a predefined explicit structure, are highly susceptible to error propagation from local, step-wise deci-sions [ 41 ]. Conversely, while structured decomposition methods aim to break down complex questions into graph structures [ 39 , 52 ], their efficacy can be undermined by sensitivity to the initial de-composition’s quality and a lack of robust validation mechanisms, potentially leading to inaccurate query decomposition or flawed reasoning paths [5, 52]. To address these limitations and advance Web-based retrieval-augmented AI systems, we introduce Reasoning Tree Guided RAG (RT-RAG), a novel hierarchical framework that imposes explicit tree structure on the multi-hop reasoning process to fundamentally improve how AI systems retrieve and synthesize information from Web-scale knowledge sources. This hierarchical approach tackles the core challenges of multi-hop QA in two principal stages. First, it involves the explicit generation and selection of a reasoning tree . This tree structure enforces rigorous parent-child relation-ships where each node represents precisely defined subproblems with clear logical dependencies. By systematically decomposing complex questions through structured entity analysis that identifies core queries, known entities, and unknown entities, and organiz-ing them into a tree hierarchy, this process provides a definitive roadmap that constrains the LLM’s reasoning space, thereby min-imizing inaccurate query decomposition . The robustness of this structure is ensured by a consensus-based mechanism that statistically validates the most robust tree structure from multi-ple candidates, and an adaptive leaf node determination process prevents detrimental over-decomposition. Second, RT-RAG solves the multi-hop question by performing a bottom-up traversal of the generated reasoning tree . Unlike sequential methods where errors cascade, this strategy ensures that sub-problems are resolved and verified with retrieved evidence before their results are used to tackle parent nodes, critically minimizing error propagation .Within this traversal, iterative query rewriting and refinement are employed to maximize high-quality, relevant evidence for each node, and rejection sampling filters inconsistent intermediate an-swers, further bolstering reliability at every step. Our experiments accross three different benchmarks demon-strate that RT-RAG significantly outperforms existing state-of-the-art methods, achieving an average increase of 7.0% F1 and 6.0% EM, validating the efficacy of explicit, hierarchical reasoning structure management of RT-RAG for robust multi-hop QA. Our main contributions can be summarized as: 
+
+• We introduce RT-RAG, a novel hierarchical RAG framework for complex multi-hop QA, leveraging explicit tree decom-position and bottom-up synthesis. 
+
+• We develop key components for reliable tree-guided reason-ing, including a consensus-based mechanism for robust tree se-lection, an adaptive system for preventing over-decomposition, and rejection sampling for filtering inconsistent evidence dur-ing synthesis. 
+
+• We demonstrate that RT-RAG achieves significant average gains (7.0% F1 and 6.0% EM) over existing approaches across the three evaluated datasets. 
+
+## 2 Related Work 2.1 Retrieval Augmented Generation 
+
+Retrieval-Augmented Generation (RAG) has fundamentally altered the landscape of Large Language Model (LLM) applications by integrating external knowledge sources into the generation pro-cess [ 2, 7]. The core principle of RAG involves a retriever component that fetches relevant information to the generator [ 18 , 29 ]. This synergy allows RAG systems to produce more factual, detailed, and up-to-date responses than LLMs relying solely on their training data, significantly mitigating issues of hallucination and knowledge cutoffs [ 8]. Early work in this area [ 11 , 16 ] laid the groundwork by demonstrating the viability of combining parametric and non-parametric memory, establishing RAG as a powerful paradigm. RAG’s application rapidly expanded beyond question answer-ing to tasks like long-form content generation, dialogue systems, and summarization [ 19 –21 , 35 , 43 ]. Architectures matured beyond simple retrieve-then-generate pipelines, incorporating iterative re-trieval [ 6, 30 ] and advanced re-ranking techniques [ 24 , 46 ]. Early efforts to handle complex queries involved sub-question decompo-sition [ 27 ] or structured knowledge integration [ 22 ]. Despite these advancements, handling complex multi-step queries, especially in multi-hop QA [ 4, 9 ], revealed limitations. Challenges in maintain-ing context, ensuring retrieval coherence, and preventing deviation led to persistent error propagation and hallucination [ 1 , 3, 5, 25 ]. This underscored the need for RAG methods tailored for complex reasoning and robust information synthesis, particularly in the multi-hop QA domain. 
+
+## 2.2 Multi-hop Question Answering 
+
+Multi-hop Question Answering (QA) necessitates synthesizing in-formation from multiple evidences, demanding robust reasoning. Benchmarks such as HotpotQA [ 45 ], 2WikiMQA [ 12 ], and MuSiQue [ 37 ]evaluate these capabilities, with many recent methods employing RAG frameworks [ 2, 26 , 38 , 49 , 53 ]. Current multi-hop QA method-ologies predominantly feature two strategic directions: iterative refinement and structured decomposition. Iterative approaches involve sequential retrieval and reasoning, where LLMs might guide subsequent retrievals [ 30 , 36 ], interleave retrieval and generation [ 38 ], or iteratively refine answers and re-trieval strategies [ 2 , 31 , 34 , 41 , 44 , 50 , 53 ]. The second direction, query decomposition, focuses on breaking complex questions into simpler sub-problems [ 4, 14 , 47 ]. This is often augmented by ad-vanced planning frameworks that employ structures like DAGs [ 39 ]or graphs [ 52 ] to optimize reasoning paths. However, iterative meth-ods are prone to error accumulation from local, step-wise decisions, while structured methods can be sensitive to the initial decompo-sition’s quality and may lack robust validation mechanisms. De-spite these persistent challenges concerning error propagation and reasoning coherence in existing RAG approaches, our proposed RT-RAG distinguishes itself by first conducting explicit problem structure analysis and then establishing a consensus-driven tree to manage sub-questions prior to retrieval. This proactive structuring Reasoning in Trees: Improving Retrieval-Augmented Generation for Multi-Hop Question Answering WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates Question : Which film has the director who died first, 
+
+The Year Of The Rabbit or Monster On The Campus?    
+
+> Fernando Ayala 11 September 1997
+> ...
+> March 17, 1992
+> Can’t find Answer
+> Which is earlier?
+> 11 September
+> 1997 or March
+> 17,1992?
+> :
+> March 17, 1992
+
+Structure Analysis 
+
+Known Entities Core Query Unk nown Entities 
+
+Tree Decomposition 
+
+> Monster On
+> The Campus
+
+Consensus -based 
+
+Tree Selection          
+
+> Sub -Q1: When did the
+> director of The Year Of
+> The Rabbit die ?
+> Sub -Q2: When did
+> the director Monster
+> On The Campus die ?
+> Subsub -Q1:
+> Who directed the
+> movie 'The Year
+> of the Rabbit '?
+> Subsub -Q2:
+> When did
+> [AnswerSubsub
+> -Q1] die?
+
+Original Q
+
+Subquestion Answering   
+
+> Answerable: Who directed the
+> movie 'The Year of the Rabbit' ?
+
+Rejection Sampling     
+
+> UnAnswerable :When
+> did Jack Arnold die ?
+> Jack Arnold Fernando Ayala Jack Arnold
+> Jack Arnold Fernando Ayala
+
+Query Rewriting   
+
+> Answerable: What is
+> the date that Jack Arnold
+> pass away ?
+
+Rejection Sampling 
+
+Answer Intergration 
+
+Figure 2: Overview of the RT-RAG framework. RT-RAG first decomposes the complex question into a consensus-validated tree structure with explicit entity analysis, then retrieves evidence through bottom-up traversal with query refinement, and finally integrates information hierarchically to maintain coherence across multiple hops. 
+
+creates clear reasoning pathways designed to minimize error prop-agation and inaccurate query decomposition in complex multi-hop QA. 
+
+## 3 Methodology 
+
+In this section, we introduce the Reasoning Tree Guided Retrieval-Augmented Generation (RT-RAG) framework, which addresses com-plex multi-hop questions through hierarchical decomposition and structured reasoning. As illustrated in Figure 2, RT-RAG first con-duct explicit problem structure analysis to understand the question from different aspects, decomposing questions into binar represen-tations validated through a consensus mechanism. Then RT-RAG perform bottom-up retrieval following this tree structure, with rejection sampling and adaptive query rewriting to ensure high-quality evidence collection. Finally, RT-RAG integrate answers hi-erarchically along tree paths, ensuring logical coherence between reasoning steps. This structured approach minimizes error propa-gation and inaccurate query decomposition by establishing clear reasoning dependencies. 
+
+## 3.1 Question Decomposition 
+
+RT-RAG starts by decomposing questions into reasoning trees. For an input question, RT-RAG infers three primary features: (1) The 
+
+Core Query , which identifies the fundamental information being sought; (2) the Known Entities , which are explicitly mentioned in the question and serve as retrieval anchors; and (3) the Unknown Entities , which must be discovered through retrieval before an-swering the core query. For instance, the multi-hop question "Who played the girlfriend of Chance’s voice actor in Homeward Bound in Back to the Future?" 
+
+contains the Core Query "Who played the girlfriend of X in Back to the Future?" ; the Known Entities "Chance" (a character with the constraint of being from Homeward Bound) and "Back to the Future" 
+
+(a film series where the girlfriend appears); and the Unknown Entities , which include the "voice actor of Chance" (who needs to be identified first) and the "girlfriend character" (who is related to this voice actor in Back to the Future). These features set clear retrieval targets and establishes the logical dependencies between information pieces, ensuring the model can methodically extract and connect the precise information needed to answer the complex question. Based on the key features, RT-RAG decomposes the question into smaller, more manageable sub-questions. This decomposition adaptively follows one of three patterns, which the LLM determines based on the query structure: (1) Parallel Decomposition , where sub-questions are independent and can be solved independently, WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates Shi et al. 
+
+with their results merged to form the final answer; (2) Sequential Decomposition , where sub-questions are dependent, with the an-swer to one sub-question providing input to the next; or (3) Direct ,where no decomposition is required, or the question is simplified. This strategic decomposition approach enables our framework to handle complex multi-hop questions by breaking them down into tractable components, significantly improving retrieval precision and reducing the cognitive load on the language model during the reasoning process. The decomposed sub-questions are formulated into a tree struc-ture 𝑇 = (𝑉 , 𝐸 ) where each node in 𝑉 represents a sub-question for retrieval, and 𝐸 is the set of edges representing dependencies between questions. Leaf nodes corresponding to sub-questions that can be directly answered. We recursively decompose complex sub-questions until either the predefined maximum depth is reached or all current leaf nodes are determined to be directly answerable through single-hop retrieval. As there can be multiple valid decomposition trees, RT-RAG gen-erates multiple candidate trees and selects the optimal one using a consensus-based strategy. This strategy identifies the most sta-tistically prevalent tree configuration by analyzing the frequency distribution of tree structures based on their depth and node count patterns . When no satisfactory decomposition is found, we reformu-late the original question and repeat the process. The optimal tree is selected as 𝑇 max = arg max 𝑇 𝑖 frequency (𝑇 𝑖 ), where 𝑇 𝑖 represents a candidate tree. 
+
+## 3.2 Retrieval and Answer Aggregation 
+
+Having decomposed the question into a tree structure, we retrieve answers from contexts through post-order traversal of the tree. If a node is a leaf, we perform retrieval and directly answer its question. For non-leaf nodes, the LLM combines answers from its child nodes. If a child node with a non-sequential relation returns [None], it becomes a new leaf node requiring direct retrieval. Similarly, if a child’s answer cannot support its parent, the parent is treated as a new leaf. This adaptive traversal ensures robust evidence collection at each reasoning step. Rejection sampling is employed to mitigate hallucinations in the generated answers. For each query generated from the tree nodes, we retrieve multiple candidate answers and select the most frequent response. This ensures that hallucinations, or irrelevant information, are minimized by relying on consistent retrievals. The most frequent answer retrieved for a query, denoted as 𝐴 max , is selected where 𝐴 max = arg max 𝐴 𝑖 frequency (𝐴 𝑖 ) and 𝐴 𝑖 represents a candidate answer. 
+
+## 3.3 Query Rewriting 
+
+To enhance retrieval effectiveness, we incorporate query rewrit-ing for cases where initial retrievals yield insufficient results. This process rewrites queries without altering their semantic mean-ing, creating alternative formulations that might better match rele-vant documents. Unlike conventional retrieval, our approach uses specialized prompting that explicitly instructs the model to re-turn "None" when evidence is insufficient, which works in coor-dination with query rewriting to address retrieval failures. Let 
+
+𝑄 synonym (𝑞 ) denote the synonym-based expansion of a query 𝑞 :
+
+Table 1: Statistics of the datasets.                
+
+> Statistic MuSiQue 2WikiMQA HotpotQA
+> Num. of Samples 200 200 200 Avg. Passage Length 1551.28 796.02 1452.63 Num. of Passages 1715 1464 1877 Avg. Context Length 13371.69 7474.51 16269.35
+
+𝑄 synonym (𝑞 ) = {𝑞 ′ | 𝑞 ′ ∈ Synonyms (𝑞 )} where Synonyms (𝑞 ) rep-resents a set of synonym-based variations of 𝑞 .
+
+## 3.4 Answer Integration and Iterative Refinement 
+
+Finally, the retrieved information is integrated to form the final answer. This step ensures that the hierarchical structure of the rea-soning tree is respected, maintaining contextual relevance across sub-questions. If the initial retrieval fails to provide a satisfactory answer, the question is rephrased, and the decomposition and re-trieval steps are repeated. This iterative process ensures robustness, allowing the framework to handle complex and ambiguous queries. 
+
+## 4 Experiments 4.1 Datasets 
+
+We conduct experiments using three challenging multi-hop QA datasets widely recognized in the literature: MuSiQue [ 37 ], designed for evaluating multi-hop reasoning across diverse knowledge do-mains; 2WikiMQA [ 12 ], which requires integrating information from two distinct Wikipedia articles; and HotpotQA [ 45 ], empha-sizing complex question structures and paragraph-level evidence retrieval. Following previous studies [ 3, 50 , 52 ], we adopt the same data splits and retrieval database configurations established in Long-Bench [ 3] to facilitate a direct comparison. The basic statistics of these datasets are presented in Table 1. 
+
+## 4.2 Baselines 
+
+We compare RT-RAG with several state-of-the-art multi-hop QA methods, which can be categorized as follows: 
+
+• Direct : This baseline involves directly prompting the LLM with the question without any retrieval augmentation, relying solely on the model’s internal knowledge. 
+
+• CoT : Chain-of-Thought prompting [ 42 ] is used to encourage the LLM to generate a series of intermediate reasoning steps before providing the final answer. 
+
+• NaiveRAG : A standard retrieval-augmented generation ap-proach where relevant documents are retrieved based on the original question, and the LLM generates an answer from the retrieved context. 
+
+• NaiveRAG w/ QD : An extension of NaiveRAG that first de-composes the complex question into simpler sub-questions (Query Decomposition) and then retrieves documents for each sub-question. 
+
+• SuRe : A method that involves generating a scene and then retrieving relevant information based on that scene to answer the question [17]. Reasoning in Trees: Improving Retrieval-Augmented Generation for Multi-Hop Question Answering WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates 
+
+Table 2: Performance comparison of different RAG methods on multi-hop QA datasets. 
+
+Models Methods MuSiQue 2WikiMQA HotpotQA Avg F1 EM F1 EM F1 EM F1 EM 
+
+GPT-4o-mini 
+
+Direct 19.17 12.00 32.56 25.50 37.85 27.50 29.86 21.67 CoT 25.83 17.00 37.59 29.50 39.74 28.00 34.39 24.83 NaiveRAG 29.82 19.00 50.61 42.50 56.92 42.00 45.78 34.50 NaiveRAG w/ QD 37.49 26.00 56.88 38.50 60.00 43.50 51.46 36.00 SuRe 28.14 20.00 45.80 36.00 52.80 37.50 42.25 31.17 IRCoT 43.06 32.00 57.81 46.00 59.92 45.00 53.60 41.00 Self-Ask 47.74 36.50 52.10 40.50 50.64 38.00 50.16 38.33 ItER-RETGEN 38.41 33.00 58.43 50.50 57.77 42.00 51.54 41.83 HippoRAG w/ IRCoT 46.50 28.50 62.38 48.00 56.12 40.00 55.00 38.83 LongRAG 44.88 32.00 62.39 49.00 64.74 51.00 57.34 44.00 ChainRAG (AnsInt) 50.54 37.00 62.55 52.00 60.73 46.00 57.94 45.00 ChainRAG (CxtInt) 47.87 38.50 56.54 50.50 64.59 50.00 56.33 46.33 RT-RAG 54.42 41.50 75.08 63.00 65.26 52.50 64.92 52.33 
+
+Qwen2.5-14B 
+
+Direct 14.73 6.00 31.03 26.00 30.52 20.50 25.43 17.50 CoT 19.47 9.00 32.51 24.00 32.03 21.50 28.00 18.17 NaiveRAG 33.78 24.50 52.11 43.50 57.96 43.50 47.95 37.17 NaiveRAG w/ QD 32.68 25.50 46.46 40.50 50.95 38.50 43.36 34.83 SuRe 24.44 18.00 40.67 33.00 48.21 33.00 37.77 28.00 Self-Ask 37.57 28.50 50.53 39.50 45.12 35.00 44.41 34.33 IRCoT 29.83 20.50 46.36 36.50 48.79 36.50 41.66 31.17 ItER-RETGEN 36.53 26.50 55.16 45.50 58.63 44.50 50.11 38.83 HippoRAG w/ IRCoT 31.23 23.00 55.01 44.00 47.11 35.50 44.45 34.17 LongRAG 37.05 27.50 60.49 50.00 62.64 49.50 53.39 42.33 RT-RAG 50.04 39.00 73.69 64.00 66.24 51.00 63.32 51.33 
+
+• IRCoT : Iterative Retrieval with Chain-of-Thought, which com-bines iterative retrieval with CoT prompting to refine the rea-soning process over multiple steps [38]. 
+
+• Self-Ask : An iterative approach where the LLM explicitly asks and answers follow-up questions to gather intermediate facts before answering the main question [27]. 
+
+• ItER-RETGEN : An iterative retrieval and generation frame-work that refines its answers over multiple iterations [30]. 
+
+• HippoRAG : A retrieval framework inspired by the hippocam-pal indexing theory of human long-term memory to enable deeper and more efficient knowledge integration over new ex-periences. [10]. 
+
+• LongRAG : A RAG method optimized for long contexts, which also uses an iterative retrieval process to handle extensive doc-uments [50]. 
+
+• ChainRAG : A graph-based structured decomposition approach for multi-hop QA that models the reasoning process as a chain or graph of retrieval and reasoning steps [52]. 
+
+## 4.3 Metrics 
+
+We evaluate model performance using standard metrics prevalent in multi-hop QA research [ 38 , 50 , 52 ]: Exact Match (EM) and F1 scores. EM assesses whether the predicted answer exactly matches one of the ground truth answers, while F1 evaluates token-level overlap, capturing partial correctness through precision and recall. 
+
+## 4.4 Experimental Setup 
+
+To ensure a fair and consistent evaluation settings across all meth-ods, we standardize the key experimental components. We uti-lize text-embedding-3-small 2 as the embedding model and the 
+
+bge-reranker-base 3 as the reranker, aligning with the configura-tion in ChainRAG [ 52 ]. Our evaluations leverage both open-source and closed-source LLMs, specifically Qwen-2.5-14B-Instruct [28 ]and GPT-4o-mini 4.Our overall experimental design follows the setup detailed in ChainRAG [ 52 ]. For baseline methods requiring re-implementation on our part, document processing typically utilized a chunk size of 200 tokens with a 100-token overlap. Retrieval parameters were consistently set to 𝑘 = 45 for coarse ranking, 𝑘 = 15 for fine ranking, and a 3000-token limit for retrieved context, unless a baseline’s orig-inal methodology specified different configurations. Comparative baseline results were either adopted from their original publications, sourced from ChainRAG [ 52 ] for specific model configurations as detailed below, or obtained through our re-implementations based on publicly available code or official algorithmic descriptions. As for other hyperparameters in RT-RAG, the number of candidates in the consensus-based tree selection and the rejection sampling in an-swer generation are set to 5, the rounds of iterative refinement was limited up to 3. For experiments utilizing the GPT-4o-mini model,  
+
+> 2https://platform.openai.com/docs/guides/embeddings
+> 3https://huggingface.co/BAAI/bge-reranker-base
+> 4https://platform.openai.com/docs/models/gpt-4o-mini WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates Shi et al.
+
+Table 3: Ablation study results on MusiQue, 2WiKiMQA, and HotpotQA using Qwen2.5-14B-Instruct model. 
+
+Configuration MusiQue 2WiKiMQA HotpotQA F1 EM F1 EM F1 EM RT-RAG 50.04 39.00 73.69 64.00 66.24 51.00 w/o Consensus-Based Tree Selection 49.27 (-0.77) 37.50 (-1.50) 72.03 (-1.66) 61.00 (-3.00) 63.16 (-3.08) 50.00 (-1.00) 
+
+w/o Rejection Sampling (Retrieval) 47.97 (-2.07) 37.00 (-2.00) 72.95 (-0.74) 62.00 (-2.00) 63.89 (-2.35) 49.00 (-2.00) 
+
+w/o Query Rewriting 47.09 (-2.95) 36.50 (-2.50) 71.42 (-2.27) 61.00 (-3.00) 65.08 (-1.16) 51.00 (+0.00) 
+
+w/o Structural Analysis 48.82 (-1.22) 37.00 (-2.00) 72.74 (-0.95) 63.00 (-1.00) 63.58 (-2.66) 49.00 (-2.00) 
+
+results for NaiveRAG, NaiveRAG with Query Decomposition (QD), ITER-RETGEN [ 30 ], LongRAG [ 50 ], HippoRAG with IRCoT [ 10 ], and ChainRAG itself were directly adopted from Zhu et al . [52] .All other baseline results, particularly those involving the Qwen-2.5-14B model, were obtained through our re-implementations. Specifically: IRCoT was re-implemented based on its original publi-cation, incorporating details from its description in the HippoRAG paper [ 10 ]. SelfAsk was re-implemented based on its original pub-lication, also referencing its description within the EfficientRAG paper [ 53 ]. For ItER-RETGEN [ 47 ], in the absence of publicly avail-able code, we developed an implementation based on its published prompt structures. LongRAG was implemented using its official open-source repository and default settings, which include word-count based document segmentation with a chunk size of 200. Hip-poRAG [ 10 ] was also implemented, adhering to its design which omits document chunking. Due to the unavailability of its source code, reproducing ChainRAG results with the Qwen-2.5-14B model was infeasible. Consequently, for ChainRAG, comparisons are made against its GPT-4o-mini performance as reported in the original paper [52]. 
+
+## 4.5 Results and Analysis 
+
+Table 2 presents a comprehensive evaluation of RT-RAG against existing multi-hop QA methods across three benchmarks. 
+
+Overall Performance RT-RAG achieves state-of-the-art results across all evaluated benchmarks, demonstrating substantial im-provements. For instance, with the GPT-4o-mini model, RT-RAG attains an average F1 score 7.0% higher and an EM score 6.0% higher than the leading ChainRAG variant. This advantage expands with the Qwen2.5-14B-Instruct model, where RT-RAG surpasses Lon-gRAG by 9.9% in F1 and 9.0% in EM. These results underscore the architecture-agnostic efficacy of RT-RAG. Its core distinction lies in its methodology: RT-RAG first performs explicit problem structure analysis and then establishes a consensus-driven tree to manage sub-questions before retrieval. This structured pre-retrieval plan-ning creates clear reasoning pathways, offering a more cohesive global reasoning framework compared to techniques that integrate reasoning and retrieval iteratively (e.g., IRCoT, ItER-RETGEN, Self-Ask). Consequently, RT-RAG also demonstrates superior results over other structured methods like ChainRAG and LongRAG. This structured approach, coupled with its consensus mechanism, is key to enhancing the robustness of reasoning and retrieval operations, thereby effectively minimizing error propagation and hallucination in complex multi-hop QA tasks. 
+
+Dataset-Specific Analysis RT-RAG exhibits particularly strong performance on 2WikiMQA, improving the F1 score by 12.5% and the EM score by 11.0% with GPT-4o-mini, and achieving gains of 13.2% in F1 and 14.0% in EM with Qwen2.5-14B. This substantial improvement aligns with 2WikiMQA’s unique construction combin-ing structured Wikidata triples with unstructured Wikipedia text, which creates reasoning paths requiring precise decomposition and evidence tracking—characteristics well-matched to our tree-guided approach. On MuSiQue, we observe significant improvements of 3.9% in F1 and 3.0% in EM with GPT-4o-mini, and 13.0% in F1 and 11.5% in EM with Qwen2.5-14B. These gains reflect MuSiQue’s distinctive bottom-up design that enforces connected reasoning through carefully composed single-hop questions across 2-4 hops and six different reasoning structures, creating a challenging but structurally decomposable reasoning environment. Although the gains on HotpotQA are more modest (0.7% and 3.6% F1, 1.5% EM for both models), they remain notable considering HotpotQA’s known susceptibility to reasoning shortcuts and single-hop solutions that limit the effectiveness of explicit decomposition strategies. 
+
+Model-Specific Performance Our findings indicate that RT-RAG effectively enhances the capabilities of different model archi-tectures. While GPT-4o-mini serves as a strong baseline, results for Qwen2.5-14B-Instruct with RT-RAG frequently match or exceed those of GPT-4o-mini across several metrics. This suggests that the clear reasoning pathways established by RT-RAG’s explicit prob-lem structure analysis and consensus-driven tree are particularly beneficial, aiding models in navigating complex multi-hop queries, especially those with varied intrinsic reasoning capabilities. These empirical findings validate our theoretical framework: modeling a hierarchical reasoning structure through trees with consensus-based selection and bottom-up synthesis effectively ad-dresses core challenges in multi-hop QA, particularly error propa-gation and hallucination. 
+
+## 4.6 Ablation Study 
+
+To assess the individual contributions of key components within the RT-RAG framework, we performed a comprehensive ablation study using the Qwen2.5-14B-Instruct model, with results detailed in Table 3. On average, removing Query Rewriting incurred the most significant F1 score reduction of 2.1%, while disabling Rejection Sam-pling led to the largest EM score decrease of 2.0%. Consensus-Based Tree Selection also proved highly influential; its absence resulted in an average decrease of 1.8% for both F1 and EM scores. Structural Analysis , though its removal yielded the smallest average perfor-mance decline, still demonstrated its importance, as evidenced by Reasoning in Trees: Improving Retrieval-Augmented Generation for Multi-Hop Question Answering WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates 
+
+Table 4: Comparison of reasoning chains: The left column shows that Self-Ask mistakenly treats Felix Salten’s birthplace as his home city. The right column demonstrates our method, which correctly identifies Vienna as the home city by following a sound reasoning path. Irrelevant steps are highlighted in orange.                                    
+
+> Reasoning Chain of Self-Ask Reasoning Chain of RT-RAG Question: What was the home city of the author of the famous novel tracing the life of a male roe deer from his birth onward?
+> Correct Answer: Vienna
+> Self-Ask
+> Are follow up questions needed here: Yes Follow up: Who is the author of the famous novel tracing the life of a male roe deer from his birth onward?
+> Intermediate answer: Felix Salten Follow up: What is the title of the famous novel by Felix Salten?
+> Intermediate answer: Bambi: Eine Lebensgeschichte aus dem Walde
+> Follow up: Where was Felix Salten born ?
+> Intermediate answer: Pest, Austria-Hungary
+> The final answer is: Pest, Austria-Hungary Final Answer: Pest, Austria-Hungary Question decomposition Left child (N1): Who is the author of the famous novel tracing the life of a male roe deer from his birth onward?
+> Right child (N2): What was the home city of [answer from N1]
+> Reasoning Steps: Step 1: Attempt to decompose N1 →leaf node
+> Step 2: Retrieve N1 →Felix Salten Step 3: Substitute N2: What was the home city of Felix Salten Step 4: Attempt to decompose N2 →leaf node
+> Step 5: Retrieve N2 →Vienna Step 6: Aggregate N1 and N2 →Vienna
+> Final Answer: Vienna
+
+Table 5: Impact of max tree depth on performance across different datasets with Qwen2.5-14B-Instruct model. 
+
+Max Depth MusiQue 2WikiMQA HotpotQA F1 EM F1 EM F1 EM 1 38.70 28.50 57.95 46.50 60.24 45.00 2 47.63 37.00 73.61 62.50 64.98 49.50 3 49.57 38.50 73.80 63.00 65.80 50.50 4 50.04 39.00 73.69 64.00 66.24 51.00 
+
+F1 and EM score reductions of 1.6% and 1.7%, respectively. These average figures highlight the critical role of each component. Beyond these aggregate effects, dataset-specific analyses reveal further insights. For instance, the utility of Query Rewriting is par-ticularly evident for datasets featuring complex or nuanced queries, such as MuSiQue and 2WikiMQA, where its removal led to F1 score reductions of 3.0% and EM score reductions of 3.0%, respectively. Conversely, its omission had a negligible impact on the EM score for HotpotQA, suggesting that HotpotQA queries might be more direct or less prone to ambiguity affecting exact matches. Another salient observation is the pronounced F1 score degradation on HotpotQA when Consensus-Based Tree Selection or Structural Analysis was ex-cluded, leading to F1 score decreases of 3.1% and 2.7%, respectively. This underscores the critical need for robust reasoning path selec-tion and explicit problem decomposition for HotpotQA, a dataset characterized by questions often requiring comparative reasoning and multi-step information synthesis. These findings collectively affirm that each ablated component contributes significantly to the overall effectiveness and robustness of the RT-RAG framework. 
+
+## 4.7 Impact of Tree Depth 
+
+We examined the relationship between tree depth constraints and model performance by systematically varying the maximum depth of reasoning trees, with results presented in Table 5. Performance demonstrates a clear progression with increasing depth. Advancing from depth 1 to 2 results in substantial improvements across all datasets, particularly on 2WikiMQA, where the F1 score increased by 15.7% and the EM score by 16.0%. The transition from depth 2 to 3 yields more modest gains, with MuSiQue showing the most notable improvement, where its F1 score increased by 1.9% and its EM score by 1.5%. Further increasing the depth to 4 leads to minimal performance changes, suggesting that depth 3 represents an optimal balance between decomposition granularity and computational efficiency. Figure 3 illustrates the distribution of actual tree depths across datasets under a maximum depth constraint of 5. MuSiQue and 2WikiMQA predominantly leverage depth-2 trees (72% and 76%, respectively), indicating that moderate complexity suffices for their reasoning needs. In contrast, HotpotQA exhibits 39% of questions effectively addressed by depth-1 trees, reflecting its simpler ques-tion structures. The prevalence of depth-2 trees in MuSiQue and 2WikiMQA aligns with their typical reasoning patterns: 2WikiMQA’s strictly two-hop questions and MuSiQue’s common 2–4 hop chains. MuSiQue also features some depth-3 and depth-4 trees, allowing for more complex reasoning. In comparison, HotpotQA’s larger share of depth-1 trees highlights its lower multi-hop demand. These dis-tributions reflect the datasets’ inherent complexity profiles and guide optimal configuration for the RT-RAG framework. 1 2 3 4 5
+
+Depth 
+
+0
+
+20 
+
+40 
+
+60 
+
+80 
+
+> Percentage (%)  MuSiQue
+> 2WikiMQA
+> HotpotQA
+
+Figure 3: Tree depth distribution on different datasets with Qwen2.5-14B-Instruct model. WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates Shi et al. 
+
+Table 6: Hierarchical Question Decomposition and Reasoning Process for a Multi-hop Question about the Italian Navigator with RT-RAG. A key strength shown here is the ability to handle missing intermediate answers [none] by dynamically converting the parent node into a new leaf, ensuring continuity in reasoning and preserving answer accuracy in multi-hop settings.                
+
+> Original Question
+> Who is the son of the Italian navigator who explored the eastern coast of the continent Ulises Solís’ birthplace is located in for England?
+> Correct Answer:Sebastian Cabot Initial Decomposition Question: Who is the son of the Italian navigator who explored the eastern coast of the continent Ulises Solís’ birthplace is located in for England?
+> Left child: N1 — Who is the Italian navigator who explored the eastern coast of the continent where Ulises Solís’ birthplace is located?
+> Left child: N2 — In which continent was Ulises Solís born?
+> Left child: N3 — Where was Ulises Solís born?
+> Right child: N4 — In which continent is [answer from N3] located?
+> Right child: N5 — Who is the Italian navigator who explored the eastern coast of [answer from N2]?
+> Right child: N6 — Who is the son of [answer from N1]?
+> Non-leaf to Leaf Node Conversion
+> Step 1: Retrieve answer for N3— Q: Where was Ulises Solís born? A: [none]
+> Step 2: As N3’s answer is [none] , we update its parent node N2 to be a new leaf node.
+> Final Decomposition Question: Who is the son of the Italian navigator who explored the eastern coast of the continent Ulises Solís’ birthplace is located in for England?
+> Left child: N1 — Who is the Italian navigator who explored the eastern coast of the continent where Ulises Solís’ birthplace is located?
+> Left child: N2 — In which continent was Ulises Solís born?
+> Right child: N5 — Who is the Italian navigator who explored the eastern coast of [answer from N2]?
+> Right child: N6 — Who is the son of [answer from N1]?
+> Reasoning Step
+> Step 1: Retrieve answer for N2
+
+→ North America  
+
+> Step 2: N5 becomes — Who is the Italian navigator who explored the eastern coast of North America ?Step 3: Attempt to decompose the new N5 question
+
+→Determine N5 as a leaf node Step 4: Retrieve answer for N5 → John Cabot  
+
+> Step 5: Aggregate N2 and N5 to answer N1
+
+→ John Cabot  
+
+> Step 6: N6 becomes — Who is the son of John Cabot ?Step 7: Attempt to decompose the new N6 question
+
+→Determine N6 as a leaf node Step 8: Retrieve answer for N6 → Sebastian Cabot  
+
+> Step 9: Aggregate N1 and N6 to answer original question
+
+→ Sebastian Cabot Final Answer Sebastian Cabot 
+
+## 5 Case Study 
+
+Table 4 compares RT-RAG with Self-Ask using an example from HotPotQA, illustrating how structured decomposition yields more reliable reasoning than self-guided exploration. Both methods ini-tially identify Felix Salten correctly, but Self-Ask drifts by retrieving irrelevant book titles and confusing his birthplace with his home city, resulting in an incorrect answer. In contrast, RT-RAG main-tains focus through its hierarchical structure: by decomposing the query into relevant, dependency-linked sub-questions, it ensures each retrieval targets the needed information and correctly identi-fies Vienna as Salten’s home city. This case highlights how RT-RAG ’s structured reasoning naturally constrains hallucination and pre-vents error propagation. Furthermore, the example in Table 6 highlights the robustness of RT-RAG in handling complex queries with unanswerable sub-questions. The query depends on identifying the birthplace of “Ulises Solís,” which is absent from the knowledge source. While most methods fail when encountering such gaps, RT-RAG dynami-cally restructures the reasoning path: when the retrieval for node N3 returns no answer, its parent node N2 is converted into a new leaf node. This adjustment enables the model to bypass the missing information, seek the continent directly, and ultimately derive the correct answer—North America. This case underscores a major strength of our hierarchical framework: its ability to gracefully recover from retrieval failures through dynamic reconfiguration, maintaining robustness in multi-hop reasoning with incomplete information. Together, these two case studies illustrate the dual strengths of RT-RAG: precise, hallucination-resistant reasoning through struc-tured decomposition, and resilience through adaptive restructuring. By combining logical focus with flexibility, RT-RAG offers a robust and reliable solution for multi-hop question answering. 
+
+## 6 Conclusion 
+
+In this paper, we introduced Reasoning Tree Guided RAG, a novel hierarchical framework for multi-hop question answering. RT-RAG transforms complex questions into structured tree decompositions via a consensus-based selection mechanism, ensuring robust and clear reasoning pathways. Key innovations, including adaptive leaf node determination to prevent over-decomposition and rejection sampling during retrieval to minimize hallucinations, contribute to its efficacy. Our experiments demonstrate that RT-RAG signifi-cantly outperforms existing methods on established multi-hop QA benchmarks, achieving state-of-the-art results. By explicitly model-ing the hierarchical nature of reasoning and integrating structured decomposition with dynamic retrieval and answer aggregation, RT-RAG offers a promising direction for enhancing the reliability and accuracy of RAG systems in complex information-seeking tasks. Reasoning in Trees: Improving Retrieval-Augmented Generation for Multi-Hop Question Answering WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates 
+
+## References 
+
+[1] Chenxin An, Jun Zhang, Ming Zhong, Lei Li, Shansan Gong, Yao Luo, Jingjing Xu, and Lingpeng Kong. 2024. Why Does the Effective Context Length of LLMs Fall Short? arXiv:2410.18745 [2] Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil, and Hannaneh Hajishirzi. 2023. Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection. In The Twelfth International Conference on Learning Representations .[3] Yushi Bai, Shangqing Tu, Jiajie Zhang, Hao Peng, Xiaozhi Wang, Xin Lv, Shulin Cao, Jiazheng Xu, Lei Hou, Yuxiao Dong, Jie Tang, and Juanzi Li. 2024. LongBench v2: Towards Deeper Understanding and Reasoning on Realistic Long-context Multitasks. arXiv:2412.15204 [4] Chi-Min Chan, Chunpu Xu, Ruibin Yuan, Hongyin Luo, Wei Xue, Yike Guo, and Jie Fu. 2024. RQ-RAG: Learning to Refine Queries for Retrieval Augmented Generation. In First Conference on Language Modeling .[5] Yung-Sung Chuang, Yujia Xie, Hongyin Luo, Yoon Kim, James Glass, and Pengcheng He. 2023. DoLa: Decoding by Contrasting Layers Improves Factuality in Large Language Models. arXiv:2309.03883 [6] Yixiong Fang, Tianran Sun, Yuling Shi, and Xiaodong Gu. 2025. Attention-RAG: Attention-Guided Context Pruning in Retrieval-Augmented Generation. arXiv:2503.10720 [cs] doi:10.48550/arXiv.2503.10720 [7] Yixiong Fang, Tianran Sun, Yuling Shi, Min Wang, and Xiaodong Gu. 2025. LastingBench: Defend Benchmarks Against Knowledge Leakage. arXiv preprint arXiv:2506.21614 (2025). [8] Luyu Gao, Zhuyun Dai, Panupong Pasupat, Anthony Chen, Arun Tejasvi Cha-ganty, Yicheng Fan, Vincent Zhao, Ni Lao, Hongrae Lee, Da-Cheng Juan, and Kelvin Guu. 2023. RARR: Researching and Revising What Language Models Say, Using Language Models. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , Anna Rogers, Jordan Boyd-Graber, and Naoaki Okazaki (Eds.). Association for Computational Linguistics, Toronto, Canada, 16477–16508. doi:10.18653/v1/2023.acl-long.910 [9] Xinyan Guan, Jiali Zeng, Fandong Meng, Chunlei Xin, Yaojie Lu, Hongyu Lin, Xianpei Han, Le Sun, and Jie Zhou. 2025. DeepRAG: Thinking to Retrieval Step by Step for Large Language Models. arXiv:2502.01142 [cs] doi:10.48550/arXiv. 2502.01142 [10] Bernal Jimenez Gutierrez, Yiheng Shu, Yu Gu, Michihiro Yasunaga, and Yu Su. 2024. HippoRAG: Neurobiologically Inspired Long-Term Memory for Large Language Models. In The Thirty-eighth Annual Conference on Neural Information Processing Systems .[11] Kelvin Guu, Kenton Lee, Zora Tung, Panupong Pasupat, and Ming-Wei Chang. 2020. REALM: Retrieval-Augmented Language Model Pre-Training. In Proceedings of the 37th International Conference on Machine Learning (ICML’20, Vol. 119) .JMLR.org, 3929–3938. [12] Xanh Ho, Anh-Khoa Duong Nguyen, Saku Sugawara, and Akiko Aizawa. 2020. Constructing A Multi-hop QA Dataset for Comprehensive Evaluation of Reason-ing Steps. In Proceedings of the 28th International Conference on Computational Linguistics , Donia Scott, Nuria Bel, and Chengqing Zong (Eds.). International Committee on Computational Linguistics, Barcelona, Spain (Online), 6609–6625. doi:10.18653/v1/2020.coling-main.580 [13] Minghao Hu, Junzhe Wang, Weisen Zhao, Qiang Zeng, and Lannan Luo. 2025. FlowMalTrans: Unsupervised Binary Code Translation for Malware Detection Using Flow-Adapter Architecture. arXiv preprint arXiv:2508.20212 (2025). [14] Yunhai Hu, Yilun Zhao, Chen Zhao, and Arman Cohan. 2025. MCTS-RAG: Enhancing Retrieval-Augmented Generation with Monte Carlo Tree Search. arXiv:2503.20757 [cs] doi:10.48550/arXiv.2503.20757 [15] Bowen Jin, Jinsung Yoon, Jiawei Han, and Sercan O. Arik. 2024. Long-Context LLMs Meet RAG: Overcoming Challenges for Long Inputs in RAG. arXiv:2410.05983 doi:10.48550/arXiv.2410.05983 [16] Vladimir Karpukhin, Barlas Oguz, Sewon Min, Patrick Lewis, Ledell Wu, Sergey Edunov, Danqi Chen, and Wen-tau Yih. 2020. Dense Passage Retrieval for Open-Domain Question Answering. In Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP) . Association for Computational Linguistics, Online, 6769–6781. doi:10.18653/v1/2020.emnlp-main.550 [17] Jaehyung Kim, Jaehyun Nam, Sangwoo Mo, Jongjin Park, Sang-Woo Lee, Minjoon Seo, Jung-Woo Ha, and Jinwoo Shin. 2023. SuRe: Summarizing Retrievals Using Answer Candidates for Open-domain QA of LLMs. In The Twelfth International Conference on Learning Representations .[18] Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Heinrich Küttler, Mike Lewis, Wen-tau Yih, Tim Rocktäschel, Sebastian Riedel, and Douwe Kiela. 2020. Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. In Proceedings of the 34th International Conference on Neural Information Processing Systems (NIPS ’20) . Curran Associates Inc., Red Hook, NY, USA, 9459–9474. [19] Huayang Li, Yixuan Su, Deng Cai, Yan Wang, and Lemao Liu. 2022. A Survey on Retrieval-Augmented Text Generation. arXiv:2202.01110 [cs] doi:10.48550/arXiv. 2202.01110 [20] Nelson Liu, Tianyi Zhang, and Percy Liang. 2023. Evaluating Verifiability in Generative Search Engines. In Findings of the Association for Computational Linguistics: EMNLP 2023 , Houda Bouamor, Juan Pino, and Kalika Bali (Eds.). Association for Computational Linguistics, Singapore, 7001–7025. doi:10.18653/ v1/2023.findings-emnlp.467 [21] Shangqing Liu, Yu Chen, Xiaofei Xie, Jingkai Siow, and Yang Liu. 2021. Retrieval-Augmented Generation for Code Summarization via Hybrid GNN. arXiv:2006.05405 [cs] doi:10.48550/arXiv.2006.05405 [22] Shengjie Ma, Chengjin Xu, Xuhui Jiang, Muzhi Li, Huaren Qu, Cehao Yang, Jiaxin Mao, and Jian Guo. 2024. Think-on-Graph 2.0: Deep and Faithful Large Language Model Reasoning with Knowledge-guided Retrieval Augmented Generation. In 
+
+The Thirteenth International Conference on Learning Representations .[23] Ruochen Mao, Yuling Shi, Xiaodong Gu, and Jiaheng Wei. 2025. Robust Pref-erence Alignment via Directional Neighborhood Consensus. arXiv preprint arXiv:2510.20498 (2025). [24] Tong Niu, Shafiq Joty, Ye Liu, Caiming Xiong, Yingbo Zhou, and Semih Yavuz. 2024. JudgeRank: Leveraging Large Language Models for Reasoning-Intensive Reranking. arXiv:2411.00142 [cs] doi:10.48550/arXiv.2411.00142 [25] Liangming Pan, Michael Saxon, Wenda Xu, Deepak Nathani, Xinyi Wang, and William Yang Wang. 2024. Automatically Correcting Large Language Models: 
+
+Surveying the Landscape of Diverse Automated Correction Strategies . Transactions of the Association for Computational Linguistics 12 (May 2024), 484–506. doi:10. 1162/tacl_a_00660 [26] Weihan Peng, Yuling Shi, Yuhang Wang, Xinyun Zhang, Beijun Shen, and Xi-aodong Gu. 2025. SWE-QA: Can Language Models Answer Repository-level Code Questions? arXiv preprint arXiv:2509.14635 (2025). [27] Ofir Press, Muru Zhang, Sewon Min, Ludwig Schmidt, Noah Smith, and Mike Lewis. 2023. Measuring and Narrowing the Compositionality Gap in Language Models. In Findings of the Association for Computational Linguistics: EMNLP 2023 ,Houda Bouamor, Juan Pino, and Kalika Bali (Eds.). Association for Computational Linguistics, Singapore, 5687–5711. doi:10.18653/v1/2023.findings-emnlp.378 [28] Qwen, An Yang, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chengyuan Li, Dayiheng Liu, Fei Huang, Haoran Wei, Huan Lin, Jian Yang, Jianhong Tu, Jianwei Zhang, Jianxin Yang, Jiaxi Yang, Jingren Zhou, Junyang Lin, Kai Dang, Keming Lu, Keqin Bao, Kexin Yang, Le Yu, Mei Li, Mingfeng Xue, Pei Zhang, Qin Zhu, Rui Men, Runji Lin, Tianhao Li, Tianyi Tang, Tingyu Xia, Xingzhang Ren, Xuancheng Ren, Yang Fan, Yang Su, Yichang Zhang, Yu Wan, Yuqiong Liu, Zeyu Cui, Zhenru Zhang, and Zihan Qiu. 2025. Qwen2.5 Technical Report. arXiv:2412.15115 [cs] doi:10.48550/arXiv.2412.15115 [29] Ori Ram, Yoav Levine, Itay Dalmedigos, Dor Muhlgay, Amnon Shashua, Kevin Leyton-Brown, and Yoav Shoham. 2023. In-Context Retrieval-Augmented Lan-guage Models. Transactions of the Association for Computational Linguistics 11 (2023), 1316–1331. doi:10.1162/tacl_a_00605 [30] Zhihong Shao, Yeyun Gong, Yelong Shen, Minlie Huang, Nan Duan, and Weizhu Chen. 2023. Enhancing Retrieval-Augmented Large Language Models with It-erative Retrieval-Generation Synergy. In Findings of the Association for Com-putational Linguistics: EMNLP 2023 , Houda Bouamor, Juan Pino, and Kalika Bali (Eds.). Association for Computational Linguistics, Singapore, 9248–9274. doi:10.18653/v1/2023.findings-emnlp.620 [31] Yuling Shi, Yichun Qian, Hongyu Zhang, Beijun Shen, and Xiaodong Gu. 2025. LongCodeZip: Compress Long Context for Code Language Models. arXiv preprint arXiv:2510.00446 (2025). [32] Yuling Shi, Songsong Wang, Chengcheng Wan, Min Wang, and Xiaodong Gu. 2024. From code to correctness: Closing the last mile of code generation with hierarchical debugging. arXiv preprint arXiv:2410.01215 (2024). [33] Yuling Shi, Hongyu Zhang, Chengcheng Wan, and Xiaodong Gu. 2024. Between Lines of Code: Unraveling the Distinct Patterns of Machine and Human Program-mers. In 2025 IEEE/ACM 47th International Conference on Software Engineering (ICSE) . IEEE Computer Society, 51–62. [34] Zhengliang Shi, Shuo Zhang, Weiwei Sun, Shen Gao, Pengjie Ren, Zhumin Chen, and Zhaochun Ren. 2024. Generate-Then-Ground in Retrieval-Augmented Gener-ation for Multi-hop Question Answering. In Proceedings of the 62nd Annual Meet-ing of the Association for Computational Linguistics (Volume 1: Long Papers) , Lun-Wei Ku, Andre Martins, and Vivek Srikumar (Eds.). Association for Computational Linguistics, Bangkok, Thailand, 7339–7353. doi:10.18653/v1/2024.acl-long.397 [35] Kurt Shuster, Spencer Poff, Moya Chen, Douwe Kiela, and Jason Weston. 2021. Retrieval Augmentation Reduces Hallucination in Conversation. In Findings of the Association for Computational Linguistics: EMNLP 2021 , Marie-Francine Moens, Xuanjing Huang, Lucia Specia, and Scott Wen-tau Yih (Eds.). Association for Computational Linguistics, Punta Cana, Dominican Republic, 3784–3803. doi:10.18653/v1/2021.findings-emnlp.320 [36] Weihang Su, Yichen Tang, Qingyao Ai, Zhijing Wu, and Yiqun Liu. 2024. DRAGIN: Dynamic Retrieval Augmented Generation Based on the Real-time Information Needs of Large Language Models. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , Lun-Wei Ku, Andre Martins, and Vivek Srikumar (Eds.). Association for Computational Linguistics, Bangkok, Thailand, 12991–13013. doi:10.18653/v1/2024.acl-long.702 [37] Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, and Ashish Sabharwal. 2022. MuSiQue: Multihop Questions via Single-hop Question Composition. 
+
+Transactions of the Association for Computational Linguistics 10 (2022), 539–554. WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates Shi et al. 
+
+doi:10.1162/tacl_a_00475 [38] Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, and Ashish Sabharwal. 2023. Interleaving Retrieval with Chain-of-Thought Reasoning for Knowledge-Intensive Multi-Step Questions. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , Anna Rogers, Jordan Boyd-Graber, and Naoaki Okazaki (Eds.). Association for Computational Linguistics, Toronto, Canada, 10014–10037. doi:10.18653/v1/2023.acl-long.557 [39] Prakhar Verma, Sukruta Prakash Midigeshi, Gaurav Sinha, Arno Solin, Nagarajan Natarajan, and Amit Sharma. 2024. Plan$\times$RAG: Planning-guided Retrieval Augmented Generation. arXiv:2410.20753 [cs] doi:10.48550/arXiv.2410.20753 [40] Chaofan Wang, Tingrui Yu, Chen Xie, Jie Wang, Dong Chen, Wenrui Zhang, Yuling Shi, Xiaodong Gu, and Beijun Shen. 2025. EVOC2RUST: A Skeleton-guided Framework for Project-Level C-to-Rust Translation. arXiv preprint arXiv:2508.04295 (2025). [41] Liang Wang, Haonan Chen, Nan Yang, Xiaolong Huang, Zhicheng Dou, and Furu Wei. 2025. Chain-of-Retrieval Augmented Generation. arXiv:2501.14342 [cs] doi:10.48550/arXiv.2501.14342 [42] Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Brian Ichter, Fei Xia, Ed Chi, Quoc Le, and Denny Zhou. 2023. Chain-of-Thought Prompting Elicits Reasoning in Large Language Models. arXiv:2201.11903 [cs] doi:10.48550/arXiv. 2201.11903 [43] Fangyuan Xu, Weijia Shi, and Eunsol Choi. 2023. RECOMP: Improving Retrieval-Augmented LMs with Context Compression and Selective Augmentation. In The Twelfth International Conference on Learning Representations .[44] Shi-Qi Yan, Jia-Chen Gu, Yun Zhu, and Zhen-Hua Ling. 2024. Corrective Retrieval Augmented Generation. arXiv:2401.15884 doi:10.48550/arXiv.2401.15884 [45] Zhilin Yang, Peng Qi, Saizheng Zhang, Yoshua Bengio, William Cohen, Ruslan Salakhutdinov, and Christopher D. Manning. 2018. HotpotQA: A Dataset for Diverse, Explainable Multi-hop Question Answering. In Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing , Ellen Riloff, David Chiang, Julia Hockenmaier, and Jun’ichi Tsujii (Eds.). Association for Computational Linguistics, Brussels, Belgium, 2369–2380. doi:10.18653/v1/D18-1259 [46] Soyoung Yoon, Eunbi Choi, Jiyeon Kim, Hyeongu Yun, Yireun Kim, and Seung-won Hwang. 2024. ListT5: Listwise Reranking with Fusion-in-Decoder Improves Zero-shot Retrieval. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , Lun-Wei Ku, Andre Martins, and Vivek Srikumar (Eds.). Association for Computational Linguistics, Bangkok, Thailand, 2287–2308. doi:10.18653/v1/2024.acl-long.125 [47] Zhenrui Yue, Honglei Zhuang, Aijun Bai, Kai Hui, Rolf Jagerman, Hansi Zeng, Zhen Qin, Dong Wang, Xuanhui Wang, and Michael Bendersky. 2024. Inference Scaling for Long-Context Retrieval Augmented Generation. arXiv:2410.04343 doi:10.48550/arXiv.2410.04343 [48] Wenhao Zeng, Yaoning Wang, Chao Hu, Yuling Shi, Chengcheng Wan, Hongyu Zhang, and Xiaodong Gu. 2025. Pruning the unsurprising: Efficient code reason-ing via first-token surprisal. arXiv preprint arXiv:2508.05988 (2025). [49] Nan Zhang, Prafulla Kumar Choubey, Alexander Fabbri, Gabriel Bernadett-Shapiro, Rui Zhang, Prasenjit Mitra, Caiming Xiong, and Chien-Sheng Wu. 2024. SiReRAG: Indexing Similar and Related Information for Multihop Reasoning. arXiv:2412.06206 [cs] doi:10.48550/arXiv.2412.06206 [50] Qingfei Zhao, Ruobing Wang, Yukuo Cen, Daren Zha, Shicheng Tan, Yuxiao Dong, and Jie Tang. 2024. LongRAG: A Dual-Perspective Retrieval-Augmented Generation Paradigm for Long-Context Question Answering. arXiv:2410.18050 [51] Zhiyin Zhou. 2025. Beyond Chat: a Framework for LLMs as Human-Centered Support Systems. arXiv preprint arXiv:2511.03729 (2025). [52] Rongzhi Zhu, Xiangyu Liu, Zequn Sun, Yiwei Wang, and Wei Hu. 2025. Miti-gating Lost-in-Retrieval Problems in Retrieval Augmented Multi-Hop Question Answering. arXiv:2502.14245 [cs] doi:10.48550/arXiv.2502.14245 [53] Ziyuan Zhuang, Zhiyang Zhang, Sitao Cheng, Fangkai Yang, Jia Liu, Shu-jian Huang, Qingwei Lin, Saravan Rajmohan, Dongmei Zhang, and Qi Zhang. 2024. EfficientRAG: Efficient Retriever for Multi-Hop Question Answering. In Proceedings of the 2024 Conference on Empirical Methods in Natural Lan-guage Processing , Yaser Al-Onaizan, Mohit Bansal, and Yun-Nung Chen (Eds.). Association for Computational Linguistics, Miami, Florida, USA, 3392–3411. doi:10.18653/v1/2024.emnlp-main.199
