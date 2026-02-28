@@ -191,6 +191,54 @@ def call_filter(
     debug_dir: str,
     debug_tag: str,
 ) -> List[Dict[str, Any]]:
+    def strip_wrappers(text: str) -> str:
+        cleaned = (text or "").strip()
+        # 去掉常见的 markdown 代码块
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+        return cleaned.strip()
+
+    def repair_json_suffix(text: str) -> str:
+        # 尝试修复被截断/尾部坏掉的 JSON：补全未闭合字符串与括号
+        if not text:
+            return text
+
+        stack: List[str] = []
+        in_str = False
+        escaped = False
+
+        for ch in text:
+            if in_str:
+                if escaped:
+                    escaped = False
+                    continue
+                if ch == "\\":
+                    escaped = True
+                    continue
+                if ch == '"':
+                    in_str = False
+                continue
+
+            if ch == '"':
+                in_str = True
+            elif ch == '{':
+                stack.append('}')
+            elif ch == '[':
+                stack.append(']')
+            elif ch in ('}', ']'):
+                if stack and stack[-1] == ch:
+                    stack.pop()
+
+        repaired = text
+        if in_str:
+            repaired += '"'
+        if stack:
+            repaired += ''.join(reversed(stack))
+
+        # 去掉可能出现的尾部悬挂逗号，避免 `,}`、`,]`
+        repaired = re.sub(r",(\s*[}\]])", r"\1", repaired)
+        return repaired
+
     def load_json_lenient(text: str) -> Dict[str, Any]:
         """
         宽松解析模型返回的 JSON。
@@ -198,22 +246,46 @@ def call_filter(
         - JSON 后面夹带了额外文本（json.loads 报 Extra data）
         - 前后包含多余空白或换行
         """
-        raw = (text or "").strip()
+        raw = strip_wrappers((text or "").strip())
         if not raw:
             return {}
 
         decoder = json.JSONDecoder()
-        try:
-            obj, _idx = decoder.raw_decode(raw)
-            return obj if isinstance(obj, dict) else {}
-        except Exception:
-            start = raw.find("{")
-            end = raw.rfind("}")
-            if start != -1 and end != -1 and end > start:
-                clipped = raw[start : end + 1]
-                obj = json.loads(clipped)
-                return obj if isinstance(obj, dict) else {}
-            raise
+        candidates: List[str] = []
+
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start != -1:
+            candidates.append(raw[start:])
+            if end != -1 and end > start:
+                candidates.append(raw[start : end + 1])
+        else:
+            candidates.append(raw)
+
+        seen: set[str] = set()
+        last_exc: Exception | None = None
+        for candidate in candidates:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            try:
+                obj, _idx = decoder.raw_decode(candidate)
+                if isinstance(obj, dict):
+                    return obj
+            except Exception as exc:
+                last_exc = exc
+                repaired = repair_json_suffix(candidate)
+                if repaired != candidate:
+                    try:
+                        obj = json.loads(repaired)
+                        if isinstance(obj, dict):
+                            return obj
+                    except Exception as exc2:
+                        last_exc = exc2
+                continue
+        if last_exc is not None:
+            raise last_exc
+        return {}
 
     schema = {
         "type": "object",
@@ -319,7 +391,11 @@ def call_filter(
     resp = client.chat(
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+            {
+                "role": "user",
+                "content": user_prompt
+                + "\n\nOutput must be strict JSON only, no markdown, no fences, no extra text.",
+            },
         ],
         response_format=response_format,
     )
