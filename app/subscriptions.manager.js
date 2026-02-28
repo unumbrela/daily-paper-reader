@@ -11,7 +11,6 @@ window.SubscriptionsManager = (function () {
   let closeBtn = null;
   let msgEl = null;
   let quickRun7dBtn = null;
-  let quickRunTodayBtn = null;
   let quickRun30dBtn = null;
   let quickRunConferenceBtn = null;
   let quickRunYearSelect = null;
@@ -200,7 +199,7 @@ window.SubscriptionsManager = (function () {
 
   const refreshQuickRunButtons = () => {
     const blocked = hasUnsavedChanges;
-    [quickRun7dBtn, quickRunTodayBtn, quickRun30dBtn].forEach((btn) => {
+    [quickRun7dBtn, quickRun30dBtn].forEach((btn) => {
       if (!btn) return;
       btn.disabled = blocked;
       btn.classList.toggle('chat-quick-run-item--disabled', blocked);
@@ -367,8 +366,7 @@ window.SubscriptionsManager = (function () {
 
           <div id="arxiv-search-quick-run-side">
             <div class="chat-quick-run-title">快速抓取</div>
-            <button id="arxiv-admin-quick-run-today-btn" class="chat-quick-run-item" type="button">立即搜寻当天论文</button>
-            <button id="arxiv-admin-quick-run-7d-btn" class="chat-quick-run-item" type="button">立即搜寻七天内论文</button>
+            <button id="arxiv-admin-quick-run-7d-btn" class="chat-quick-run-item" type="button">立即搜寻十天内论文</button>
             <button id="arxiv-admin-quick-run-30d-btn" class="chat-quick-run-item" type="button">立即搜寻三十天内论文</button>
             <div class="chat-quick-run-divider" aria-hidden="true"></div>
             <div class="chat-quick-run-title">会议论文（先保留）</div>
@@ -563,7 +561,6 @@ window.SubscriptionsManager = (function () {
     }
 
     quickRun7dBtn = document.getElementById('arxiv-admin-quick-run-7d-btn');
-    quickRunTodayBtn = document.getElementById('arxiv-admin-quick-run-today-btn');
     quickRun30dBtn = document.getElementById('arxiv-admin-quick-run-30d-btn');
     quickRunConferenceBtn = document.getElementById(
       'arxiv-admin-quick-run-conference-run-btn',
@@ -574,7 +571,7 @@ window.SubscriptionsManager = (function () {
     );
     quickRunMsgEl = document.getElementById('arxiv-admin-quick-run-msg');
     fillQuickRunOptions(quickRunYearSelect, quickRunConferenceSelect);
-    [quickRun7dBtn, quickRunTodayBtn, quickRun30dBtn].forEach((btn) => {
+    [quickRun7dBtn, quickRun30dBtn].forEach((btn) => {
       if (!btn) return;
       if (!btn.dataset.defaultTitle) {
         btn.setAttribute('data-default-title', btn.textContent || '');
@@ -585,14 +582,7 @@ window.SubscriptionsManager = (function () {
     if (quickRun7dBtn && !quickRun7dBtn._bound) {
       quickRun7dBtn._bound = true;
       quickRun7dBtn.addEventListener('click', () => {
-        runQuickFetch(7, quickRunMsgEl);
-      });
-    }
-
-    if (quickRunTodayBtn && !quickRunTodayBtn._bound) {
-      quickRunTodayBtn._bound = true;
-      quickRunTodayBtn.addEventListener('click', () => {
-        runQuickFetch(1, quickRunMsgEl, '已发起当天论文抓取任务。');
+        runQuickFetch(10, quickRunMsgEl);
       });
     }
 
