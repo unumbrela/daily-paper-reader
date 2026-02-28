@@ -349,7 +349,7 @@ def _build_from_profiles(subs: Dict[str, Any]) -> Dict[str, Any]:
 
       source = _norm_text(normalized_intent.get("source") or "manual")
       source_rule_id = _norm_text(normalized_intent.get("id") or "")
-      intent_query_tag = f"query:{tag}::intent"
+      intent_query_tag = paper_tag_query
 
       bm25_queries.append(
         {
