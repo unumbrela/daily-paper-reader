@@ -145,7 +145,6 @@ window.SubscriptionsManager = (function () {
       const query = normalizeText(item);
       if (!query) return null;
       return {
-        id: `intent-${toStableId(query)}`,
         query,
         query_cn: '',
         enabled: true,
@@ -159,7 +158,6 @@ window.SubscriptionsManager = (function () {
     const queryCn = normalizeText(item.query_cn || item.query_zh || item.zh || item.note || '');
 
     return {
-      id: `intent-${toStableId(query)}`,
       query,
       query_cn: queryCn,
       enabled: item.enabled !== false,
@@ -266,7 +264,6 @@ window.SubscriptionsManager = (function () {
       .map((p, idx) => {
         if (!p || typeof p !== 'object') return null;
         const tag = normalizeText(p.tag) || toStableId(p.description || `profile-${idx + 1}`);
-        const id = toStableId(tag);
         const description = normalizeText(p.description || '');
         const enabled = p.enabled !== false;
         const keywordRules = (Array.isArray(p.keywords) ? p.keywords : []).map(normalizeKeywordItem).filter(Boolean);
@@ -277,7 +274,6 @@ window.SubscriptionsManager = (function () {
         }
 
         return {
-          id,
           tag,
           description,
           enabled,
@@ -287,6 +283,47 @@ window.SubscriptionsManager = (function () {
         };
       })
       .filter(Boolean);
+  };
+
+  const stripIntentProfileIds = (config) => {
+    const next = cloneDeep(config || {});
+    if (!next || typeof next !== 'object') return next;
+    const subscriptions = next.subscriptions;
+    if (!subscriptions || typeof subscriptions !== 'object') return next;
+    const profiles = Array.isArray(subscriptions.intent_profiles) ? subscriptions.intent_profiles : [];
+    if (!profiles.length) return next;
+
+    subscriptions.intent_profiles = profiles
+      .filter((p) => p && typeof p === 'object')
+      .map((p) => {
+        const profile = cloneDeep(p) || {};
+        delete profile.id;
+
+        if (Array.isArray(profile.keywords)) {
+          profile.keywords = profile.keywords
+            .filter((k) => k && typeof k === 'object')
+            .map((k) => {
+              const keyword = cloneDeep(k);
+              delete keyword.id;
+              return keyword;
+            });
+        }
+
+        if (Array.isArray(profile.intent_queries)) {
+          profile.intent_queries = profile.intent_queries
+            .filter((item) => item && typeof item === 'object')
+            .map((item) => {
+              const intentQuery = cloneDeep(item);
+              delete intentQuery.id;
+              return intentQuery;
+            });
+        }
+
+        return profile;
+      });
+
+    next.subscriptions = subscriptions;
+    return next;
   };
 
   const migrateLegacyToProfilesIfNeeded = (subs) => {
@@ -307,7 +344,7 @@ window.SubscriptionsManager = (function () {
     const subs = next.subscriptions;
 
     migrateLegacyToProfilesIfNeeded(subs);
-    subs.intent_profiles = normalizeProfiles(subs);
+      subs.intent_profiles = normalizeProfiles(subs);
 
     if (!subs.schema_migration || typeof subs.schema_migration !== 'object') {
       subs.schema_migration = {};
@@ -324,7 +361,7 @@ window.SubscriptionsManager = (function () {
     }
 
     next.subscriptions = subs;
-    return next;
+    return stripIntentProfileIds(next);
   };
 
   const setMessage = (text, color) => {

@@ -74,7 +74,7 @@ window.SubscriptionsSmartQuery = (function () {
   const getProfileKey = (profileOrTag) => {
     if (!profileOrTag) return '';
     if (typeof profileOrTag === 'string') return toStableId(profileOrTag);
-    return toStableId(profileOrTag.tag) || toStableId(profileOrTag.id) || '';
+    return toStableId(profileOrTag.tag) || '';
   };
 
   const normalizeProfileKeywords = (profile) => {
@@ -123,9 +123,7 @@ window.SubscriptionsSmartQuery = (function () {
         if (typeof item === 'string') {
           const query = normalizeText(item);
           if (!query) return null;
-          const querySlug = toStableId(query);
           return {
-            id: `intent-${querySlug}`,
             query,
             query_cn: '',
             enabled: true,
@@ -135,10 +133,8 @@ window.SubscriptionsSmartQuery = (function () {
         if (!item || typeof item !== 'object') return null;
         const query = normalizeText(item.query || item.text || item.keyword || item.expr || '');
         if (!query) return null;
-        const querySlug = toStableId(query);
         const queryCn = normalizeText(item.query_cn || item.query_zh || item.zh || item.note || '');
         return {
-          id: `intent-${querySlug}`,
           query,
           query_cn: queryCn,
           enabled: item.enabled !== false,
@@ -206,7 +202,6 @@ window.SubscriptionsSmartQuery = (function () {
       return profile;
     }
     profile = {
-      id: toStableId(t) || `profile-${profiles.length + 1}`,
       tag: t,
       description: normalizeText(description),
       enabled: true,
@@ -809,7 +804,6 @@ window.SubscriptionsSmartQuery = (function () {
         if (!query || intentSeen.has(query.toLowerCase())) return;
         intentSeen.add(query.toLowerCase());
         mergedIntentQueries.push({
-          id: `intent-${toStableId(query)}`,
           query,
           query_cn: normalizeText(queryObj.query_cn || queryObj.query_zh || queryObj.zh || ''),
           enabled: queryObj.enabled !== false,
@@ -823,7 +817,6 @@ window.SubscriptionsSmartQuery = (function () {
 
       profiles[idx] = {
         ...existedProfile,
-        id: getProfileKey(tag) || existedProfile.id,
         tag: normalizeText(tag || existedProfile.tag || ''),
         description: normalizeText(description || existedProfile.description || ''),
         keywords:
