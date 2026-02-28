@@ -3,7 +3,7 @@ github:
   repo: daily-paper-reader
 arxiv_paper_setting:
   mode: standard
-  days_window: 7
+  days_window: 9
   docs_dir: docs
   prefer_supabase_read: true
 supabase:
@@ -23,4 +23,3 @@ subscriptions:
     stage: A
     diff_threshold_pct: 15
   keyword_recall_mode: or
-  intent_profiles:
