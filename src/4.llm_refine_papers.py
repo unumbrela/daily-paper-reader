@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 import random
@@ -20,6 +21,7 @@ RANKED_DIR = os.path.join(ARCHIVE_DIR, "rank")
 CONFIG_FILE = os.path.join(ROOT_DIR, "config.yaml")
 
 DEFAULT_FILTER_MODEL = os.getenv("BLT_FILTER_MODEL") or "gemini-3-flash-preview-nothinking"
+DEFAULT_FILTER_CONCURRENCY = 8
 
 
 def log(message: str) -> None:
@@ -345,6 +347,35 @@ def call_filter(
     return results
 
 
+def _make_filter_client(api_key: str, model: str, max_output_tokens: int) -> BltClient:
+    client = BltClient(api_key=api_key, model=model)
+    client.kwargs.update({"temperature": 0.1, "max_tokens": max_output_tokens})
+    return client
+
+
+def _filter_batch(
+    batch_idx: int,
+    batch: List[Dict[str, str]],
+    api_key: str,
+    all_requirements: List[Dict[str, str]],
+    filter_model: str,
+    max_output_tokens: int,
+    debug_dir: str,
+) -> tuple[int, List[Dict[str, str]], List[Dict[str, Any]]]:
+    client = _make_filter_client(api_key, filter_model, max_output_tokens)
+    return (
+        batch_idx,
+        batch,
+        call_filter(
+            client,
+            all_requirements=all_requirements,
+            docs=batch,
+            debug_dir=debug_dir,
+            debug_tag=f"batch_{batch_idx:03d}",
+        ),
+    )
+
+
 def process_file(
     input_path: str,
     output_path: str,
@@ -353,6 +384,7 @@ def process_file(
     max_chars: int,
     filter_model: str,
     max_output_tokens: int,
+    filter_concurrency: int,
 ) -> None:
     # 检查输入文件是否存在，如果不存在说明今天没有新论文，优雅退出
     if not os.path.exists(input_path):
@@ -378,13 +410,11 @@ def process_file(
     if not api_key:
         raise RuntimeError("missing BLT_API_KEY")
 
-    filter_client = BltClient(api_key=api_key, model=filter_model)
-    filter_client.kwargs.update({"temperature": 0.1, "max_tokens": max_output_tokens})
-
     group_start(f"Step 4 - llm refine {os.path.basename(input_path)}")
     log(
         f"[INFO] start filter: queries={len(queries)}, papers={len(papers)}, "
-        f"min_star={min_star}, batch_size={batch_size}, max_chars={max_chars}"
+        f"min_star={min_star}, batch_size={batch_size}, max_chars={max_chars}, "
+        f"concurrency={filter_concurrency}"
     )
 
     candidate_ids: List[str] = []
@@ -430,66 +460,76 @@ def process_file(
     merged: Dict[str, Dict[str, Any]] = {}
     debug_dir = os.path.join(RANKED_DIR, "debug")
     requirement_by_index = {i + 1: r for i, r in enumerate(user_requirements)}
-    for idx, batch in enumerate(batches, start=1):
-        log(f"[INFO] filter batch {idx}/{len(batches)} docs={len(batch)}")
-        try:
-            results = call_filter(
-                filter_client,
-                all_requirements=user_requirements,
-                docs=batch,
-                debug_dir=debug_dir,
-                debug_tag=f"batch_{idx:03d}",
-            )
-        except Exception as exc:
-            log(f"[WARN] filter batch failed: {exc}")
-            continue
-
-        batch_ids = {str(d.get("id")) for d in batch}
-        for item in results:
-            pid = str(item.get("id", "")).strip()
-            if pid not in batch_ids:
+    pending = {}
+    max_workers = max(1, filter_concurrency)
+    total_batches = len(batches)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for idx, batch in enumerate(batches, start=1):
+            log(f"[INFO] filter batch {idx}/{total_batches} dispatch docs={len(batch)}")
+            pending[executor.submit(
+                _filter_batch,
+                idx,
+                batch,
+                api_key,
+                user_requirements,
+                filter_model,
+                max_output_tokens,
+                debug_dir,
+            )] = (idx, batch)
+        for future in as_completed(pending):
+            idx, batch = pending[future]
+            try:
+                _, batch_docs, results = future.result()
+            except Exception as exc:
+                log(f"[WARN] filter batch {idx}/{total_batches} failed: {exc}")
                 continue
-            try:
-                score = float(item.get("score", 0))
-            except Exception:
-                score = 0.0
-            # 新字段：中英双语 evidence（兼容旧字段 evidence）
-            evidence_en = str(item.get("evidence_en") or "").strip()
-            evidence_cn = str(item.get("evidence_cn") or "").strip()
-            tldr_en = str(item.get("tldr_en") or "").strip()
-            tldr_cn = str(item.get("tldr_cn") or "").strip()
-            legacy = str(item.get("evidence", "")).strip()
-            if not evidence_en:
-                evidence_en = legacy
-            if not evidence_cn:
-                evidence_cn = legacy or evidence_en
-            if not tldr_en:
-                tldr_en = "not relevant" if score <= 0 else evidence_en
-            if not tldr_cn:
-                tldr_cn = "不相关" if score <= 0 else (evidence_cn or tldr_en)
+            log(f"[INFO] filter batch {idx}/{total_batches} docs={len(batch_docs)} completed")
+            batch_ids = {str(d.get("id")) for d in batch_docs}
+            for item in results:
+                pid = str(item.get("id", "")).strip()
+                if pid not in batch_ids:
+                    continue
+                try:
+                    score = float(item.get("score", 0))
+                except Exception:
+                    score = 0.0
+                # 新字段：中英双语 evidence（兼容旧字段 evidence）
+                evidence_en = str(item.get("evidence_en") or "").strip()
+                evidence_cn = str(item.get("evidence_cn") or "").strip()
+                tldr_en = str(item.get("tldr_en") or "").strip()
+                tldr_cn = str(item.get("tldr_cn") or "").strip()
+                legacy = str(item.get("evidence", "")).strip()
+                if not evidence_en:
+                    evidence_en = legacy
+                if not evidence_cn:
+                    evidence_cn = legacy or evidence_en
+                if not tldr_en:
+                    tldr_en = "not relevant" if score <= 0 else evidence_en
+                if not tldr_cn:
+                    tldr_cn = "不相关" if score <= 0 else (evidence_cn or tldr_en)
 
-            try:
-                matched_idx = int(item.get("matched_requirement_index") or 0)
-            except Exception:
-                matched_idx = 0
-            matched_req = requirement_by_index.get(matched_idx) if matched_idx > 0 else None
-            matched_tag = str((matched_req or {}).get("tag") or "").strip()
-            matched_id = str((matched_req or {}).get("id") or "").strip()
-            matched_query = str((matched_req or {}).get("query") or "").strip()
+                try:
+                    matched_idx = int(item.get("matched_requirement_index") or 0)
+                except Exception:
+                    matched_idx = 0
+                matched_req = requirement_by_index.get(matched_idx) if matched_idx > 0 else None
+                matched_tag = str((matched_req or {}).get("tag") or "").strip()
+                matched_id = str((matched_req or {}).get("id") or "").strip()
+                matched_query = str((matched_req or {}).get("query") or "").strip()
 
-            prev = merged.get(pid)
-            if (prev is None) or (score > float(prev.get("score", 0))):
-                merged[pid] = {
-                    "paper_id": pid,
-                    "score": score,
-                    "evidence_en": evidence_en,
-                    "evidence_cn": evidence_cn,
-                    "tldr_en": tldr_en,
-                    "tldr_cn": tldr_cn,
-                    "matched_requirement_id": matched_id,
-                    "matched_query_tag": matched_tag,
-                    "matched_query_text": matched_query,
-                }
+                prev = merged.get(pid)
+                if (prev is None) or (score > float(prev.get("score", 0))):
+                    merged[pid] = {
+                        "paper_id": pid,
+                        "score": score,
+                        "evidence_en": evidence_en,
+                        "evidence_cn": evidence_cn,
+                        "tldr_en": tldr_en,
+                        "tldr_cn": tldr_cn,
+                        "matched_requirement_id": matched_id,
+                        "matched_query_tag": matched_tag,
+                        "matched_query_text": matched_query,
+                    }
 
     if not merged:
         log("[WARN] no llm results returned.")
@@ -551,6 +591,12 @@ def main() -> None:
         default=4096,
         help="max tokens for model output (clamped to 4096 in llm.py).",
     )
+    parser.add_argument(
+        "--filter-concurrency",
+        type=int,
+        default=DEFAULT_FILTER_CONCURRENCY,
+        help="concurrent LLM filter requests.",
+    )
 
     args = parser.parse_args()
 
@@ -570,6 +616,7 @@ def main() -> None:
         max_chars=args.max_chars,
         filter_model=args.filter_model,
         max_output_tokens=args.max_output_tokens,
+        filter_concurrency=args.filter_concurrency,
     )
 
 
