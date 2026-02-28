@@ -77,6 +77,15 @@ window.SubscriptionsManager = (function () {
   ];
 
   const normalizeText = (v) => String(v || '').trim();
+  const toStableId = (value) => {
+    const text = normalizeText(value).toLowerCase();
+    const slug = text
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .trim();
+    return slug || 'item';
+  };
 
   const cloneDeep = (obj) => {
     try {
@@ -136,7 +145,7 @@ window.SubscriptionsManager = (function () {
       const query = normalizeText(item);
       if (!query) return null;
       return {
-        id: `intent-q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+        id: `intent-${toStableId(query)}`,
         query,
         query_cn: '',
         enabled: true,
@@ -150,7 +159,7 @@ window.SubscriptionsManager = (function () {
     const queryCn = normalizeText(item.query_cn || item.query_zh || item.zh || item.note || '');
 
     return {
-      id: normalizeText(item.id) || `intent-q-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      id: `intent-${toStableId(query)}`,
       query,
       query_cn: queryCn,
       enabled: item.enabled !== false,
@@ -256,8 +265,8 @@ window.SubscriptionsManager = (function () {
     return profiles
       .map((p, idx) => {
         if (!p || typeof p !== 'object') return null;
-        const id = normalizeText(p.id) || `profile-${idx + 1}`;
-        const tag = normalizeText(p.tag) || id;
+        const tag = normalizeText(p.tag) || toStableId(p.description || `profile-${idx + 1}`);
+        const id = toStableId(tag);
         const description = normalizeText(p.description || '');
         const enabled = p.enabled !== false;
         const keywordRules = (Array.isArray(p.keywords) ? p.keywords : []).map(normalizeKeywordItem).filter(Boolean);

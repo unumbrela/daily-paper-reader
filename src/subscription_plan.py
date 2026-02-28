@@ -94,8 +94,9 @@ def _normalize_intent_query_entry(item: Any, default_id: str) -> Dict[str, Any]:
     query = _norm_text(item)
     if not query:
       return {}
+    q_slug = _slug(query)
     return {
-      "id": default_id,
+      "id": f"intent-{q_slug}" if q_slug else default_id or "intent-item",
       "query": query,
       "enabled": True,
       "source": "manual",
@@ -107,9 +108,10 @@ def _normalize_intent_query_entry(item: Any, default_id: str) -> Dict[str, Any]:
   query = _norm_text(item.get("query") or item.get("text") or item.get("keyword") or item.get("expr") or "")
   if not query:
     return {}
+  q_slug = _slug(query)
 
   return {
-    "id": _norm_text(item.get("id") or default_id),
+    "id": f"intent-{q_slug}" if q_slug else default_id or "intent-item",
     "query": query,
     "enabled": _as_bool(item.get("enabled"), True),
     "source": _norm_text(item.get("source") or "manual"),
@@ -223,13 +225,11 @@ def _normalize_keyword_expr(expr: str) -> str:
 
 
 def _normalize_profile(profile: Dict[str, Any], idx: int) -> Dict[str, Any]:
-  pid = _norm_text(profile.get("id") or "")
   tag = _norm_text(profile.get("tag") or "")
   description = _norm_text(profile.get("description") or "")
-  if not pid:
-    pid = f"profile-{idx + 1}-{_slug(tag or description or str(idx + 1))}"
   if not tag:
-    tag = pid
+    tag = f"profile-{idx + 1}"
+  pid = _slug(tag) if tag else f"profile-{idx + 1}"
 
   kw_rules_in = profile.get("keywords") or []
   kw_rules: List[Dict[str, Any]] = _normalize_keyword_list(kw_rules_in, pid)
