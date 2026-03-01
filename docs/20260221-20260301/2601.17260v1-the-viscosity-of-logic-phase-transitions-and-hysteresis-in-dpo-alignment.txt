@@ -1,0 +1,385 @@
+Title: The Viscosity of Logic: Phase Transitions and Hysteresis in DPO Alignment
+
+URL Source: https://arxiv.org/pdf/2601.17260v1
+
+Published Time: Tue, 27 Jan 2026 01:15:53 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# The Viscosity of Logic: Phase Transitions and Hysteresis in DPO Alignment 
+
+Marco Pollanen 1
+
+## Abstract 
+
+Direct Preference Optimization (DPO) is often tuned as if increasing alignment pressure (con-trolled by β) yields progressively “better” behav-ior. We instead treat β as a control parameter and densely sweep it for three 7B open-weight families under a fixed DPO recipe. In Mistral-7B, capability is sharply non-monotonic: aggre-gated logic-probe margins become positive only in a narrow band near β ≈ 10 −2 and revert outside it, with boundary points that are seed-sensitive. Across architectures under the same sweep, we observe qualitatively different response modes: sharp reorganization in Mistral-7B, selec-tive changes in LLaMA-2-7B, and smooth trade-offs in Qwen-1.5-7B. Critically, the DPO pref-erence margin can anticorrelate with reasoning capability (Pearson r = −0.91 for LLaMA-2-7B logic), so margin-based selection can prefer capability-impaired models. Training path also matters: exposure to high β induces capability losses that persist even after β is reduced (hystere-sis). These findings motivate capability-resolved evaluation across the β landscape rather than re-liance on margins or aggregate benchmarks. 
+
+## 1. Introduction 
+
+The comforting narrative—stronger alignment, better behavior—is dangerously underspecified. Our goal is not to propose a tuning recipe, but to map a failure mode: at fixed model scale, alignment pressure can induce abrupt capability reorganization. We treat β as a control parame-ter and empirically chart the resulting capability landscape. Concretely, we run a controlled DPO sweep where each 
+
+β point starts from the same base checkpoint (except in explicit hysteresis tests). We evaluate both the optimized DPO preference margin and capability-specific probe mar-gins, and we repeat evaluations across random seeds near 
+
+> 1
+
+Department of Mathematics, Trent University, Peterborough, ON, Canada. Correspondence to: Marco Pollanen <marcopolla-nen@trentu.ca >.
+
+Preprint. January 27, 2026. 0.6       
+
+> 0.5
+> 0.4
+> 0.3
+> 0.2
+> 0.1
+> 0.0
+> 0.1
+> 0.2
+> Logic Margin
+> 4
+> 6
+> 8
+> 10
+> Roughness ( L1)
+> 10 310 210 1
+> Alignment Pressure ( )
+> 2
+> 3
+> 4
+> 5
+> 6
+> 7
+> 8
+> Optimization Margin
+
+Figure 1. Alignment is not monotonic—it has sharp transitions. 
+
+Sweeping alignment pressure β in Mistral-7B reveals three co-localized anomalies within a narrow band (shaded). Top: Logic-probe margin is negative at low and high β, turning positive only at discrete points within a narrow band near β ≈ 10 −2 (e.g., 
+
+β ∈ { 0.008 , 0.010 , 0.012 } in the canonical run). Boundaries are seed-sensitive: identical β can yield opposite signs across runs. Middle: Training roughness peaks sharply then drops by 37% in a single β step (0.008 →0.009), consistent with a sudden change in optimization dynamics. Bottom: The DPO preference margin decreases inside the logic-positive pocket, so margin-based selection would reject the most logic-positive (in the canonical run) regime. The alignment landscape has cliffs, not just slopes. 
+
+sensitive regions. In standard practice, one sweeps β, selects the checkpoint with the best margin, and deploys. This pipeline can fail in at least three ways: 1
+
+> arXiv:2601.17260v1 [cs.LG] 24 Jan 2026 The Viscosity of Logic
+
+1. Proxy failure: the DPO preference margin can anticor-relate with capability (e.g., r = −0.91 for LLaMA-2-7B logic). 2. Local instability: near sensitive β, neighboring grid points and different random seeds can yield qualita-tively different outcomes at identical hyperparameters. 3. Path dependence: exposure to higher β can induce per-sistent capability degradation even after β is reduced (hysteresis). These are empirical observations from controlled experi-ments across three 7B architectures, with Mistral-7B ex-hibiting a sharp functional transition and LLaMA-2-7B and Qwen-1.5-7B providing contrasting selective and smooth responses. 
+
+Organizing lens. We borrow “phase transition” and “hys-teresis” as operational descriptors for (i) sharp qualitative changes over a narrow β interval, (ii) elevated seed sensitiv-ity near a boundary, and (iii) path-dependent final capability at identical terminal β. We use “viscosity” informally to de-note architecture- and capability-specific resistance to such reorganization under our fixed training recipe. 
+
+Terminology. We use logic-positive pocket to denote the narrow β band in which the aggregated logic probe margin is positive in at least one run under our protocol (e.g., the canonical seed), while allowing that the sign can flip across seeds near (and sometimes within) this band. Accordingly, we treat the pocket as seed-sensitive rather than uniformly “ordered.” 
+
+Contributions. We document these phenomena through canonical phase diagrams (§3.1), architecture comparisons (§3.2), margin-capability analysis (§3.3), hysteresis tests (§3.4), probe decomposition (§3.5), and evidence for a shared sensitivity region across architectures (§3.7). Reading guide: Figure 1 shows the core non-monotonicity in Mistral-7B; Section 3.3 establishes proxy–capability anti-correlation; Section 3.4 demonstrates path dependence. 
+
+## 2. Background and Setup 
+
+2.1. Direct Preference Optimization 
+
+DPO (Rafailov et al., 2023) optimizes pairwise preferences with a Kullback–Leibler (KL) divergence term relative to a reference policy and a temperature-like scalar β. In the standard DPO objective, β scales the preference term; in common derivations and implementations it is inversely related to the effective strength of staying close to the ref-erence policy. Accordingly, we treat larger β as stronger preference-optimization pressure and refer to it as “higher alignment pressure” in this paper. We use two distinct mar-gin notions throughout: (i) the DPO preference margin (the optimized proxy), which we denote by mt over training steps and aggregate at the end of training; and (ii) probe margins , length-normalized log-probability differences on fixed capability probes, where positive values indicate cor-rect behavior under the probe scoring rule. Standard practice tunes β for downstream performance (Tunstall et al., 2023); we instead sweep it systematically to map the capability landscape. 
+
+Ruling out metric artifacts. Apparent emergence can arise from nonlinear evaluation metrics (Schaeffer et al., 2023). Our key discontinuity evidence is path dependence :two training paths that end at identical β are evaluated iden-tically yet yield measurably different final probe margins, implying different final parameter states under our protocol. While DPO variants can exhibit length effects (Park et al., 2024; Xu et al., 2024), our main qualitative results concern sign changes and path dependence in fixed probes rather than aggregate generation length. 
+
+2.2. Experimental Protocol Frozen configuration principle. Each β point begins from a fresh base model copy with identical recipe, iso-lating β effects from confounds. Deviations (e.g., hysteresis tests) are deliberate and labeled. 
+
+Models. We selected three 7B families to span the open-weight ecosystem rather than to cherry-pick favorable results: Mistral-7B ( mistralai/Mistral-7B-v0.1 ), LLaMA-2-7B (NousResearch/Llama-2-7b-hf ), and Qwen-1.5-7B ( Qwen/Qwen1.5-7B ). Unless oth-erwise noted, we used identical hyperparameters across models (learning rate 5 × 10 −5, 200 steps, batch size 4, LoRA rank 8 with alpha 16 and dropout 0.05). 
+
+Beta selection. We employed a logarithmic sweep 
+
+β ∈
+
+(0.0005 , 0.001 , 0.002 , 0.004 , 0.006 , 0.008 , 0.009 ,
+
+0.010 , 0.012 , 0.015 , 0.020 , 0.050 , 0.100 
+
+)
+
+,
+
+with increased resolution in the high-gradient region ( β ≈
+
+0.006 –0.015 ), where preliminary coarse sweeps indicated heightened sensitivity (sharp roughness changes and ele-vated seed variance). 
+
+Capability probes. Logic : syllogistic reasoning, ordering (3 probes). Arithmetic : multi-digit operations (3 probes). 
+
+Format : JSON generation, boolean constraints (4 probes). 
+
+Sycophancy : resistance to false claims (2 probes), fol-lowing the evaluation framework of Perez et al. (2022). 
+
+Negation : negated query handling (2 probes). We com-2The Viscosity of Logic 
+
+Table 1. Mistral-7B canonical sweep. Bold: logic-positive pocket where the aggregated logic probe margin is positive in the canoni-cal run. Neighboring points ( β = 0 .009 , 0.015 ) are seed-sensitive and can flip sign. Margin denotes the final DPO preference margin (optimized proxy), not a probe score.                                                                                     
+
+> βLogic Arith Format Syco Neg Margin 0.0005 −0.40 +2.81 +4.44 +1.09 +4.25 1.4 0.001 −0.65 +2.34 −0.62 −1.81 +3.59 3.1 0.002 −0.64 +2.75 −0.13 +1.56 +5.12 3.8 0.004 −0.33 +2.68 −0.52 +0.82 +3.88 5.8 0.006 −0.23 +2.66 −1.11 −0.70 +3.75 6.7
+> 0.008 +0.16 +2.67 −1.11 +1.29 +3.61 7.3 0.009 −0.06 +2.71 −1.00 +1.55 +3.83 5.0
+> 0.010 +0.04 +2.75 −0.90 +1.25 +3.66 5.3
+> 0.012 +0.15 +2.72 −1.09 +0.87 +3.67 4.5 0.015 −0.04 +2.68 −1.14 +1.30 +3.48 4.5 0.020 −0.02 +2.67 −1.17 +0.39 +3.17 5.0 0.050 −0.44 +2.65 −1.24 +0.40 +2.47 6.9 0.100 −0.38 +2.47 −1.24 −0.09 +2.02 8.3
+
+pute length-normalized log-probability margins; positive margins indicate correct behavior. 
+
+Training roughness. We quantify optimization turbu-lence by roughness , defined as the mean absolute stepwise change in the preference-margin trajectory over training: 
+
+R = 1 
+
+> T−1
+
+PTt=2 |mt − mt−1|, where mt is the preference margin at optimizer step t and T is the number of steps. 
+
+## 3. Results 
+
+3.1. R1: Non-Monotonic Capability Dynamics 
+
+At fixed 7B scale, varying β induces sharp, non-monotonic capability changes. Table 1 presents the canonical Mistral-7B sweep. The key finding is a narrow logic-positive pocket in which the aggregated logic probe margin becomes positive (in the canonical run, at β ∈ { 0.008 , 0.010 , 0.012 }). The bound-aries are seed-sensitive: at fixed β, different seeds can yield opposite signs, and neighboring grid points (e.g., β = 0 .009 ,
+
+0.015 ) sit at the transition edge. Multi-seed analysis reveals that variance peaks near β = 0 .006 , while the largest rough-ness discontinuity occurs at β = 0 .008 → 0.009 ; together these signals localize a narrow critical region spanning roughly β ≈ 0.006 –0.009 that coarse sweeps can easily miss. Outside the pocket, aggregated logic-probe margins remain negative under our protocol. 
+
+Roughness collapse marks the boundary. The phase boundary is sharply marked by training dynamics: rough-ness peaks at β = 0 .008 then collapses by 37% at β =0.009 , the largest observed single-step transition in the sweep, computed directly from the logged roughness values at β = 0 .008 and β = 0 .009 . This roughness signature may be a useful screening signal for boundary localization during hyperparameter search, to be confirmed by targeted 
+
+Table 2. Three architectures at β = 0 .01 : plastic, selective, smooth. Mistral LLaMA Qwen Logic +0.04 −0.95 +1.08 Arith +2.75 +1.62 +3.00 Format −0.90 −1.98 −0.70 Syco +1.25 +1.71 +3.01 Neg +3.66 +1.58 +0.42 Response Plastic Selective Smooth 
+
+Table 3. Variance at β = 0 .006 (5 seeds). Mistral-7B shows 27–2259 × higher variance (Mistral/LLaMA) across the listed ca-pabilities. Capability Mistral σ2 LLaMA σ2 Ratio (Mistral/LLaMA) Logic 0.016 0.0006 27 ×
+
+Format 0.015 0.00001 1751 ×
+
+Syco 0.783 0.0003 2259 ×
+
+multi-seed capability evaluation. 
+
+Hierarchy of response. Different capabilities respond at different pressures. Format, sycophancy, and negation show positive margins at the lowest β tested ( 0.0005 ); logic re-quires β ≈ 0.008 , an order of magnitude higher, suggesting a difficulty hierarchy where surface compliance is more readily achieved than deep reasoning. 
+
+3.2. R2: Architecture-Dependent Responses 
+
+The same protocol yields qualitatively different regimes across architectures (Table 2). We use these labels descriptively: plastic denotes sharp qual-itative reorganization with high seed sensitivity, selective 
+
+denotes capability-specific rigidity, and smooth denotes con-tinuous trade-offs without sharp discontinuities under our probe set. To quantify sensitivity near the boundary, we measure seed variance at β = 0 .006 across 5 seeds (Table 3). Mistral-7B exhibits 27–2259 × higher variance than LLaMA-2-7B across logic, format, and sycophancy probes at β = 0 .006 (Figure 2, Table 3). However, LLaMA-2-7B’s rigidity is capability-specific: while its logic remains frozen, sycophancy and format margins still vary with β, indicating compartmentalized response modes. 
+
+Seed-sensitive nucleation. High variance near the bound-ary means identical hyperparameters can yield opposite capability signs; single-run evaluations in this region are unreliable. 3The Viscosity of Logic 10 26 × 10 3 2 × 10 2
+
+> Alignment Pressure
+> 0.0025
+> 0.0050
+> 0.0075
+> 0.0100
+> 0.0125
+> 0.0150
+> 0.0175
+> 0.0200
+> Logic Variance (  2)
+> Critical
+> Nucleation
+
+Figure 2. Critical fluctuations. Logic variance across 5 seeds peaks at β = 0 .006 , marking the boundary region where outcomes are maximally seed-sensitive. 
+
+Table 4. Margin-capability correlation. For LLaMA-2-7B logic: 
+
+r = −0.91 .Capability Mistral LLaMA Logic +0.27 −0.91 Format −0.70 —Neg −0.64 — 
+
+> Note: — indicates correlation not reported because the corresponding sweep was not run or variance was insufficient to support a mean-ingful estimate under our protocol.
+
+Learning-rate stress test (LLaMA). To test whether LLaMA-2-7B’s flat logic profile reflects insufficient step size, we varied the learning rate by 20 × while holding all other settings fixed: 1 × 10 −5, 5 × 10 −5 (canonical), and 
+
+2 × 10 −4. We evaluated logic at β ∈ { 0.006 , 0.01 , 0.02 }
+
+for each learning rate. In the logged stress-test runs (seed 1), the aggregated logic margin remained negative for all three 
+
+β values at all three learning rates, suggesting that increased step size does not “melt” logic under this protocol. 
+
+3.3. R3: Margin-Capability Decoupling 
+
+A key practical risk is that the optimized DPO proxy can de-couple from capability. Models can appear more aligned by standard metrics while becoming less capable on reasoning tasks. For LLaMA-2-7B logic, Pearson r = −0.91 (two-sided 
+
+p < 10 −4, n = 13 ), indicating that higher DPO preference margin is associated with lower logic-probe capability under our sweep. This is consistent with an internal instance of Goodhart’s law: increasing alignment pressure can improve the optimized proxy (margin) while degrading the measured target capability (logic). This connects to reward overopti-mization (Gao et al., 2023), but manifests here as capability 0.32      
+
+> 0.33
+> 0.34
+> 0.35
+> 0.36
+> 0.37
+> GSM8K Accuracy
+> GSM8K Accuracy
+> Dissociation Zone
+> 0.3
+> 0.2
+> 0.1
+> 0.0
+> 0.1
+> Logic Score
+> Logic Probes
+> 0.002 0.004 0.006 0.010 0.015 0.020 0.050
+> Alignment Pressure
+> 10
+> 15
+> 20
+> EID
+> EID (Geometry)
+
+Figure 3. Capability–benchmark dissociation. GSM8K peaks at 
+
+β = 0 .02 while logic probes decline. Shaded region: benchmarks improve despite internal degradation. This is Goodhart’s law made visible. 
+
+destruction rather than reward hacking. Benchmark gains can coincide with internal probe degrada-tion (Figure 3). In our Mistral-7B sweep, GSM8K accuracy peaks at β = 0 .02 while aggregated logic-probe margins are strongly negative, illustrating that aggregate benchmarks can mask internal reasoning degradation under alignment pressure. 
+
+3.4. R4: Hysteresis and Irreversibility 
+
+Training path affects final capability even at identical final 
+
+β. We compare two paths to β = 0 .01 :• Path A (Quench) : β = 0 .01 for 200 steps. • Path B (Anneal) : β = 0 .02 for 200 steps, then β =0.01 for 200 steps. Despite twice the training steps , Path B yields worse capa-bility at the same terminal β (Figure 4, Table 5). We report paired t-tests as our primary analysis (e.g., logic: p = 0 .032 ,
+
+dz = 1 .45 ), and include a Wilcoxon signed-rank test as a robustness check (logic: p = 0 .0625 ). Across all five seeds, the degradation direction is consistent for the reported ca-4The Viscosity of Logic Path A   
+
+> (Direct)
+> Path B
+> (Annealed)
+> 0.4
+> 0.2
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> Final Logic Capability
+> Work Hardening
+> (=0.41 )
+
+Figure 4. Hysteresis. Path B shows significant degradation despite identical final β (paired dz = 1 .45 , p = 0 .032 ). 
+
+Table 5. Hysteresis test ( n = 5 ). Path B yields worse capability despite identical final β.Capability Path A Path B p dz
+
+Logic +0.29 −0.12 0.032 1.45 Format −0.76 −1.02 0.021 1.65 Syco −0.75 −1.71 0.109 0.92     
+
+> Note: Sycophancy does not reach significance at α= 0 .05 ,but the effect size is large ( dz= 0 .92 ), suggesting possible degradation.
+
+pabilities, supporting genuine path dependence under our protocol. This is analogous to work hardening in materials: the system cannot return to its original state after traversing high-β re-gions. This persistent capability loss aligns with recent find-ings on the loss of plasticity in continual learning (Dohare et al., 2024), suggesting DPO can induce similar rigidity in weight space. The implication is that “annealing” (starting high and cooling down) is not a safe strategy for DPO, as the high-β trajectory induces deformation that cannot be reversed under our protocol. Exposure to higher-β train-ing can induce capability losses that persist when β is reduced. 3.5. R5: Capabilities Are Bundles, Not Scalars 
+
+Aggregate metrics obscure probe-level heterogeneity. At 
+
+β = 0 .01 , Mistral-7B’s logic aggregate is +0 .04 (barely positive) but compresses dramatically different behaviors (Table 6). Within logic: syllogism 2 is always positive (robust); 
+
+syllogism 1 is positive only at β = 0 .001 (fragile); 
+
+ordering is never positive (frozen). A model “passing” the aggregate may fail 2/3 of constituent tasks. Within the logic bundle itself, probes trade off: 
+
+Table 6. Probe decomposition at β = 0 .01 . Logic aggregate (+0.04) hides 2/3 negative probes. Category Probe Score Sign Logic syllogism 1 −0.62 −
+
+syllogism 2 +2.38 +ordering −1.62 −
+
+Format json simple +0.35 +json key −0.04 −
+
+strict bool −4.48 −
+
+strict json +0.56 +10 3 10 2 10 1
+
+> Alignment Pressure
+> 2
+> 1
+> 0
+> 1
+> 2
+> 3
+> 4
+> Format Compliance (Margin)
+> Mistral Format
+> LLaMA Format
+
+Figure 5. Structural collapse. Mistral-7B format integrity (+4.44) degrades with β, preceding logic collapse. LLaMA-2-7B begins broken (format margin ≈ − 2 under our sweep) and never resolves. 
+
+syllogism 1 and syllogism 2 show r = −0.71 
+
+across the β sweep ( n = 13 grid points, p = 0 .006 ). The bundle structure extends beyond logic: sycophancy probes flat earth and bad math are anti-correlated across the β sweep in Mistral-7B ( r = −0.50 ), indicating that even within a named capability, constituent tasks can trade off under the same alignment pressure. In Mistral-7B, these probes agree in sign only near β ≈ 0.009 –0.010 , rein-forcing that this narrow band corresponds to a qualitatively distinct regime. 
+
+3.6. R6: Structural Collapse 
+
+Format compliance probes low-level structural priors (Fig-ure 5). Mistral-7B begins with high integrity (+4.44 at 
+
+β = 0 .0005 ) which erodes as β increases, preceding logic collapse. LLaMA-2-7B begins with broken priors (format margin ≈ − 2 under our sweep) that never resolve, consis-tent with its selective response mode. 5The Viscosity of Logic 
+
+3.7. R7: Co-Localized Sensitivity Without Universality 
+
+A natural concern is whether the logic-positive pocket re-flects a peculiarity of Mistral-7B or a broader phenomenon. Across three 7B families under the same sweep, only Mistral-7B exhibits sharp logic reorganization; the other architectures show anomalous but qualitatively different behavior near β ≈ 0.01 .Mistral-7B reorganizes (capability sign changes), LLaMA-2-7B responds selectively (sycophancy and format reorga-nize while logic remains frozen), and Qwen-1.5-7B absorbs pressure smoothly (continuous trade-offs without sharp tran-sitions). Because the goal is to identify sensitive regions and qual-itative modes rather than estimate a precise critical point, we emphasize multi-seed variance scans (§3.2) and explicit path-dependence tests (§3.4) rather than attaching error bars to phase-diagram plots. 
+
+Auxiliary associative scan. We ran an auxiliary associative-logic diagnostic on Mistral-7B and Qwen-1.5-7B (seed 1) under a faster training schedule (100 steps, 
+
+lr = 2 × 10 −4) and release the raw outputs in the repro-ducibility archive. Under this probe family, Mistral-7B exhibits a sharp increase in associative margin between 
+
+β = 0 .009 and β = 0 .010 (+175%), co-localizing with the canonical roughness collapse, while Qwen-1.5-7B varies smoothly with small amplitude across the grid. 
+
+## 4. Discussion 
+
+4.1. Scope and Boundaries 
+
+We do not claim universality classes, critical exponents, or mechanisms. We claim only what our controlled experi-ments support: at 7B scale and under a fixed DPO recipe, varying β can produce sharp discontinuities, seed-sensitive boundaries, and path-dependent outcomes. The physics vo-cabulary is an organizing framework, not a thermodynamic assertion. 
+
+What our comparisons do and do not imply. This paper is a controlled study of how DPO alignment pressure recon-figures capability probes under a fixed recipe at 7B scale, with emphasis on logic -probe dynamics in Mistral-7B. Our cross-architecture comparisons do not imply that LLaMA-2-7B or Qwen-1.5-7B are globally unresponsive to alignment; rather, under the same sweep and within our probe set, we do not observe a Mistral-7B-like logic-positive pocket (sharp, transient logic reorganization co-localized with roughness discontinuities). Both models exhibit changes in non-logic probe categories across β (Table 2), suggesting architecture-and capability-specific response modes that warrant targeted follow-up. 
+
+Why “phase transitions” is appropriate. Operationally, we use “phase transition” to denote: (i) a qualitative change in a summary statistic (here, probe margins) over a narrow control-parameter interval, (ii) path dependence (hystere-sis), and (iii) high susceptibility near the boundary (seed-sensitive outcomes). We observe all three in Mistral-7B: logic sign change over narrow β; path-dependent final states; opposite outcomes at fixed β across seeds. This operational usage is consistent with prior work on grokking (Power et al., 2022) and sudden capability transitions (Chen et al., 2024). 
+
+4.2. Three Response Modes 
+
+Based on the observed variance and stability profiles, we classify the architectures into three response modes: 
+
+Plastic (Mistral-7B). Capable of reorganization, allow-ing for logic-positive pockets but risking collapse. High variance near transitions. Outcomes are seed-sensitive. 
+
+Selective (LLaMA-2-7B). Capability-specific rigidity: logic remains frozen across the β sweep, but sycophancy and format probes reorganize in the same critical region as Mistral-7B. The learning rate test confirms logic-specific resistance; other capabilities remain plastic. This suggests architectural compartmentalization of alignment response. 
+
+Smooth (Qwen-1.5-7B). Capabilities trade off gradually across the β sweep without sharp discontinuities in our probe margins, consistent with a comparatively smooth re-sponse mode under this training recipe. This framework explains why a single “best β” does not exist: the optimal pressure depends on the model’s inherent alignment viscosity. 
+
+4.3. Mechanistic Hypotheses Capacity displacement. Surface capabilities emerge at lower β than reasoning. Under high pressure, the model reallocates capacity to strict syntax and tone constraints at the expense of fragile reasoning circuits. This is consistent with surface behaviors (e.g., sycophancy/negation) shifting at lower β than logic, while structural format integrity can erode as β increases. 
+
+Manifold collapse. Strong negative margin-capability cor-relation suggests DPO forces the model onto a “preference manifold” geometrically misaligned with the “truth man-ifold.” As β increases, the model collapses onto a lower-dimensional subspace, losing features required for compo-sitional reasoning. This connects to findings that RLHF can reduce output diversity (Kirk et al., 2024), though we observe the effect at the level of internal capability rather 6The Viscosity of Logic                  
+
+> Table 7. Practical checklist for alignment hyperparameter sweeps.
+> Recommendations for practitioners
+> 1. Do not select βusing margin alone; it may anticorrelate with capability. 2. Evaluate capabilities at multiple abstraction levels (e.g., format and logic). 3. Run ≥3seeds near any performance peak; single runs are unreliable near sensitive β.4. Avoid annealing through high-βregions without rollback validation. 5. Treat benchmark gains near any empirically identified sensitive βband (e.g., β≈0.01 in our 7B sweeps) as non-diagnostic without capability-probe validation.
+
+than surface generation. 
+
+KL-gradient comparability. One plausible hypothesis is that the sensitive band near β ≈ 0.01 marks a regime where the KL-related term becomes comparable in magnitude to the preference term in the update geometry. Below this band, the KL-related effect may be weak; above it, it may dominate and constrain updates. If so, the transition reflects a qualitative change in trajectory rather than a smooth trade-off. Future work can test this hypothesis by directly tracking per-term gradient norms and angles during training. 
+
+4.4. Safety Implications 
+
+1. Margin is not a safety proxy. If margin anticorre-lates with capability, standard early-stopping may se-lect worse models. 2. Benchmarks can mask degradation. Surface metrics improve while reasoning degrades; systems appear aligned but fail on integration. 3. Single-seed evaluation is insufficient. With 2–3 or-ders of magnitude variance difference, single runs pro-vide no distributional guarantee. 4. Training order matters. Hysteresis means annealing ̸
+
+= quenching. Over-alignment induces losses that do not recover under our protocol. 5. Capabilities are bundles. A model can pass aggre-gates while failing most constituent probes. 
+
+4.5. Limitations 
+
+• Scale : We study 7B models because they permit dense scanning of the β landscape with tractable compute. Prior work shows that capability transitions in neu-ral networks become increasingly sharp with scale, exhibiting step-like onsets and narrowed transition re-gions (Wei et al., 2022; Caballero et al., 2022), po-tentially making ordered pockets narrower and harder to target. Our 7B results may underestimate the diffi-culty of alignment tuning at frontier scale. At larger scales, optimization operates under tighter compute– data tradeoffs (Hoffmann et al., 2022), potentially in-creasing sensitivity to alignment hyperparameters. • Resolution : Critical boundaries require finer sweeps than our 13-point grid; we increased resolution only near β ≈ 0.006 –0.015 .• Coverage : 14 probes across 5 categories is diagnostic, not comprehensive. • Mechanism : We provide empirical constraints, not internal explanations. • Generalization : We observe co-localized sensitivity at β ≈ 0.01 for these three 7B models; whether this threshold generalizes to other scales or training regimes remains open. 
+
+## 5. Related Work 
+
+DPO and variants. DPO (Rafailov et al., 2023) reformu-lates RLHF as supervised learning. Variants include IPO (Azar et al., 2024), KTO (Ethayarajh et al., 2024), ORPO (Hong et al., 2024), and SimPO (Meng et al., 2024). Recent work documents instabilities including length bias (Park et al., 2024; Xu et al., 2024). None systematically study β
+
+as a control parameter inducing capability transitions. 
+
+Emergence. Wei et al. (2022) document emergent abilities versus scale; Schaeffer et al. (2023) argue these may be metric artifacts. We show capability changes at fixed scale ,a distinct phenomenon given observed non-monotonicity and hysteresis. 
+
+Phase transitions in ML. Sharp transitions have been identified in double descent (Belkin et al., 2019), grokking (Power et al., 2022), scaling laws (Hoffmann et al., 2022), and sudden capability emergence (Chen et al., 2024). Choro-manska et al. (2015) connected deep network loss surfaces to spin-glass landscapes. We extend this perspective to post-training alignment, treating β as an external control parameter analogous to temperature. 
+
+Goodhart, forgetting, and plasticity. Proxy-objective de-coupling is a known optimization risk (Goodhart, 1984). Gao et al. (2023) characterize reward overoptimization scal-ing laws; Perez et al. (2022) established that RLHF can induce sycophancy. Prior work documents capability degra-dation as an alignment cost (Askell et al., 2021; Lin et al., 2024), and Kirk et al. (2024) show RLHF can reduce out-put diversity. Dohare et al. (2024) demonstrate that net-works can lose the ability to learn after certain training 7The Viscosity of Logic 
+
+regimes, a phenomenon we observe manifesting as hystere-sis. Our results extend this literature: the alignment tax is non-monotonic and can be persistent under our proto-col , connecting to catastrophic forgetting (Kirkpatrick et al., 2017) but with sharp transitions rather than gradual decay. 
+
+## 6. Conclusion 
+
+Alignment under DPO is not a smooth curve but a landscape with ridges, valleys, and cliffs. At fixed 7B scale, varying β
+
+induces capability emergence, collapse, and path-dependent degradation in Mistral-7B, including a narrow logic-positive pocket in which logic becomes transiently positive despite a simultaneous decrease in the preference margin. Under our fixed optimization settings, we observe a co-localized region near β ≈ 0.01 where all three architectures exhibit noticeable changes in at least some probes, but with architecture-specific expression: Mistral-7B reorganizes (ca-pability sign changes), LLaMA-2-7B responds selectively (sycophancy and format shift while logic remains frozen), and Qwen-1.5-7B absorbs pressure smoothly (continuous trade-offs without sharp transitions). The stress point is shared; the response mode is not. Perhaps most concerning, benchmark performance can im-prove even as internal reasoning degrades, meaning margin-based early stopping, single-seed runs, and aggregate met-rics can select capability-impaired models that appear well-aligned. We propose a phase-diagram methodology : (1) map capability-vs-β structure before deployment; (2) validate with multiple seeds near sensitive regions; (3) monitor ca-pabilities, not just margins or benchmarks, during training; (4) avoid curricula crossing collapse boundaries. The practical question is not “what β maximizes margin?” but “can we certify the model remains capability-ordered under realistic training paths?” Future work should test whether the sensitivity threshold shifts predictably with model scale, and whether logic-positive pockets can be deliberately stabilized through cur-riculum design. 
+
+## Broader Impact 
+
+This work advances the scientific understanding of align-ment dynamics in large language models by empirically characterizing non-monotonic and path-dependent effects of Direct Preference Optimization. Its primary contribution is methodological: providing tools and diagnostics for more reliable evaluation of alignment hyperparameters. The findings have potential positive societal impact by in-forming safer deployment practices, highlighting failure modes where standard alignment metrics may be misleading, and encouraging more robust evaluation prior to real-world use. The work does not introduce new model architectures, datasets, or deployment mechanisms, and does not directly enable harmful applications beyond those already associated with large language models. As with all research on model alignment, there is a dual-use consideration: insights into optimization-induced failures could be misused to target brittle regions of hyperparame-ter space and induce failure modes. However, we believe transparency about such dynamics is essential for improving robustness and safety, and that the benefits of identifying and mitigating these risks outweigh potential misuse. 
+
+## Reproducibility Statement 
+
+Models. All experiments use publicly available 7B-scale checkpoints: Mistral-7B ( mistralai/Mistral-7B-v 0.1 ), LLaMA-2-7B ( NousResearch/Llama-2-7 b-hf ), and Qwen-1.5-7B ( Qwen/Qwen1.5-7B ). 
+
+Protocols. We run a canonical β sweep where each β point is trained from a fresh base checkpoint under an identical DPO recipe. Hysteresis experiments intentionally violate the fresh-start principle and are labeled as Path A/B. An auxiliary associative scan uses a faster training schedule (100 steps, lr = 2 × 10 −4) and is released separately. 
+
+Training hyperparameters. Unless otherwise stated: learn-ing rate 5×10 −5, batch size 4, 200 optimizer steps, AdamW, LoRA rank 8 (alpha 16, dropout 0.05). Hysteresis uses 400 total steps (200 + 200). Where multi-seed experiments are reported, we use an explicit seed list (seeds 1–5); other-wise single-seed sweeps use seed 1. All β grids and seed lists used to generate each figure/table are provided in the associated repository. 
+
+Evaluation. Capability is measured by length-normalized log-probability margins on fixed probe sets (logic, arith-metic, format, sycophancy, negation). Positive margin indi-cates correct behavior under the probe scoring rule. Plots and tables are generated from the raw JSON logs produced by the evaluation scripts. For GSM8K, we observed a degen-erate zero score at β = 0 .002 under our evaluation pipeline; we treat this point as missing data in benchmark–probe correlation analyses. 
+
+Artifacts. We provide an anonymized repository contain-ing the experimental protocol (including all hyperparameter settings), runnable experiment scripts, environment require-ments, raw per-run JSON outputs, and plotting code suf-ficient to reproduce every figure and table in this paper: https://github.com/anon-repo-317/experiments. 8The Viscosity of Logic 
+
+## References 
+
+Askell, A., Bai, Y., Chen, A., Drain, D., Fort, S., Joseph, N., Elhage, N., Greene, J. D., Clark, J., Kaplan, J., McCandlish, S., and Olah, C. A general language as-sistant as a laboratory for alignment. arXiv preprint arXiv:2112.00861 , 2021. Azar, M. G., Agarwal, R., Talvitie, E., and Precup, D. A general theoretical paradigm to understand learning from human preferences. In Proceedings of the International Conference on Artificial Intelligence and Statistics (AIS-TATS) , 2024. Belkin, M., Hsu, D., Ma, S., and Mandal, S. Reconciling modern machine-learning practice and the classical bias– variance trade-off. Proceedings of the National Academy of Sciences , 116(32):15849–15854, 2019. Caballero, E., Rish, I., and Wong, E. When do neural networks learn discrete structures? In Proceedings of the International Conference on Learning Representations (ICLR) , 2022. Chen, A., Bahri, Y., Dyer, E., Neyshabur, B., and Sohl-Dickstein, J. Sudden drops in the loss: Syntax acquisition, phase transitions, and simplicity bias in masked language models. In Proceedings of the International Conference on Learning Representations (ICLR) , 2024. Choromanska, A., Henaff, M., Mathieu, M., Ben Arous, G., and LeCun, Y. The loss surfaces of multilayer networks. In Proceedings of the International Conference on Artifi-cial Intelligence and Statistics (AISTATS) , pp. 192–204, 2015. Dohare, S., Hernandez-Garcia, J. F., Lan, Q., Rahman, P., and Sutton, R. S. Loss of plasticity in deep continual learning. Nature , 632:768–774, 2024. Ethayarajh, K., Jurafsky, D., and Zou, J. Kto: Model align-ment as prospect theoretic optimization. arXiv preprint arXiv:2402.01306 , 2024. Gao, L., Schulman, J., and Hilton, J. Scaling laws for reward model overoptimization. In Proceedings of the International Conference on Machine Learning (ICML) ,2023. Goodhart, C. A. Problems of Monetary Management: The UK Experience . Macmillan, 1984. Hoffmann, J., Borgeaud, S., Mensch, A., Buchatskaya, E., Cai, T., Rutherford, E., de Las Casas, D., Hendricks, L. A., Welbl, J., and Clark, A. Training compute-optimal large language models. In Advances in Neural Informa-tion Processing Systems (NeurIPS) , 2022. Hong, J., Lee, N., and Thorne, J. Orpo: Monolithic pref-erence optimization without a reference model. arXiv preprint arXiv:2403.07691 , 2024. Kirk, R., Lampinen, A., Gurevych, I., and Summerfield, C. Understanding the effects of rlhf on llm generalisa-tion and diversity. In Proceedings of the International Conference on Learning Representations (ICLR) , 2024. Kirkpatrick, J., Pascanu, R., Rabinowitz, N., Veness, J., Des-jardins, G., Rusu, A. A., Milan, K., Quan, J., Ramalho, T., and Grabska-Barwinska, A. Overcoming catastrophic for-getting in neural networks. Proceedings of the National Academy of Sciences , 114(13):3521–3526, 2017. Lin, Y., Wang, Y., Liu, S., and Chen, Y. Mitigating the align-ment tax of reinforcement learning from human feedback. In Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP) , 2024. Meng, Y., Xia, M., and Chen, D. Simpo: Simple preference optimization with a reference-free reward. arXiv preprint arXiv:2405.14734 , 2024. Park, R., Noh, H.-W., and Oh, S. J. Disentangling length from quality in direct preference optimization. arXiv preprint arXiv:2403.19159 , 2024. Perez, E., Ringer, S., Lukosiute, K., Nguyen, K., Chen, E., and Ganguli, D. Discovering language model be-haviors with model-written evaluations. arXiv preprint arXiv:2212.09251 , 2022. Power, A. N., Burda, Y., Edwards, H., Babuschkin, I., and Misra, V. Grokking: Generalization beyond overfitting on small algorithmic datasets. In Proceedings of the International Conference on Learning Representations (ICLR) , 2022. Rafailov, R., Sharma, A., Mitchell, E., Manning, C. D., Ermon, S., and Finn, C. Direct preference optimiza-tion: Your language model is secretly a reward model. In Advances in Neural Information Processing Systems (NeurIPS) , 2023. Schaeffer, R., Miranda, B., and Koyejo, S. Are emergent abilities of large language models a mirage? In Advances in Neural Information Processing Systems (NeurIPS) ,2023. Tunstall, L., Beeching, E., Lambert, N., Phang, J., van der Maaten, L., and Wolf, T. Zephyr: Direct distilla-tion of language model alignment. arXiv preprint arXiv:2310.16944 , 2023. Wei, J., Tay, Y., Bommasani, R., Raffel, C., Zoph, B., Borgeaud, S., Yogatama, D., Bosma, M., and Zhou, D. Emergent abilities of large language models. Transac-tions on Machine Learning Research , 2022. 9The Viscosity of Logic 
+
+Xu, H., Liu, F., Zhao, T., and Li, J. Contrastive preference optimization. arXiv preprint arXiv:2401.08417 , 2024. 10

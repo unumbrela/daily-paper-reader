@@ -1,0 +1,2381 @@
+Title: SketchJudge: A Diagnostic Benchmark for Grading Hand-drawn Diagrams with Multimodal Large Language Models
+
+URL Source: https://arxiv.org/pdf/2601.06944v1
+
+Published Time: Tue, 13 Jan 2026 02:03:16 GMT
+
+Number of Pages: 37
+
+Markdown Content:
+SketchJudge: A Diagnostic Benchmark for Grading Hand-drawn Diagrams with Multimodal Large Language Models 
+
+Yuhang Su, Mei Wang, Yaoyao Zhong, Guozhang Li, Shixing Li, Yihan Feng, Hua Huang School of Artificial Intelligence, Beijing Normal University, Beijing, China yuhangsu@mail.bnu.edu.cn Abstract 
+
+While Multimodal Large Language Models (MLLMs) have achieved remarkable progress in visual understanding , they often struggle when faced with the unstructured and ambigu-ous nature of human-generated sketches. This limitation is particularly pronounced in the underexplored task of visual grading , where models should not only solve a problem but also diagnose errors in hand-drawn diagrams. Such diagnostic capabilities depend on com-plex structural , semantic , and metacognitive 
+
+reasoning. To bridge this gap, we introduce SketchJudge, a novel benchmark tailored for evaluating MLLMs as graders of hand-drawn STEM diagrams. SketchJudge encompasses 1,015 hand-drawn student responses across four domains: geometry, physics, charts, and flowcharts, featuring diverse stylistic varia-tions and distinct error types. Evaluations on SketchJudge demonstrate that even advanced MLLMs lag significantly behind humans, val-idating the benchmark’s effectiveness in ex-posing the fragility of current vision-language alignment in symbolic and noisy contexts. All data, code, and evaluation scripts are pub-licly available at https://github.com/ yuhangsu82/SketchJudge .
+
+1 Introduction 
+
+Multimodal Large Language Models (MLLMs) have made significant progress in tasks such as vi-sual question answering, chart interpretation, and document understanding. However, as applica-tions broaden, several fundamental and underex-plored challenges have begun to surface. The prevailing paradigm operates on a “perfect world” assumption, favoring clean and standard-ized images. However, hand-drawn sketches such as geometric constructions, free-body diagrams, and flowcharts shatter this idealized premise with their inherent ambiguity and stylistic diversity, yet remain indispensable to expressing complex rea-soning in STEM education. Moreover, existing flowchart 21.9% physics 22.1% geometry 26.0% chart 30.0% 
+
+> Shape Error 3.4% Connection Error 2.7%
+> Missing Step 7.4% Logic Reversal 5.4%
+> Connection Error 2.2%
+
+Conceptual Misunderstanding 5.4% 
+
+Placement Error 4.6% Direction/Polarity Error 4.7% 
+
+Drawing Convention Error 2.7% 
+
+Geometric Principle Error 3.9% 
+
+> Conceptual Cognition Error 6.7% Strategy Planning Error 5.2%
+> Operational Process Error 6.4%
+> Diagram Annotation Error 3.7% Data Association Error 4.9%
+
+Omission Error 6.2% 
+
+Presentation Convention Error 4.2% 
+
+Data Accuracy Error 9.1% 
+
+> Inappropriate Chart Type 5.6%
+
+Magnitude/Scale Error 0.7% Condition Error 1.3% Concept/Target Error 1.9% 
+
+> Mising Label Error 1.7%
+> Condition Error 1.3%  Magnitude/Scale Error 0.7%  Concept/Target Error 1.9%  esas
+> flowchart  21.9%
+> Placement Eror
+> Data Acuracy
+> 4.6%
+> physics
+> Error 9.1%
+> 22.1% chart DiectionlPolarity 30.0%
+> Error 4.7%
+> oo
+> c
+> geometry
+> Error4.2%
+> 26.0% 5.4%
+> 10aic Reia
+> Missing Stea
+> 7.4%
+> %< 。。。
+> Z S JOJJ
+> Process Error 6.4%
+> △.
+> operatonal
+
+Missing Label Error 1.7% 
+
+Figure 1: Distribution of annotated error types across four task domains in SketchJudge. 
+
+benchmarks almost exclusively cast models in the role of a solver , while this design overlooks an-other critical role of a grader . In settings like ed-ucation, the core value is not to replace human thinking but to augment it, for instance, by acting as a grader that accurately identifies conceptual er-rors in a student’s solution. Uniting this complex role with such unstruc-tured input data defines a new frontier for MLLMs. The ability to evaluate diagrams is espe-cially crucial in educational and assessment con-texts. Acting as an effective grader for hand-drawn diagrams requires a multi-layered reasoning pro-cess that mirrors human cognition. At the percep-tual level, this includes parsing sparse and ambigu-ous visual information despite variations in indi-vidual drawing styles. At the structural level, it in-volves understanding spatial relationships and log-ical connections. At the semantic level, it depends on mastery of domain-specific symbols and con-cepts. Finally, at the metacognitive level, it calls for assessing the overall plausibility and complete-1
+
+> arXiv:2601.06944v1 [cs.CV] 11 Jan 2026
+
+ness of the solution. However, the lack of suitable benchmarks impedes research in this domain. To address this gap, we introduce SketchJudge ,a diagnostic benchmark designed to evaluate the ability of MLLMs to grade hand-drawn diagrams and diagnose their limitations. The benchmark encompasses four domains—geometry, physics, charts, and flowcharts—comprising a total of 300 natural language questions and 1,015 hand-drawn student answers. The number of questions varies by domain, reflecting their different levels of com-plexity and annotation density. Each student’s an-swer is paired with binary correctness labels and fine-grained error categories, with 5–7 domain-specific error types defined for each domain and validated by subject experts. Figure 1 provides an overview of the distribution of error types across task domains in SketchJudge. Compared to exist-ing benchmarks like MathVista (Lu et al., 2023), ChartQA (Masry et al., 2022), and DocVQA (Mathew et al., 2021), SketchJudge focuses on messy, symbolic, and structure-rich sketches that challenge shallow pattern-matching techniques. Our main contributions are: • We introduce the first diagnostic benchmark, to our knowledge, for grading hand-drawn diagrammatic answers in educational con-texts, spanning four task types. • We propose a fine-grained error taxonomy that enables structured diagnosis of model er-rors beyond simple correctness judgments. • We present systematic experiments with sev-eral state-of-the-art MLLMs, revealing per-sistent limitations in diagram-level reasoning and offering insights for future research. 
+
+2 Related Work 
+
+Multimodal Benchmarks for MLLMs. Evalu-ation of MLLMs has evolved from early QA-style benchmarks to broader frameworks that stress-test reasoning, planning, and text-rich understanding (Liu et al., 2024; Yue et al., 2024; Li et al., 2024b). More recent diagnostic benchmarks further probe cross-domain generalization and integrated capa-bilities (Ying et al., 2024; Hao et al., 2025; Yu et al., 2023), while realism-oriented efforts in-corporate high-resolution inputs or document-like scenarios (Li et al., 2024a; Fu et al., 2024; Wang et al., 2024; Zhang et al., 2024). Despite this progress, most existing benchmarks still assume clean, standardized visual inputs and rarely eval-uate grading-oriented behavior on noisy, freehand diagrams. As summarized in Table 1, none of the closely related benchmarks jointly target freehand sketches , diagram grading , and fine-grained er-ror diagnosis . SketchJudge fills this gap by fo-cusing on hand-drawn, structure-rich student dia-grams and enabling diagnostic evaluation beyond answer matching. 
+
+Evaluation Paradigms: Solver vs. Judge. 
+
+Existing benchmarks have largely followed a“solver” paradigm, where MLLMs outputs are di-rectly matched against ground-truth answers (Liu et al., 2024; Yue et al., 2024; Li et al., 2024b). In contrast, judge-based approaches position models as evaluators, assessing response quality along di-mensions like correctness, helpfulness, and con-sistency (Zheng et al., 2023; Tan et al., 2024; Chen et al., 2024). This shift, initially explored in text-only evaluation, has recently been adopted in mul-timodal contexts such as hallucination detection and visual consistency assessment (Li et al., 2023; Guan et al., 2024). Such approaches are espe-cially relevant for educational applications, where grading often requires diagnosing partial errors or structural flaws rather than assigning a simple right-or-wrong label (Xie et al., 2024). 
+
+Data Realism and Educational Contexts. 
+
+Many multimodal benchmarks use clean or syn-thetic visuals, such as standardized diagrams or programmatically rendered charts. Recent work has shifted toward more realistic inputs, including scanned documents and high-resolution natural images (Mathew et al., 2021; Tanaka et al., 2024; Zhang et al., 2024). However, these efforts remain largely separate from educational assessment, where student-generated responses are often messy, hand-drawn, and structurally irregular. In practice, educational datasets still predominantly focus on text-based answers—often multiple choice—in science and mathematics, offering limited evidence on how models handle freehand diagrammatic solutions (Lu et al., 2022, 2023). Very recent resources have begun exploring personalized error diagnosis and feedback gener-ation (Zhang et al., 2025; Hsu et al., 2025), but none target the grading of hand-drawn diagrams. 
+
+SketchJudge fills this gap by introducing student-style sketches with fine-grained error annotations as a diagnostic probe for evaluating MLLMs in realistic educational contexts. 2Table 1: Comparison with closely related benchmarks. We mark whether a benchmark involves freehand diagram inputs, evaluates student-style responses, supports grading/judging rather than solving, provides fine-grained error diagnosis, and includes an explicit reference solution/diagram.                                    
+
+> Benchmark Freehand Student Resp. Grading/Judge Diag. Types Ref. Provided
+> DocVQA (Mathew et al., 2021) ✗✗✗✗✗
+> ChartQA (Masry et al., 2022) ✗✗✗✗✗
+> MathVista (Lu et al., 2023) ✗✗✗✗✗
+> JudgeBench (Tan et al., 2024) ✗✗✓✗✗
+> HallusionBench (Guan et al., 2024) ✗✗✓✗✗
+> SketchJudge (ours) ✓✓✓✓✓
+
+Table 2: Key statistics of the SketchJudge.           
+
+> Dataset Scale Value
+> Total problems 300 Total hand-drawn answers 1015 Average answers per problem 3.38 Total images (Q + R + A) 1462(147/300/1015)
+> Input Modalities
+> Questions containing images 147 / 300 (49%) Problems with reference diagrams 300 (100%)
+> Annotations
+> Correct answers 470 (46%) Incorrect answers 545 (54%) Domain-specific error types 23
+
+3 Benchmark Design 
+
+3.1 Overview of SketchJudge 
+
+SketchJudge is a diagnostic benchmark for evalu-ating how MLLMs grade noisy, freehand diagram-matic answers, mirroring real classroom scoring scenarios. It spans four task domains— geometry ,
+
+physics , charts , and flowcharts —with key dataset statistics summarized in Table 2. Fig-ure 2 provides representative instances illustrating the benchmark setup. Each SketchJudge instance takes the form {Q, R, A}, consisting of a natural-language question ( Q), a clean reference diagram (R), and one or more hand-drawn student answers (A). The freehand sketches introduce substantial ambiguity in perception and structure, posing a re-alistic challenge for grading-oriented MLLMs. To reflect common grading practices, Sketch-Judge defines a reference-based setting ( WithRef )in which the model is provided with the reference diagram R. In addition, we introduce a comple-mentary reference-free setting ( NoRef ) that with-holds R, designed to stress-test a model’s ability to reason directly over the question Q and student-drawn answer A without reliance on a canonical solution. Figure 3 illustrates the grading formu-lation and expected outputs, including correctness judgments and fine-grained error-type diagnoses. 
+
+3.2 Data Collection 
+
+We collect SketchJudge with an emphasis on real-ism and diversity, aiming to reflect the variety of diagrammatic reasoning problems and classroom-style student submissions. Below we detail the data collection process for the three components of {Q, R, A} each instance. 
+
+Question. We curate four task categories: ge-ometry , physics , charts , and flowcharts . Geom-etry and physics questions are primarily sourced from past exams and textbooks. For chart and flowchart tasks, we additionally include a small set of synthetic questions to control structural complexity and data diversity (e.g., varying chart types, scales, and flow structures), while keeping most questions real-world. 
+
+Reference. For each problem, we obtain a clean reference diagram ( R) via one of three routes: (a) retrieving an official or widely accepted solu-tion when available; (b) programmatically render-ing chart references from the underlying data; or (c) manually authoring and validating a reference when no standard solution exists. All problem statements and references are verified by three in-dependent raters, with disagreements resolved by consensus. 
+
+Answer. We collect 1–9 student-drawn re-sponses per question in either paper-based or dig-ital form. We digitize the sketches as images, pre-serving realistic noise such as construction traces, uneven strokes, and minor skew. The sketches are contributed by 18 individuals, covering diverse drawing styles and common error patterns. 
+
+3.3 Annotation Protocol 
+
+SketchJudge provides two levels of ground-truth annotations: a binary correctness label for each student sketch, and one or more fine-grained, 3: Draw the circuit diagram                             
+
+> corresponding to the physical
+> circuit shown in the figure.
+> :Using the grid lines,
+> locate a point Q on line l
+> such that the sum QA + QB
+> is minimized. Mark the
+> position of point Q on line l.
+> :The following data shows
+> the number of days with good
+> air quality in a certain area
+> over the past five years.
+> Please draw a line chart based
+> on these data: 2019: 256 days;
+> 2020: 274 days; 2021: 292
+> days; 2022: 303 days; 2023:
+> 310 days.
+> :Let xbe apositive
+> integer. According to the
+> following rules: if x is odd,
+> calculate 2x+5; if xx is
+> even, calculate 4x. Draw a
+> flowchart (program block
+> diagram) to represent this
+> operation.
+> Diagram Annotation Error Drawing Convention Error
+> Reference Diagram
+> Missing Label
+> Reference Diagram
+> Data Accuracy Error
+
+Physics  Geometry  Chart  Flowchart 
+
+> Reference Diagram
+> Reference  Question Answer Answer
+> Reference Diagram
+
+Figure 2: Representative SketchJudge instances across four domains, showing the question Q, reference diagram 
+
+R, and student answers A with correctness labels and error types. 
+
+domain-specific error types for each incorrect re-sponse, enabling diagnostic evaluation beyond correctness. To construct these taxonomies and apply them at scale, we adopt a two-stage anno-tation protocol. 
+
+Stage 1: Bottom-up taxonomy induction. 
+
+Three annotators independently wrote natural-language error descriptions for all incorrect sketches and cross-checked one another’s descrip-tions for clarity and consistency. From the result-ing pool, we sampled 50 representative descrip-tions per domain to maximize coverage of distinct error phenomena, and prompted GPT-4o to clus-ter them into coherent categories, yielding a draft taxonomy. The generated categories were manu-ally inspected to remove redundancy and resolve inconsistencies. 
+
+Stage 2: Expert refinement and taxonomy-based labeling. We refined the draft taxonomies through consultation with subject-matter experts, including frontline teachers in physics and math, adjusting category definitions and boundaries for educational plausibility. Using the finalized tax-onomies, GPT-4o mapped each annotator-written error description to one or more error types, with the sketch withheld, producing initial labels that human annotators then verified and corrected when necessary; correct responses were labeled as error-free. Prompts used for taxonomy induction and labeling are provided in Appendix C. 
+
+3.4 Challenges in Diagram Grading 
+
+Diagram grading in SketchJudge poses challenges that extend beyond conventional multimodal eval-uation. Student-drawn diagrams exhibit substan-tial perceptual noise and stylistic variation, includ-ing uneven strokes, construction traces, and id-iosyncratic drawing habits. Such variability com-plicates visual parsing and makes direct pixel- or feature-level matching unreliable. Moreover, many tasks admit multiple valid dia-grammatic solutions. These solutions may differ markedly in layout or orientation while remain-4: In the figure  , segments AB and BC share a                    
+
+> common endpoint. Using astraightedge and
+> compass, construct a circle O that passes through
+> (Reference Diagram)
+> is_correct:
+> error_list:
+> -error_type: Conceptual Cognition
+> -description: "..."
+> error_count: 1
+> Operation Process Error
+> Strategy Planning Error
+> Diagram Annotation Error
+> Geometric Principle Error
+> Conceptual Cognition Error
+
+Error Types 
+
+> Student Answer 1
+
+Annotation 1: ① ②
+
+③    
+
+> Prompt Templet
+> ①+③
+> ①+②
+
+Annotation 2:  Conceptual   
+
+> Cognition
+> is_correct:
+> error_list:
+> -error_type: Operation Process
+> -description: "..."
+> error_count: 1
+> points A, B, and C.
+> Keep all construction
+> traces.
+> Optional
+> Student Answer 2
+
+Figure 3: Illustration of the diagram grading task in SketchJudge. 
+
+ing topologically and semantically correct. As a result, correctness cannot be determined by simi-larity to the reference diagram alone, but instead requires understanding the underlying task con-straints and diagram semantics. Beyond perceptual and structural variation, di-agram grading demands fine-grained diagnostic judgment rather than coarse correctness assess-ment. As illustrated in Figure 2, sketches that de-viate substantially from the reference may still be correct, whereas incorrect answers often contain subtle, localized errors, such as missing or incor-rect labels, minor procedural mistakes, or small inaccuracies that alter semantic meaning. Dis-tinguishing acceptable freehand imprecision from genuine conceptual or procedural errors requires models to reason about diagrammatic intent and apply domain knowledge, rather than relying on surface-level visual alignment. 
+
+4 Experiments 
+
+4.1 Evaluation Settings 
+
+We evaluate MLLMs on SketchJudge in a strictly zero-shot grading setup, following the WithRef 
+
+and NoRef settings defined in Section 3.1. In our main experiments, we report WithRef results, and provide NoRef results and detailed comparisons in Section 4.3.2 and Appendix F. All models are evaluated with deterministic decoding in all set-tings (temperature = 0). 
+
+4.1.1 Evaluation Metrics Binary grading. Correctness prediction is for-mulated as a binary classification task. We report 
+
+Acc , alongside FNR and FPR to diagnose over-strict and over-lenient tendencies. This allows us to disentangle raw performance from systematic grading bias. 
+
+Error-type recognition. For answers judged in-correct, we further evaluate recognition of fine-grained error types. Domain-specific taxonomies are unified into a namespaced global label set. Per-formance is reported using the example-based F1 (eb F1) (Nam et al., 2017), which measures the overlap between the predicted and gold error sets for each instance and averages over instances. We compute eb F1 only on instances where both the gold annotation and the model prediction indicate incorrectness. Detailed metric definitions are pro-vided in Appendix E. 
+
+4.1.2 Models 
+
+We evaluate 16 state-of-the-art MLLMs, includ-ing both open-source and proprietary systems. All models are evaluated using identical prompts across domains, without any task-specific tuning. The full prompt templates are provided in Ap-pendix C. A complete list of models and their de-tail information is provided in Appendix D. 
+
+4.2 Main Results 
+
+Table 3 reports the main leaderboard results on SketchJudge, showing that diagram grading re-mains challenging for current MLLMs. Human 5Table 3: Overall leaderboard on SketchJudge. Bold and underline indicate the best and second-best scores among models. Human performance is measured on a stratified subset of 160 student answers (40 per domain, balanced over correct/incorrect), graded by three non-expert raters following the same instructions; it is intended as a scalable baseline rather than an expert upper bound. All model results are computed on the full test set.                                                                                                                                                                                                             
+
+> Model Physics Geometry Chart Flowchart overall
+> Acc ↑eb F1↑Acc ↑eb F1↑Acc ↑eb F1↑Acc ↑eb F1↑Acc ↑eb F1↑
+> Random choice 50.00 –50.00 –50.00 –50.00 –50.00 –Human 81.67 63.83 83.33 49.25 85.00 76.13 83.33 76.24 83.33 66.42
+> Open-source models
+> Llama-4-Scout-17B-16E-Instruct 63.52 18.29 68.58 32.01 70.73 59.76 73.50 42.66 69.16 39.66 Gemma-3-4B-it 55.36 25.05 51.34 21.27 55.40 43.94 51.28 38.67 53.40 31.66 Gemma-3-27B-it 58.37 36.96 65.13 34.81 63.07 74.08 68.38 54.64 63.74 49.28 Qwen2.5-VL-3B-Instruct 53.65 22.05 54.02 26.22 56.45 44.66 50.43 30.42 53.79 31.62 Qwen2.5-VL-7B-Instruct 60.94 28.53 54.41 28.81 64.46 48.50 68.80 33.33 62.07 34.00 Qwen2.5-VL-72B-Instruct 57.94 29.34 59.00 23.36 74.91 66.80 72.65 44.01 66.40 39.28 Qianfan-VL-8B 45.92 48.15 52.49 22.22 70.03 32.49 65.81 38.82 59.01 32.40 Qianfan-VL-70B 57.76 39.12 60.54 20.16 67.60 61.00 73.50 38.48 64.89 39.14 GLM-4.6V 60.94 46.45 62.07 37.14 76.22 68.50 76.92 61.32 69.16 53.35
+> Closed-source models
+> ERNIE-4.5-Turbo-VL 60.09 39.03 66.28 25.94 72.13 51.89 66.24 37.34 66.50 38.56 Mistral-Large-3 57.08 29.69 64.37 32.16 68.99 56.06 75.21 49.07 66.50 41.96 Claude-3.7-Sonnet 67.81 48.33 68.97 36.44 75.61 70.59 79.49 63.85 73.00 57.11 Doubao-Seed-1.6-Vision 66.09 46.97 63.22 35.80 77.35 72.09 66.67 64.08 68.67 54.51 Gemini-2.5-Flash 71.67 51.69 77.04 45.98 80.14 66.16 81.62 66.90 77.74 58.30 o3 73.82 44.14 72.41 43.57 78.05 66.11 73.50 65.84 74.58 55.91 GPT-5 73.39 46.83 77.78 45.85 82.58 76.64 79.06 70.05 78.42 61.13
+
+raters achieve an overall accuracy of 83.33%, whereas the best-performing model (GPT-5) reaches 78.42%, followed by Gemini-2.5-Flash (77.74%) and o3 (74.58%). Most open-source models obtain substantially lower overall accu-racy, typically in the 53%–69% range. Since the human baseline is produced by independent non-expert raters following the same instructions as models, it reflects a scalable grading setting rather than expert-level performance. We therefore treat it as a practical reference point for model compari-son, complementing expert-validated ground-truth annotations. We further observe a clear stratification between closed-source and open-source models in binary grading accuracy. Closed-source models gener-ally deliver stronger and more consistent perfor-mance across domains, with multiple models ex-ceeding 73% overall accuracy (e.g., Claude-3.7-Sonnet, Gemini-2.5-Flash, o3, GPT-5). In con-trast, open-source models exhibit both lower ac-curacy and larger cross-domain variance, even at larger scales. This gap suggests that robust grad-ing requires reliable vision–symbol alignment and cross-domain generalization, which remain hard to match with current open-source MLLMs. Beyond correctness, SketchJudge evaluates fine-grained diagnostic capability via error-type recognition. Human raters achieve an overall eb F1
+
+of 66.42, while the best models approach but do not match this level, with GPT-5 obtaining 61.13 and Gemini-2.5-Flash reaching 58.30. Interest-ingly, the strongest model differs across domains, indicating that grading performance is domain-sensitive and not yet uniformly solved. Over-all, these findings support SketchJudge’s diagnos-tic focus and motivate future work on structured reasoning and supervision strategies that better ground error diagnoses in diagram semantics. 
+
+4.3 Diagnostic Analyses 
+
+Beyond the aggregate results in Table 3, we also conduct diagnostic analyses to better understand how models behave as diagram graders, focusing on strictness/leniency (FNR/FPR), reliance on ref-erence diagrams ( WithRef vs. NoRef ), and fine-grained error-type recognition. In addition, we report a broader range of diagnostic analyses and controlled ablations in Appendix F. 
+
+4.3.1 Strictness and Leniency 
+
+We analyze grading bias using the false-negative rate (FNR) and false-positive rate (FPR). Figure 4 positions all evaluated models in the FNR–FPR 6space, where the lower-left region indicates more balanced grading. 0.0 0.2 0.4 0.6 0.8 1.0 
+
+> FNR ↓
+> 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8
+> FPR ↓
+> GPT-5 Gemini-2.5-Flash Qwen2.5-VL-3B Gemma-3-4B-it Claude-3.7-Sonnet
+> Gemini-2.5-Flash
+> GPT-5 GLM-4.6V Qwen2.5-VL-72B -Instruct
+> Qwen2.5-VL-7B -Instruct
+> Qwen2.5-VL-3B -Instruct
+> Gemma-3-27B-it
+> Gemma-3-4B-it
+> Llama-4-Scout-17B -16E
+> Doubao-Seed-1.6-Vision
+> ERNIE-4.5-Turbo-VL
+> Mistral-Large-3 o3 Qianfan-VL-70B
+> Qianfan-VL-8B
+
+Figure 4: Strictness and leniency across models. 
+
+Figure 4 shows substantial variation in grad-ing tendencies. Several smaller open-source models are strongly over-strict , with very high FNR that rejects many correct sketches (e.g., Qwen2.5-VL-3B-Instruct). Others are compara-tively over-lenient , exhibiting low FNR but much higher FPR, suggesting they may accept plausible-looking yet incorrect diagrams (e.g., Gemma-3-4B-it). Stronger closed-source models such as GPT-5 and Gemini-2.5-Flash lie closer to the bal-anced region, but still make nontrivial errors in both dimensions. Overall, reliable diagram grad-ing requires tolerating freehand variation while de-tecting conceptual errors. 
+
+4.3.2 Effect of Reference Answers 
+
+We quantify the effect of reference diagrams by comparing model performance under WithRef and 
+
+NoRef . Figure 5 visualizes per-model changes in binary grading accuracy and error-type recogni-tion (eb F1); model indices follow Appendix F. M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16                  
+
+> Acc WithRef eb FWithRef eb FNoRef 11Acc NoRef
+> M1
+> 020 40 60 80 100 020 40 60 80 100
+
+Figure 5: Effect of reference diagrams across mod-els. (Left) Accuracy comparison between WithRef and 
+
+NoRef settings. (Right) Example-based F1 comparison under the same conditions. 
+
+Providing a reference diagram improves accu-racy for most models, suggesting that an explicit canonical solution helps align judgments with task constraints. In contrast, the effect on eb F1 is less uniform: some models show clear improve-ments in error-type recognition, while others re-main nearly unchanged. This gap suggests that reference availability primarily aids correctness verification , whereas assigning fine-grained error types still requires deeper diagram-level interpre-tation beyond reference-based matching. 
+
+4.3.3 Effect of Prompt Design 
+
+To test whether prompting can improve diagram grading, we compare three prompt styles: (i) a 
+
+Baseline prompt with minimal instructions, (ii) a Rubric prompt that enumerates grading crite-ria and error types, and (iii) a Chain-of-Thought (CoT) prompt that encourages step-by-step com-parison before making a final judgment. 
+
+Table 4: Effect of prompt variants on grading perfor-mance.                                          
+
+> Model Prompt Acc eb F1FNR FPR Gemini-2.5-Flash Baseline 77.74 58.30 0.263 0.188 Rubric 76.95 54.17 0.289 0.180 CoT 76.16 55.68 0.351 0.141
+> GLM-4.6V Baseline 69.16 53.35 0.494 0.149
+> Rubric 70.15 54.13 0.385 0.224 CoT 64.63 50.78 0.547 0.187 Qwen2.5-VL-72B-Instruct Baseline 66.40 39.28 0.511 0.185 Rubric 67.19 41.07 0.483 0.195 CoT 66.01 38.73 0.543 0.165
+
+Table 4 compares three prompting styles on three representative models: Gemini-2.5-Flash ,
+
+GLM-4.6V , and Qwen2.5-VL-72B-Instruct .Rubric prompting yields only modest and model-dependent changes: it slightly improves Acc and eb F1 for GLM-4.6V and Qwen2.5-VL-72B-Instruct, but decreases both metrics for Gemini-2.5-Flash. In contrast, CoT prompting consistently hurts performance for all three models. For Gemini-2.5-Flash, CoT reduces Acc from 77.74% to 76.16% while increasing FNR from 0.263 to 0.351, indicating more conservative yet less reliable grading. These results suggest that, in diagram grading, longer reasoning traces do not reliably compensate for noisy visual perception. A plausible explana-tion is that CoT prompts amplify early misinter-pretations of sketch structure or symbols, which then propagate through subsequent reasoning and degrade the final decision. This contrasts with text-only settings where CoT often improves rea-7connection    
+
+> direction
+> placement
+> conceptual
+> concept target
+> drawing
+> scale
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> Recall
+> Physics
+> process
+> principle
+> conceptual
+> annotation
+> strategy
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00 Geometry
+> chart type
+> data accuracy
+> data association
+> omission
+> presentation
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00 Chart
+> missing step
+> shape
+> missing label
+> logic reversal
+> connection
+> condition
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00 Flowchart
+
+Figure 6: Per-class diagnostic recall across four domains. Bars show per-class recall aggregated over all evaluated models; error bars indicate the interquartile range (25–75%) of per-model recalls. Category names are shortened for readability; full definitions are provided in Appendix B. 
+
+soning reliability, and highlights that perceptual uncertainty and cross-modal alignment remain pri-mary bottlenecks for multimodal graders. 
+
+4.3.4 Per-Error-Type Recall Analysis 
+
+We further examine whether MLLMs can diag-nose which error occurs in an incorrect diagram. Figure 6 reveals two clear patterns. First, error types tied to salient local cues are consistently easier: connection-related errors in Physics and chart-type mistakes in Charts achieve the high-est recall, and Flowchart errors such as missing steps or incorrect shapes are also detected reli-ably. In contrast, categories that depend on global structure or latent intent remain difficult across domains—including concept-target and scaling er-rors in Physics, strategy-level mistakes in Geome-try, and presentation or omission errors in Charts. Second, several categories exhibit large vari-ability across models, indicating that fine-grained error diagnosis is not yet a stable capability even among strong MLLMs. Overall, the results highlight that robust diagnostic grading requires deeper structural and semantic understanding be-yond surface-level cues. 
+
+5 Conclusion and Outlook 
+
+This work steps beyond the longstanding “per-fect world” assumption in multimodal evalua-tion and asks whether MLLMs can act as re-liable diagram graders rather than merely an-swer solvers . With SketchJudge , we instantiate this question across four STEM-related domains, pairing messy, hand-drawn student sketches 
+
+with binary correctness labels and fine-grained, domain-specific error taxonomies . Our exper-iments show that state-of-the-art MLLMs still struggle with core grading competencies, includ-ing robustness to stylistic variation , sensitiv-ity to structural and topological distinctions ,and consistent attribution of conceptual errors .Diagnostic analyses further suggest that current models often behave more like perceptual pattern recognizers than reasoning-aware graders .Looking forward, SketchJudge enables research beyond direct grading. It can serve as a testbed for tool-augmented and agentic multimodal rea-soning, where models must plan, externalize inter-mediate steps, and interact with tools to construct, generate, or verify diagrams. Recent progress on structured reasoning and curriculum-style in-context learning for complex problem solving offers complementary avenues for strengthening such capabilities (Ma et al., 2025). We hope SketchJudge helps drive progress toward MLLMs capable of deeper diagram-level reasoning and 
+
+feedback-oriented assessment .
+
+Broader Impacts 
+
+As a benchmark targeting educational grading sce-narios, SketchJudge highlights both the promise and the brittleness of current MLLMs when in-teracting with student-generated content . Im-proved diagram-level understanding could support 
+
+scalable formative assessment and personalized feedback , but high-stakes use requires careful validation and oversight. Models evaluated on 
+
+SketchJudge should be viewed as research tools 
+
+rather than replacements for human educators. We encourage future work on human–AI collabora-tive workflows , stronger transparency and cal-ibration in model decisions, and safeguards that ensure equitable and pedagogically sound deploy-ment of multimodal grading technologies. 8Limitations 
+
+SketchJudge relies on a labor-intensive pipeline involving human-written error descriptions, expert-informed taxonomy refinement, and ver-ification of model-assigned labels. While this protocol improves educational plausibility and annotation quality, it also introduces practical con-straints on the speed of dataset expansion and the ease of updating taxonomies. In addition, some error categories admit borderline cases where distinctions are subtle and depend on domain judgment, which can introduce residual ambiguity despite careful verification. Finally, SketchJudge focuses on controlled educational-style diagram tasks; extending grading models to broader real-world settings will require further attention to robustness, calibration, and user-facing reliability. 
+
+References 
+
+Dongping Chen, Ruoxi Chen, Shilin Zhang, Yaochen Wang, Yinuo Liu, Huichi Zhou, Qihui Zhang, Yao Wan, Pan Zhou, and Lichao Sun. 2024. Mllm-as-a-judge: Assessing multimodal llm-as-a-judge with vision-language benchmark. In Forty-first Interna-tional Conference on Machine Learning .Chaoyou Fu, Peixian Chen, Yunhang Shen, Yulei Qin, Mengdan Zhang, Xu Lin, Jinrui Yang, Xiawu Zheng, Ke Li, Xing Sun, Yunsheng Wu, and Ron-grong Ji. 2024. Mme: A comprehensive evaluation benchmark for multimodal large language models. 
+
+Preprint , arXiv:2306.13394. Tianrui Guan, Fuxiao Liu, Xiyang Wu, Ruiqi Xian, Zongxia Li, Xiaoyu Liu, Xijun Wang, Lichang Chen, Furong Huang, Yaser Yacoob, and 1 others. 2024. Hallusionbench: an advanced diagnostic suite for entangled language hallucination and visual illu-sion in large vision-language models. In Proceed-ings of the IEEE/CVF Conference on Computer Vi-sion and Pattern Recognition , pages 14375–14385. Yunzhuo Hao, Jiawei Gu, Huichen Will Wang, Linjie Li, Zhengyuan Yang, Lijuan Wang, and Yu Cheng. 2025. Can mllms reason in multimodality? emma: An enhanced multimodal reasoning benchmark. 
+
+arXiv preprint arXiv:2501.05444 .Wei-Ling Hsu, Yu-Chien Tang, and An-Zi Yen. 2025. Mathedu: Towards adaptive feedback for student mathematical problem-solving. arXiv preprint arXiv:2505.18056 .Bohao Li, Yuying Ge, Yi Chen, Yixiao Ge, Ruimao Zhang, and Ying Shan. 2024a. Seed-bench-2-plus: Benchmarking multimodal large language models with text-rich visual comprehension. arXiv preprint arXiv:2404.16790 .Bohao Li, Yuying Ge, Yixiao Ge, Guangzhi Wang, Rui Wang, Ruimao Zhang, and Ying Shan. 2024b. Seed-bench: Benchmarking multimodal large language models. In Proceedings of the IEEE/CVF Confer-ence on Computer Vision and Pattern Recognition ,pages 13299–13308. Yifan Li, Yifan Du, Kun Zhou, Jinpeng Wang, Wayne Xin Zhao, and Ji-Rong Wen. 2023. Eval-uating object hallucination in large vision-language models. arXiv preprint arXiv:2305.10355 .Yuan Liu, Haodong Duan, Yuanhan Zhang, Bo Li, Songyang Zhang, Wangbo Zhao, Yike Yuan, Jiaqi Wang, Conghui He, Ziwei Liu, and 1 others. 2024. Mmbench: Is your multi-modal model an all-around player? In European conference on computer vi-sion , pages 216–233. Springer. Pan Lu, Hritik Bansal, Tony Xia, Jiacheng Liu, Chun-yuan Li, Hannaneh Hajishirzi, Hao Cheng, Kai-Wei Chang, Michel Galley, and Jianfeng Gao. 2023. Mathvista: Evaluating mathematical reasoning of foundation models in visual contexts. arXiv preprint arXiv:2310.02255 .Pan Lu, Swaroop Mishra, Tanglin Xia, Liang Qiu, Kai-Wei Chang, Song-Chun Zhu, Oyvind Tafjord, Peter Clark, and Ashwin Kalyan. 2022. Learn to explain: Multimodal reasoning via thought chains for science question answering. Advances in Neural Informa-tion Processing Systems , 35:2507–2521. Xuetao Ma, Wenbin Jiang, and Hua Huang. 2025. Problem-solving logic guided curriculum in-context learning for LLMs complex reasoning. In Findings of the Association for Computational Linguistics: ACL 2025 , pages 8394–8412, Vienna, Austria. As-sociation for Computational Linguistics. Ahmed Masry, Xuan Long Do, Jia Qing Tan, Shafiq Joty, and Enamul Hoque. 2022. Chartqa: A bench-mark for question answering about charts with vi-sual and logical reasoning. In Findings of the As-sociation for Computational Linguistics: ACL 2022 ,pages 2263–2279. Minesh Mathew, Dimosthenis Karatzas, and CV Jawa-har. 2021. Docvqa: A dataset for vqa on docu-ment images. In Proceedings of the IEEE/CVF win-ter conference on applications of computer vision ,pages 2200–2209. Jinseok Nam, Eneldo Loza Menc´ ıa, Hyunwoo J Kim, and Johannes F¨ urnkranz. 2017. Maximizing subset accuracy with recurrent neural networks in multi-label classification. Advances in neural information processing systems , 30. Sijun Tan, Siyuan Zhuang, Kyle Montgomery, William Y Tang, Alejandro Cuadron, Chenguang Wang, Raluca Ada Popa, and Ion Stoica. 2024. Judgebench: A benchmark for evaluating llm-based judges. arXiv preprint arXiv:2410.12784 .
+
+9Ryota Tanaka, Taichi Iki, Kyosuke Nishida, Kuniko Saito, and Jun Suzuki. 2024. Instructdoc: A dataset for zero-shot generalization of visual document un-derstanding with instructions. In Proceedings of the AAAI conference on artificial intelligence , vol-ume 38, pages 19071–19079. Xiyao Wang, Yuhang Zhou, Xiaoyu Liu, Hongjin Lu, Yuancheng Xu, Feihong He, Jaehong Yoon, Taixi Lu, Fuxiao Liu, Gedas Bertasius, and 1 others. 2024. Mementos: A comprehensive benchmark for mul-timodal large language model reasoning over im-age sequences. In Proceedings of the 62nd Annual Meeting of the Association for Computational Lin-guistics (Volume 1: Long Papers) , pages 416–442. Wenjing Xie, Juxin Niu, Chun Jason Xue, and Nan Guan. 2024. Grade like a human: Rethinking au-tomated assessment with large language models. 
+
+arXiv preprint arXiv:2405.19694 .Kaining Ying, Fanqing Meng, Jin Wang, Zhiqian Li, Han Lin, Yue Yang, Hao Zhang, Wenbo Zhang, Yuqi Lin, Shuo Liu, and 1 others. 2024. Mmt-bench: A comprehensive multimodal benchmark for evaluat-ing large vision-language models towards multitask agi. arXiv preprint arXiv:2404.16006 .Weihao Yu, Zhengyuan Yang, Linjie Li, Jianfeng Wang, Kevin Lin, Zicheng Liu, Xinchao Wang, and Lijuan Wang. 2023. Mm-vet: Evaluating large mul-timodal models for integrated capabilities. arXiv preprint arXiv:2308.02490 .Xiang Yue, Yuansheng Ni, Kai Zhang, Tianyu Zheng, Ruoqi Liu, Ge Zhang, Samuel Stevens, Dongfu Jiang, Weiming Ren, Yuxuan Sun, and 1 others. 2024. Mmmu: A massive multi-discipline multi-modal understanding and reasoning benchmark for expert agi. In Proceedings of the IEEE/CVF Confer-ence on Computer Vision and Pattern Recognition ,pages 9556–9567. Yi-Fan Zhang, Hang Li, Dingjie Song, Lichao Sun, Tianlong Xu, and Qingsong Wen. 2025. From cor-rectness to comprehension: Ai agents for person-alized error diagnosis in education. arXiv preprint arXiv:2502.13789 .Yi-Fan Zhang, Huanyu Zhang, Haochen Tian, Chaoyou Fu, Shuangqing Zhang, Junfei Wu, Feng Li, Kun Wang, Qingsong Wen, Zhang Zhang, and 1 oth-ers. 2024. Mme-realworld: Could your multi-modal llm challenge high-resolution real-world sce-narios that are difficult for humans? arXiv preprint arXiv:2408.13257 .Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, Eric Xing, and 1 others. 2023. Judging llm-as-a-judge with mt-bench and chatbot arena. Advances in neural information pro-cessing systems , 36:46595–46623. 
+
+A SketchJudge Task Details 
+
+This appendix supplements the main benchmark description in Section 3.1 by providing domain-level details for the four task categories in Sketch-Judge. We summarize (i) the data sources and synthetic problem construction procedure, and (ii) the task characteristics, dataset statistics, and typ-ical error patterns for each domain (Geometry, Physics, Charts, and Flowcharts). 
+
+A.1 Data Sanitization and Content Screening 
+
+We manually screened all collected samples to re-move any personally identifying information (e.g., names) and inappropriate or offensive content. We only retain the diagram content necessary for benchmark construction and evaluation. 
+
+A.2 Data Sources and Synthetic Problem Construction 
+
+SketchJudge problems come from two sources: (i) past-exam or textbook-style items collected from the web, and (ii) a constrained synthetic subset limited to charts and flowcharts . The synthetic items were generated with GPT-4o via interactive, multi-turn prompting following domain-specific instructions (rather than a single fixed prompt tem-plate). We guided the model to produce diagram-drawing tasks with explicit constraints (e.g., chart type and data values; flowchart steps, decision branches, and standard symbols), and re-generated instances that were ambiguous or violated conven-tions. Each item is tagged by provenance (web vs. generated) to enable source-aware analyses, while main results aggregate across both sources unless otherwise noted. All synthetic problems under-went manual verification to ensure (i) internal con-sistency of constraints, (ii) adherence to standard diagram conventions, and (iii) solvability under the stated requirements. Instances failing verifica-tion were discarded and re-generated rather than edited. 
+
+A.3 Geometry Tasks 
+
+Geometry tasks focus on geometric construction and spatial reasoning under freehand drawing noise (e.g., imprecise angles and ambiguous aux-iliary marks). Table 5 summarizes the geometry split. 
+
+Typical error patterns. Geometry sketches commonly exhibit errors related to principle vio-lations (Geometric Principle Error), missing or in-
+
+10 Table 5: Geometry domain statistics.        
+
+> Statistic Value
+> Problems 100 Student answers 261 Questions with images 98 Reference diagrams 100 Avg. answers per problem 2.61 Synthetic proportion 0%
+
+correct auxiliary constructions (Operational Pro-cess / Strategy Planning Error), and annotation or representation issues (Diagram Annotation Er-ror). Many problems also admit multiple valid constructions, making grading harder than direct reference matching. 
+
+A.4 Physics Tasks 
+
+Physics tasks involve circuit diagrams, vector rea-soning, and force analysis, requiring both geomet-ric fidelity (e.g., arrow orientation) and semantic correctness (e.g., current flow). Table 6 summa-rizes the physics split. 
+
+Table 6: Physics domain statistics.        
+
+> Statistic Value
+> Problems 50 Student answers 233 Questions with images 49 Reference diagrams 50 Avg. answers per problem 4.66 Synthetic proportion 0%
+
+Typical error patterns. Physics sketches often fail due to incorrect direction or polarity (e.g., reversed vectors or circuit polarity), missing or wrong connections between elements, and mis-placed components or forces that break the in-tended physical setup. Models also struggle with errors that require conceptual interpretation, such as misunderstanding the target quantity or apply-ing an invalid physical principle. In vector-based diagrams, inaccurate relative magnitudes further introduce subtle grading difficulty beyond surface-level appearance. 
+
+A.5 Chart Tasks 
+
+Chart tasks require visualizing numerical data as bar, line, or pie charts. Errors are often visu-ally salient but depend on accurate mapping be-tween values and graphical elements. Table 7 summarizes the chart split. (Chart types: bar/-line/pie/others = 54/25/19/2.) 
+
+Table 7: Chart domain statistics.        
+
+> Statistic Value
+> Problems 100 Student answers 287 Questions with images 0Reference diagrams 100 Avg. answers per problem 2.87 Synthetic proportion 15%
+
+Typical error patterns. Chart sketches typi-cally fail in three ways: choosing an inappropri-ate chart form for the task, mis-associating cat-egories and values, or encoding the data inaccu-rately through incorrect scaling and proportions. Even when the overall structure is plausible, charts often omit essential elements such as labels or data entries, or violate basic presentation conventions (e.g., unclear axes or inconsistent annotations), which makes them difficult to grade reliably be-yond superficial visual matching. 
+
+A.6 Flowchart Tasks 
+
+Flowchart tasks require understanding procedural structure, control flow, and decision logic. Un-like charts, correctness depends on global topol-ogy rather than local appearance. Table 8 summa-rizes the flowchart split. 
+
+Table 8: Flowchart domain statistics.        
+
+> Statistic Value
+> Problems 50 Student answers 234 Questions with images 0Reference diagrams 50 Avg. answers per problem 4.68 Synthetic proportion 38%
+
+Typical error patterns. Flowchart answers commonly contain structural topology issues , in-cluding missing steps, incorrect arrow connec-tions, or reversed decision branches that alter the intended execution logic. In addition, students frequently misuse flowchart symbols (e.g., deci-sion vs. process shapes) or omit key labels such as branch outcomes, which makes the logic ambigu-ous even when most nodes appear correct. These patterns highlight that flowchart grading depends heavily on global control flow rather than local vi-sual similarity. 11 B Error Category Taxonomy 
+
+To support fine-grained evaluation, we design a taxonomy of error types covering all four task cat-egories. Tables 9, 10, 11, and 12 provides the full list of categories and definitions. This taxonomy serves as the basis for our multi-label annotation protocol described in Section 3.3. 
+
+C Prompt Templates 
+
+This appendix documents all prompt templates used in SketchJudge, covering both the construc-tion of annotation taxonomies and the evaluation of multimodal models. In particular, we provide the prompts used for (i) inducing domain-specific error taxonomies and assigning error labels during annotation, and (ii) evaluating model grading per-formance under different input settings. 
+
+C.1 Prompts for Taxonomy Induction and Annotation 
+
+We employ prompt-based interaction with GPT-4o to support both stages of the annotation pro-tocol described in Section 3.3. Specifically, GPT-4o is used to (i) cluster annotator-written error de-scriptions into candidate error categories during bottom-up taxonomy induction, and (ii) map each error description to one or more error types under the finalized taxonomy. In both cases, the model operates solely on textual error descriptions and has no access to the corresponding sketches. The full prompt templates used for taxonomy induction and taxonomy-based labeling are listed in Tables 14 and 15. 
+
+C.2 Prompts for Model Evaluation 
+
+We next describe the prompt templates used to evaluate multimodal models on SketchJudge. These prompts define the grading task, available inputs, and required structured outputs under dif-ferent task settings. 
+
+C.3 Task Settings 
+
+We consider four canonical input configurations: For each case, the Baseline prompt provides the minimal necessary grading instructions. The full Baseline templates for all four cases appear in Figures 7–10. Rubric-based and Chain-of-Thought prompts extend the Baseline by adding explicit evaluation rubrics or stepwise reasoning guidance while preserving the same input struc-ture and JSON output specification. These tem-plates are listed in Tables 17 and 18. 
+
+C.4 Baseline Prompt Templates 
+
+Figures 7–10 show the complete Baseline prompts used in our main experiments. They define the core task setting, model role, available images, and the structured JSON output expected from all models. 
+
+C.5 Rubric-Based Prompt Templates 
+
+Table 17 provides the full Rubric-based variants. These prompts supply explicit grading criteria de-scribing which aspects of the diagram should be checked. Aside from the additional rubric, all other components—including the task description, image inputs, and JSON output format—remain identical to the Baseline family. 
+
+C.6 Chain-of-Thougth Prompt Templates 
+
+Table 18 lists the Chain-of-Thought prompts, which require the model to explicitly articulate a multi-stage reasoning process before producing the final JSON output. This design isolates the ef-fect of chain-of-thought–style guidance while pre-serving identical output constraints. 
+
+D Evaluated Models 
+
+Table 19 lists all evaluated MLLMs, spanning both open-weight and closed-source systems across a range of scales. All models are tested in the same zero-shot setup with identical prompts and deter-ministic decoding (temperature = 0). Model IDs are used for compact references in figures and di-agnostic analyses. 
+
+Output Robustness and Format Compliance 
+
+During evaluation, all models were instructed to return a strict JSON-only output. In practice, a small number of responses from several models occasionally included extra text (e.g., brief rea-soning traces or wrapper sentences) outside the requested JSON block. These formatting devia-tions were rare relative to the full test set, and the underlying JSON content was typically still well-formed and semantically consistent with the in-tended prediction. To ensure reliable scoring, we applied a deter-ministic post-processing step that extracts and val-idates the final JSON object, and we manually in-spected the few remaining failures to correct ob-vious formatting issues. We report results based 12 Error Category Definition 
+
+Conceptual Cognition Error A misunderstanding of basic geometric concepts or the construction target, leading to drawing an object inconsistent with the task requirements. Geometric Principle Error Failure to correctly apply geometric principles or violation of fundamental geometric rules, resulting in a construction that does not meet the requirements. Operational Process Error Problems in the use of drawing tools or execution of steps, or the absence of necessary construction traces, leading to a result lacking standardization. Strategy Planning Error Lack of a clear construction plan; reasoning steps or the overall approach are flawed, undermining the correctness of the construction. Diagram Annotation Error The orientation, connections, annotations, or representation standards of the graph contain errors, leading to disordered relationships among geometric elements and an unclear intent. 
+
+Table 9: Error taxonomy in the Geometry category. 
+
+Error Category Definition 
+
+Concept/Target Error Failure to understand the core objective of the problem, resulting in a diagram that does not match the task requirements. Direction/Polarity Error Arrows, directions, or polarity symbols are reversed or inconsistent with physical laws. Magnitude/Scale Error The relative magnitudes of vectors or physical quantities are drawn incorrectly, contradicting the problem statement or physical principles. Connection Error Incorrect or missing connections between elements, such as forces, components, rays, or nodes, leading to an invalid representation of physical interactions or processes. Placement Error Elements, forces, light rays, or components are positioned incorrectly, making the representation inconsistent with the actual physical situation. Conceptual Misunderstanding Misapplication of fundamental physical principles leads to a representation that is physically invalid or impossible. Drawing Convention Error Violation of standard drawing conventions or established norms in physics education, such as incorrect use of line types or symbols. 
+
+Table 10: Error taxonomy in the Physics category. 
+
+Error Category Definition 
+
+Shape Error The shape of the flowchart element does not match the standard notation for its function (e.g., using a rectangle instead of a diamond for a decision). Connection Error The connectors between elements are drawn incorrectly, such as arrows pointing in the wrong direction or invalid links between nodes. Missing Step A required processing step in the flowchart is omitted, leaving the workflow incomplete. Missing Label Essential labels are missing or unclear, such as omitting Yes/No labels on decision branches. Logic Reversal The logical flow is reversed or misrepresented, such as swapping Yes/No branches or inverting decision outcomes. Condition Error The condition itself is incorrect, incomplete, or ambiguously expressed, leading to misinterpretation of the decision point. 
+
+Table 11: Error taxonomy in the Flowchart category. 
+
+13 Error Category Definition 
+
+Inappropriate Chart Type Selection of an incorrect chart type, inconsistent with the data characteristics or task requirements, leading to confusion in data representation. Data Association Error Incorrect organization of data categories, leading to mismatched labels and values. Data Accuracy Error Data accuracy is compromised due to encoding or scaling errors during the conversion of data into visual elements. Omission Error Omission of essential elements, labels, or data entries, reducing the completeness of the chart. Presentation Convention Error Failure to follow labeling or standardization conventions, causing unclear or inaccurate chart presentation. 
+
+Table 12: Error taxonomy in the Charts category. You are an impartial diagram grader. Your task is to judge whether the student's hand -drawn diagram correctly solves 
+
+the problem according to the task requirements and domain rules. 
+
+Task: 
+
+[[QUERY_EN]] 
+
+Student 's Answer :
+
+<image_ 0>
+
+First decide whether the student's answer is correct. Because the drawing is hand -drawn, ignore minor distortions or 
+
+imprecise shapes; focus only on whether the structure, relationships, and intended semantics satisfy the task. If the 
+
+answer is incorrect, classify all errors using exactly the labels listed below (no new labels, no paraphrasing): 
+
+[[TAXONOMY_BULLETED]] 
+
+OUTPUT REQUIREMENTS  — return ONLY a valid JSON object :
+
+{
+
+"is_correct": true | false, 
+
+"error_count": <integer>, 
+
+"error_list": [ 
+
+{
+
+"error_type": "one of the error labels", 
+
+"error_description_en": "<brief, precise explanation in English (<= 30 words)>" 
+
+}
+
+]
+
+}
+
+Constraints: 
+
+- If "is_correct" is true, then "error_count"=0 and "error_list"=[] 
+
+- "error_count" MUST equal len("error_list") 
+
+- No extra text outside JSON. 
+
+Figure 7: Prompt template for Case 1 (Text-only, No Reference). 
+
+14 You are an impartial diagram grader. Your task is to judge whether the student's hand -drawn diagram correctly solves 
+
+the problem according to the task requirements and domain rules. Use the reference diagram as the canonical solution 
+
+for the task. Evaluate correctness based on semantic and structural consistency with the reference, not visual or stylistic 
+
+similarity. 
+
+Task: 
+
+[[QUERY_EN]] 
+
+Reference Answer: 
+
+<image_ 0>
+
+Student's Answer: 
+
+<image_ 1>
+
+First decide whether the student's answer is correct. Because the drawing is hand -drawn, ignore minor distortions or 
+
+imprecise shapes; focus only on whether the structure, relationships, and intended semantics satisfy the task. If the 
+
+answer is incorrect, classify all errors using exactly the labels listed below (no new labels, no paraphrasing): 
+
+[[TAXONOMY_BULLETED]] 
+
+OUTPUT REQUIREMENTS  — return ONLY a valid JSON object :
+
+{
+
+"is_correct": true | false, 
+
+"error_count": <integer>, 
+
+"error_list": [ 
+
+{
+
+"error_type": "one of the error labels", 
+
+"error_description_en": "<brief, precise explanation in English (<= 30 words)>" 
+
+}
+
+]
+
+}
+
+Constraints: 
+
+- If "is_correct" is true, then "error_count"=0 and "error_list"=[] 
+
+- "error_count" MUST equal len("error_list") 
+
+- No extra text outside JSON. Figure 8: Prompt template for Case 2 (Text-only, With Reference). You are an impartial diagram grader. Your task is to judge whether the student's hand -drawn diagram correctly solves 
+
+the problem according to the task requirements and domain rules. 
+
+Question  Diagram: 
+
+<image_0> 
+
+Task: 
+
+[[QUERY_EN]] 
+
+Student 's Answer :
+
+<image_1> 
+
+First decide whether the student's answer is correct. Because the drawing is hand -drawn, ignore minor distortions or 
+
+imprecise shapes; focus only on whether the structure, relationships, and intended semantics satisfy the task. If the 
+
+answer is incorrect, classify all errors using exactly the labels listed below (no new labels, no paraphrasing): 
+
+[[TAXONOMY_BULLETED]] 
+
+OUTPUT REQUIREMENTS  — return ONLY a valid JSON object :
+
+{
+
+"is_correct": true | false, 
+
+"error_count": <integer>, 
+
+"error_list": [ 
+
+{
+
+"error_type": "one of the error labels", 
+
+"error_description_en": "<brief, precise explanation in English (<= 30 words)>" 
+
+}
+
+]
+
+}
+
+Constraints: 
+
+- If "is_correct" is true, then "error_count"=0 and "error_list"=[] 
+
+- "error_count" MUST equal len("error_list") 
+
+- No extra text outside JSON. 
+
+Figure 9: Prompt template for Case 3 (Diagram, No Reference). 
+
+15 You are an impartial diagram grader. Your task is to judge whether the student's hand -drawn diagram correctly solves 
+
+the problem according to the task requirements and domain rules. Use the reference diagram as the canonical solution 
+
+for the task. Evaluate correctness based on semantic and structural consistency with the reference, not visual or stylistic 
+
+similarity. 
+
+Question  Diagram: 
+
+<image_0> 
+
+Task: 
+
+[[QUERY_EN]] 
+
+Reference Answer: 
+
+<image_1> 
+
+Student's Answer: 
+
+<image_2> 
+
+First decide whether the student's answer is correct. Because the drawing is hand -drawn, ignore minor distortions or 
+
+imprecise shapes; focus only on whether the structure, relationships, and intended semantics satisfy the task. If the 
+
+answer is incorrect, classify all errors using exactly the labels listed below (no new labels, no paraphrasing): 
+
+[[TAXONOMY_BULLETED]] 
+
+OUTPUT REQUIREMENTS  — return ONLY a valid JSON object :
+
+{
+
+"is_correct": true | false, 
+
+"error_count": <integer>, 
+
+"error_list": [ 
+
+{
+
+"error_type": "one of the error labels", 
+
+"error_description_en": "<brief, precise explanation in English (<= 30 words)>" 
+
+}
+
+]
+
+}
+
+Constraints: 
+
+- If "is_correct" is true, then "error_count"=0 and "error_list"=[] 
+
+- "error_count" MUST equal len("error_list") 
+
+- No extra text outside JSON. Figure 10: Prompt template for Case 4 (Diagram, With Reference). 
+
+16 Table 13: Mapping between full error type names and shortened labels used in Figure 6.                                                 
+
+> Domain Full Name Alias
+> Physics Connection Error connection Physics Direction Polarity Error direction Physics Placement Error placement Physics Conceptual Misunderstanding conceptual Physics Concept Target Error concept target Physics Drawing Convention Error drawing Physics Magnitude Scale Error scale Geometry Operational Process Error process Geometry Geometric Principle Error principle Geometry Conceptual Cognition Error conceptual Geometry Diagram Annotation Error annotation Geometry Strategy Planning Error strategy Chart Inappropriate Chart Type chart type Chart Data Accuracy Error data accuracy Chart Data Association Error data association Chart Omission Error omission Chart Presentation Convention Error presentation Flowchart Missing Step missing step Flowchart Shape Error shape Flowchart Missing Label missing label Flowchart Logic Reversal logic reversal Flowchart Connection Error connection Flowchart Condition Error condition
+
+on the recovered JSON outputs. Overall, this is-sue had negligible impact on model performance, but it highlights that robust instruction-following and structured output remain non-trivial even for strong MLLMs. 
+
+E Metric Definitions 
+
+We provide complete definitions of the evalua-tion metrics used in our study. Binary grading metrics capture overall correctness and class bal-ance, while multi-label metrics assess fine-grained error-type recognition. 
+
+Table 14: Prompt used for draft taxonomy induction from annotator-written error descriptions. 
+
+Goal Draft taxonomy induction Prompt We are building an error taxonomy for grading hand-drawn diagrams in 
+
+{{ DOMAIN }} . Below are error descriptions written by annotators for incorrect student sketches. Please propose a concise set of error categories that can cover these mistakes. For each category, give a short name and its corresponding description. 
+
+Input [[ERROR DESCRIPTIONS LIST]] 
+
+Table 15: Prompt used for taxonomy-based labeling from text-only error descriptions (diagram withheld). 
+
+Goal Assign taxonomy labels Prompt You are given an error taxonomy and one free-form error description written by an annotator. Please assign exactly one taxonomy label that best matches the description based only on the text. Use only labels from the given taxonomy. Return the label only (no explanation). 
+
+Input [[TAXONOMY BULLETED]] [[ERROR DESCRIPTIONS LIST]] 
+
+Table 16: Four canonical input configurations for SketchJudge grading. 
+
+Case Question Content Reference Diagram 
+
+1 Text-only Not provided 2 Text-only Provided 3 Contains an image Not provided 4 Contains an image Provided 
+
+E.1 Binary Grading Metrics 
+
+We cast grading as a two-class classification prob-lem with y = 1 denoting gold Correct and y = 0 
+
+denoting gold Incorrect . For N submissions and predictions ˆyi, we define: 
+
+Confusion counts. 
+
+• True Positive (TP): # { y=1 , ˆy=1 }
+
+• False Positive (FP): # { y=0 , ˆy=1 }
+
+• True Negative (TN): # { y=0 , ˆy=0 }
+
+• False Negative (FN): # { y=1 , ˆy=0 }
+
+Accuracy. Overall proportion of correct deci-sions: 
+
+Accuracy = T P + T N T P + F P + T N + F N . (1) 
+
+MacroF1 bin . To balance both classes, we com-pute an F1 score for each class and average: 
+
+F1 pos = 2 · T P 
+
+2 · T P + F P + F N , (2) 
+
+F1 neg = 2 · T N 
+
+2 · T N + F P + F N , (3) 
+
+MacroF1 bin = 12
+
+ F1 pos + F1 neg 
+
+. (4) Here, F1 pos measures recognition of gold-correct answers, while F1 neg measures recognition of gold-incorrect answers. 17 Table 17: Rubric-based prompt templates. We share a common rubric prompt and vary only the input configuration. T: text-only question; D: question includes a diagram; R: reference diagram provided; N: no reference. 
+
+Case Setting Inputs inserted into the shared rubric prompt 
+
+1 (T, N) Task : [[QUERY EN]]; Student : <image 0> 
+
+2 (T, R) Task : [[QUERY EN]]; Ref : <image 0> ; Student : <image 1> 
+
+3 (D, N) Q-diagram : <image 0> ; Task : [[QUERY EN]]; Student : <image 1> 
+
+4 (D, R) Q-diagram : <image 0> ; Task : [[QUERY EN]]; Ref : <image 1> ; Student : <image 2> 
+
+Shared rubric prompt ( NoRef ). 
+
+You are an impartial diagram grader. Follow the rubric below to determine whether the student’s hand-drawn diagram correctly solves the task. RUBRIC -- A correct diagram MUST: (1) include all required task elements; (2) preserve correct spatial, structural, and logical relationships; (3) convey domain-appropriate semantics; (4) be complete and coherent, even with typical hand-drawn imperfections. A diagram is incorrect if it violates any required structural, semantic, or logical condition. [Insert case-specific inputs here] Evaluate correctness using the rubric. Ignore normal hand-drawn inaccuracies. If incorrect, classify ALL errors using exactly the labels below (no new labels, no paraphrasing): [[TAXONOMY BULLETED]]. (Return ONLY the JSON object specified in the baseline template.) 
+
+Shared rubric prompt ( WithRef ). 
+
+You are an impartial diagram grader. Follow the rubric below to determine whether the student’s hand-drawn diagram correctly solves the task. Use the reference diagram as the canonical solution, and evaluate semantic and structural consistency rather than visual similarity. RUBRIC -- A correct diagram MUST: (1) include all required task elements; (2) preserve correct spatial, structural, and logical relationships; (3) convey domain-appropriate semantics; (4) be complete and coherent, even with typical hand-drawn imperfections. A diagram is incorrect if it violates any required structural, semantic, or logical condition. [Insert case-specific inputs here] Evaluate correctness using the rubric. Ignore normal hand-drawn inaccuracies. If incorrect, classify ALL errors using exactly the labels below (no new labels, no paraphrasing): [[TAXONOMY BULLETED]]. (Return ONLY the JSON object specified in the baseline template.) 
+
+18 Table 18: Chain-of-Thought reasoning templates. All variants share the same JSON output format as the baseline family. T: Text-only, D: Diagram in question, R: With reference, N: No reference. 
+
+Case Setting Inputs inserted into the shared rubric prompt 
+
+1 (T, N) Task : [[QUERY EN]]; Student : <image 0> 
+
+2 (T, R) Task : [[QUERY EN]]; Ref : <image 0> ; Student : <image 1> 
+
+3 (D, N) Q-diagram : <image 0> ; Task : [[QUERY EN]]; Student : <image 1> 
+
+4 (D, R) Q-diagram : <image 0> ; Task : [[QUERY EN]]; Ref : <image 1> ; Student : <image 2> 
+
+Shared rubric prompt ( NoRef ). 
+
+You are an impartial diagram grader. Carefully evaluate the student’s hand-drawn diagram using step-by-step internal reasoning before producing the final JSON output. INTERNAL REASONING INSTRUCTIONS (do not reveal): - First interpret the task requirements and the reference diagram. - Then analyze the student’s diagram step by step: 1. Identify all required elements. 2. Check structural and spatial relationships. 3. Evaluate domain-specific correctness (geometry, physics, charts, flowcharts, etc.). 4. Determine semantic equivalence to the reference (not stylistic similarity) and identify any conceptual or procedural flaws. - Decide correctness only after completing all reasoning steps. Ignore normal hand-drawn inaccuracies. - Do NOT reveal the reasoning; output only the final JSON result. [Insert case-specific inputs here] If the answer is incorrect, classify ALL errors using exactly the labels listed below (no new labels, no paraphrasing): [[TAXONOMY BULLETED]]. (Return ONLY the JSON object specified in the baseline template.) 
+
+Shared rubric prompt ( WithRef ). 
+
+You are an impartial diagram grader. Carefully evaluate the student’s hand-drawn diagram using step-by-step internal reasoning before producing the final JSON output. Use the reference diagram as the canonical solution. INTERNAL REASONING INSTRUCTIONS (do not reveal): - First interpret the task requirements and the reference diagram. - Then analyze the student’s diagram step by step: 1. Identify all required elements. 2. Check structural and spatial relationships. 3. Evaluate domain-specific correctness (geometry, physics, charts, flowcharts, etc.). 4. Determine semantic equivalence to the reference (not stylistic similarity) and identify any conceptual or procedural flaws. - Decide correctness only after completing all reasoning steps. Ignore normal hand-drawn inaccuracies. - Do NOT reveal the reasoning; output only the final JSON result. [Insert case-specific inputs here] If the answer is incorrect, classify ALL errors using exactly the labels listed below (no new labels, no paraphrasing): [[TAXONOMY BULLETED]]. (Return ONLY the JSON object specified in the baseline template.) 
+
+19 Table 19: Evaluated multimodal large language models (MLLMs). “Provider” denotes the organization releasing the model. Open/Closed indicates whether model weights are publicly available.                                                                                      
+
+> ID Model Provider Open Size Link
+> 1Claude-3.7-Sonnet Anthropic Closed –https://www.anthropic.com/claude
+> 2Gemini-2.5-Flash Google Closed –https: //ai.google.dev/gemini-api/docs/models
+> 3GPT-5 OpenAI Closed –https://platform.openai.com/docs/models
+> 4GLM-4.6V Zhipu AI Open –https://glm-v.com/
+> 5Qwen2.5-VL-72B-Instruct Qwen Open 72B https://huggingface.co/Qwen/Qwen2. 5-VL-72B-Instruct
+> 6Qwen2.5-VL-7B-Instruct Qwen Open 7B https://huggingface.co/Qwen/Qwen2. 5-VL-7B-Instruct
+> 7Qwen2.5-VL-3B-Instruct Qwen Open 3B https://huggingface.co/Qwen/Qwen2. 5-VL-3B-Instruct
+> 8Gemma-3-27B-it Google Open 27B https: //huggingface.co/google/gemma-3-27b-it
+> 9Gemma-3-4B-it Google Open 4B https: //huggingface.co/google/gemma-3-4b-it
+> 10 Llama-4-Scout-17B-16E-Instruct Meta Open 17B https://huggingface.co/meta-llama/ Llama-4-Scout-17B-16E-Instruct
+> 11 Doubao-Seed-1.6-Vision ByteDance Closed –https://www.volcengine.com/product/doubao
+> 12 ERNIE-4.5-Turbo-VL Baidu Closed –https: //cloud.baidu.com/product/wenxinworkshop
+> 13 Mistral-Large-3 Mistral AI Closed –https: //docs.mistral.ai/getting-started/models
+> 14 o3 OpenAI Closed –https://platform.openai.com/docs/models
+> 15 Qianfan-VL-70B Baidu Closed 70B https://cloud.baidu.com/product/qianfan
+> 16 Qianfan-VL-8B Baidu Closed 8B https://cloud.baidu.com/product/qianfan
+
+Error tendencies. To analyze systematic biases, we report class-specific error rates in terms of false negatives and false positives. The false nega-tive rate (FNR) reflects a tendency toward over-strictness (i.e., failing to recognize correct an-swers), while the false positive rate (FPR) captures over-leniency (i.e., accepting incorrect answers). 
+
+FNR = FN FN + TP , (5) 
+
+FPR = FP FP + TN . (6) 
+
+Matthews Correlation Coefficient (MCC). We also compute the Matthews Correlation Coeffi-cient as follows: 
+
+MCC = T P ·T N − F P ·F N 
+
+p(T P + F P )( T P + F N )
+
+× 1
+
+p(T N + F P )( T N + F N ) .
+
+(7) MCC ranges from −1 (inverse prediction) to 1
+
+(perfect), with 0 indicating random performance. 
+
+E.2 Error-Type Recognition Metrics 
+
+For submissions judged incorrect, models must also predict specific error categories. Each subject domain (e.g., physics, geometry) de-fines its own taxonomy, which we merge into a namespaced global label set Cglobal 
+
+(e.g., physics::omission error ) to ensure uniqueness across domains. Let yi,c , ˆyi,c ∈ { 0, 1} denote the gold and pre-dicted labels for each c ∈ Cglobal . We use T P c,
+
+F P c, and F N c to denote counts aggregated over all instances for class c.
+
+MacroF1 err . We report Macro-F1 over all error labels with at least one positive gold instance: Macro F 1err = 1
+
+|C+|
+
+X
+
+> c∈C+
+
+F 1c,C+ = {c : T P c + F N c > 0}
+
+(8) 20 MicroF1 err . This variant aggregates counts across all labels before computing F1: Micro F 1err = 2 · P 
+
+> c
+
+T P c
+
+2 · P 
+
+> c
+
+T P c +P 
+
+> c
+
+F P c +P 
+
+> c
+
+F N c
+
+.
+
+(9) 
+
+Example-based F1 (eb F1). To evaluate the overall error detection capability for each instance, we compute the example-based F1 score. This metric measures the overlap between the predicted error set and the gold error set for each instance and averages over all instances. Given a gold set 
+
+Gi and the corresponding predicted set Pi for in-stance i (both masked by applicability), we define the example-based F1 as: 
+
+F 1i =
+
+(1.0, if |Gi| = |Pi| = 0 , 
+
+> 2·| Gi∩Pi||Gi|+|Pi|
+
+, otherwise (10) where Gi and Pi are the sets of true and predicted errors for instance i. The overall example-based F1 score is then averaged across all instances: eb F1 = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+F 1i, (11) where N is the total number of instances. N cap-tures the completeness of the error set prediction for each instance, making it especially relevant for tasks with a list of error types per instance. 
+
+Per-class diagnostic recall. To analyze which conceptual errors models are able to identify, we further report per-class recall for each error cate-gory. For an error class c, recall is defined as the ratio of correctly recovered instances to the total number of gold instances of c, aggregated across all evaluated models: 
+
+Recall c =
+
+P 
+
+> m
+
+T P m,c 
+
+P
+
+> m
+
+(T P m,c + F N m,c ) , (12) where T P m,c and F N m,c denote the true posi-tives and false negatives for class c produced by model m, computed only on submissions incorrect in both gold annotations and model predictions. In addition to the aggregated recall, we re-port cross-model variability using the interquar-tile range (25–75%) of per-model recalls for each class. This statistic reflects how consistently dif-ferent models identify a given error type, indepen-dent of class frequency. 
+
+F Full Experimental Results 
+
+This appendix provides extended experimental re-sults omitted from the main text for space reasons. In particular, we report (i) complete leaderboards for all evaluated models across all metrics and do-mains, (ii) full ablation results for key evaluation settings (e.g., with vs. without reference answers), and (iii) additional qualitative and diagnostic anal-yses that complement the main findings. These re-sults are intended to improve transparency, facili-tate reproducibility, and enable deeper inspection of model behaviors beyond the headline numbers reported in the main paper. 
+
+F.1 Full Leaderboard (All Models × All Metrics) 
+
+Tables 20–22 report the complete leaderboard un-der the WithRef setting across all evaluated models and domains. These tables complement the main leaderboard in Table 3 by providing a fuller view of grading behavior beyond accuracy. 
+
+F.2 Grading Without Reference Answers 
+
+Table 23 reports Acc and eb F1 for all evalu-ated models under the NoRef setting, where ref-erence diagrams are removed and models must judge correctness solely based on the problem statement and the student sketch. Overall perfor-mance drops substantially compared to the With-Ref setting, suggesting that reference-free grad-ing requires solving the underlying task in ad-dition to interpreting noisy hand-drawn dia-grams . Although the random baseline yields 50% accuracy, most models only reach the low-to-mid 60% range, indicating that reliable grad-ing remains challenging when models must jointly perform problem solving, diagram understanding, and robustness to freehand variation. Consistent with the main results, closed-source models re-main stronger, but the gap between models nar-rows under NoRef , highlighting the increased dif-ficulty of this setting. 
+
+F.3 Hand-Drawn vs. Electronic Sketches 
+
+In addition to structural variation in correct so-lutions, we further investigate whether model performance depends on the sketch modality .Specifically, we compare results on hand-drawn 
+
+sketches (captured from freehand writing) versus 
+
+electronic sketches (produced using stylus or dig-ital tools). Our benchmark contains 771 hand-
+
+21 Table 20: MCC (range [−1, 1] ) and Macro F 1bin (×100 ) for all evaluated models under the WithRef setting. Bold 
+
+and underline indicate the best and second-best scores among models. 
+
+Model Physics Geometry Chart Flowchart overall 
+
+MCC ↑ Macro F 1bin ↑ MCC ↑ Macro F 1bin ↑ MCC ↑ Macro F 1bin ↑ MCC ↑ Macro F 1bin ↑ MCC ↑ Macro F 1bin ↑
+
+Open-source models 
+
+Llama-4-Scout-17B-16E-Instruct 0.284 63.48 0.375 68.56 0.451 70.69 0.472 73.41 0.390 69.16 Gemma-3-4B-it 0.169 53.12 0.146 44.44 0.319 50.17 0.065 40.40 0.181 47.66 Gemma-3-27B-it 0.225 56.83 0.318 65.10 0.408 61.07 0.409 66.99 0.333 62.76 Qwen2.5-VL-3B-Instruct 0.225 56.83 0.318 65.10 0.408 61.07 0.409 66.99 0.333 62.76 Qwen2.5-VL-7B-Instruct 0.244 53.35 0.045 36.71 0.297 64.41 0.378 68.78 0.232 59.90 Qwen2.5-VL-72B-Instruct 0.163 48.67 0.176 51.27 0.544 74.84 0.462 72.31 0.323 64.84 Qianfan-VL-8B -0.038 36.68 0.095 50.90 0.482 69.58 0.371 63.57 0.258 56.82 Qianfan-VL-70B 0.139 54.51 0.209 60.42 0.441 66.95 0.493 73.00 0.304 64.89 GLM-4.6V 0.207 59.36 0.264 54.91 0.512 75.57 0.568 76.23 0.384 67.55 
+
+Close-source models 
+
+ERNIE-4.5-Turbo-VL 0.189 57.25 0.356 61.38 0.429 70.98 0.369 63.95 0.334 63.97 Mistral-Large-3 0.123 51.51 0.283 61.61 0.363 67.85 0.508 75.07 0.326 64.84 Claude-3.7-Sonnet 0.397 67.41 0.430 68.49 0.555 75.56 0.609 79.10 0.478 72.97 Doubao-Seed-1.6-Vision 0.332 62.94 0.295 56.43 0.543 77.10 0.444 62.25 0.386 66.07 Gemini-2.5-Flash 0.433 71.61 0.537 76.81 0.597 79.86 0.645 81.41 0.552 77.54 o3 0.483 73.82 0.442 71.91 0.558 77.84 0.523 72.01 0.487 74.23 GPT-5 0.479 73.39 0.558 77.75 0.678 82.58 0.608 78.52 0.569 78.39 
+
+Table 21: FNR and FPR for all evaluated models under the WithRef setting. Bold and underline indicate the best and second-best scores among models. 
+
+Model Physics Geometry Chart Flowchart overall 
+
+FNR ↓ FPR ↓ FNR ↓ FPR ↓ FNR ↓ FPR ↓ FNR ↓ FPR ↓ FNR ↓ FPR ↓
+
+Open-source models 
+
+Llama-4-Scout-17B-16E-Instruct 0.278 0.440 0.375 0.283 0.151 0.404 0.319 0.212 0.255 0.354 Gemma-3-4B-it 0.167 0.688 0.058 0.851 0.000 0.795 0.052 0.915 0.066 0.811 Gemma-3-27B-it 0.167 0.632 0.258 0.426 0.024 0.640 0.103 0.525 0.136 0.558 Qwen2.5-VL-3B-Instruct 1.000 0.000 1.000 0.000 0.992 0.000 1.000 0.000 0.998 0.000 
+
+Qwen2.5-VL-7B-Instruct 0.778 0.056 0.983 0.007 0.310 0.391 0.276 0.348 0.581 0.206 Qwen2.5-VL-72B-Instruct 0.833 0.064 0.792 0.085 0.087 0.379 0.379 0.170 0.511 0.185 Qianfan-VL-8B 0.093 0.928 0.233 0.681 0.064 0.485 0.086 0.593 0.119 0.661 Qianfan-VL-70B 0.667 0.210 0.400 0.390 0.071 0.522 0.121 0.407 0.304 0.392 GLM-4.6V 0.556 0.248 0.758 0.057 0.278 0.211 0.397 0.068 0.494 0.149 
+
+Close-source models 
+
+ERNIE-4.5-Turbo-VL 0.630 0.200 0.667 0.057 0.405 0.180 0.586 0.093 0.568 0.134 Mistral-Large-3 0.750 0.152 0.592 0.156 0.429 0.217 0.319 0.178 0.517 0.178 Claude-3.7-Sonnet 0.148 0.472 0.117 0.475 0.087 0.367 0.336 0.076 0.170 0.356 Doubao-Seed-1.6-Vision 0.602 0.112 0.742 0.050 0.238 0.217 0.672 0.000 0.557 0.103 Gemini-2.5-Flash 0.278 0.288 0.271 0.194 0.222 0.180 0.285 0.085 0.263 0.188 o3 0.213 0.304 0.358 0.206 0.222 0.217 0.491 0.042 0.321 0.196 GPT-5 0.194 0.328 0.192 0.248 0.056 0.267 0.362 0.059 0.198 0.231 
+
+Table 22: Macro F 1err (×100 ) and Micro F 1err (×100 ) for all evaluated models under the WithRef setting. Bold 
+
+and underline indicate the best and second-best scores among models.                                                                                                                                                                                                   
+
+> Model Physics Geometry Chart Flowchart overall
+> Macro F1err ↑Micro F1err ↑Macro F1err ↑Micro F1err ↑Macro F1err ↑Micro F1err ↑Macro F1err ↑Micro F1err ↑Macro F1err ↑Micro F1err ↑
+> Open-source models
+> Llama-4-Scout-17B-16E-Instruct 18.54 20.20 25.63 32.56 53.36 57.45 33.53 40.62 31.56 39.40 Gemma-3-4B-it 26.06 24.47 21.33 22.22 27.90 43.87 75.76 38.30 35.28 32.03 Gemma-3-27B-it 29.34 37.50 34.38 37.25 53.56 70.42 42.55 52.17 39.15 47.93 Qwen2.5-VL-3B-Instruct 16.44 22.13 23.90 28.51 47.19 45.09 22.05 30.80 26.21 32.69 Qwen2.5-VL-7B-Instruct 27.27 28.57 21.27 30.35 45.33 47.52 20.39 33.33 28.10 34.41 Qwen2.5-VL-72B-Instruct 21.74 27.30 17.60 25.13 58.82 62.95 38.89 43.72 33.38 38.05 Qianfan-VL-8B 23.33 41.67 13.56 21.74 33.56 33.33 29.76 36.59 25.28 32.70 Qianfan-VL-70B 30.32 39.07 14.21 19.89 46.59 58.54 31.35 35.83 30.62 38.76 GLM-4.6V 35.19 46.01 34.31 37.95 61.19 66.20 50.26 56.28 44.58 51.72
+> Close-source models
+> ERNIE-4.5-Turbo-VL 33.05 36.97 22.22 27.34 51.95 50.45 37.04 37.25 35.84 38.25 Mistral-Large-3 19.89 29.00 30.61 32.98 53.76 55.14 38.02 46.24 34.31 41.04 Claude-3.7-Sonnet 34.31 47.06 32.56 37.32 57.11 66.67 52.52 60.42 43.64 54.49 Doubao-Seed-1.6-Vision 40.52 45.49 30.46 36.36 64.28 69.13 56.86 60.54 47.76 53.16 Gemini-2.5-Flash 41.30 51.14 42.67 44.83 60.23 63.26 55.84 61.44 49.50 55.74
+> o3 33.33 40.57 42.97 42.90 59.07 63.87 57.44 61.54 47.31 53.23 GPT-5 34.79 43.88 44.06 43.70 66.05 73.19 58.52 62.25 49.79 55.71
+
+22 Table 23: Acc and eb F1 for all evaluated models under the NoRef setting. Bold and underline indicate the best and second-best scores among models. 
+
+Model Physics Geometry Chart Flowchart overall 
+
+Acc ↑ eb F1 ↑ Acc ↑ eb F1 ↑ Acc ↑ eb F1 ↑ Acc ↑ eb F1 ↑ Acc ↑ eb F1 ↑
+
+Random choice 50.00 – 50.00 – 50.00 – 50.00 – 50.00 –
+
+Open-source models 
+
+Llama-4-Scout-17B-16E-Instruct 56.65 21.59 57.09 23.29 68.64 60.10 59.83 37.88 60.89 38.31 Gemma-3-4B-it 52.36 29.28 46.74 26.97 49.13 43.10 58.12 31.46 51.33 31.95 Gemma-3-27B-it 55.79 31.28 55.94 28.44 60.63 59.09 70.51 44.21 60.59 39.44 Qwen2.5-VL-3B-Instruct 53.65 18.40 54.02 20.85 56.10 38.59 50.43 30.59 53.69 27.64 Qwen2.5-VL-7B-Instruct 57.08 24.85 54.41 26.07 61.32 39.44 66.24 34.86 59.70 31.13 Qwen2.5-VL-72B-Instruct 56.65 27.78 54.41 26.51 68.29 58.61 64.96 41.84 61.28 38.65 Qianfan-VL-8B 50.43 35.56 51.34 24.56 55.75 32.86 58.97 47.54 54.14 35.76 Qianfan-VL-70B 53.88 36.43 45.59 18.75 61.32 50.81 62.82 36.94 55.92 35.70 GLM-4.6V 55.79 40.76 59.00 33.17 72.82 58.94 74.36 60.07 65.71 48.61 
+
+Closed-source models 
+
+ERNIE-4.5-Turbo-VL 54.94 35.36 52.49 27.82 59.93 44.43 53.42 35.33 55.37 35.55 Mistral-Large-3 56.22 34.73 52.11 28.10 67.94 51.90 61.54 43.56 59.70 40.43 Claude-3.7-Sonnet 59.66 39.79 56.32 31.42 64.46 57.72 56.41 52.63 59.41 46.50 Doubao-Seed-1.6-Vision 57.08 36.42 61.30 36.53 73.87 59.93 61.97 56.86 64.04 47.90 Gemini-2.5-Flash 60.52 37.41 63.22 35.19 73.52 62.56 69.23 57.50 66.90 49.46 o3 59.23 35.26 68.97 34.87 78.75 65.16 63.25 58.83 68.18 49.15 GPT-5 64.38 35.88 68.20 41.07 78.40 71.84 67.52 58.72 70.05 52.38 
+
+Table 24: Performance Comparison on Hand-Drawn vs. Electronic Sketches. Accuracy (Acc) and example-based F1 score (eb F1) for hand-drawn and electronic sketches. The Delta column shows the difference (Electronic 
+
+− Hand-drawn). All model results are reported in the WithRef setting. Bold and underline indicate the best and second-best scores within the Hand-Drawn and Electronic columns, respectively. For the Delta column, positive values are shown in green and negative values in red. 
+
+Model Hand-Drawn Electronic Difference Acc eb F1 Acc eb F1 ∆ Acc ∆ eb F1
+
+Open-source models 
+
+Llama-4-Scout-17B-16E-Instruct 69.78 39.91 67.21 38.80 -2.57 -1.12 Gemma-3-4B-it 53.83 32.20 52.05 29.55 -1.78 -2.65 Gemma-3-27B-it 64.98 49.20 59.84 49.62 -5.14 +0.42 Qwen2.5-VL-3B-Instruct 53.96 32.21 53.28 29.72 -0.68 -2.50 Qwen2.5-VL-7B-Instruct 60.70 35.80 66.39 28.00 +5.69 -7.80 Qwen2.5-VL-72B-Instruct 66.41 40.34 66.39 35.72 -0.01 -4.62 Qianfan-VL-8B 59.53 31.47 57.38 36.38 -2.16 +4.91 Qianfan-VL-70B 65.50 39.63 62.96 37.65 -2.54 -1.97 GLM-4.6V 69.26 52.73 68.85 55.44 -0.41 +2.71 
+
+Closed-source models 
+
+ERNIE-4.5-Turbo-VL 65.89 38.37 68.44 39.19 +2.55 +0.82 Mistral-Large-3 67.19 42.93 64.34 38.89 -2.84 -4.04 Claude-3.7-Sonnet 73.28 56.86 72.13 57.96 -1.15 +1.09 Doubao-Seed-1.6-Vision 68.48 54.63 69.26 54.11 +0.78 -0.52 Gemini-2.5-Flash 77.18 56.85 79.51 62.94 +2.32 +6.09 o3 74.19 55.84 75.82 56.17 +1.63 +0.33 GPT-5 78.21 60.97 79.10 61.65 +0.89 +0.68 
+
+23 Table 25: Exact-match vs. alternative correct solutions. Accuracy (Acc) on two subsets of correct sketches: (i) sketches closely matching the reference diagram ( Exact ), and (ii) sketches that remain correct but deviate from the reference in structure or strategy ( Alt ). We also report the gap ∆ = Exact − Alt . All model accuracies are reported in the WithRef setting. Bold and underline indicate the best and second-best scores in each column. For 
+
+∆, positive gaps are shown in green and negative gaps in red.                                                                                                                                                                                                                                                                    
+
+> Model Physics Geometry Chart Flowchart Overall
+> Exact Alt ∆Exact Alt ∆Exact Alt ∆Exact Alt ∆Exact Alt ∆
+> Open-source models
+> Llama-4-Scout-17B-16E-Instruct 74.19 60.00 +14.19 76.92 55.17 +21.75 85.42 83.33 +2.08 71.13 52.63 +18.50 76.92 64.52 +12.41 Gemma-3-4B-it 83.87 80.00 +3.87 92.31 100.00 -7.69 100.00 100.00 0.00 95.88 89.47 +6.40 93.10 94.62 -1.52 Gemma-3-27B-it 83.87 80.00 +3.87 84.62 41.38 +43.24 98.96 93.33 +5.62 93.81 68.42 +25.39 90.45 69.89 +20.56 Qwen2.5-VL-3B-Instruct 0.00 0.00 0.00 0.00 0.00 0.00 1.04 0.00 +1.04 0.00 0.00 0.00 0.27 0.00 +0.27 Qwen2.5-VL-7B-Instruct 23.66 13.33 +10.32 2.20 0.00 +2.20 69.79 66.67 +3.12 77.32 47.37 +29.95 44.03 33.33 +10.70 Qwen2.5-VL-72B-Instruct 16.13 20.00 -3.87 23.08 13.79 +9.28 92.71 86.67 +6.04 67.01 36.84 +30.17 50.40 43.01 +7.39 Qianfan-VL-8B 91.40 86.67 +4.73 83.52 55.17 +28.34 94.79 90.00 +4.79 93.81 78.95 +14.87 90.98 76.34 +14.64 Qianfan-VL-70B 32.26 40.00 -7.74 64.84 44.83 +20.01 93.75 90.00 +3.75 92.78 63.16 +29.63 71.35 62.37 +8.99 GLM-4.6V 45.16 40.00 +5.16 27.47 13.79 +13.68 71.88 73.33 -1.45 64.95 36.84 +28.11 52.79 41.94 +10.85
+> Closed-source models
+> ERNIE-4.5-Turbo-VL 37.63 33.33 +4.30 40.66 10.34 +30.31 55.21 73.33 -18.12 47.42 10.53 +36.90 45.36 34.41 +10.95 Mistral-Large-3 23.66 33.33 -9.68 47.25 20.69 +26.56 59.38 50.00 +9.38 74.23 36.84 +37.39 51.46 35.48 +15.98 Claude-3.7-Sonnet 92.47 40.00 +52.47 92.31 75.86 +16.45 95.83 76.67 +19.16 74.23 26.32 +47.91 88.59 60.22 +28.38 Doubao-Seed-1.6-Vision 40.86 33.33 +7.53 26.37 24.14 +2.24 76.04 76.67 -0.63 36.08 15.79 +20.29 45.09 40.86 +4.23 Gemini-2.5-Flash 73.12 66.67 +6.45 78.65 55.17 +23.48 80.21 70.00 +10.21 73.20 63.16 +10.04 76.27 63.44 +12.83 o3 82.80 53.33 +29.46 71.43 41.38 +30.05 79.17 73.33 +5.84 50.52 52.63 -2.12 70.82 55.91 +14.91 GPT-5 82.80 66.67 +16.13 87.91 58.62 +29.29 93.75 96.67 -2.92 62.89 68.42 -5.53 81.70 74.19 +7.51
+
+drawn sketches and 244 electronic sketches, re-flecting the naturally higher prevalence of free-hand student solutions. Table 24 reports Acc and eb F1 on the two modalities. Overall, performance differences are relatively small across most models, suggesting that modern MLLMs are broadly robust to the style and rendering differences between hand-drawn and electronic sketches. While some mod-els achieve slightly higher accuracy on electronic sketches (e.g., Gemini-2.5-Flash and GPT-5), the average gap is modest and not consistently posi-tive across models. In fact, several models exhibit small negative deltas, indicating that the cleaner appearance of electronic sketches does not always translate into easier grading. 
+
+F.4 Exact vs. Alternative Correct Answers 
+
+To examine whether models can verify seman-tic correctness beyond strict reference matching, we further divide all correct student answers into two subgroups: (i) reference-aligned correct an-swers that closely follow the canonical reference diagram, and (ii) reference-divergent correct an-swers that remain valid but differ from the refer-ence (e.g., through structural deformation, alter-native construction strategies, or equivalent circuit layouts). Since both subgroups are correct, we re-port only correctness-level performance (Acc) in this analysis. Table 26 summarizes the distribution of the two correct-answer subtypes across domains. As expected, most correct answers are reference-aligned, and alternative correct solutions are less frequent. Nevertheless, the Alt subset remains siz-able for meaningful comparison. 
+
+Table 26: Distribution of correct-answer subtypes. 
+
+Counts and proportions of reference-aligned ( Exact )and reference-divergent ( Alt ) correct sketches in each domain. 
+
+Domain #Exact #Alt Exact (%) Alt (%) 
+
+Physics 93 15 86.1 13.9 Geometry 91 29 75.8 24.2 Chart 96 30 76.2 23.8 Flowchart 97 19 83.6 16.4 Overall 377 93 80.2 19.8 
+
+Table 25 compares model accuracy on these two subgroups. Most models achieve consis-tently higher accuracy on reference-aligned an-swers, while performance drops noticeably on reference-divergent but still correct solutions. This effect is especially pronounced in Physics and Flowchart, where several strong models exhibit large gaps (e.g., Claude-3.7-Sonnet: 52 .47 ↑ in Physics and 47 .91 ↑ in Flowchart; o3: 29 .46 ↑ in Physics). In contrast, the performance on Chart shows smaller or even negative gaps for some models (e.g., Gemma-3-4B-it and GPT-5), sug-gesting that chart correctness is less sensitive to stylistic or structural variation. A plausible explanation is that reference-divergent solutions require models to abstract 24 away from surface-level visual similarity and in-stead verify structural equivalence (e.g., topolog-ical consistency in flowcharts or physically equiv-alent circuit layouts), which remains challenging under freehand noise. By comparison, charts fol-low more rigid graphical conventions, so alterna-tive correct forms often preserve key geometric cues (axis alignment, bar/line placement), reduc-ing the reliance on canonical matching. 
+
+F.5 Case Studies of Model Responses 
+
+We provide qualitative examples that visualize 
+
+model grading responses alongside the gold an-notations, highlighting where models succeed, where they fail, and how different error types man-ifest in real student sketches 25 Question( ):  The following data show the average scores of four subjects in a 
+
+class. Please draw a bar chart: Chinese 85, Math 92, English 78, Science 88. 
+
+Reference Diagram 
+
+Chart:  Bar  Chart  Drawing Chart:  Bar  Chart  Drawing 
+
+Student Answer 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Presentation Convention Error", 
+
+"error_description_en": "Although the tick marks on the 
+
+vertical axis are equally spaced, the labeled values are 
+
+unevenly spaced, resulting in distorted proportionality." 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+Groud Truth: 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Presentation Convention Error", 
+
+"error_description_en": "Although the tick marks on the 
+
+vertical axis are equally spaced, the labeled values are 
+
+unevenly spaced, resulting in distorted proportionality." 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+Groud Truth: 
+
+The model appears to prioritize the equal spacing of tick marks and the consistency of the plotted 
+
+curve, while failing to verify the correctness of the numerical labels on the vertical axis. The 
+
+mislabeling of the value  “40”  as  “50”  violates standard graph presentation conventions, as it 
+
+introduces non -uniform numerical intervals despite uniform spatial spacing. This results in a 
+
+distorted representation of proportional relationships between variables. The model ’s error 
+
+therefore stems from insufficient sensitivity to axis labeling semantics and scale consistency, 
+
+leading to a misclassification of a presentation convention error as a correct response. 
+
+Error Analysis: 
+
+The model appears to prioritize the equal spacing of tick marks and the consistency of the plotted 
+
+curve, while failing to verify the correctness of the numerical labels on the vertical axis. The 
+
+mislabeling of the value  “40”  as  “50”  violates standard graph presentation conventions, as it 
+
+introduces non -uniform numerical intervals despite uniform spatial spacing. This results in a 
+
+distorted representation of proportional relationships between variables. The model ’s error 
+
+therefore stems from insufficient sensitivity to axis labeling semantics and scale consistency, 
+
+leading to a misclassification of a presentation convention error as a correct response. 
+
+Error Analysis: 
+
+Qwen2.5 -VL -72B -
+
+Instruct: 
+
+{
+
+"is_correct": true, 
+
+"error_count": 0, 
+
+"error_list": [] 
+
+}Figure 11: A sample error case in chart. 
+
+26 Groud Truth:  GPT -5: 
+
+> {
+> "is_correct": false,
+> "error_list": [
+> {
+> "error_type": "Connection Error",
+> "error_description_en": "The return arrow
+> connection for the 'Balance sufficient?' decision is
+> incorrect; it should connect to 'Select amount'
+> instead of 'Check balance'."
+> }
+> {
+> "error_type": "Shape Error",
+> "error_description_en": "The shape of 'Enter PIN'
+> is incorrect; it should use the standard flowchart
+> symbol."
+> },
+> ],
+> "error_count": 2
+> }
+> {
+> "is_correct": false,
+> "error_count": 2,
+> "error_list": [
+> {
+> "error_type": "Connection Error",
+> "error_description_en": "The 'No'
+> branch from 'Balance sufficient?' loops
+> to 'Check balance' instead of back to
+> 'Select amount' as required."
+> },
+> {
+> "error_type": "Shape Error",
+> "error_description_en": "'Enter PIN'
+> is drawn as a process rectangle, should
+> be an input/output parallelogram."
+> }
+> ]
+> }
+
+Reference Diagram  Student Answer 
+
+Question( ):Design a flowchart for 
+
+the ATM cash withdrawal process. 
+
+The steps are: Start, Insert card, 
+
+Enter PIN, Decision: Is the PIN 
+
+correct? (if No, return to Enter PIN), 
+
+Select amount, Check balance, 
+
+Decision: Sufficient balance? (if No, 
+
+return to Select amount), Dispense 
+
+cash, Offer receipt, End. Please use 
+
+standard flowchart symbols: oval for 
+
+start/end, rectangle for process, 
+
+diamond for decision, parallelogram 
+
+for input/output.  Clearly label all 
+
+Yes/No branches. 
+
+Question( ):Design a flowchart for 
+
+the ATM cash withdrawal process. 
+
+The steps are: Start, Insert card, 
+
+Enter PIN, Decision: Is the PIN 
+
+correct? (if No, return to Enter PIN), 
+
+Select amount, Check balance, 
+
+Decision: Sufficient balance? (if No, 
+
+return to Select amount), Dispense 
+
+cash, Offer receipt, End. Please use 
+
+standard flowchart symbols: oval for 
+
+start/end, rectangle for process, 
+
+diamond for decision, parallelogram 
+
+for input/output.  Clearly label all 
+
+Yes/No branches. 
+
+Flowchart: The C ontrol -flow  Structure Flowchart: The C ontrol -flow  Structure Figure 12: A sample correct case in flowchart. 
+
+27 Question( ) : Create a flowchart for 
+
+an online login process with two -
+
+factor authentication (2FA). The steps 
+
+are: Start, Input username and 
+
+password, Decision: Are credentials 
+
+valid? (if No, return to Start), Send 
+
+2FA code, Enter 2FA  code, Decision: 
+
+Is 2FA code correct? (if No, return to 
+
+Enter 2FA code), Grant access, End. 
+
+Use standard flowchart shapes (oval 
+
+for start/end, rectangle for process, 
+
+diamond for decision, parallelogram 
+
+for input/output) and clearly label all 
+
+decision branches. 
+
+The element labeled  “2 FA correct? ” was classified by the model as a Shape Error . The decision node is 
+
+correctly intended as a diamond, but it is drawn with a slight rotation and hand -drawn distortion, which 
+
+alters the apparent orientation of its edges in the image. As a result, the visual features extracted by the 
+
+model resemble those of a parallelogram, leading to an incorrect shape interpretation.  This case 
+
+highlights the model ’s limited robustness to rotational variance and geometric deformation in hand -drawn 
+
+or non -axis -aligned flowchart symbols. While the logical function of the node is correctly expressed, the 
+
+model overly relies on canonical, axis -aligned shape templates and fails to generalize to rotated decision 
+
+symbols.  Consequently, the predicted Shape Error should be regarded as a perceptual misjudgment 
+
+caused by insufficient invariance to orientation, rather than a true violation of flowchart notation. 
+
+{
+
+"is_correct": false, 
+
+"error_count": 3, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Missing Step", 
+
+"error_description_en": "The decision step 'Are 
+
+credentials valid?' and its 'No' branch returning to 'Start' 
+
+are entirely omitted." 
+
+},{ 
+
+"error_type": "Shape Error", 
+
+"error_description_en": "The '2FA Correct?' element is 
+
+incorrectly drawn as a parallelogram instead of a diamond 
+
+for a decision point." 
+
+},{ 
+
+"error_type": "Missing Step\", 
+
+"error_description_en": "The 'End' terminal step of the 
+
+flowchart is omitted." 
+
+}] 
+
+}
+
+Gemini -2.5 -Flash 
+
+Error Analysis: 
+
+Reference Diagram  Student Answer 
+
+Groud Truth: 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": " Missing Step ", 
+
+"error_description_en": "Missing 
+
+steps: 'Are credentials valid?' and 
+
+'End'." 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+Flowchart:  Misclassification  caused by slight rotation Flowchart:  Misclassification  caused by slight rotation Figure 13: A sample error case in flowchart. 
+
+28 Question( ):  Analyze the forces acting on the ball shown in the diagram and draw the 
+
+corresponding free -body diagram. Given that the ball is at rest and all contact surfaces are 
+
+smooth. The forces are represented as follows: normal force is denoted by N, 
+
+gravitational force by G, and tension by T; if multiple forces of the same type exist, 
+
+distinguish them using subscripts (e.g., T ₁,  N₂). 
+
+Question Diagram 
+
+Error Analysis: 
+
+The large language model incorrectly judges the student ’s answer as correct because its evaluation 
+
+emphasizes semantic completeness over quantitative graphical accuracy. The model successfully 
+
+recognizes that the student has included the appropriate force categories —such as gravitational force, 
+
+normal force, and tension —and that their directions are broadly consistent with the physical situation. 
+
+However, it fails to rigorously assess whether  the drawn force vectors satisfy the magnitude constraints 
+
+required by static equilibrium. This suggests that the model prioritizes the presence and labeling of forces 
+
+over the precise scaling relationships between them, leading to a false -positive correctness judgment 
+
+when magnitude consistency is visually incorrect. 
+
+Error Analysis: 
+
+The large language model incorrectly judges the student ’s answer as correct because its evaluation 
+
+emphasizes semantic completeness over quantitative graphical accuracy. The model successfully 
+
+recognizes that the student has included the appropriate force categories —such as gravitational force, 
+
+normal force, and tension —and that their directions are broadly consistent with the physical situation. 
+
+However, it fails to rigorously assess whether  the drawn force vectors satisfy the magnitude constraints 
+
+required by static equilibrium. This suggests that the model prioritizes the presence and labeling of forces 
+
+over the precise scaling relationships between them, leading to a false -positive correctness judgment 
+
+when magnitude consistency is visually incorrect. 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Magnitude/Scale Error", 
+
+"error_description_en": "Since the ball is static, the two forces 
+
+should be equal in magnitude and drawn with equal arrow lengths." 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+Gemini -2.5 -Flash: 
+
+{
+
+"is_correct": true, 
+
+"error_count": 0, 
+
+"error_list": [] 
+
+}
+
+Physics: Q uantitative  Graphical  Accuracy Physics: Q uantitative  Graphical  Accuracy 
+
+Reference Diagram  Student Answer 
+
+Groud Truth: Figure 14: A sample error case in physics. 
+
+29 Groud Truth: Groud Truth: 
+
+o3: 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": " Data Accuravy Error ", 
+
+"error_description_en": "The 20% sector for autumn in 
+
+the pie chart appears disproportionately larger than the 
+
+15% for winter, causing visual distortion." 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": " Data Accuravy Error ", 
+
+"error_description_en": "Slice sizes are noticeably off; 
+
+Summer and Autumn angles do not match 40% and 20% 
+
+proportions." 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+Chart: T he  Accuracy  of  Data Chart: T he  Accuracy  of  Data 
+
+Question( ):  The following data 
+
+s h o w t h e a n n u a l r a i n f a l l 
+
+distribution across four seasons in 
+
+a city. Please draw a pie chart: 
+
+Spring 25, Summer 40, Autumn 
+
+20, Winter 15. 
+
+Reference Diagram 
+
+Student Answer Figure 15: A sample correct case in chart. Groud Truth:  Gemini -2.5 -Flash: 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Conceptual Misunderstanding", 
+
+"error_description_en": "Failed to understand the 
+
+basic physical principle that the moment arm is 
+
+perpendicular to the force; the drawn moment arm is 
+
+not perpendicular to the force." 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Conceptual Misunderstanding", 
+
+"error_description_en": "The moment arm (l ₁)  is 
+
+incorrectly drawn as the distance from the pivot (O) 
+
+to  the point of force application (A), instead of the 
+
+perpendicular distance from the pivot to the line of 
+
+action of the force F ₁." 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+Question( ):  Draw the moment arm of the power F ₁ of the piston pump in the diagram. Question( ):  Draw the moment arm of the power F ₁ of the piston pump in the diagram. 
+
+Reference Diagram  Student Answer Question Diagram 
+
+Physics : Moment Arms in Lever Diagram Physics : Moment Arms in Lever Diagram 
+
+Figure 16: A sample correct case in physics. 
+
+30 Question( ):  As shown, segments AB and BC share a common endpoint. 
+
+Using a straightedge and compass, construct a circle O that passes through 
+
+points A, B, and C. Keep all construction traces. 
+
+## Geometry:  Circumcircle of a  Triangle Geometry:  Circumcircle of a  Triangle 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type":"Conceptual Cognition Error", 
+
+"error_description_en": "Treated BC as a diameter and 
+
+drew a circle directly without finding the center via 
+
+perpendicular bisectors; the circle therefore does not 
+
+pass through A, B, and C simultaneously." 
+
+}
+
+]
+
+"error_count": 1 
+
+}
+
+Groud Truth: 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type":"Conceptual Cognition Error", 
+
+"error_description_en": "Treated BC as a diameter and 
+
+drew a circle directly without finding the center via 
+
+perpendicular bisectors; the circle therefore does not 
+
+pass through A, B, and C simultaneously." 
+
+}
+
+]
+
+"error_count": 1 
+
+}
+
+Groud Truth: 
+
+The student ’s construction contains a conceptual cognition error because it misapplies the 
+
+geometric principle required to construct a circle through three non -collinear points. 
+
+Instead of locating the center as the intersection of the perpendicular bisectors of the 
+
+segments connecting points A, B, and C, the student incorrectly treats BC as a diameter 
+
+and draws a circle directly, resulting in a circle that does not pass through all three points 
+
+simultaneously. The large language model misjudges the answer as correct because it relies 
+
+on superficial visual plausibility —such as the presence of a complete circle passing 
+
+through two given points —without verifying whether the essential construction logic and 
+
+geometric constraints of a three -point circumcircle have been satisfied. 
+
+Error Analysis: 
+
+The student ’s construction contains a conceptual cognition error because it misapplies the 
+
+geometric principle required to construct a circle through three non -collinear points. 
+
+Instead of locating the center as the intersection of the perpendicular bisectors of the 
+
+segments connecting points A, B, and C, the student incorrectly treats BC as a diameter 
+
+and draws a circle directly, resulting in a circle that does not pass through all three points 
+
+simultaneously. The large language model misjudges the answer as correct because it relies 
+
+on superficial visual plausibility —such as the presence of a complete circle passing 
+
+through two given points —without verifying whether the essential construction logic and 
+
+geometric constraints of a three -point circumcircle have been satisfied. 
+
+Error Analysis: 
+
+## o3: 
+
+{
+
+"is_correct": true, 
+
+"error_count": 0, 
+
+"error_list": [] 
+
+}
+
+Reference Diagram  Student Answer Student Answer 
+
+Question Diagram Figure 17: A sample error case in geometry. 
+
+31 Question( ):  In triangle ABC, point D lies on side AB. Using a straightedge 
+
+and compass, within triangle ABC construct a ray DE such that  ∠ADE =  ∠B
+
+and DE intersects AC at E. Keep all construction traces. 
+
+Geometry:  Consistency of Construction Traces Geometry:  Consistency of Construction Traces 
+
+Groud Truth: 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type":"Conceptual Cognition Error", 
+
+"error_description": "Treated BC as a diameter and drew a 
+
+circle directly without finding the center via perpendicular 
+
+bisectors; the circle therefore does not pass through A, B, 
+
+and C simultaneously." 
+
+}
+
+]
+
+"error_count": 1 
+
+}
+
+Groud Truth: 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type":"Conceptual Cognition Error", 
+
+"error_description": "Treated BC as a diameter and drew a 
+
+circle directly without finding the center via perpendicular 
+
+bisectors; the circle therefore does not pass through A, B, 
+
+and C simultaneously." 
+
+}
+
+]
+
+"error_count": 1 
+
+}
+
+The large language model misjudges the student ’s construction because it rigidly equates correctness 
+
+with the use of a single, canonical angle -copying arc. In the standard solution, the equality 
+
+∠ADE= ∠B is established by using one continuous arc to mark equal -length segments on  AB and 
+
+BC, thereby making the construction procedure visually explicit. By contrast, the student achieves the 
+
+same geometric  constraint by using two successive arcs to transfer the required length in stages. 
+
+Although procedurally different, this segmented construction is geometrically equivalent and valid. 
+
+The model, however, interprets the absence of a single continuous arc as a deviation from the 
+
+standard operational process and incorrectly infers an error. This reflects the model ’s reliance on 
+
+procedural pattern matching rather than on an evaluation of whether the essential geometric 
+
+relationship has been correctly constructed. 
+
+Error Analysis: 
+
+The large language model misjudges the student ’s construction because it rigidly equates correctness 
+
+with the use of a single, canonical angle -copying arc. In the standard solution, the equality 
+
+∠ADE= ∠B is established by using one continuous arc to mark equal -length segments on  AB and 
+
+BC, thereby making the construction procedure visually explicit. By contrast, the student achieves the 
+
+same geometric  constraint by using two successive arcs to transfer the required length in stages. 
+
+Although procedurally different, this segmented construction is geometrically equivalent and valid. 
+
+The model, however, interprets the absence of a single continuous arc as a deviation from the 
+
+standard operational process and incorrectly infers an error. This reflects the model ’s reliance on 
+
+procedural pattern matching rather than on an evaluation of whether the essential geometric 
+
+relationship has been correctly constructed. 
+
+Error Analysis: 
+
+GLM -4.6V: 
+
+{
+
+"is_correct": true, 
+
+"error_count": 0, 
+
+"error_list": [] 
+
+}
+
+Reference Diagram  Student Answer Student Answer Question Diagram Figure 18: A sample error case in geometry. 
+
+32 Question( ):  Given triangle ABC. 
+
+(1) Construct the angle bisector of  ∠ACB and let it intersect the hypotenuse AB at D. 
+
+(2) Through D, draw the line perpendicular to BC with foot E on BC. Use a straightedge and 
+
+compass and keep all construction traces. 
+
+Geometry:  Inferring Error from Construction Traces Geometry:  Inferring Error from Construction Traces 
+
+Groud Truth: 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type":"Conceptual Cognition Error", 
+
+"error_description_en": "Constructed CD as the median 
+
+to side AB (using the perpendicular bisector of AB) 
+
+instead of the angle bisector of  ∠ACB; hence the foot E 
+
+was misplaced." 
+
+}
+
+]
+
+"error_count": 1 
+
+}
+
+Groud Truth: 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type":"Conceptual Cognition Error", 
+
+"error_description_en": "Constructed CD as the median 
+
+to side AB (using the perpendicular bisector of AB) 
+
+instead of the angle bisector of  ∠ACB; hence the foot E 
+
+was misplaced." 
+
+}
+
+]
+
+"error_count": 1 
+
+}
+
+The student ’s construction contains a conceptual cognition error because the required angle 
+
+bisector of  ∠ACB is replaced by the median to side AB, constructed via the perpendicular bisector 
+
+of AB. Although the median intersects AB in a visually plausible location very close to where the 
+
+angle bisector would lie, careful examination of the construction traces reveals that the drawn line 
+
+is actually the perpendicular bisector rather than the angle bisector. This subtle difference leads to 
+
+an incorrect point D and, consequently, a misplaced foot E. The large language model misjudges 
+
+the answer as correct because  it relies on superficial visual symmetry and typical diagram layouts, 
+
+failing to verify whether the construction traces correspond to the defining procedure of an angle 
+
+bisector. By conflating a  median with an angle bisector based solely on their close positional 
+
+proximity, the model produces an incorrect evaluation. 
+
+Error Analysis: 
+
+The student ’s construction contains a conceptual cognition error because the required angle 
+
+bisector of  ∠ACB is replaced by the median to side AB, constructed via the perpendicular bisector 
+
+of AB. Although the median intersects AB in a visually plausible location very close to where the 
+
+angle bisector would lie, careful examination of the construction traces reveals that the drawn line 
+
+is actually the perpendicular bisector rather than the angle bisector. This subtle difference leads to 
+
+an incorrect point D and, consequently, a misplaced foot E. The large language model misjudges 
+
+the answer as correct because  it relies on superficial visual symmetry and typical diagram layouts, 
+
+failing to verify whether the construction traces correspond to the defining procedure of an angle 
+
+bisector. By conflating a  median with an angle bisector based solely on their close positional 
+
+proximity, the model produces an incorrect evaluation. 
+
+Error Analysis: 
+
+Claude -3.7 -Sonnet :
+
+{
+
+"is_correct": true, 
+
+"error_count": 0, 
+
+"error_list": [] 
+
+}
+
+Question Diagram  Reference Diagram  Student Answer Figure 19: A sample error case in geometry. 
+
+33 Q u e s t i o n ( ) :  The following data show the annual rainfall distribution 
+
+across four seasons in a city. Please draw a pie chart: Spring 25, Summer 40, 
+
+Autumn 20, Winter 15. 
+
+Reference Diagram 
+
+Chart:  Pie Chart Proportional Distortion Chart:  Pie Chart Proportional Distortion 
+
+Student Answer 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Data Accuracy Error", 
+
+"error_description_en": "The 20% sector for autumn in 
+
+the pie chart appears disproportionately larger than the 
+
+15% for winter, causing visual distortion" 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+Groud Truth: 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Data Accuracy Error", 
+
+"error_description_en": "The 20% sector for autumn in 
+
+the pie chart appears disproportionately larger than the 
+
+15% for winter, causing visual distortion" 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+Groud Truth: 
+
+In the student ’s pie chart, the sector representing autumn (20%) is visually depicted as larger 
+
+than it should be relative to winter (15%),  resulting in a distortion of the actual proportional 
+
+distribution of annual rainfall. This constitutes a Data Accuracy Error, as the visual 
+
+representation fails to accurately correspond to the numerical data, potentially misleading 
+
+viewers about the relative contributions of each season. The large model likely judged the 
+
+response as correct because it may have primarily verified the presence of all four seasonal 
+
+sectors and approximate labeling, without performing a precise proportional analysis of the 
+
+angles or areas corresponding to  each percentage. Consequently, the model overlooked the 
+
+subtle but significant misrepresentation in the relative sizes of the sectors, leading to an 
+
+erroneous correctness assessment. 
+
+Error Analysis: 
+
+In the student ’s pie chart, the sector representing autumn (20%) is visually depicted as larger 
+
+than it should be relative to winter (15%),  resulting in a distortion of the actual proportional 
+
+distribution of annual rainfall. This constitutes a Data Accuracy Error, as the visual 
+
+representation fails to accurately correspond to the numerical data, potentially misleading 
+
+viewers about the relative contributions of each season. The large model likely judged the 
+
+response as correct because it may have primarily verified the presence of all four seasonal 
+
+sectors and approximate labeling, without performing a precise proportional analysis of the 
+
+angles or areas corresponding to  each percentage. Consequently, the model overlooked the 
+
+subtle but significant misrepresentation in the relative sizes of the sectors, leading to an 
+
+erroneous correctness assessment. 
+
+Error Analysis: 
+
+Gemma -3-4B -it: 
+
+{
+
+"is_correct": true, 
+
+"error_count": 0, 
+
+"error_list": [] 
+
+}Figure 20: A sample error case in chart. 
+
+34 Question( ):  The following data show the number of male and female students 
+
+enrolled in three elective courses. Please draw a stacked bar  chart: Computer 
+
+Science (Male 45, Female 30), Psychology (Male 18, Female 32), Economics 
+
+(Male 30, Female 28). 
+
+Reference Diagram 
+
+Chart: S tacked Bar  Chart  Drawing Chart: S tacked Bar  Chart  Drawing 
+
+Student Answer 
+
+Error Analysis: Error Analysis: 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Inappropriate Chart Type", 
+
+"error_description_en": "The task requires 
+
+a stacked bar chart, but a grouped (side -
+
+by -side) bar chart was drawn instead, 
+
+which fails to show the total (male + 
+
+female) for each course." 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+Claude -3.7 -Sonnet: 
+
+{
+
+"is_correct": false, 
+
+"error_count": 1, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Data Accuracy Error", 
+
+"error_description_en": "The stacked bar 
+
+chart doesn't properly show cumulative 
+
+values; male and female data appear side -
+
+by -side rather than stacked." 
+
+}
+
+]
+
+}
+
+In the student ’s response, the task explicitly required a stacked bar chart to represent the 
+
+cumulative enrollment of male and female students in each elective course. Instead, the student 
+
+produced a grouped (side -by -side) bar chart, which separates male and female counts visually 
+
+rather than stacking them, thereby failing to convey the total enrollment per course. This 
+
+constitutes an Inappropriate Chart Type error, as the chosen visualization does not satisfy the 
+
+primary objective of illustrating both individual and cumulative contributions simultaneously. The 
+
+large language model also  identified the answer as incorrect but labeled the error as a Data 
+
+Accuracy Error. This misjudgment likely arose because the  model interpreted the visual side -by -
+
+side arrangement as an issue of misrepresenting cumulative values, focusing on the superficial 
+
+arrangement of the bars rather than the fundamental mismatch between the required stacked format 
+
+and the actual grouped format. Consequently, the model failed to recognize that the core problem 
+
+is chart type selection, not numeric accuracy. 
+
+Groud Truth: Figure 21: A sample error case in chart. 
+
+35 Question( ):  As shown in the figure, given triangle ABC, construct a line CD through 
+
+point C such that CD  ∥ AB. (Use straightedge and compass construction, and leave all 
+
+construction marks.) 
+
+Reference Diagram 
+
+Geometry: Criteria for Two Lines to Be Parallel Geometry: Criteria for Two Lines to Be Parallel 
+
+Student Answer 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Operational Process Error", 
+
+"error_description_en": "The construction marks 
+
+were not preserved, making it impossible to verify 
+
+whether CD is parallel to AB." 
+
+}
+
+]
+
+}
+
+{
+
+"is_correct": true, 
+
+"error_count": 0, 
+
+"error_list": [] 
+
+}
+
+Groud Truth: 
+
+Qwen2.5 -VL -72B -
+
+Instruct: 
+
+Error Analysis: 
+
+The student ’s construction contains an operational process error because it does not preserve the 
+
+auxiliary construction marks required to verify that line CD is parallel to AB. In straightedge -and -
+
+compass geometry, parallelism must be justified by explicit construction steps rather than visual 
+
+appearance alone. The large language model misjudges the answer as correct because it relies on 
+
+perceptual similarity, interpreting the visually parallel lines as sufficient evidence of correctness, 
+
+while failing to assess whether the necessary construction traces are present to support the 
+
+geometric claim. 
+
+Error Analysis: 
+
+The student ’s construction contains an operational process error because it does not preserve the 
+
+auxiliary construction marks required to verify that line CD is parallel to AB. In straightedge -and -
+
+compass geometry, parallelism must be justified by explicit construction steps rather than visual 
+
+appearance alone. The large language model misjudges the answer as correct because it relies on 
+
+perceptual similarity, interpreting the visually parallel lines as sufficient evidence of correctness, 
+
+while failing to assess whether the necessary construction traces are present to support the 
+
+geometric claim. Figure 22: A sample error case in geometry. 
+
+36 Question( ):  Replace the wires in the diagram with pencil lines to connect the 
+
+components as follows: the two bulbs should be connected in parallel, and a 
+
+single switch should control the entire circuit. 
+
+Reference Diagram 
+
+Physics: C ircuit  Topology Physics: C ircuit  Topology 
+
+Student Answer 
+
+{
+
+"is_correct": false, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Connection Error", 
+
+"error_description_en": "Lamp L ₂ is not 
+
+properly controlled by switch S, leading to 
+
+incorrect circuit logic." 
+
+}
+
+], 
+
+"error_count": 1 
+
+}
+
+o3: 
+
+{
+
+"is_correct": false, 
+
+"error_count": 1, 
+
+"error_list": [ 
+
+{
+
+"error_type": "Connection Error", 
+
+"error_description_en": "One terminal of 
+
+bulb L1 is not connected to the return path; 
+
+bulbs are not both fully connected in  parallel." 
+
+}
+
+]
+
+}
+
+Groud Truth: Figure 23: A sample correct case in physics. 
+
+37

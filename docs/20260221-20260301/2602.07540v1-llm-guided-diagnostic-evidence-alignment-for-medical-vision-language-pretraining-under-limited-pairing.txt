@@ -1,0 +1,679 @@
+Title: LLM-Guided Diagnostic Evidence Alignment for Medical Vision-Language Pretraining under Limited Pairing
+
+URL Source: https://arxiv.org/pdf/2602.07540v1
+
+Published Time: Tue, 10 Feb 2026 02:01:32 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+> 1
+
+# LLM-Guided Diagnostic Evidence Alignment for Medical Vision–Language Pretraining under Limited Pairing 
+
+Huimin Yan, Liang Bai, Xian Yang, Long Chen 
+
+Abstract —Most existing CLIP-style medical vision–language pretraining methods rely on global or local alignment with substantial paired data. However, global alignment is easily dominated by non-diagnostic information, while local alignment fails to integrate key diagnostic evidence. As a result, learning reliable diagnostic representations becomes difficult, which limits their applicability in medical scenarios with limited paired data. To address this issue, we propose an LLM-Guided Diagnostic Evidence Alignment method (LGDEA), which shifts the pre-training objective toward evidence-level alignment that is more consistent with the medical diagnostic process. Specifically, we leverage LLMs to extract key diagnostic evidence from radiol-ogy reports and construct a shared diagnostic evidence space, enabling evidence-aware cross-modal alignment and allowing LGDEA to effectively exploit abundant unpaired medical images and reports, thereby substantially alleviating the reliance on paired data. Extensive experimental results demonstrate that our method achieves consistent and significant improvements on phrase grounding, image–text retrieval, and zero-shot classifica-tion, and even rivals pretraining methods that rely on substantial paired data. 
+
+Index Terms —Medical Vision-Language Pretraining, Multi-modal Learning, Diagnosic Evidence Alignment 
+
+I. I NTRODUCTION 
+
+# MEDICAL vision–language pretraining (VLP) aims to learn transferable multimodal representations by mod-eling the correspondences between medical images and clin-ical reports [1], which plays an important role in enabling clinically meaningful diagnostic decision-making, and is there-fore widely applied to downstream tasks such as disease classification and image–report retrieval [2], [3]. Early medical VLP methods typically adapt the CLIP framework to the medical domain [4], employing global contrastive objectives to align entire medical images with their corresponding full clinical reports on substantial paired data, thereby learning transferable multimodal representations [5], [6]. This paradigm implicitly assumes that global alignment is sufficient to capture diagnostic semantics. However, radiology reports often describe multiple local-ized pathological findings, while diagnostically critical visual 
+
+Huimin Yan and Liang Bai are with Institute of Intelligent Information Pro-cessing, Shanxi University, Taiyuan, 030006, China. (Corresponding author: Liang Bai). E-mail: yanhm0925@163.com, bailiang@sxu.edu.cn Xian Yang is with Alliance Manchester Business School, The University of Manchester, Manchester, M13 9PL, UK. E-mail: xian.yang@manchester.ac.uk Long Chen is with Department of Computer Science and Engineering, The Hong Kong University of Science and Technology, Hong Kong, China. E-mail: longchen@ust.hk Report 
+
+> Lesions
+> At both lung bases, but more extensive on the right than left, there are patchy opacities, fairly streaky in nature but extensive.
+
+Image Visual Evidence Visual Patch    
+
+> At both
+> bases but
+> more
+
+... 
+
+Words 
+
+... 
+
+Report Evidence  
+
+> both lung bases patchy opacities
+> Local Alignment Diagnostic Evidence Alignment Global Alignment
+
+Fig. 1. Motivation of LGDEA. Global and local alignment may overlook diagnostic evidence, whereas LGDEA aligns images and reports in a shared diagnostic evidence space. 
+
+lesions are typically subtle and spatially localized. To mitigate this issue, some methods introduce local alignment by match-ing report words or phrases with image regions. Such local alignment methods partially alleviate the limitation of global alignment in modeling localized diagnostic cues, enabling the model to attend to image regions that are relevant to pathological descriptions [7], [8], [9]. So far, state-of-the-art global and local alignment methods share two common characteristics: 1) They heavily rely on substantial and high-quality paired data to provide sufficient cross-modal supervisory signals. 2) They essentially follow a feature-level alignment paradigm, which is well suited for scenarios such as natural image–text pairs where semantic correspondences are relatively explicit. However, in the med-ical domain, high-quality paired data are inherently limited, and diagnostic semantics are often implicit in the integrated reasoning over a small number of diagnostic evidence, which cannot be adequately captured by feature similarity alone [10], [11]. Consequently, as illustrated in Figure 1, under lim-ited paired supervision in medical settings, global alignment methods tend to overlook fine-grained diagnostic details [12], allowing non-diagnostic information to dominate the learned embeddings, whereas local alignment methods overemphasize local correspondences, shifting the learning objective toward low-level visual details and making it difficult to acquire high-level diagnostic evidence that underpin clinical decision-making [13]. Based on these observations, we argue that effective medical VLP under limited pairing should follow the real diagnostic 
+
+> arXiv:2602.07540v1 [cs.CV] 7 Feb 2026 2
+
+process of clinicians, shifting from feature-level alignment to diagnostic evidence alignment . However, performing di-agnostic evidence alignment under limited paired data poses 
+
+two key challenges : (1) How to construct a reliable diag-nostic evidence space. (2) How to effectively learn diagnostic evidence alignment when paired data are scarce, but addi-tional unimodal data are available without explicit cross-modal correspondences. To address these challenges, we propose 
+
+LGDEA , an LLM-Guided Diagnostic Evidence Alignment pretraining framework that leverages medical knowledge to compensate for limited paired data. Specifically, we first utilize large language models (LLMs) to extract key diag-nostic evidence from radiology reports and organize them into a structured cross-modal diagnostic evidence space. Then, report-derived evidence from limited paired data are used to guide lesion-level visual representation learning, aligning visual evidence within the diagnostic evidence space. Finally, based on evidence-centric representations, we infer cross-modal relations for unimodal data by propagating sparse paired supervision over image–image and text–text evidence graphs, thereby guiding evidence-aware cross-modal alignment over both limited paired data and abundant unpaired images and reports. Our main contributions are summarized as follows:  
+
+> •
+
+We leverage LLMs to construct a cross-modal diagnostic evidence space, establishing a diagnostic evidence foun-dation for medical multimodal pretraining.  
+
+> •
+
+We propose an evidence-aware cross-modal alignment method that effectively leverages abundant unpaired med-ical images and reports, thereby substantially reducing the reliance on paired data.  
+
+> •
+
+Extensive experiments show that our method consistently improves performance on phrase grounding, image–text retrieval, and zero-shot classification, even outperforming methods trained with more paired data. II. R ELATED WORK 
+
+A. Global Alignment in Medical VLP 
+
+Inspired by the CLIP-style contrastive learning framework [14], [15], numerous studies aligns medical images and their corresponding reports by projecting them into a shared embed-ding space. PubMedCLIP [16] adapts CLIP to medical data to improve medical visual question answering, while MedCLIP [17] performs alignment at the disease level using similarity matrices. CARZero [18] further enhances alignment accuracy by introducing cross-attention between image and report fea-tures to capture more complex semantic relationships. Despite these advances, existing medical vision–language pre-training methods largely rely on global representation alignment, over-looking the localized and multi-lesion nature of radiological data [19]. Under limited paired supervision, such strategies often damage diagnostic signals, allowing non-diagnostic in-formation to dominate the embedding space and weakening clinically meaningful semantics. 
+
+B. Local Alignment in Medical VLP 
+
+To address the limitations of global contrastive learning in capturing localized pathology, prior work has explored fine-grained vision–language alignment strategies [20], [21], [22]. GLoRIA [23] and MGCA [24] incorporate local or multi-granularity contrastive objectives to align words or tokens with attention-weighted image regions, while MedKLIP [7] and MedAligner [9] leverage structured reports or explicit word–region alignment to enhance local semantic matching. AFLoc [13] further introduces multi-level semantic contrastive learning for unlabeled pathological localization. However, these approaches mainly focus on region-level correspon-dences [25], whereas medical diagnosis relies on identifying and integrating key diagnostic evidence at the sample level. Under limited paired supervision, neither global alignment nor isolated local matching is sufficient, motivating a shift toward diagnostic evidence–level alignment. III. M ETHOD 
+
+A. Problem Settings 
+
+We consider a realistic medical vision–language pretraining setting where only a small subset of images and radiology reports are paired, while the majority are unpaired. Let Dp =
+
+{(Ip, Rp)}Np 
+
+> p=1
+
+denote paired samples, and DIu = {Iu}N Iu
+
+> u=1
+
+and DRu = {Ru}N Ru 
+
+> u=1
+
+denote unpaired images and reports. We extract representations using an image encoder fimage [26] and a text encoder ftext [27]: fimage : I → (Ig , Il), ftext : R →
+
+(Rg , Rl), where Ig and Rg denote global embeddings, and Il
+
+and Rl denote local patch- and token-level embeddings. Existing CLIP-style pretraining methods rely on global contrastive alignment over substantial paired data, which is formulated as: 
+
+LR←Ig = − 1
+
+B
+
+> B
+
+X
+
+> p=1
+
+log exp( Igp · Rgp/τ 1)
+
+PBk=1 exp( Igp · Rgk/τ 1) , (1) where B is the batch size and τ1 is a temperature parameter. The dot operator · refers to the inner product of vectors. Similarly, the loss for aligning text to images, LI←Rg , is defined symmetrically to LR←Ig . The total global alignment loss is the sum of these two components Lg = LR←Ig + LI←Rg .Under limited paired data, global alignment often fails to capture sparse and localized diagnostic information, while local alignment tends to overemphasize fragmented de-tails. Therefore, effective medical vision–language pretraining should follow the actual clinical diagnostic process, shifting from feature-level alignment to diagnostic evidence alignment. However, evidence-level alignment under scarce paired super-vision is non-trivial, as it requires building a reliable diagnostic evidence space and learning effective cross-modal alignment by leveraging abundant unpaired unimodal data as shown in Figure 2. 
+
+B. LLM-guided Diagnostic Evidence Space 
+
+We leverage LLMs to construct a structured cross-modal diagnostic evidence space from data with limited pairing and abundant unpaired samples, providing a diagnostic evidence foundation for medical multimodal pretraining. First, we ex-tract diagnostic evidence from reports and organize them into a modality-shared diagnostic evidence space: 
+
+E(R) = {en}NR 
+
+> n=1
+
+= LLM( R), (2) 3(a) LLM-Guided Diagnostic Evidence Space 
+
+> streaky in nature
+> both lung bases
+> patchy opacities
+> ...
+> Text Encoder
+> 𝐀 𝐀𝐀𝐀𝐀
+
+(b) Evidence-Guided Cross-modal Alignment   
+
+> …
+> Paired Reports
+> ...
+> Projection Head
+> Diagnostic evidence Space }{k
+
+
+
+> ...
+> LLM
+> Unpaired Reports
+> Extracted evidence
+> At both lung bases, but more extensive on the right than left, there are patchy opacities, fairly streaky in nature but extensive.
+
+... 
+
+> ...
+> Unpaired Images Paired Images
+> 𝐀 𝐀𝐀𝐀𝐀𝐀
+> Image Encoder
+
+...   
+
+> Projection Head
+> Projection Head ...
+> Report-Report Graph
+> ...
+> both lung bases
+> patchy opacities
+> ...
+> streaky in nature
+> Diagnostic evidence
+> At both lung bases, but more extensive on the right than left, there are patchy opacities, fairly streaky in nature but extensive.
+> Report
+> LLM
+> Image-Image Graph
+> ... ...
+> Projection Head
+> Projection Head
+> Projection Head
+> 1RH
+> Image Visual evidence
+> Diagnostic evidence
+> 1IH
+
+𝐀 𝐀𝐀𵰀−𝐀𰠀𵰀𳐀𝐀 
+
+> 1
+
+
+
+> 2
+
+
+
+> 3
+
+
+
+> 4
+
+
+
+> K
+
+
+
+> Learnable Queries Report nodes Image nodes
+> Report evidence
+> Paired Seed Edges Y
+
+P
+
+Fig. 2. Overview of the proposed LGDEA framework. (a) LLMs extract diagnostic evidence from radiology reports, and both report evidence and lesion-level visual cues are projected into a shared diagnostic evidence space. (b) Under limited pairing, paired evidence links are used as seed edges to align report and image nodes, while report–report and image–image graphs propagate evidence-aware relations to leverage abundant unpaired reports and images for vision–language pretraining. 
+
+where each evidence phrase en corresponds to a concise and clinically meaningful abnormal finding. Given an evidence phrase en, we encode it into a continuous embedding using a text encoder zn = ftext (en). Second, we introduce a set of learnable diagnostic prototypes: 
+
+C = {μk}Kk=1 , μk ∈ Rd. (3) Each prototype represents a latent diagnostic concept that may be shared across different reports and images. We compute a soft assignment over the diagnostic prototypes: 
+
+p(k | zn) = exp( z⊤ 
+
+> n
+
+μk/τ t)
+
+PKj=1 exp( z⊤ 
+
+> n
+
+μj /τ t) , (4) where τt is a temperature parameter. We jointly learn the text encoder and diagnostic prototypes by encouraging each evidence embedding to be reconstructed from the prototype space: 
+
+Lrec = X
+
+> en∈E (R)
+
+zn −
+
+> K
+
+X
+
+> k=1
+
+p(k | zn)μk
+
+> 22
+
++
+
+> K
+
+X
+
+> k=1
+
+∥μk∥22. (5) Through this mechanism, unpaired reports can effectively par-ticipate in representation learning by providing weak semantic supervision at the evidence level. This diagnostic evidence space provides a foundation for cross-modal learning of visual evidence. Medical images often contain multiple localized patholog-ical regions whose visual manifestations are subtle, spatially sparse, and difficult to annotate. Under limited pairing, global alignment is insufficient to guide models to focus on such diagnostically critical regions. We therefore ground visual learning in the shared diagnostic evidence space established from text, enabling evidence-level alignment between images and reports. First, we introduce a set of L learnable lesion queries {qℓ}Lℓ=1 that attend to patch-level visual features. Given a medical image I, a vision encoder produces patch embeddings Il ∈ RP ×dv . Each lesion query interacts with the patch features through a query-based attention mechanism: vℓ = Attn( qℓ, Il, Il), ℓ = 1 , . . . , L, 
+
+yielding a set of lesion-level embeddings vℓ ∈ Rdv . These embeddings represent latent visual evidence corresponding to potential pathological regions. To enable evidence-level alignment with text, each lesion embedding is projected into the shared diagnostic prototype space learned from reports: 
+
+QI (ℓ, k ) = exp( ϕ(vℓ)⊤μk/τ p)
+
+PKj=1 exp( ϕ(vℓ)⊤μj /τ p) , (6) where μk denotes the k-th diagnostic prototype. The resulting distribution QI (ℓ, ·) characterizes the diagnostic evidence as-sociated with each lesion. Lesion-level prototype distributions are aggregated to obtain an image-level diagnostic distribution: 
+
+¯QI = 1
+
+L
+
+> L
+
+X
+
+> ℓ=1
+
+QI (ℓ, ·). (7) For images paired with radiology reports, report-derived diagnostic evidence provide explicit semantic guidance. Given a report Rp paired with an image Ip, we aggregate prototype assignments of all extracted report evidence to form a report-induced diagnostic distribution: 
+
+¯QR(k) = 1
+
+|E (Rp)|
+
+X
+
+> en∈E (Rp)
+
+p(k | zn). (8) We then align visual evidence with textual evidence by minimizing the KL divergence: 
+
+Levid p = KL   ¯QR ∥ ¯QI
+
+ , (9) 4
+
+where the report-induced distribution ¯QR serves as a teacher signal. This evidence-level distillation enables paired images to learn lesion-level visual evidence consistent with diagnostic semantics, without requiring explicit lesion annotations. For unpaired images, report-derived supervision is unavail-able. However, unpaired images still exhibit meaningful visual structure and similarity patterns, which can be exploited to stabilize evidence learning. Specifically, we collect all le-sion instances from both paired and unpaired images within a mini-batch as {vi, Qi}NL
+
+> i=1
+
+, where NL = B × L. We measure visual similarity using cosine similarity between lesion embeddings and define the k-nearest neighbors as 
+
+Nk(i) = TopK j̸ =i
+
+  cos( vi, vj ). To encourage evidence-level consistency, we align the diagnostic prototype distributions of visually similar lesions using a similarity-weighted KL divergence: 
+
+Levid u = 1
+
+NLNLX
+
+> i=1
+
+X 
+
+> j∈N k(i)
+
+wij KL( Qi ∥ stopgrad( Qj )) , (10) where wij is computed by a softmax over cosine similari-ties. This consistency constraint allows unpaired images to actively participate in training by absorbing diagnostic seman-tics from nearby, evidence-aligned lesions, thereby anchoring their lesion-level representations within the shared diagnostic evidence space. 
+
+C. Evidence-guided Cross-modal Alignment 
+
+To enable medical vision–language pretraining under lim-ited paired data, we propose an evidence-guided weakly-supervised alignment strategy. The key challenge is that when explicit paired relations are scarce or even absent, direct image–report alignment becomes unreliable. Instead, we aim to learn higher-order cross-modal relations that reflect evidence-level semantic relatedness beyond direct pairing, and use them as weak supervision for training. Given a mini-batch of B images and B reports, we define an evidence-aware cross-modal alignment loss as 
+
+Levi-align = LR←I 
+
+> evi
+
++ LI←R 
+
+> evi
+
+, (11) where the image-to-report direction is 
+
+LR←I 
+
+> evi
+
+= − 1
+
+B
+
+> B
+
+X
+
+> i=1
+> B
+
+X
+
+> j=1
+
+Pij log exp  H⊤ 
+
+> Ii
+
+HRj /τ 2
+
+PBk=1 exp  H⊤ 
+
+> Ii
+
+HRk /τ 2
+
+ ,
+
+(12) and LI←R 
+
+> evi
+
+is defined symmetrically. Here, τ2 is the tempera-ture hyperparameter, and Pij ∈ [0 , 1] denotes the higher-order evidence relation between image Ii and report Rj . Unlike hard paired labels, Pij provides soft supervision by measuring how likely two samples share similar diagnostic evidence. For each report R, we extract a set of diagnostic evidence 
+
+E(R) using an LLM, and obtain its report-level diagnostic representation by aggregating evidence embeddings: 
+
+HR = 1
+
+|E (R)|
+
+X
+
+> en∈E (R)
+
+zn ∈ Rd. (13) Paired data manifold     
+
+> (1) ( ) ttIT
+
+S S  P P Y
+
+> Higher-order relations
+
+P 
+
+> Paired data
+> Lack of paired relations
+> Unpaired Images Unpaired Reports
+
+Y IS TS
+
+> Unpaired data manifold
+
+❌
+
+Unified manifold     
+
+> Fig. 3. Evidence-guided higher-order alignment under scarce paired super-vision. Sparse paired links Yare grounded in a shared diagnostic evidence space and propagated over intra-modal evidence graphs to infer higher-order relations P.
+
+Similarly, for an image I with L lesion queries, we aggre-gate lesion-level visual evidence projected into the diagnostic evidence embedding space: 
+
+HI = 1
+
+L
+
+> L
+
+X
+
+> ℓ=1
+
+ϕ(vℓ) ∈ Rd, (14) where ϕ(·) maps lesion embeddings vℓ into the diagnostic evidence embedding space. Let Y ∈ { 0, 1}NI ×NR denote the sparse binary relation matrix induced by paired image–report samples, where Yij =1 indicates that Ii and Rj form a paired instance. When paired supervision is available, we can directly set P = Y, leading to evidence-aware contrastive learning with hard positives. However, under scarce paired supervision, Y is extremely sparse and cannot provide sufficient alignment signals. To address this limitation, we infer higher-order relations by prop-agating the sparse seed relations over intra-modal evidence graphs, which effectively transfers supervision from paired data to unpaired unimodal data. We first construct a report–report evidence graph based on report-level representations: 
+
+AT T (i, j ) = sim( HRi , HRj ), (15) and row-normalize it to obtain the text-side propagation matrix 
+
+ST . Likewise, we construct an image–image evidence graph: 
+
+AII (i, j ) = sim( HIi , HIj ), (16) yielding the image-side propagation matrix SI after normal-ization. Starting from P(0) = Y, we perform label propagation to infer higher-order cross-modal relations: 
+
+P(t+1) = SI P(t)ST + Y, (17) where the residual term Y preserves original paired relations and stabilizes propagation. After two propagation steps, we obtain higher-order relations P and apply row-wise normal-ization. The resulting P enables us to treat evidence-similar 5
+
+image–report pairs as weak positives, thereby supporting evidence-aware cross-modal alignment even when explicit pairing is limited as shown in Figure 3. The overall training objective integrates diagnostic evidence modeling and cross-modal alignment: 
+
+L = Lrec + Levid  
+
+> p
+
++ Levid  
+
+> u
+
++ Levi-align , (18) where Lrec learns a structured diagnostic evidence space from reports, Levid  
+
+> p
+
+aligns the limited paired samples within this diagnostic evidence space, Levid  
+
+> u
+
+enforces evidence consistency for unpaired images, and Levi-align performs evidence-guided cross-modal alignment. All algorithms are described as fol-lows. 
+
+Algorithm 1: LGDEA: LLM-Guided Diagnostic Evi-dence Alignment                                                                
+
+> Require: Paired data Dp, unpaired images DIu, unpaired reports
+> DRu.
+> Require: Encoders fimage , f text , prototypes {μk}Kk=1 ,lesion queries {qℓ}Lℓ=1 .
+> Ensure: Trained model parameters.
+> 1: while not converged do
+> 2: Sample a mini-batch of paired and unpaired images/reports.
+> 3: (1) Build diagnostic evidence space.
+> 4: Extract evidence E(R) = LLM( R)and encode {zn}.
+> 5: Update evidence prototypes by minimizing Lrec .
+> 6: (2) Learn lesion-level visual evidence.
+> 7: Obtain lesion embeddings {vℓ}using lesion queries and attention.
+> 8: Project lesions into prototype space to get ¯QI.
+> 9: For paired samples, align with report evidence via Levid
+> p.
+> 10: For unpaired images, enforce lesion consistency via Levid
+> u.
+> 11: (3) Infer higher-order cross-modal relations.
+> 12: Compute image/report evidence representations
+> {HI},{HR}.
+> 13: Construct evidence graphs SI, S Tand propagate seed links: P(t+1) =SIP(t)ST+Y.
+> 14: (4) Evidence-guided weakly-supervised alignment.
+> 15: Optimize Levi-align using P-weighted contrastive loss.
+> 16: Update parameters by minimizing
+> L=Lrec +Levid
+> p+Levid
+> u+Levi-align .
+> 17: end while
+
+IV. E XPERIMENT 
+
+A. Experimental Settings 
+
+We evaluate LGDEA under both single-domain and cross-domain medical vision–language pretraining settings. Below we briefly describe the training data, downstream evaluation benchmarks, and baselines. 
+
+a) Training Data: We conduct pretraining primarily on the MIMIC-CXR dataset [28], which contains substantial chest X-ray images and corresponding radiology reports. To simulate realistic scenarios with limited pairing, we randomly sample different proportions of paired image–report data, while treating the remaining images and reports as unpaired unimodal data. For cross-domain pretraining, we additionally incorporate images from CheXpert [29] as unpaired visual data. 
+
+MIMIC-CXR MIMIC-CXR contains 377,110 chest X-ray images and 227,835 radiology reports from 65,379 pa-tients [28]. We use the Findings and Impression sections as textual input. Following MedCLIP [17], the dataset is split into a pretraining set and an evaluation subset (MIMIC-5×200 ). To simulate limited pairing, we randomly sample 5% and 10% of paired image–report data, while treating the remaining images and reports as unpaired unimodal data. The dataset is publicly available at https://physionet.org/content/mimic-cxr-jpg/2.1.0/. 
+
+CheXpert CheXpert contains 224,316 chest radiographs from 65,240 patients [29]. In cross-domain experiments, CheXpert images are used as additional unpaired visual data, combined with paired and unpaired text data from MIMIC-CXR. The dataset is available at https://www.kaggle.com/ datasets/ashery/chexpert. 
+
+b) Downstream Tasks: We evaluate learned representa-tions on a diverse set of downstream medical vision–language tasks, including phrase grounding, image–text retrieval, and zero-shot classification. Specifically, we use MS-CXR for phrase grounding, MIMIC-5×200 for retrieval and zero-shot classification, and RSNA Pneumonia, COVID, and NIH Chest X-rays for disease classification. 
+
+MS-CXR. MS-CXR is a phrase grounding benchmark with radiologist-annotated bounding boxes for eight disease categories [20]. 
+
+MIMIC-5×200 . A balanced subset constructed from MIMIC-CXR for zero-shot classification and image–text retrieval, covering five disease categories following GLo-RIA [23]. 
+
+RSNA Pneumonia. A binary chest X-ray dataset annotated for pneumonia detection with bounding boxes [30]. We follow MedCLIP [17] to construct class-balanced training and testing splits. 
+
+COVID and NIH Chest X-rays. We evaluate on the COVID-19 dataset [31] and the NIH Chest X-rays dataset [32] for disease classification using official splits. 
+
+c) Baselines: We compare LGDEA with representa-tive state-of-the-art medical VLP methods, including Med-CLIP [17], MGCA [24], MedKLIP [7], CLEFT [33], MAVL [34], PRIOR [35], CARZero [18], MedAligner [9], and AFLoc [13]. All baselines are trained under consistent data settings for fair comparison. 
+
+d) Implementation Details: LGDEA is trained with a multi-phase optimization schedule. The initial training phase uses a batch size of 128 and a learning rate of 5 × 10 −5 for 2 epochs, followed by subsequent phases trained for 5 epochs each with a batch size of 64 and a learning rate of 1×10 −4. All experiments use AdamW with a weight decay of 1×10 −6 and are conducted on two NVIDIA A100 GPUs (40GB). Images are resized to 256 ×256 and randomly cropped to 224 ×224 
+
+during training. 
+
+B. Experimental Results 
+
+We evaluate the proposed LGDEA framework under both single-domain and cross-domain medical vision–language pre-training settings with limited paired image–report. In the single-domain setting, all data are drawn from MIMIC-CXR, 6                                      
+
+> TABLE I THE USAGE OF THE DATASET EMPLOYED BY THE MODEL IN PRE -TRAINING AND DOWNSTREAM MEDICAL TASKS .Dataset Size/Images Annotations Pre-training Phrase Grounding Image-Text Retrieval Zero-shot Classification MIMIC-CXR 377,110 Paired images and reports ✓
+> CheXpert 224,316 Images ✓
+> MS-CXR 206 Bounding boxes, radiology phrase ✓
+> MIMIC-5×200 1,000 Radiology text, 5 diseases ✓✓
+> COVID 5,162 COVID-19/normal labels ✓
+> RSNA Pneumonia 12,024 Pneumonia/normal labels ✓
+> NIH Chest X-rays 112,120 14 disease/normal labels ✓
+> TABLE II THE PERFORMANCE OF THE PHRASE GROUNDING TASK IS EVALUATED ON THE MS-CXR DATASET USING CONTRAST -TO -N OISE RATIO (CNR) SCORES ACROSS EIGHT DISEASE CATEGORIES .
+
+Group Model Atelectasis Cardiomegaly Consolidation Lung Opacity Edema Pneumonia Pneumothorax Pleural Effusion Paired Baseline MedCLIP 0.5554 0.5253 0.5767 0.5599 0.4433 0.6175 0.4686 0.5076 GLoRIA 0.6088 0.5253 0.6194 0.5376 0.5062 0.7308 0.5896 0.8991 BioViL 0.5376 0.5014 0.5852 0.5266 0.4727 0.4602 0.4882 0.5841 MGCA 0.6338 0.5680 0.6543 0.5586 0.5247 0.8324 0.5240 0.8207 MedKLIP 0.5570 0.5282 0.5921 0.5926 0.4905 0.6781 0.5858 0.6398 PRIOR 0.6452 0.5601 0.5876 0.6624 0.5548 0.6693 0.6564 0.8221 CLEFT 0.6871 0.5687 0.6492 0.5699 0.4989 0.7259 0.5976 0.7974 MAVL 0.5811 0.5417 0.5486 0.6381 0.5115 0.7056 0.5952 0.7601 CARZero 0.6757 0.5214 0.6889 0.5572 0.5209 0.8438 0.6326 0.9672 AFLoc 0.7941 0.5928 0.7688 0.6894 0.6271 0.7484 0.6810 0.9866 MedAligner 0.8312 0.6058 0.8144 0.7163 0.7335 0.8489 0.7249 1.0207 Single Domain LGDEA 5% pair 0.8000 0.9127 0.8071 0.9032 0.8081 0.7849 0.7902 0.9742 LGDEA 10% pair 0.8449 0.9525 0.8357 0.9564 0.8172 0.9353 0.8526 1.0928 
+
+Cross Domain LGDEA 5% pair 0.8011 0.9111 0.7975 0.8789 0.7868 0.8235 0.7067 0.6667 LGDEA 10% pair 0.8306 0.9416 0.8126 0.9003 0.7891 0.9214 0.7952 0.7519 
+
+where only a small proportion (5% or 10%) of image–report pairs is retained and the remaining images and reports are included without explicit cross-modal pairing. In the cross-domain setting, paired samples and reports are from MIMIC-CXR, while images from CheXpert are incorporated as an additional visual source. Unimodal reports are derived from the remaining MIMIC-CXR reports. Across different pairing ratios, LGDEA is evaluated on multiple downstream tasks, including phrase grounding, image–text retrieval and zero-shot classification, assessing fine-grained diagnostic localization, cross-modal semantic alignment, and generalization to unseen diseases and domains. 
+
+Phrase Grounding . Phrase grounding aims to accurately associate textual phrases with their corresponding regions in medical images, thereby enabling fine-grained localization of diagnostic cues and enhancing model interpretability.Table II summarizes the phrase grounding results on the MS-CXR dataset, evaluated using the contrast-to-noise ratio (CNR) [36]. With only 10% of the paired image–text data, LGDEA achieves the highest CNR scores across all eight disease categories, substantially outperforming methods that leverage fully paired image–text relations and focus on local alignment modeling, such as AFLoc and MedAligner. Even when trained on cross-domain image–text data, LGDEA achieves higher CNR scores across all eight disease categories using only 10% of the paired image–text samples. In addition, visualization results based on Grad-CAM [37] heatmaps (Figure 4) further demonstrate that LGDEA can accurately localize disease-related phrases to the corresponding pathological regions. More visualizations are in the Figure 5. More importantly, we re-evaluate baseline methods that depend on fully paired supervision under the limited pairing ratios (Table III), which further demonstrates the superiority of LGDEA in scenarios with scarce paired data. 
+
+Image-Text Retrieval. To evaluate the matching perfor-mance between medical images and textual descriptions, we conducted experiments on the MIMIC-5 × 200 dataset. Specif-ically, for each query image, we computed the cosine similarity between its [CLS] token representation and the representations of candidate sentences for retrieval. Retrieval performance was assessed using the Precision@K metric. The results are summarized in Table IV. Although PRIOR and CARZero rely on 100% paired image–text data and benefit from their global image–text alignment to achieve competitive performance, LGDEA, using only 10% of the paired image–text relations, surpasses them on Precision@1, Precision@2, Precision@5, and Precision@10. Moreover, with only 10% of the paired im-age–text relations, LGDEA outperforms the best-performing 7
+
+TABLE III THE PERFORMANCE OF BASELINES TRAINED WITH LIMITED PAIRED IMAGE –TEXT DATA ON THE PHRASE GROUNDING TASK ON THE MS-CXR DATASET ,
+
+> EVALUATED USING THE CONTRAST
+
+-TO -NOISE RATIO (CNR) SCORE ACROSS EIGHT DISEASE CATEGORIES .
+
+Group Model Atelectasis Cardiomegaly Consolidation Lung Opacity Edema Pneumonia Pneumothorax Pleural Effusion Single Domain GLoRIA 50% pair 0.4486 0.3050 0.4359 0.4479 0.2069 0.4941 0.3017 0.3533 MGCA 50% pair 0.4620 0.2966 0.4363 0.4897 0.2352 0.6071 0.3569 0.4338 MedAligner 50% pair 0.6346 0.4149 0.5344 0.5431 0.5889 0.6836 0.6021 0.7298 LGDEA 5% pair 0.8000 0.9127 0.8071 0.9032 0.8081 0.7849 0.7902 0.9742 LGDEA 10% pair 0.8449 0.9525 0.8357 0.9564 0.8172 0.9353 0.8526 1.0928 
+
+Cross Domain LGDEA 5% pair 0.8011 0.9111 0.7975 0.8789 0.7868 0.8235 0.7067 0.6667 LGDEA 10% pair 0.8306 0.9416 0.8126 0.9003 0.7891 0.9214 0.7952 0.7519 LGDEA Image Phrases GT 
+
+small right apical pneumothorax 
+
+enlarged cardiac silhouette 
+
+Fig. 4. Attention maps for two disease categories are visualized on the MS-CXR dataset, comparing LGDEA with GT. Red bounding boxes indicate the ground truth regions relevant to phrase grounding. Highlighted pixels corre-spond to higher activation weights, reflecting stronger associations between specific diagnostic terms and image regions. TABLE IV THE IMAGE –T EXT RETRIEVAL TASK IS COMPARED WITH STATE -OF -THE -ART METHODS ON THE MIMIC-5 ×200 DATASET , AND 
+
+PRECISION (%) SCORES ARE REPORTED .
+
+Group Model Prec@1 Prec@2 Prec@5 Prec@10 Paired Baseline MedCLIP 44.40 43.45 44.50 45.58 GLoRIA 42.38 45.65 47.74 41.98 BioViL 48.81 47.88 50.05 32.88 MGCA 50.06 49.77 49.05 47.53 MedKLIP 50.00 50.00 49.42 50.00 PRIOR 53.19 51.72 51.89 41.69 CLEFT 52.75 50.31 48.75 49.81 MAVL 50.00 50.62 51.06 49.97 CARZero 50.00 50.00 51.65 47.38 AFLoc 54.37 52.78 49.79 43.20 MedAligner 55.88 54.08 54.05 50.56 Single Domain LGDEA 5% pair 53.25 51.03 50.66 49.98 LGDEA 10% pair 56.31 53.85 53.71 50.65 
+
+Cross Domain LGDEA 5% pair 50.88 50.68 48.57 48.33 LGDEA 10% pair 53.58 51.23 50.06 49.14 
+
+MedAligner in terms of Precision@1 and Precision@10, while achieving comparable precision on Precision@2 and Preci-sion@5. To better illustrate LGDEA semantic understanding capabilities, we present a case study of image-text retrieval examples in Figure 6. 
+
+TABLE V THE ACCURACY (%) OF THE ZERO -SHOT CLASSIFICATION IS EVALUATED ON THE MIMIC-5 × 200 , COVID, RSNA P NEUMONIA , AND NIH C HEST 
+
+X-RAYS DATASETS .
+
+Group Model MIMIC-
+
+5 × 200 COVID RSNA NIH Chest X-rays Paired Baseline MedCLIP 52.50 77.70 79.90 58.84 GLoRIA 72.22 87.77 78.55 59.47 BioViL 73.38 80.10 78.46 61.33 MGCA 74.87 86.87 79.20 68.40 MedKLIP 51.94 83.26 74.65 79.40 PRIOR 76.83 86.27 74.73 80.84 CLEFT 75.47 84.18 78.25 78.95 MAVL 74.60 83.06 78.14 82.77 CARZero 76.06 86.80 78.55 83.16 AFLoc 76.20 87.80 73.52 83.87 MedAligner 77.89 88.20 80.05 84.11 Single Domain LGDEA 5% pair 79.44 87.53 78.48 85.88 LGDEA 10% pair 80.00 90.47 79.26 87.06 
+
+Cross Domain LGDEA 5% pair 74.10 88.77 77.03 77.06 LGDEA 10% pair 76.78 90.13 78.92 78.56 
+
+Zero-Shot Classification. To assess the adaptability and generalization capability of the learned image encoder, we further evaluated its performance on zero-shot classification tasks. On the MIMIC-5 × 200 dataset, we perform classifi-cation evaluation by computing the similarity between the labels predicted by the image encoder and the ground-truth labels. For the COVID, RSNA Pneumonia, and NIH ChestX-ray datasets, we attach a classification head to the image encoder and train it using the cross-entropy loss, enabling the model to make predictions solely based on image features. Table V summarizes the classification results on MIMIC-
+
+5 × 200 , COVID, RSNA Pneumonia, and NIH ChestX-ray. When trained with only 10% paired image–text data, LGDEA outperforms all baselines across most datasets, demonstrating strong cross-dataset generalization. While it performs slightly worse than MedAligner and MedCLIP on RSNA, it surpasses them on the remaining datasets. 
+
+C. Ablation Study 
+
+The contributions of different components. We conduct ablation studies to assess the contribution of each core com-ponent in LGDEA. All variants are evaluated on the same 8Atelectasis Cardiomegaly Consolidation Lung Opacity Edema Pneumonia Pneumothorax Pleural Effusion 
+
+> MedCLIP MGCA MedKLIP PRIOR CLEFT MAVL CARZero Med-Aligner GT Model
+> AFLoc LGDEA (Ours)
+
+Fig. 5. Attention maps for eight disease categories are visualized on the MS-CXR dataset, comparing LGDEA with nine baseline methods. Red bounding boxes indicate the ground truth regions relevant to phrase grounding. Highlighted pixels correspond to higher activation weights, reflecting stronger associations between specific diagnostic terms and image regions. 9
+
+TABLE VI THE PERFORMANCE OF THE PHRASE GROUNDING TASK IS COMPARED WITH THE ALL ABLATED VARIANTS , USING CONTRAST -TO -N OISE RATIO (CNR) 
+
+> SCORES ACROSS EIGHT DISEASE CATEGORIES
+
+.Model Atelectasis Cardiomegaly Consolidation Lung Opacity Edema Pneumonia Pneumothorax Pleural Effusion Full LGDEA 0.8449 0.9525 0.8357 0.9564 0.8172 0.9353 0.8526 1.0928 w/o Lrec 0.6516 0.7170 0.6172 0.7604 0.7236 0.8142 0.6407 0.8125 w/o Levid  
+
+> p
+
+0.7214 0.8121 0.7210 0.8946 0.7571 0.8856 0.7179 0.9072 w/o Levid  
+
+> u
+
+0.7064 0.7977 0.6972 0.8828 0.7724 0.8153 0.7348 0.8524 w/o Levi-align 0.7355 0.8302 0.8049 0.9150 0.7751 0.8973 0.6238 0.9196 PRIOR 
+
+Input: Ground Truth: 
+
+CARZero 
+
+> Right Wrong
+
+Label:   
+
+> Pleural Effusion the moderate multiloculated left pleural effusion persists 1.severe left lower lobe consolidation may have worsened 2.the lungs are clear without focal consolidation effusion , or overt edema
+> Consolidation Consolidation 1.there could be a very small region of consolidation in the lingula 2.the cardiac silhouette is incompletely assessed but maybe mildly enlarged
+> Consolidation Cardiomegaly
+
+MedAligner   
+
+> 1.the moderate multiloculated left
+> pleural effusion
+> persists 2.lingula is still substantially airless and there is a large left pleural effusion ...
+
+LGDEA (ours)  
+
+> 1.increased size of left pleural effusion
+> which is now moderate with a ... 2.the moderate multiloculated left
+> pleural effusion
+> persists
+
+Fig. 6. Qualitative results of image-to-text retrieval. We show the top two retrieved texts for LGDEA, with comparisons to three baselines. We note the categories below wrongly retrieved samples. 
+
+downstream benchmarks for fair comparison. Specifically, we consider: (1) w/o Lrec , removing diagnostic evidence prototype learning and using global text embeddings instead; (2) w/o 
+
+Levid  
+
+> p
+
+, removing paired evidence distillation; (3) w/o Levid  
+
+> u
+
+,removing unpaired evidence consistency; and (4) w/o Levi-align ,disabling evidence relation inference and using only paired samples as positives. As shown in Table VI and VII, removing any component degrades performance, with w/o Lrec causing the largest drop, highlighting the importance of diagnostic evidence prototype learning under limited paired supervision. 
+
+The effects of different LLMs. In our main experiments, diagnostic evidence is extracted using Spark-Desk. To evaluate the robustness of LGDEA to the choice of evidence extractor, we replace Spark with two open-source LLMs, Qwen-7B [38] and LLaMA-8B [39], while keeping all other compo-nents unchanged. As shown in Table IX and Table VIII, LGDEA achieves stable performance across different LLM settings on both phrase grounding and image classification tasks. Although the extracted diagnostic evidence varies in linguistic style across LLMs, the overall performance remains largely consistent, indicating that LGDEA does not rely on a specific LLM but instead benefits primarily from the semantic effectiveness of the diagnostic evidence. 
+
+TABLE VII THE IMAGE –T EXT RETRIEVAL TASK IS COMPARED WITH THE ALL ABLATED VARIANTS ON THE MIMIC-5 × 200 DATASET , AND PRECISION 
+
+(%) SCORES ARE REPORTED .Model Prec@1 Prec@2 Prec@5 Prec@10 Full LGDEA 56.31 53.85 53.71 50.65 w/o Lrec 51.56 50.42 48.12 45.29 w/o Levid  
+
+> p
+
+54.06 52.12 49.89 46.37 w/o Levid  
+
+> u
+
+53.12 51.34 50.24 47.68 w/o Levi-align 53.25 51.68 50.47 48.61 
+
+D. Hyper-parameter Analysis 
+
+We analyze the sensitivity of LGDEA to two key hyper-parameters: the number of diagnostic prototypes K, which controls the semantic capacity of the shared evidence space, and the number of lesion queries L, which determines the granularity of lesion-level visual modeling. 
+
+Number of diagnostic prototypes K. We vary K ∈{32 , 64 , 96 , 128 } while fixing L = 64 . As shown in Figure 7 and Table X, a small K limits semantic expressiveness by forcing heterogeneous evidence to share prototypes, degrading phrase grounding and zero-shot classification performance. In-creasing K improves fine-grained evidence–lesion alignment, while overly large values lead to performance saturation and slight degradation. Overall, K = 64 provides the best trade-off between expressiveness and stability and is used in all experiments. 
+
+Number of lesion queries L. We fix K = 64 and vary 
+
+L ∈ { 32 , 48 , 64 , 80 }. As shown in Figure 7 and Table XI, increasing L enhances coverage of multiple pathological re-gions and improves grounding accuracy. However, excessively large L introduces redundant and overlapping queries, leading to slightly degraded performance. We therefore adopt L = 64 
+
+as a balanced setting across all downstream tasks. V. C ONCLUSION 
+
+In this paper, we show that CLIP-style global and local alignment becomes unreliable for medical vision–language pretraining under scarce paired data. To address this issue, 10 
+
+TABLE VIII THE PERFORMANCE OF THE PHRASE GROUNDING TASK IS COMPARED WITH LL AMA AND QWEN ON THE MS-CXR DATASET , USING 
+
+CONTRAST -TO -N OISE RATIO (CNR) SCORES ACROSS EIGHT DISEASE CATEGORIES .Model Atelectasis Cardiomegaly Consolidation Lung Opacity Edema Pneumonia Pneumothorax Pleural Effusion LLaMA 0.8000 0.9443 0.8343 0.9235 0.8115 0.9271 0.6894 0.9328 Qwen 0.8182 0.9469 0.8314 0.9160 0.8020 0.8805 0.8521 0.8003 Ours 0.8449 0.9525 0.8357 0.9564 0.8172 0.9353 0.8526 1.0928 
+
+TABLE IX THE ACCURACY (%) OF THE ZERO -SHOT CLASSIFICATION IS EVALUATED ON THE MIMIC-5 × 200 , COVID, RSNA P NEUMONIA , AND NIH C HEST 
+
+X-RAYS DATASETS AND COMPARED WITH LL AMA AND QWEN .
+
+Model MIMIC-
+
+5 × 200 COVID RSNA NIH Chest X-rays LLaMA 79.72 90.10 79.60 85.80 Qwen 79.92 90.39 79.15 86.14 Ours 80.00 90.47 79.26 87.06 (a) (b) 
+
+Fig. 7. (a) Effect of the number of diagnostic prototypes K and (b) effect of the number of lesion queries L, evaluated using average CNR on the MS-CXR phrase grounding task and ACC on the MIMIC-5×200 zero-shot classification task. TABLE X IMAGE CLASSIFICATION ACCURACY (%) ON THE COVID, RSNA, AND 
+
+NIH C HEST X-RAYS DATASETS WITH VARYING NUMBERS OF DIAGNOSTIC PROTOTYPES K, EVALUATING THE EFFECT OF SEMANTIC CAPACITY IN THE SHARED EVIDENCE SPACE .Number of diagnostic prototypes K              
+
+> COVID RSNA NIH Chest X-rays 32 87.14 87.14 85.91 64 90.47 79.26 87.06
+> 96 86.80 79.37 86.88 128 84.72 78.21 86.59
+
+we propose LGDEA, an LLM-guided framework that shifts pretraining from feature-level alignment to diagnostic evidence 
+
+TABLE XI IMAGE CLASSIFICATION ACCURACY (%) ON THE COVID, RSNA, AND 
+
+NIH C HEST X-RAYS DATASETS WITH DIFFERENT NUMBERS OF LESION QUERIES L, ANALYZING THE IMPACT OF LESION -LEVEL VISUAL MODELING GRANULARITY .Number of lesion queries L COVID RSNA NIH Chest X-rays 32 85.10 77.71 85.06 48 86.73 78.95 85.53 64 90.47 79.26 87.06    
+
+> 80 85.57 79.16 86.72
+
+alignment. LGDEA extracts key evidence from radiology reports and guides lesion-level visual evidence learning to align images with clinically meaningful semantics. Exten-sive experiments on phrase grounding, image–text retrieval, and zero-shot classification demonstrate consistent gains, and LGDEA can rival methods pretrained with substantially more paired data. REFERENCES [1] K. Zhu, P. Xia, Y. Li, H. Zhu, S. Wang, and H. Yao, “Mmedpo: Align-ing medical vision-language models with clinical-aware multimodal preference optimization,” in Forty-second International Conference on Machine Learning , 2025. [2] Y. Zou and Z. Yin, “Mvcm: Enhancing multi-view and cross-modality alignment for medical visual question answering and medical image-text retrieval,” in Proceedings of the Computer Vision and Pattern Recognition Conference , 2025, pp. 180–190. [3] Z. Lu, H. Li, N. A. Parikh, J. R. Dillman, and L. He, “Radclip: En-hancing radiologic image analysis through contrastive language-image pretraining,” IEEE Transactions on Neural Networks and Learning Systems , vol. 36, no. 10, pp. 17 613–17 622, 2025. [4] Z. Zhang, Y. Yu, Y. Chen, X. Yang, and S. Y. Yeo, “Medunifier: Unifying vision-and-language pre-training on medical data with vision generation task using discrete visual representations,” in Proceedings of the Computer Vision and Pattern Recognition Conference , 2025, pp. 29 744–29 755. [5] S. Gijsen and K. Ritter, “Eeg-language pretraining for highly label-efficient clinical phenotyping,” in Forty-second International Conference on Machine Learning , 2025. [6] M. Li, M. Meng, M. Fulham, D. D. Feng, L. Bi, and J. Kim, “Enhancing medical vision-language contrastive learning via inter-matching relation modelling,” IEEE Transactions on Medical Imaging , vol. 44, no. 6, pp. 2463–2476, 2025. [7] C. Wu, X. Zhang, Y. Zhang, Y. Wang, and W. Xie, “Medklip: Medical knowledge enhanced language-image pre-training for x-ray diagnosis,” in Proceedings of the IEEE/CVF International Conference on Computer Vision , 2023, pp. 21 372–21 383. [8] Z. Li, L. T. Yang, B. Ren, X. Nie, Z. Gao, C. Tan, and S. Z. Li, “Mlip: Enhancing medical visual representation with divergence encoder and knowledge-guided contrastive learning,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,2024, pp. 11 704–11 714. [9] H. Yan, X. Yang, L. Bai, and J. Liang, “Local alignment for medical vision-language pre-training,” IEEE Transactions on Image Processing ,vol. 34, pp. 7321–7334, 2025. 11 
+
+[10] Y. Xie, J. Zhang, Y. Xia, and Q. Wu, “Unimiss+: Universal medical self-supervised learning from cross-dimensional unpaired data,” IEEE Transactions on Pattern Analysis and Machine Intelligence , vol. 46, no. 12, pp. 10 021–10 035, 2024. [11] Z. Zhang, H. Zhang, T. Zeng, G. Yang, Z. Shi, and Z. Gao, “Bridging multi-level gaps: Bidirectional reciprocal cycle framework for text-guided label-efficient segmentation in echocardiography,” Medical Image Analysis , vol. 102, p. 103536, 2025. [12] J. Yang, B. Su, X. Zhao, and J. Wen, “Unlocking the power of spatial and temporal information in medical multimodal pre-training,” in Forty-first International Conference on Machine Learning , 2024. [13] H. Yang, H.-Y. Zhou, J. Liu, W. Huang, C. Li, Z. Li, Y. Gao, Q. Liu, Y. Liang, Q. Yang et al. , “A multimodal vision–language model for generalizable annotation-free pathology localization,” Nature Biomedical Engineering , pp. 1–15, 2026. [14] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal, G. Sastry, A. Askell, P. Mishkin, J. Clark, G. Krueger, and I. Sutskever, “Learning transferable visual models from natural language supervi-sion,” in Proceedings of the International Conference on Machine Learning , vol. 139, 2021, pp. 8748–8763. [15] Q. Chen and Y. Hong, “Medblip: Bootstrapping language-image pre-training from 3d medical images and texts,” in Proceedings of the Asian Conference on Computer Vision , 2024, pp. 2404–2420. [16] S. Eslami, C. Meinel, and G. De Melo, “Pubmedclip: How much does clip benefit visual question answering in the medical domain?” in 
+
+Findings of the Association for Computational Linguistics: EACL 2023 ,2023, pp. 1181–1193. [17] Z. Wang, Z. Wu, D. Agarwal, and J. Sun, “Medclip: Contrastive learning from unpaired medical images and text,” in Proceedings of the Conference on Empirical Methods in Natural Language Processing ,2022, pp. 3876–3887. [18] H. Lai, Q. Yao, Z. Jiang, R. Wang, Z. He, X. Tao, and S. K. Zhou, “Carzero: Cross-attention alignment for radiology zero-shot classifica-tion,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2024, pp. 11 137–11 146. [19] C. Lian, H.-Y. Zhou, D. Liang, J. Qin, and L. Wang, “Efficient medical vision-language alignment through adapting masked vision models,” 
+
+IEEE Transactions on Medical Imaging , vol. 44, no. 11, pp. 4499–4510, 2025. [20] B. Boecking, N. Usuyama, S. Bannur, D. C. Castro, A. Schwaighofer, S. L. Hyland, M. Wetscherek, T. Naumann, A. V. Nori, J. Alvarez-Valle, H. Poon, and O. Oktay, “Making the most of text semantics to improve biomedical vision-language processing,” in Proceedings of the European conference on computer vision , vol. 13696, 2022, pp. 1–21. [21] X. Liang, X. Li, F. Li, J. Jiang, Q. Dong, W. Wang, K. Wang, S. Dong, G. Luo, and S. Li, “Medfilip: Medical fine-grained language-image pre-training,” IEEE Journal of Biomedical and Health Informatics , vol. 29, no. 5, pp. 3587–3597, 2025. [22] T. Yu, Z. Tong, J. Yu, and K. Zhang, “Fine-grained adaptive visual prompt for generative medical visual question answering,” in Proceed-ings of the AAAI Conference on Artificial Intelligence , vol. 39, no. 9, 2025, pp. 9662–9670. [23] S.-C. Huang, L. Shen, M. P. Lungren, and S. Yeung, “Gloria: A multimodal global-local representation learning framework for label-efficient medical image recognition,” in Proceedings of the IEEE/CVF international conference on computer vision , 2021, pp. 3942–3951. [24] F. Wang, Y. Zhou, S. Wang, V. Vardhanabhuti, and L. Yu, “Multi-granularity cross-modal alignment for generalized medical visual repre-sentation learning,” Advances in Neural Information Processing Systems ,vol. 35, pp. 33 536–33 549, 2022. [25] Z. Chen, Y. Bie, H. Jin, and H. Chen, “Large language model with region-guided referring and grounding for ct report generation,” IEEE Transactions on Medical Imaging , vol. 44, no. 8, 2025. [26] A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai, T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly, J. Uszkoreit, and N. Houlsby, “An image is worth 16x16 words: Trans-formers for image recognition at scale,” in 9th International Conference on Learning Representations , 2021. [27] E. Alsentzer, J. Murphy, W. Boag, W.-H. Weng, D. Jindi, T. Naumann, and M. McDermott, “Publicly available clinical bert embeddings,” in 
+
+Proceedings of the 2nd clinical natural language processing workshop ,2019, pp. 72–78. [28] A. E. Johnson, T. J. Pollard, S. J. Berkowitz, N. R. Greenbaum, M. P. Lungren, C.-y. Deng, R. G. Mark, and S. Horng, “Mimic-cxr, a de-identified publicly available database of chest radiographs with free-text reports,” Scientific data , vol. 6, no. 1, p. 317, 2019. [29] J. Irvin, P. Rajpurkar, M. Ko, Y. Yu, S. Ciurea-Ilcus, C. Chute, H. Mark-lund, B. Haghgoo, R. Ball, K. Shpanskaya et al. , “Chexpert: A large chest radiograph dataset with uncertainty labels and expert comparison,” in Proceedings of the AAAI conference on artificial intelligence , vol. 33, no. 01, 2019, pp. 590–597. [30] G. Shih, C. C. Wu, S. S. Halabi, M. D. Kohli, L. M. Prevedello, T. S. Cook, A. Sharma, J. K. Amorosa, V. Arteaga, M. Galperin-Aizenberg 
+
+et al. , “Augmenting the national institutes of health chest radiograph dataset with expert annotations of possible pneumonia,” Radiology: Artificial Intelligence , vol. 1, no. 1, p. e180041, 2019. [31] T. Rahman, A. Khandakar, Y. Qiblawey, A. Tahir, S. Kiranyaz, S. B. A. Kashem, M. T. Islam, S. Al Maadeed, S. M. Zughaier, M. S. Khan et al. ,“Exploring the effect of image enhancement techniques on covid-19 detection using chest x-ray images,” Computers in biology and medicine ,vol. 132, p. 104319, 2021. [32] X. Wang, Y. Peng, L. Lu, Z. Lu, M. Bagheri, and R. M. Summers, “Chestx-ray8: Hospital-scale chest x-ray database and benchmarks on weakly-supervised classification and localization of common thorax diseases,” in Proceedings of the IEEE conference on computer vision and pattern recognition , 2017, pp. 2097–2106. [33] Y. Du, B. Chang, and N. C. Dvornek, “CLEFT: language-image con-trastive learning with efficient large language model and prompt fine-tuning,” in Proceedings of the International Conference Medical Image Computing and Computer Assisted Intervention , vol. 15012, 2024, pp. 465–475. [34] V. M. H. Phan, Y. Xie, Y. Qi, L. Liu, L. Liu, B. Zhang, Z. Liao, Q. Wu, M. To, and J. W. Verjans, “Decomposing disease descriptions for enhanced pathology detection: A multi-aspect vision-language pre-training framework,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2024, pp. 11 492–11 501. [35] P. Cheng, L. Lin, J. Lyu, Y. Huang, W. Luo, and X. Tang, “Prior: Pro-totype representation joint learning from medical images and reports,” in Proceedings of the IEEE/CVF international conference on computer vision , 2023, pp. 21 361–21 371. [36] R. E. Hendrick, “Signal, noise, signal-to-noise, and contrast-to-noise ratios,” in Breast MRI: Fundamentals and Technical Aspects , R. E. Hendrick, Ed. New York, NY, USA: Springer, 2008, pp. 55–69. [37] R. R. Selvaraju, M. Cogswell, A. Das, R. Vedantam, D. Parikh, and D. Batra, “Grad-cam: Visual explanations from deep networks via gradient-based localization,” in Proceedings of the IEEE international conference on computer vision , 2017, pp. 618–626. [38] J. Bai, S. Bai, Y. Chu, Z. Cui, K. Dang, X. Deng, Y. Fan, W. Ge, Y. Han, F. Huang et al. , “Qwen technical report,” arXiv preprint arXiv:2309.16609 , 2023. [39] A. Grattafiori, A. Dubey, A. Jauhri, A. Pandey, A. Kadian, A. Al-Dahle, A. Letman, A. Mathur, A. Schelten, A. Vaughan et al. , “The llama 3 herd of models,” arXiv preprint arXiv:2407.21783 , 2024.

@@ -1,0 +1,503 @@
+Title: DeepEra: A Deep Evidence Reranking Agent for Scientific Retrieval-Augmented Generated Question Answering
+
+URL Source: https://arxiv.org/pdf/2601.16478v1
+
+Published Time: Mon, 26 Jan 2026 01:22:41 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+## DeepEra: A Deep Evidence Reranking Agent for Scientific Retrieval-Augmented Generated Question Answering 
+
+Haotian Chen 1, Qingqing Long 1*, Siyu Pu 1, Xiao Luo 2, Wei Ju 3,Meng Xiao 1, Yuanchun Zhou 1, Jianghua Zhao 1, Xuezhi Wang 1∗
+
+> 1
+
+Computer Network Information Center, Chinese Academy of Sciences 
+
+> 2
+
+University of Wisconsin–Madison, 3Peking University 
+
+Abstract 
+
+With the rapid growth of scientific litera-ture, scientific question answering (SciQA) has become increasingly critical for exploring and utilizing scientific knowledge. Retrieval-Augmented Generation (RAG) enhances LLMs by incorporating knowledge from external sources, thereby providing credible evidence for scientific question answering. But existing retrieval and reranking methods remain vul-nerable to passages that are semantically simi-lar but logically irrelevant, often reducing fac-tual reliability and amplifying hallucinations. To address this challenge, we propose a Deep Evidence Reranking Agent ( DeepEra ) that in-tegrates step-by-step reasoning, enabling more precise evaluation of candidate passages be-yond surface-level semantics. To support sys-tematic evaluation, we construct SciRAG-SSLI (Scientific RAG–Semantically Similar but Logi-cally Irrelevant) , a large-scale dataset compris-ing about 300K SciQA instances across 10 sub-jects, constructed from 10M scientific corpus. The dataset combines naturally retrieved con-texts with systematically generated distractors to test logical robustness and factual ground-ing. Comprehensive evaluations confirm that our approach achieves superior retrieval perfor-mance compared to leading rerankers. To our knowledge, this work is the first to comprehen-sively study and empirically validate innegligi-ble SSLI issues in two-stage RAG frameworks. 
+
+1 Introduction 
+
+Scientific question answering plays a critical role in advancing scientific discovery (Kraemer et al., 2025; Wang et al., 2025). For instance, molecular biologists studying CRISPR gene editing must re-view prior work to assess off target effects (Hsu et al., 2013), while during global health emergen-cies such as the COVID-19 pandemic, clinicians must rapidly synthesize large volumes of newly 
+
+> *
+
+Corresponding Authors What ancient population and migration event are associated with the introduction of MS genetic risk variants into Europe? Retriver  
+
+> Response ReRanker
+> ...
+> N relevant passages (contexts)
+> ...
+> K relevant passages (contexts)
+> LLM
+> The Yamnaya-related migration from the Pontic steppe pastoralists approximately 5,000 years ago.
+> Question
+
+Figure 1: The two-stage RAG-LLM pipeline. 
+
+published studies to support evidence based de-cisions (Zammarchi et al., 2024). Recent large language models (LLMs) exhibit strong reason-ing and language understanding abilities, but re-main prone to hallucinations, outdated knowledge, and insufficient evidential grounding (Farquhar et al., 2024; Guo et al., 2025; Augenstein et al., 2024). Retrieval-Augmented Generation (RAG) mitigates these issues by grounding generation in up-to-date external scientific literature, improving accuracy and reliability, especially in scientific do-mains where evidence fidelity is critical (Wu et al., 2025; Chen et al., 2025; Yang et al., 2024a). Despite its effectiveness in grounding language model outputs, RAG still suffers from noisy and weakly relevant retrieved contexts, which can de-grade answer quality (Yang et al., 2024b; Au-genstein et al., 2024). To address these chal-lenges, rerank models are introduced to rerank retrieved passages by relevance. The two-stage pipline is shown in Figure 1. Dense cross-encoder rerankers (Zhuang et al., 2025; Dong et al., 2024), such as BGE (Chen et al., 2024), BCE (NetEase Youdao, 2023), and Jina (Jina AI, 2024), score query document pairs to promote the most informative passages, thereby improving an-swer fidelity and robustness in RAG systems. 
+
+Challenges and Empirical Validation. (1) Theoretical Upper Bound. Current RAG meth-1     
+
+> arXiv:2601.16478v1 [cs.CL] 23 Jan 2026 Qwen3 Embed. Mistral Embed. Bge Embed. GTE Embed. Roberta Embed.
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0 Ideal Score
+> NRS
+> CDR Figure 2: Retrieval performance of embedding models with similar but logically irrelevant passages.
+
+ods, including both embedding-based retrieval and reranking, primarily rely on vector similarity. Such similarity can be misleading, as passages may appear close in embedding space due to lexical overlap while remaining logically irrelevant to the query. (Liang and Guo, 2025) These seman-tically similar yet uninformative passages intro-duce noise and undermine the reliability of evi-dence provided to LLMs (Augenstein et al., 2024; Fang et al., 2024), limiting the robustness of exist-ing RAG systems. (2) Empirical Validation. To empirically examine this limitation, we generate semantically similar but logically irrelevant pas-sages using LLMs and randomly inject them into the retrieval database. We evaluate several rep-resentative embedding models, including Qwen3-Embedding-8B (Zhang et al., 2025b), E5-Mistral-7B-Instruct (Choi et al., 2024), BGE-M3 (Chen et al., 2024), GTE-Large-v1.5 (Li et al., 2023), and all-roberta-large-v1 (Zuo et al., 2025). We intro-duce two metrics: Noise Robustness Score (NRS), measuring the proportion of non-distractor pas-sages retrieved, and Context Discrimination Rate (CDR), capturing the ability to distinguish origi-nal passages from their distractors. As shown in Fig. 2, both metrics fall substantially below the ideal , indicating that current embedding models struggle to filter semantically similar but logi-cally irrelevant contexts . These results expose a fundamental limitation of embedding based RAG and motivate rerankers that model logical relevance beyond surface similarity. 
+
+Proposed Method. To bridge the identified gap, we propose Deep E vidence Reranking Agent (DeepEra ), an agentic reranker that leverages the reasoning capabilities of LLMs to assess candidate passages beyond surface-level similarity. Unlike conventional embedding-based rerankers, DeepEra evaluates contexts based on their semantic rele-vance, logical consistency, and evidential ground-ing with respect to the query, mitigating the impact of semantically similar but misleading passages and improving the robustness and reliability of sci-entific RAG. Due to the lack of benchmarks con-taining semantically similar but logically irrelevant negatives, we further construct a dataset, SciRAG-SSLI, by mixing naturally retrieved scientific pas-sages with LLM-generated distractors to ensure both realism and controlled difficulty. We summarize our contributions as follows: 1
+
+To our knowledge, this work is the first to com-prehensively and empirically validate innegligible 
+
+SSLI issues in two-stage RAG frameworks. 2
+
+We construct a new dataset, SciRAG-SSLI , which combines naturally retrieved passages with LLM-generated distractors to provide controlled yet real-istic evaluation scenarios for scientific QA. 3 We propose DeepEra for scientific retrieval-augmented generation, designed to dynamically reason over candidate passages and filter misleading contexts.  
+
+> 4
+
+Extensive experiments show that DeepEra per-forms better than other rerankers, achieving up to 
+
+8% relative improvements in retrieval robust-ness and answer accuracy .
+
+2 Related Work 
+
+Our work relates to three research lines: scien-tific question answering, retrieval augmented gen-eration with reranking, and agentic scientific QA. Although diverse rerankers ranging from dense and sparse to listwise and LLM-based methods have been proposed (NetEase Youdao, 2023; Chen et al., 2024; Jina AI, 2024), most rely on surface-level semantic similarity and remain vulnerable to semantically similar but logically irrelevant pas-sages. Meanwhile, agent based scientific QA en-ables multi step retrieval and reasoning but typi-cally lacks explicit reranking to filter misleading evidence. (Lála et al., 2023; Zhang et al., 2025a) Our Deep Evidence Reranking Agent bridges these directions by introducing agentic reasoning into reranking, explicitly modeling logical relevance and evidential support. A detailed review of related work is provided in Appendix 6.1 .
+
+3 Methodology 
+
+Problem Definition . In this paper, we consider the task of scientific question answering within the RAG framework, which consists of three main stages. Given a scientific query q, the goal is to generate an answer a that is supported by cred-ible and contextually relevant evidence. First, a retriever searches over a large scale corpus C
+
+and returns a candidate set of passages (evidence) 2Context       
+
+> Title: ...... Author: ...... Abstract:
+> ...
+> ...
+> Chunking Abstract Chunks Meta Info. Text Embedding
+> Clustering and Filtering
+> Multiple sclerosis is a ... By using an ancient genome dataset from the Mesolithic period ... We further show MS-associated immunogenetic ... This study highlights importance of ...
+> Top-3 Retrieval Context
+> DocID : ....
+> Target Type : Misleading
+> Main Idea :Recent Viking Age migrations 1,200 years ago are the primary source of MS genetic risk variants in Northern Europe.
+> Answer Avoidance :Incorrect time period and population
+> Agent Guidence
+> Question : What ancient population ... event are associated ...? Viking Age migrations (8th-11th centuries CE) may have contributed to the distribution of multiple sclerosis (MS) risk alleles in Scandinavia and the British Isles.
+> ... ...
+> (a) Source Data Preprocessing
+
+( ) 
+
+> (b) ( Question, Answer )Construction Process
+
+)
+
+( )(       
+
+> (c) SSLI Context Construction Process
+> 100M 120K Publication
+> Venues Authors 100M Papers
+> Answer Context
+> Question
+> Relevant
+> SSLI
+> Indexing Author: ...... Title: ......
+> Method Result Significance
+> Highly Relevant Corpus
+> Method Result Significance
+> ... by using a ... ... MS-associated ... ... highlights ...
+> +
+
+Figure 3: Dataset construction pipeline. Scientific abstracts and metadata are collected and clustered to retain contextually related documents. Structured information ( Method , Result , Significance ) is extracted to generate QA pairs. For each question, SSLI contexts are further generated via LLM-guided instructions to create semantically similar but logically irrelevant distractors. 
+
+P = {p1, p 2, . . . , p n}, P ⊂ C , based on their vector similarity to the query. Next, to improve the quality of the generator’s answer, a reranker 
+
+R(q, p ) is applied to rescore the candidate evidence set, and the top-k (k ≪ N ) evidence with the highest scores are retained as the refined context set P∗ = Top-k({R(q, p i)}ni=1 ). Finally, an LLM takes the query q together with the refined set P∗
+
+and produces the final answer as a = LLM (q, P∗).
+
+3.1 Dataset Construction 
+
+To effectively evaluate our proposed framework, we constructed two datasets tailored for scientific question answering and reranking tasks, as shown in Fig. 3. Both datasets are built by first generating question-answer (QA) pairs from scientific docu-ments and then defining two settings to control the retrieval difficulty. 
+
+QA Generation. We adopted two approaches for QA generation. The first method follows the 
+
+LMQG framework (Ushio et al., 2023), which em-ploys LLMs to automatically generate QA pairs from scientific papers. The second approach uses an LLM with carefully designed prompts to gen-erate QA pairs, for ensuring reproducibility and domain customization. As illustrated in Fig. 3, we collect scientific papers from open-access reposi-tories (Priem et al., 2022) and segment abstracts into sentence-preserving chunks. These chunks are embedded and stored with associated metadata in a structured database. We then filter weakly connected documents via clustering and extract structured information (e.g., methods , results , and 
+
+significance ) using LLMs. Based on this structured information, QA pairs are generated to align with scientific QA tasks. Together, these approaches produce two datasets for downstream experiments. 
+
+Base and SSLI Settings. For each dataset, we define two kinds of settings: (1) Base , where ques-tions are paired with contexts directly retrieved from the scientific database, and (2) SSLI (Seman-tically Similar but Logically Irrelevant ), where ad-ditional distractor passages (context) are injected into the candidate passages (context). For each QA pair, we first retrieve the top-3 contexts C by em-bedding similarity. The query Q, golden answer 
+
+A, and retrieved contexts C are then provided to an LLM, which outputs structured guidance to con-trol distractor generation. This guidance specifies the intended distractor type (e.g., misleading, back-ground, irrelevant), thematic focus, and instruc-tions to avoid including the golden answer. Guided by this, the LLM generates distractors that are se-mantically coherent with the query and retrieved passages but logically inconsistent with the ground truth answers. 
+
+3.2 Model: DeepEra 
+
+To enhance the quality and reliability of evidence provided to downstream generation, we propose the Deep Evidence Reranking Agent ( DeepEra ), which systematically integrates query understand-ing, structured scoring, and evidence summariza-tion. As shown in Figure 4. DeepEra is designed to operate in three sequential stages, explicitly mod-eling both the semantic and logical relevance of candidate passages with respect to the scientific query. 
+
+Intention Recognition Given a scientific ques-tion q, we first employ an LLM to perform intention recognition. The model extracts a structured representation of the query, denoted as I(q) = 
+
+{topic , entity_type , intent , expected_answer_type }.Here, topic identifies the overarching domain (e.g., molecular biology, epidemiology), en-
+
+3... 
+
+...      
+
+> ...
+> Rerank Metrics
+> Generation Metrics
+> F1 Precision Recall LFS
+> Final Score
+> LLM as Judger
+> Expert Evaluation
+> Input DeepEra Architecture Evaluation
+> Generated Answer
+> User Intention
+
++             
+
+> Intent Extraction
+> Domain :Genetics Entities: ancient population, migration event, ....
+> Type : C ausal
+> Answer Specification: identification of ancient population and migration event linked to the introduction of MS genetic risk variants in Europe.
+> Self Assessment
+> Direct Evidence Differentiate Concepts Avoid Speculation
+> Filter & Summarize
+> Relevance Filtering
+> Key Info. Extraction
+> Context Preservation
+> It is possible ...
+> +
+> Migration Trend
+> Ethnic Population
+> + +
+> Mechanistic Structural
+> Causal Variable-specific ...
+> HitRate@K RP
+> Question:
+> What ancient migration event are associated with ...?
+
++
+
+> SSLI Context
+> Relevant Context
+
+Figure 4: Overview of DeepEra. DeepEra first performs Intention Recognition to extract structured query representations. Retrieved candidate passages are then scored in the Relevance Assessment stage using an LLM-based function to prioritize mechanistically or causally relevant evidence. Finally, passages exceeding a relevance threshold are filtered and summarized to produce a compact evidence set for downstream answer generation. 
+
+tity_type specifies the central scientific entities (e.g., “cell type: lymphocytes” or “virus strain: SARS-CoV-2”), intent denotes the cognitive or reasoning task (definition, mechanism, compar-ison, causal inference, or functional role), and 
+
+expected_answer_type indicates the preferred form of the answer (e.g., numeric, categorical, procedural, or descriptive). By structuring the query in this manner, DeepEra ensures that downstream reranking focuses on passages that are scientifically relevant and contextually aligned, rather than superficially matching keywords or common terminology. 
+
+Relevance Assessment Each retrieved passage 
+
+pi ∈ P is evaluated against the structured query representation using an LLM-based scoring func-tion. The scoring prompt enforces rigorous scien-tific selection criteria, ensuring that only passages offering direct mechanistic, structural, or causal ev-idence are prioritized. Specifically, passages must explicitly address variable-specific relationships or provide data-driven results to achieve a high score, while speculative or tangentially related con-tent is filtered out. Formally, the relevance of a passage is defined as s(q, p i) = Score (qstruct , p i),where qstruct denotes the structured representation of the query. The resulting RelevanceScore lies within [0 , 1] , with high scores reserved for pas-sages containing critical experimental findings or structural derivations, whereas redundant, vague, or conceptually mismatched passages are assigned low scores. This strict differentiation of concepts, models, variables, and domains prevents superficial lexical matches from being misclassified as rele-vant, aligning the scoring process with reasoning. 
+
+Evidence Filtering and Summarization Pas-sages are filtered strictly according to their Rele-vanceScore , and only those exceeding a predefined threshold τ are retained, i.e., P∗ = {pi | s(q, p i) ≥
+
+τ }. This ensures that semantically similar but logi-cally irrelevant passages are excluded, leaving only trustworthy evidence aligned with the structured query. To further reduce redundancy and control the input length to the generator LLM, each re-tained passage is summarized into a concise form conditioned on the query representation. The sum-marization process follows three key principles: (1) 
+
+Key Information Extraction : identify only the content directly addressing the scientific question; (2) Context Preservation : preserve original termi-nology and entities without paraphrasing, thereby avoiding semantic drift; and (3) Conciseness : pro-duce a logically clear summary limited to one or two sentences. This produces a high-precision evi-dence set that maximizes relevance, reduces noise from misleading or tangential passages, and facili-tates robust answer generation. The pseudocode of DeepEra is shown in Algo. 1. 
+
+4 Experiment 
+
+4.1 Experimental Settings Dataset We evaluate our approach on two datasets constructed from a corpus of approxi-mately 10M scientific articles, yielding 300K QA pairs. Dataset I is generated using the LMQG framework, while Dataset II is built with our pro-posed dataset construction method (Section 3). For RAG evaluation, each dataset is split into Base 
+
+and SSLI subsets. The Base subset contains 75K QA instances paired with directly retrieved con-texts, while the SSLI subset includes 75K instances 4Algorithm 1: DeepEra (Deep Evidence Reranking Agent)                                                                  
+
+> Input: Question q; retrieved passages (candidate evidence set) P={p1, . . . , p n}; threshold τ
+> Output: Final evidence list E
+> 1Step 1: Intention Recognition
+> 2I(q)←LLM intent (q)
+> 3I(q) = {t, e, i, a };// t: topic, e:entity_type, i: intent, a:expected_answer_type
+> 4Step 2: Relevance Assessment
+> 5for pi∈ P do
+> 6s(q, p i)←LLM score (I(q), p i)
+> ;// Scoring by structured match: high if picontains direct evidence
+> 7S={(pi, s (q, p i)) |i= 1 , . . . , n }
+> 8S ← sort (S,by s(q, p i)descending )
+> 9Step 3: Evidence Filtering
+> 10 P∗← { pi|(pi, s (q, p i)) ∈ S , s (q, p i)≥τ}
+> // Remove noisy or tangential passages
+> 11 Step 4: Evidence Summarization
+> 12 E ← ∅
+> 13 for pi∈ P ∗do
+> 14 ei←LLM summ (pi, I (q))
+> // Condense passage: keep key entities, preserve terminology
+> 15 E ← E ∪ { ei}
+> 16 return E
+
+with semantically similar but logically irrelevant distractor passages injected into the retrieved con-texts. For all experiments, we retrieve the top-30 passages per query to ensure fair comparison. 
+
+Baselines For baseline settings, we evaluate a di-verse set of reranking models that represent the main paradigms in the field. (1) Dense cross-encoder models such as BGE (Chen et al., 2024), Jina (Jina AI, 2024), BCE (NetEase Youdao, 2023) are included as strong neural baselines, while sparse lexical approaches are represented by SPLADE (Formal et al., 2021), which provides interpretable, term-level signals. (2) To capture token-level late interaction mechanisms, we in-corporate ColBERT (Santhanam et al., 2021), and for (3) sequence-to-sequence generation, we test T5-based rerankers and MonoT5 (Nogueira et al., 2020) along with (4) listwise extensions such as RankT5 (Zhuang et al., 2023) and ListT5 (Yoon et al., 2024). (5) We further include distillation-based rerankers, such as Twolar (Baldelli et al., 2024), as well as (6) instruction-following LLM-based rerankers including RankGPT (Sun et al., 2023), VicunaReranker (Pradeep et al., 2023a), ZephyrReranker (Pradeep et al., 2023b), DeAR-ank (Abdallah et al., 2025), limrank (Song et al., 2025), and LLM2Vec (BehnamGhader et al., 2024), which highlight the capability of LLMs to directly generate ranking signals. 
+
+Experimental Settings. Our agentic reranker fol-lows a two-stage pipeline. An LLM first performs intention recognition to derive a structured rep-resentation of the input question, which condi-tions the subsequent relevance scoring of candi-date passages. Each passage is assigned a Rel-evanceScore, and passages with scores below a threshold ( τ = 0 .8) are filtered. The retained pas-sages are further summarized into concise, query-conditioned representations to reduce redundancy and context length. For fair comparison, all meth-ods retrieve the top-30 passages, with k = 5 pas-sages selected for generation. We implement our reranker using Qwen-plus (Team, 2024), and con-duct all generation experiments with the same gen-erator ( Llama-2-70b-chat-hf ). 
+
+Implementation Details. All reranking experi-ments are performed on a cluster equipped with four NVIDIA H100 GPUs. Both LLMs and rerank-ing models are evaluated using their default pa-rameter settings. To reduce randomness, each ex-periment is repeated three times with independent runs. For consistency and fairness, all methods are assessed in a zero-shot regime, without any task-specific fine-tuning or auxiliary optimization. 
+
+Evaluation Metrics We conduct experiments us-ing a combination of generation-based and rerank-based metrics to comprehensively assess their per-formance. For the generation quality of the LLM answer s, we report standard metrics including F1, Precision and Recall, which measure the overlap and completeness of the generated answer rela-tive to the ground truth. For reranking perfor-mance , we adopt two tailored metrics: HitRate@K ,which measures whether the golden context ap-pears within the top-K retrieved passages, and Rel-ative Position (RP) , which captures the rank of the golden context, reflecting the model’s ability to promote relevant evidence. However, lexical over-lap metrics are insufficient under the SSLI setting, where answers may exhibit high surface similar-ity yet lack correct logical grounding. To address this limitation, we introduce the Logic Fidelity Score (LFS) , an LLM-based metric that evaluates answers based on factual correctness, logical con-sistency, and contextual adequacy. Given a ques-5tion q, golden answer a∗, and candidate answer a,the LLM assigns a score from 0 to 5, with higher values indicating stronger logical alignment with the ground truth. 
+
+4.2 Overall Performance 4.2.1 Generation Performance 
+
+Table 1 highlights the generation performance of various rerankers under both base and SSLI settings. Precision, which measures the proportion of cor-rectly generated content relative to all generated content, declines significantly for most baselines ,indicating that irrelevant context can mislead the model into including incorrect information. Recall, reflecting the completeness of the generated an-swer relative to the ground truth, also varies across models; our agentic reranker achieves the high-est recall (60.54) under SSLI , demonstrating its effectiveness in preserving relevant evidence de-spite distractors. F1, as a harmonic mean of pre-cision and recall, shows that our model balances accuracy and completeness better than competi-tors, reaching 43.38 under SSLI . Finally, the LLM Score, which directly evaluates answer quality and faithfulness via a separate scoring LLM, reaches 3.94 for our model, significantly higher than other baselines , indicating that our approach pro-duces more credible and trustworthy responses. 
+
+Collectively, these metrics reveal that while SSLI 
+
+substantially increases difficulty, our method’s ability to rank relevant passages and filter out distractors enables the LLM to generate answers that are both accurate and comprehensive , re-flecting robust noise resistance and contextual understanding .
+
+4.2.2 Reranking Performance 
+
+As shown in Table 1, our model consistently outper-forms existing baselines under both easy and hard settings. In terms of HitRate@1 and HitRate@3 ,
+
+DeepEra achieves 66.6 and 76.4 respectively on the hard subset , surpassing the strongest baseline by over 5 points in HitRate@1 and closely match-ing the top performance in HitRate@3. Similarly, for the Relative Position (RP) metric, which eval-uates the ranking position of the golden context, 
+
+Ours attains 71.96 on the hard setting , demon-strating its superior capability to prioritize rel-evant passages. These results indicate that our method is more effective at promoting essential evidence to higher ranks , particularly in challeng-ing scenarios where retrieval depth is limited. 
+
+4.2.3 Impact of Base a SSLI Settings 
+
+The relative drops in F1, Precision, and LLM Score from Base to SSLI quantify the difficulty introduced by semantically similar but logically irrelevant passages. Across most baselines, these reductions highlight the susceptibility of standard rerankers and generation models to noise. In con-trast, our agentic reranker exhibits smaller relative declines, demonstrating its robustness to distrac-tors. The percentage changes provide a clear pic-ture: while SSLI introduces additional challenging contexts, our model effectively mitigates their negative influence , maintaining both the fidelity and credibility of generated answers compared to other approaches. 
+
+Recall increases for several models under 
+
+SSLI , including our own. This can be attributed to the nature of the Recall metric, which measures the proportion of ground-truth answer tokens present in the generated response, regardless of the sur-rounding context. The injected distractors often contain terms semantically related to the question, which increases token overlap with the golden an-swer even when the overall answer quality declines. Consequently, the rise in Recall under SSLI should not be simply interpreted as an improvement in answer quality ; the final quality of the generated answer still needs to be assessed in conjunction with other metrics such as F1, Precision, and the LLM Score, which jointly provide a more reliable evaluation of answer correctness and relevance. 
+
+4.2.4 LMQG vs. Ours Mode 
+
+Evaluation under LMQG and Ours settings reveals consistent trends. Models achieve higher perfor-mance in LMQG than in Ours, reflecting the lower difficulty of surface-level questions. In LMQG, LLM scores often improve from Base to SSLI , as shorter and simpler contexts enable accurate gener-ation even with injected distractors. Performance across rerankers also tends to converge in LMQG, suggesting limited impact of reranking for simple queries. In contrast, Ours questions require reason-ing over methods, results, and significance, leading to larger performance gaps and greater sensitivity to reranker quality. 
+
+4.3 Visualization 
+
+Figure 5 visualizes the ranking distributions of 30 retrieved passages under the Base and SSLI set-tings, where shaded regions denote semantically similar but logically irrelevant passages. In the 6Table 1: Evaluation results of different reranking models on scientific QA dataset with SSLI setting. Each model is evaluated under two difficulty settings: easy and hard. Generation metrics (left) evaluate the quality of LLM answers, while reranking metrics (right) measure retrieval effectiveness. 
+
+Model Setting Generation Metrics Reranking Metrics 
+
+F1 ↑ Precision ↑ Recall ↑ LFS ↑ HitRate@1 ↑ HitRate@3 ↑ RP ↑
+
+BCE LMQG 46.49 ± 1.12 34.58 ± 0.97 63.82 ± 1.05 4.01 ± 0.88 53.80 ± 1.20 64.80 ± 1.02 59.73 ± 1.15 Ours 46.86 ± 1.08 39.33 ± 1.21 53.05 ± 0.95 3.31 ± 0.67 51.40 ± 1.18 73.20 ± 1.10 62.91 ± 1.25 BGE LMQG 45.85 ± 0.98 35.53 ± 1.03 62.49 ± 0.92 4.03 ± 0.81 53.60 ± 1.10 65.20 ± 1.12 59.53 ± 1.07 Ours 46.40 ± 1.05 40.98 ± 1.18 53.40 ± 1.02 3.40 ± 0.78 59.40 ± 1.25 82.60 ± 1.10 71.61 ± 1.18 Jina LMQG 46.02 ± 1.15 36.44 ± 0.95 61.36 ± 0.88 3.99 ± 0.73 52.80 ± 1.03 64.20 ± 1.08 59.04 ± 1.09 Ours 44.93 ± 1.10 43.61 ± 0.92 48.39 ± 1.05 3.61 ± 0.81 60.80 ± 1.14 76.20 ± 1.05 68.36 ± 1.12 MiniLM LMQG 44.88 ± 0.97 33.65 ± 0.87 61.15 ± 1.03 3.99 ± 0.91 52.60 ± 1.07 63.60 ± 1.12 58.38 ± 1.15 Ours 45.25 ± 1.12 38.91 ± 1.10 51.43 ± 0.97 3.20 ± 0.72 34.20 ± 1.05 58.60 ± 1.08 47.74 ± 1.09 In-Ranker LMQG 45.40 ± 1.05 33.74 ± 0.98 61.90 ± 1.02 3.98 ± 0.81 54.40 ± 1.10 65.40 ± 1.07 60.33 ± 1.12 Ours 45.27 ± 1.08 38.75 ± 1.15 53.29 ± 0.99 3.38 ± 0.79 53.40 ± 1.12 81.40 ± 1.08 67.53 ± 1.10 MXBAI LMQG 45.64 ± 0.95 34.46 ± 1.01 62.70 ± 0.89 4.08 ± 0.86 47.80 ± 1.05 62.20 ± 1.08 55.35 ± 1.03 Ours 45.79 ± 1.00 39.76 ± 1.08 53.50 ± 0.91 3.55 ± 0.84 62.60 ± 1.12 83.20 ± 1.05 63.21 ± 1.10 ColBERT LMQG 45.35 ± 1.03 34.73 ± 0.97 61.95 ± 0.95 4.02 ± 0.82 51.80 ± 1.05 63.40 ± 1.09 58.15 ± 1.07 Ours 45.39 ± 1.08 39.43 ± 1.11 52.52 ± 0.98 3.32 ± 0.80 48.80 ± 1.10 75.80 ± 1.08 63.24 ± 1.12 RankT5 LMQG 44.81 ± 1.02 33.58 ± 0.97 60.87 ± 0.93 3.99 ± 0.78 55.40 ± 1.08 65.40 ± 1.05 60.70 ± 1.11 Ours 45.48 ± 1.06 40.14 ± 1.09 52.72 ± 0.95 3.37 ± 0.80 52.60 ± 1.09 78.40 ± 1.07 65.95 ± 1.10 ListT5 LMQG 19.64 ± 1.12 14.64 ± 0.91 27.94 ± 1.05 2.63 ± 0.72 0.20 ± 0.58 0.20 ± 0.61 0.25 ± 0.59 Ours 21.34 ± 1.05 23.97 ± 1.01 26.52 ± 0.93 1.81 ± 0.67 0.60 ± 0.62 1.80 ± 0.74 1.20 ± 0.68 SPLADE LMQG 45.48 ± 1.07 35.04 ± 0.95 60.68 ± 0.97 3.93 ± 0.80 48.60 ± 1.08 62.80 ± 1.05 56.07 ± 1.10 Ours 45.07 ± 1.03 38.74 ± 1.08 51.40 ± 0.92 3.28 ± 0.78 51.40 ± 1.09 75.60 ± 1.08 64.38 ± 1.10 TwoLAR LMQG 45.36 ± 1.02 34.10 ± 0.95 62.68 ± 0.98 4.04 ± 0.81 48.80 ± 1.07 64.20 ± 1.05 56.76 ± 1.09 Ours 46.01 ± 1.05 38.61 ± 1.09 53.76 ± 0.95 3.43 ± 0.78 58.80 ± 1.08 83.60 ± 1.06 71.47 ± 1.10 LLM2Vec LMQG 44.39 ± 1.04 32.46 ± 0.93 62.04 ± 0.98 4.01 ± 0.82 20.40 ± 0.67 39.40 ± 0.74 32.86 ± 0.71 Ours 45.02 ± 1.07 38.69 ± 1.08 52.36 ± 0.95 3.34 ± 0.79 53.40 ± 1.06 76.40 ± 1.08 65.90 ± 1.12 RankGPT LMQG 46.55 ± 1.08 36.21 ± 0.95 58.64 ± 0.97 3.82 ± 0.79 47.20 ± 1.05 62.20 ± 1.07 54.64 ± 1.09 Ours 45.92 ± 1.06 40.02 ± 1.10 52.88 ± 0.96 3.84 ± 0.80 50.02 ± 1.08 70.10 ± 1.06 57.98 ± 1.08 VicunaReranker LMQG 38.74 ± 0.92 35.56 ± 1.49 60.73 ± 2.36 4.03 ± 0.14 45.18 ± 1.77 59.24 ± 2.48 52.15 ± 1.00 Ours 41.12 ± 0.42 41.49 ± 2.31 54.38 ± 1.75 3.65 ± 0.12 58.67 ± 3.07 74.95 ± 1.02 67.56 ± 1.84 ZephyrReranker LMQG 38.97 ± 1.84 36.73 ± 2.13 61.03 ± 4.57 4.00 ± 0.17 50.80 ± 4.10 61.24 ± 4.30 56.39 ± 4.27 Ours 41.00 ± 0.47 40.63 ± 2.19 54.41 ± 1.30 3.59 ± 0.09 61.69 ± 4.84 72.95 ± 3.56 69.02 ± 3.44 MonoT5 LMQG 38.56 ± 1.30 35.97 ± 1.76 60.43 ± 0.91 3.92 ± 0.07 51.41 ± 2.52 64.06 ± 2.80 57.66 ± 2.03 Ours 38.95 ± 1.01 39.08 ± 3.57 51.85 ± 1.21 3.32 ± 0.10 45.58 ± 3.98 72.29 ± 2.14 59.79 ± 2.48 limrank LMQG 33.19 ± 0.96 30.94 ± 1.64 55.06 ± 1.72 3.86 ± 0.01 14.86 ± 2.80 32.93 ± 3.82 25.95 ± 3.04 Ours 37.44 ± 0.95 36.73 ± 4.46 52.60 ± 2.37 3.46 ± 0.03 35.14 ± 3.12 57.23 ± 3.44 47.63 ± 2.49 DeARrerank LMQG 37.85 ± 1.36 35.05 ± 1.61 61.01 ± 2.29 3.96 ± 0.07 53.01 ± 3.84 63.65 ± 3.20 58.70 ± 2.92 Ours 39.49 ± 0.96 39.35 ± 3.28 54.04 ± 0.59 3.51 ± 0.10 61.85 ± 2.88 73.13 ± 3.55 62.90 ± 2.76 
+
+DeepEra LMQG 46.00 ± 1.05 34.15 ± 0.97 64.35 ± 0.99 4.09 ± 0.83 56.20 ± 1.10 66.60 ± 1.08 63.65 ± 1.09 
+
+Ours 43.38 ± 1.04 42.97 ± 1.09 60.54 ± 0.95 3.94 ± 0.80 66.60 ± 1.07 76.40 ± 1.06 71.96 ± 1.08 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 
+
+Original Base (Before Re.) 
+
+MXBAI under Base (After Re.) 
+
+Ours under Base (After Re.) 
+
+Original SSLI (Before Re.) 
+
+MXBAI under SSLI (After Re.) 
+
+Ours under SSLI (After Re.) 
+
+Figure 5: Visualization of the relevance between questions and retrieved contexts across six evaluation tasks, before and after reranking. Shaded regions denote semantically similar but logically irrelevant passages. 
+
+7Base setting, both our model and MXBAI consis-tently rank relevant contexts at the top. Under the more challenging SSLI setting, MXBAI occasion-ally prioritizes semantically similar yet irrelevant passages, while our model maintains robust top-
+
+5 performance by effectively filtering misleading contexts and preserving relevant evidence. Ours v1 v2 v3    
+
+> 40
+> 50
+> 60
+> 70
+> 80
+> Recall LFS* HitRate@1 RP
+
+Figure 6: Ablation study of DeepEra. 
+
+4.4 Model Analysis 4.4.1 Ablation Study 
+
+To investigate the contribution of each module in our framework, we conduct ablation studies by selectively removing the three core components: (1) v1 : removing the intention recognition module, (2) v2 : removing the evidence filtering module, and (3) v3 : removing the evidence summarization module. The results are shown in Figure 6. V1 has a minor performance drop, with metrics de-creasing slightly (e.g., HitRate@1 from 66.06 to 65.20), as the benefit of decomposing the question is limited for relatively simple queries. In contrast, v2 plays a crucial role by dynamically removing irrelevant passages; without it, additional noise is introduced, leading to noticeable declines in both generation and ranking metrics (e.g., HitRate@1 drops to 62.60). The v3 condenses each passage after reranking, so its removal has little effect on ranking indicators (HitRate@1 only drops to 65.40) but significantly reduces generation quality (Recall drops from 61.82 to 52.10, LFS from 4.03 to 3.69). Overall, these results highlight that while each mod-ule contributes differently, all three are essential for maintaining robust generation and retrieval per-formance in our proposed DeepEra. 
+
+4.4.2 Parameter Analysis 
+
+We study the impact of varying the number of Top-K passages in the reranking stage ( K =3, 5, 10 , 15 ) on retrieval and generation perfor-mance, measured by HitRate@K, F1, Recall, and LFS. Fig. 7 shows that Top-5 passages achieve the best balance, yielding the highest F1 and LFS while maintaining strong precision and recall. Sec-ond, for each Top-K setting, with the Evidence Filtering module enabled, the results are consis-3 5 10 15          
+
+> 44.50
+> 45.00
+> 45.50
+> 46.00
+> 46.50
+> 47.00
+> 47.50
+> 48.00
+> F1 3510 15
+> 34.0
+> 35.0
+> 36.0
+> 37.0
+> 38.0
+> 39.0
+> 40.0
+> Precision 3510 15
+> 58.00
+> 60.00
+> 62.00
+> 64.00
+> 66.00
+> Recall 3510 15
+> 3.85
+> 3.90
+> 3.95
+> 4.00
+> 4.05
+> LFS
+
+Figure 7: Parameter analysis of Top-K passages in the reranking stage. Metrics are reported for DeepEra (blue) and its variant without evidence filtering (red). 
+
+tently higher than without filtering. This confirms the effectiveness of filtering in removing irrelevant passages, thereby improving both retrieval quality and downstream generation. Third, when K in-creases beyond 10, we observe a performance drop in F1 and precision, even though recall slightly improves. This indicates that including too many passages tends to introduce redundant or noisy evi-dence, which negatively impacts the reranking and generation quality. 
+
+4.4.3 Running Efficiency 
+
+We further compare the efficiency of our frame-work with other LLM-based reranking methods, such as RankGPT. While RankGPT requires ap-proximately 30 seconds to rerank a single query, our model achieves the same process in only 7.9 seconds on average. This notable improvement demonstrates that our approach not only maintains strong effectiveness but also provides a more practi-cal solution for real-world applications where both accuracy and efficiency are crucial. 
+
+5 Conclusion 
+
+This paper proposes DeepEra to enhance scien-tific question answering by improving the selection and summarization of candidate evidence passages. The framework integrates Intention Recognition ,
+
+Relevance Assessment , and Evidence Summariza-tion . We build two datasets to evaluate reranking robustness. Experiments show that DeepEra effec-tively prioritizes relevant contexts, reduces noise, and improves answer generation quality, achieving around 8% overall performance gain over baselines. By filling the gap of explicit reranking in Agentic RAG frameworks, DeepEra provides a reliable, in-terpretable, and scalable solution for scientific QA. 8References 
+
+Abdelrahman Abdallah, Jamshid Mozafari, Bhawna Piryani, and Adam Jatowt. 2025. DeAR: Dual-stage document reranking with reasoning agents via LLM distillation. In Findings of the Association for Com-putational Linguistics: EMNLP 2025 , pages 5710– 5723, Suzhou, China. Association for Computational Linguistics. Isabelle Augenstein, Timothy Baldwin, Meeyoung Cha, Tanmoy Chakraborty, Giovanni Luca Ciampaglia, David Corney, Renee DiResta, Emilio Ferrara, Scott Hale, Alon Halevy, and 1 others. 2024. Factuality challenges in the era of large language models and opportunities for fact-checking. Nature Machine In-telligence , 6(8):852–863. Davide Baldelli, Junfeng Jiang, Akiko Aizawa, and Paolo Torroni. 2024. Twolar: a two-step llm-augmented distillation method for passage reranking. In European Conference on Information Retrieval ,pages 470–485. Springer. Parishad BehnamGhader, Vaibhav Adlakha, Marius Mosbach, Dzmitry Bahdanau, Nicolas Chapados, and Siva Reddy. 2024. Llm2vec: Large language models are secretly powerful text encoders. arXiv preprint arXiv:2404.05961 .Haotian Chen, Qingqing Long, Meng Xiao, Xiao Luo, Wei Ju, Chengrui Wang, Xuezhi Wang, Yuanchun Zhou, and Hengshu Zhu. 2025. Scir-erankbench: Benchmarking rerankers towards sci-entific retrieval-augmented generated llms. arXiv preprint arXiv:2508.08742 .Jianlv Chen, Shitao Xiao, Peitian Zhang, Kun Luo, Defu Lian, and Zheng Liu. 2024. Bge m3-embedding: Multi-lingual, multi-functionality, multi-granularity text embeddings through self-knowledge distillation. 
+
+arXiv preprint arXiv:2402.03216 .Chanyeol Choi, Junseong Kim, Seolhwa Lee, Jihoon Kwon, Sangmo Gu, Yejin Kim, Minkyung Cho, and Jy-yong Sohn. 2024. Linq-embed-mistral technical report. arXiv preprint arXiv:2412.03223 .Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. 2019. BERT: Pre-training of deep bidirectional transformers for language under-standing. In Proceedings of NAACL-HLT .Jialin Dong, Bahare Fatemi, Bryan Perozzi, Lin F Yang, and Anton Tsitsulin. 2024. Don’t forget to connect! improving rag with graph-based reranking. arXiv preprint arXiv:2405.18414 .Feiteng Fang, Yuelin Bai, Shiwen Ni, Min Yang, Xiao-jun Chen, and Ruifeng Xu. 2024. Enhancing noise robustness of retrieval-augmented language models with adaptive adversarial training. arXiv preprint arXiv:2405.20978 .Sebastian Farquhar, Jannik Kossen, Lorenz Kuhn, and Yarin Gal. 2024. Detecting hallucinations in large language models using semantic entropy. Nature ,630(8017):625–630. Thibault Formal, Benjamin Piwowarski, and Stéphane Clinchant. 2021. Splade: Sparse lexical and expan-sion model for first stage ranking. In Proceedings of the 44th International ACM SIGIR Conference on Research and Development in Information Retrieval ,pages 2288–2292. Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Peiyi Wang, Qihao Zhu, Runxin Xu, Ruoyu Zhang, Shirong Ma, Xiao Bi, and 1 others. 2025. Deepseek-r1 incentivizes reasoning in llms through reinforce-ment learning. Nature , 645(8081):633–638. Patrick D Hsu, David A Scott, Joshua A Weinstein, F Ann Ran, Silvana Konermann, Vineeta Agarwala, Yinqing Li, Eli J Fine, Xuebing Wu, Ophir Shalem, and 1 others. 2013. Dna targeting specificity of rna-guided cas9 nucleases. Nature biotechnology , 31(9). Tao Huang, Ming Chen, and 1 others. 2025. Agentic ai for scientific discovery: A survey of progress. arXiv preprint arXiv:2503.08979 .Jina AI. 2024. jina-reranker-v2-base-multilingual. https://huggingface.co/jinaai/ jina-reranker-v2-base-multilingual .Vladimir Karpukhin, Barlas Oguz, Sewon Min, Patrick Lewis, Ledell Wu, Sergey Edunov, Danqi Chen, and Wen-tau Yih. 2020. Dense passage retrieval for open-domain question answering. In Proceedings of EMNLP .Moritz UG Kraemer, Joseph L-H Tsui, Serina Y Chang, Spyros Lytras, Mark P Khurana, Samantha Vander-slott, Sumali Bajaj, Neil Scheidwasser, Jacob Liam Curran-Sebastian, Elizaveta Semenova, and 1 others. 2025. Artificial intelligence for modelling infectious disease epidemics. Nature , 638(8051):623–635. Thiago Laitz, Konstantinos Papakostas, Roberto Lotufo, and Rodrigo Nogueira. 2024. Inranker: Distilled rankers for zero-shot information retrieval. Preprint ,arXiv:2401.06910. Jakub Lála, Odhran O’Donoghue, Aleksandar Shtedrit-ski, Sam Cox, Samuel G Rodriques, and Andrew D White. 2023. Paperqa: Retrieval-augmented gener-ative agent for scientific research. arXiv preprint arXiv:2312.07559 .Zehan Li, Xin Zhang, Yanzhao Zhang, Dingkun Long, Pengjun Xie, and Meishan Zhang. 2023. Towards general text embeddings with multi-stage contrastive learning. arXiv preprint arXiv:2308.03281 .Xin Liang and Quan Guo. 2025. Transform retrieval for textual entailment in RAG. In Proceedings of the 2025 Conference of the Nations of the Americas Chapter of the Association for Computational Lin-guistics: Human Language Technologies (Volume 2: Short Papers) , pages 595–599, Albuquerque, New Mexico. Association for Computational Linguistics. 
+
+9Qingqing Long, Haotian Chen, Chenyang Zhao, Xi-aolei Du, Xuezhi Wang, Pengyao Wang, Chengzan Li, Yuanchun Zhou, and Hengshu Zhu. 2026. Sci-encedb ai: An llm-driven agentic recommender sys-tem for large-scale scientific data sharing services. 
+
+arXiv preprint arXiv:2601.01118 .Inc. NetEase Youdao. 2023. Bcembedding: Bilin-gual and crosslingual embedding for rag. https: //github.com/netease-youdao/BCEmbedding .Rodrigo Nogueira and Kyunghyun Cho. 2019. Pas-sage re-ranking with bert. arXiv preprint arXiv:1901.04085 .Rodrigo Nogueira, Zhiying Jiang, Ronak Pradeep, and Jimmy Lin. 2020. Document ranking with a pre-trained sequence-to-sequence model. In Findings of the Association for Computational Linguistics: EMNLP 2020 , pages 708–718, Online. Association for Computational Linguistics. Ronak Pradeep, Sahel Sharifymoghaddam, and Jimmy Lin. 2023a. Rankvicuna: Zero-shot listwise doc-ument reranking with open-source large language models. arXiv preprint arXiv:2309.15088 .Ronak Pradeep, Sahel Sharifymoghaddam, and Jimmy Lin. 2023b. Rankzephyr: Effective and robust zero-shot listwise reranking is a breeze! arXiv preprint arXiv:2312.02724 .Jason Priem, Heather Piwowar, and Richard Orr. 2022. Openalex: A fully-open index of scholarly works, authors, venues, institutions, and concepts. arXiv preprint arXiv:2205.01833 .Pranav Rajpurkar, Jian Zhang, Konstantin Lopyrev, and Percy Liang. 2016. SQuAD: 100,000+ questions for machine comprehension of text. In Proceedings of EMNLP , pages 2383–2392. Stephen Robertson and Hugo Zaragoza. 2009. The probabilistic relevance framework: Bm25 and be-yond. Foundations and Trends in Information Re-trieval , 3(4). Keshav Santhanam, Omar Khattab, Jon Saad-Falcon, Christopher Potts, and Matei Zaharia. 2021. Col-bertv2: Effective and efficient retrieval via lightweight late interaction. arXiv preprint arXiv:2112.01488 .Aamir Shakir, Darius Koenig, Julius Lipp, and Sean Lee. 2024. Boost your search with the crispy mixedbread rerank models. John Smith, Priya Kumar, and 1 others. 2025. Exploring the role of large language models in the scientific domain. Nature Computational Science , 5(1):1–10. Tingyu Song, Yilun Zhao, Siyue Zhang, Chen Zhao, and Arman Cohan. 2025. Limrank: Less is more for reasoning-intensive information reranking. In Pro-ceedings of the 2025 Conference on Empirical Meth-ods in Natural Language Processing , pages 20636– 20650. Weiwei Sun, Lingyong Yan, Xinyu Ma, Shuaiqiang Wang, Pengjie Ren, Zhumin Chen, Dawei Yin, and Zhaochun Ren. 2023. Is chatgpt good at search? investigating large language models as re-ranking agents. arXiv preprint arXiv:2304.09542 .Qwen Team. 2024. Qwen2 technical report. arXiv preprint arXiv:2407.10671 .Asahi Ushio, Fernando Alva-Manchego, and Jose Camacho-Collados. 2023. An empirical compari-son of LM-based question and answer generation methods. In Findings of the Association for Com-putational Linguistics: ACL 2023 . Association for Computational Linguistics. Ellen M Voorhees. 2001. Overview of the trec 2001 question answering track. In Proceedings of the TREC .Chaoming Wang, Sichao He, Shouwei Luo, Yuxiang Huan, and Si Wu. 2025. Integrating physical units into high-performance ai-driven scientific computing. 
+
+Nature Communications , 16(1):3609. Wenhui Wang, Furu Wei, Li Dong, Hangbo Bao, Nan Yang, and Ming Zhou. 2020. Minilm: Deep self-attention distillation for task-agnostic compression of pre-trained transformers. Advances in neural in-formation processing systems , 33:5776–5788. Junde Wu, Jiayuan Zhu, Yunli Qi, Jingkun Chen, Min Xu, Filippo Menolascina, Yueming Jin, and Vicente Grau. 2025. Medical graph rag: Evidence-based medical large language model via graph retrieval-augmented generation. In Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 28443– 28467. Diji Yang, Jinmeng Rao, Kezhen Chen, Xiaoyuan Guo, Yawen Zhang, Jie Yang, and Yi Zhang. 2024a. Im-rag: Multi-round retrieval-augmented generation through learning inner monologues. In Proceedings of the 47th International ACM SIGIR Conference on Research and Development in Information Retrieval .Xiao Yang, Kai Sun, Hao Xin, Yushi Sun, Nikita Bhalla, Xiangsen Chen, Sajal Choudhary, Rongze Gui, Zi-ran Jiang, Ziyu Jiang, and 1 others. 2024b. Crag-comprehensive rag benchmark. Advances in Neural Information Processing Systems , 37. Soyoung Yoon, Eunbi Choi, Jiyeon Kim, Hyeongu Yun, Yireun Kim, and Seung-won Hwang. 2024. Listt5: Listwise reranking with fusion-in-decoder improves zero-shot retrieval. arXiv preprint arXiv:2402.15838 .Gianpaolo Zammarchi, Andrea Carta, Silvia Columbu, Luca Frigau, and Monica Musio. 2024. A sciento-metric analysis of the effect of covid-19 on the spread of research outputs. Quality & Quantity , 58(3). Wei Zhang, Fang Liu, and 1 others. 2025a. Pasa: An llm agent for comprehensive academic paper search. In Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (ACL) .
+
+10 Yanzhao Zhang, Mingxin Li, Dingkun Long, Xin Zhang, Huan Lin, Baosong Yang, Pengjun Xie, An Yang, Dayiheng Liu, Junyang Lin, and 1 others. 2025b. Qwen3 embedding: Advancing text embedding and reranking through foundation models. arXiv preprint arXiv:2506.05176 .Zhihong Zhu, Yunyan Zhang, Xianwei Zhuang, Fan Zhang, Zhongwei Wan, Yuyan Chen, Qingqing Long, Yefeng Zheng, and Xian Wu. 2025. Can we trust AI doctors? a survey of medical hallucination in large language and large vision-language models. In Find-ings of the Association for Computational Linguis-tics: ACL 2025 , pages 6748–6769, Vienna, Austria. Association for Computational Linguistics. Honglei Zhuang, Zhen Qin, Rolf Jagerman, Kai Hui, Ji Ma, Jing Lu, Jianmo Ni, Xuanhui Wang, and Michael Bendersky. 2023. Rankt5: Fine-tuning t5 for text ranking with ranking losses. In Proceedings of the 46th International ACM SIGIR Conference on Research and Development in Information Retrieval ,pages 2308–2313. Shengyao Zhuang, Xueguang Ma, Bevan Koopman, Jimmy Lin, and Guido Zuccon. 2025. Rank-r1: Enhancing reasoning in llm-based document rerankers via reinforcement learning. arXiv preprint arXiv:2503.06034 .Haosheng Zuo, Feifei Niu, and Chuanyi Li. 2025. En-hancement report approval prediction: A compara-tive study of large language models. arXiv preprint arXiv:2506.15098 .
+
+11 6 Appendix 
+
+6.1 Related Work Scientific Question Answering Scientific ques-tion answering (Scientific QA) aims to automat-ically address research or domain-specific ques-tions by leveraging scientific texts and knowl-edge bases. Early approaches were largely based on information retrieval and rule-based reason-ing, where candidate passages were retrieved using keyword matching and then post-processed to ex-tract answers (Voorhees, 2001). With the advent of neural architectures, sequence-to-sequence and Transformer-based readers have become dominant, enabling models to directly generate or extract an-swers from retrieved documents (Rajpurkar et al., 2016; Devlin et al., 2019). 
+
+Algorithm 2: Scientific QA Dataset Con-struction                                                                               
+
+> Input: Set of scientific papers P; LLM; embedding model Embed; clustering function Cluster
+> Output: Dataset Dwith Base and SSLI settings
+> 1Step 1: Abstract Segmentation and Embedding
+> 2for p∈ P do
+> 3Chunks ←segment_abstract (p. abstract );
+> // preserve complete sentences
+> 4for c∈Chunks do
+> 5vc←Embed (c);// vector representation
+> 6store_in_database( c,vc,p. metadata)
+> 7Step 2: Corpus Clustering
+> 8P∗←Cluster (P);// retain contextually relevant papers
+> 9Step 3: Structured Information Extraction
+> 10 for p∈ P ∗do
+> 11 Sp←LLM.extract_structured (p. abstract );
+> // methods, results, significance
+> 12 Step 4: QA Pair Generation
+> 13 QA ← ∅
+> 14 for Spin structured info do
+> 15 QA ← QA ∪ LLM.generate_QA (Sp)
+> 16 Step 5: Base and SSLI Context Construction
+> 17 for (Q, A )∈ QA do
+> 18 BaseContexts ←
+> retrieve_top_k (Q, database , k = 3)
+> 19 D ← D ∪ { (Q, A, BaseContexts ,Base )}
+> // SSLI: generate semantically similar but logically irrelevant distractors
+> 20 Guidence ←
+> LLM.create_guidence (Q, A, BaseContexts );
+> // fields: DocID, TargetType, MainIdea, AnswerAvoidance
+> 21 Distractors ←
+> LLM.generate_distractors (Guidence )
+> 22 SSLIContexts ←BaseContexts ∪Distractors
+> 23 D ← D ∪ { (Q, A, SSLIContexts ,SSLI )}
+> 24 return D
+
+Two-Stage RAG Framework RAG integrates a retrieval module with a language generation model (Yang et al., 2024b; Long et al., 2026; Zhu et al., 2025), using retrieved documents as context. Early methods employ dense retrievers (e.g., DPR (Karpukhin et al., 2020)) or sparse retrievers (e.g., BM25 (Robertson and Zaragoza, 2009)). A key challenge is that retrieved passages may be noisy or irrelevant, motivating rerank models that reorder or refine results to improve their usefulness for gen-eration (Nogueira and Cho, 2019). Rerankers aim to refine the initial retrieval results by reordering candidate passages according to their relevance. Dense cross-encoder rerankers such as BGE (Chen et al., 2024), Jina (Jina AI, 2024), BCE (NetEase Youdao, 2023), and MXBAI (Shakir et al., 2024) utilize bi-sequence encoding for contextual relevance scoring, yielding strong performance. In contrast, sparse lexical rerankers like SPLADE (Formal et al., 2021) adopts interpretable, term-level sparse representations aligned with classical IR principles. In pursuit of greater efficiency, models such as MiniLM (Wang et al., 2020) leverages distilled attention mech-anisms to balance performance and cost. Late interaction approaches like ColBERT (Santhanam et al., 2021) defers token-level comparisons to maintain scalability. Recent innovations explore generative and reinforcement learning paradigms. LLM-based rerankers like RankGPT (Sun et al., 2023), LLM2Vec (BehnamGhader et al., 2024), VicunaReranker (Pradeep et al., 2023a), ZephyrReranker (Pradeep et al., 2023b), DeAR-rerank (Abdallah et al., 2025),limrank (Song et al., 2025) applies instruction following capabilities to generate relevance judgments, albeit at high computational cost. Sequence-to-sequence models like In-Ranker (Laitz et al., 2024) generates scores directly from tokenized query-document pairs, removing the need for external LLMs. Beyond pairwise methods, listwise rerankers such as RankT5 (Zhuang et al., 2023) and ListT5 (Yoon et al., 2024) optimizes document ranking holistically through joint training. Two-step distillation frameworks like Twolar (Baldelli et al., 2024) efficiently transfers LLM knowledge, while RankR1 (Zhuang et al., 2025) introduces reinforcement learning to optimize for downstream QA accuracy directly. Despite progress in reranking, most models still rely on surface-level semantic similarity , limit-ing their ability to identify passages that provide 12 genuine logical support for a query. LLM-based rerankers can partially mitigate this issue by lever-aging instruction following and in-context rea-soning to better assess relevance beyond surface similarity. However, these approaches typically do not incorporate an explicit filtering mechanism for irrelevant passages . As a result, semantically similar but logically misleading contexts may still be fed into the generator , potentially propagat-ing errors through subsequent reasoning steps and limiting the overall reliability of the RAG pipeline. This observation motivates the need for a reranking framework that not only scores passages for rele-vance but also systematically filters out misleading evidence before answer generation. 
+
+Agentic Scientific QA Agentic models have re-cently gained attention in scientific QA, where LLMs are equipped to plan multi-step workflows, invoke external tools, and iteratively refine answers. Representative systems such as PaperQA (Lála et al., 2023) and PaSa (Zhang et al., 2025a) demon-strate that agentic retrieval and reasoning can sub-stantially improve performance on scholarly QA tasks. Recent surveys further highlight the growing role of agentic AI in automating scientific discov-ery and literature-driven QA (Huang et al., 2025; Smith et al., 2025). Despite their success, existing agent-based QA pipelines typically lack an explicit reranking mechanism , allowing semantically similar but log-ically irrelevant passages to propagate noise into downstream reasoning and generation. To address this gap, we introduce DeepEra that systematically prioritizes logically relevant and trustworthy evi-dence, significantly improving the reliability and accuracy of scientific QA. 
+
+6.2 Detailed Dataset Construction Information Source Literature We construct our syn-thetic scientific questions using data from Ope-nAlex (Priem et al., 2022), a large-scale open scholarly metadata repository. OpenAlex offers rich, structured metadata covering academic pub-lications, authorship, institutional affiliations, and research concepts. The platform aggregates infor-mation from over 250 million scholarly works, in-cludes more than 100 million distinct author en-tities, and catalogs metadata for approximately 120,000 publication venues spanning both journals and conferences. 
+
+Dataset Construction Pseudocode Algorithm 2 presents the dataset construction workflow, encom-passing abstract preprocessing, structured informa-tion extraction, QA pair generation, and the cre-ation of Base and SSLI settings. 
+
+Specific Dataset Instances/Samples We present representative dataset instances for both the base and SSLI settings. Each instance consists of a scientific question, its corresponding gold-standard answer, and a collection of 30 contextual passages. An example instance is illustrated in Figure 8. 
+
+6.3 Detailed Experimental Settings Detailed Prompting Template In this section, we present the detailed prompting templates used in our pipeline. Figure 9 presents the User Intent Recognition prompt, extracting a structured repre-sentation of the question. Finally, Figure 10 shows the Scientific Question Generation prompt, gen-erating high-quality QA pairs from the structured Guidances and original passage. 
+
+6.4 Detailed Experimental Results 
+
+Detailed main results of the Base setting are shown in Table 2. After correcting answer F1 with ran-dom deviations, DeepEra remains consistently su-perior. On the hard subset, it achieves the best scores across all generation and reranking met-rics, delivering a double-digit gain in HitRate@1 over the strongest baseline and clear improvements in HitRate@3 and RP. On the easy subset, while some baselines top individual generation metrics, DeepEra still yields the best reranking effective-ness, indicating robust prioritization of golden con-texts under this stricter evaluation. 13 Table 2: Evaluation results of different reranking models on scientific QA dataset with Base setting. Each model is evaluated under two difficulty settings: easy and hard. Generation metrics (left) evaluate the quality of LLM answers, while reranking metrics (right) measure retrieval effectiveness. 
+
+Model Setting Generation Metrics Reranking Metrics 
+
+F1 ↑ Precision ↑ Recall ↑ LFS ↑ HitRate@1 ↑ HitRate@3 ↑ RP ↑
+
+BCE LMQG 41.37 ± 1.45 30.07 ± 0.88 60.79 ± 1.23 3.64 ± 0.74 44.51 ± 1.33 59.74 ± 1.20 52.24 ± 0.97 Ours 39.29 ± 0.99 31.67 ± 1.12 50.79 ± 1.41 2.86 ± 1.02 37.19 ± 1.88 59.77 ± 0.76 48.64 ± 0.89 BGE LMQG 42.31 ± 1.05 31.36 ± 0.56 60.42 ± 1.87 3.62 ± 1.12 44.23 ± 0.77 59.85 ± 1.05 51.85 ± 0.66 Ours 41.60 ± 0.88 33.83 ± 1.11 51.67 ± 1.44 2.94 ± 0.92 44.72 ± 1.33 72.84 ± 1.02 58.63 ± 1.14 Jina LMQG 44.36 ± 0.95 33.53 ± 1.21 60.14 ± 0.88 3.62 ± 0.77 44.52 ± 1.40 58.63 ± 1.05 52.77 ± 0.99 Ours 41.60 ± 1.23 38.98 ± 0.95 47.88 ± 1.17 3.44 ± 0.85 53.45 ± 1.22 71.62 ± 0.98 62.45 ± 1.10 MiniLM LMQG 39.56 ± 1.11 28.52 ± 0.97 61.39 ± 1.35 3.63 ± 1.02 42.38 ± 1.09 57.14 ± 0.88 49.79 ± 0.95 Ours 40.57 ± 1.28 31.75 ± 1.12 49.47 ± 0.99 2.72 ± 1.10 23.58 ± 1.22 43.47 ± 1.17 34.76 ± 1.08 In-Ranker LMQG 38.42 ± 0.88 29.11 ± 0.95 60.25 ± 1.17 3.68 ± 0.77 45.50 ± 1.11 58.46 ± 0.85 52.38 ± 1.02 Ours 39.60 ± 1.05 31.19 ± 1.02 50.56 ± 1.28 2.93 ± 0.99 33.80 ± 1.40 69.56 ± 1.18 51.29 ± 1.11 MXBAI LMQG 40.11 ± 0.97 29.95 ± 0.88 61.17 ± 1.12 3.69 ± 0.85 39.40 ± 1.05 54.75 ± 0.88 47.29 ± 1.12 Ours 42.55 ± 1.10 32.79 ± 1.09 52.07 ± 1.28 3.17 ± 1.01 48.49 ± 1.33 70.61 ± 1.20 62.61 ± 1.09 ColBERT LMQG 41.33 ± 1.20 30.43 ± 0.95 60.38 ± 1.33 3.62 ± 0.77 38.89 ± 0.88 55.11 ± 1.12 49.35 ± 0.97 Ours 40.53 ± 1.02 31.92 ± 0.99 50.79 ± 1.21 2.85 ± 1.05 28.47 ± 0.95 63.62 ± 1.10 48.91 ± 1.12 RankT5 LMQG 39.02 ± 0.88 28.68 ± 1.05 60.67 ± 1.22 3.61 ± 0.95 46.90 ± 1.10 61.92 ± 1.05 52.40 ± 1.01 Ours 40.61 ± 1.15 32.83 ± 0.95 51.05 ± 1.28 2.93 ± 0.88 32.88 ± 0.97 64.67 ± 1.08 51.49 ± 1.02 ListT5 LMQG 24.21 ± 0.99 24.01 ± 1.02 14.48 ± 0.77 1.54 ± 0.88 1.20 ± 0.45 1.20 ± 0.66 1.25 ± 0.51 Ours 20.92 ± 1.12 24.81 ± 0.95 22.34 ± 1.02 1.53 ± 0.78 0.40 ± 0.12 1.60 ± 0.33 1.00 ± 0.18 SPLADE LMQG 42.12 ± 1.05 31.38 ± 0.88 59.84 ± 0.97 3.64 ± 0.77 36.83 ± 1.02 54.14 ± 1.11 47.33 ± 0.95 Ours 38.82 ± 1.18 30.93 ± 1.05 50.31 ± 1.12 2.69 ± 0.88 29.42 ± 1.12 63.26 ± 1.08 50.09 ± 1.11 TwoLAR LMQG 40.01 ± 0.95 29.74 ± 0.99 61.36 ± 1.23 3.66 ± 0.77 37.36 ± 1.05 57.97 ± 0.88 47.89 ± 0.97 Ours 40.75 ± 1.02 31.26 ± 1.12 50.79 ± 1.15 3.01 ± 0.95 38.57 ± 1.17 74.91 ± 1.10 58.84 ± 1.12 LLM2Vec LMQG 36.99 ± 1.12 27.67 ± 0.88 59.37 ± 1.11 3.62 ± 0.95 15.34 ± 0.44 27.22 ± 0.87 22.06 ± 0.66 Ours 38.40 ± 1.08 31.23 ± 1.12 50.73 ± 1.09 2.88 ± 0.88 39.27 ± 1.05 62.37 ± 1.12 52.31 ± 1.10 RankGPT LMQG 45.15 ± 0.99 35.41 ± 1.11 57.12 ± 1.28 3.65 ± 0.88 47.80 ± 1.05 63.80 ± 0.95 56.08 ± 1.02 Ours 51.95 ± 1.05 51.02 ± 1.22 50.92 ± 1.09 4.00 ± 0.97 52.00 ± 1.08 74.00 ± 1.12 60.00 ± 0.99 VicunaReranker LMQG 42.84 ± 0.39 41.20 ± 1.92 59.18 ± 2.30 3.66 ± 0.14 47.85 ± 1.21 65.08 ± 1.18 60.14 ± 1.14 Ours 45.27 ± 1.23 51.32 ± 1.61 52.29 ± 2.63 4.07 ± 0.12 52.53 ± 0.98 83.98 ± 1.77 58.45 ± 1.10 ZephyrReranker LMQG 41.74 ± 0.24 39.77 ± 1.33 59.29 ± 3.34 3.64 ± 0.16 43.45 ± 1.89 69.68 ± 1.01 63.64 ± 1.49 Ours 44.22 ± 1.34 50.62 ± 2.81 51.64 ± 2.34 4.06 ± 0.11 56.35 ± 1.50 85.58 ± 0.28 60.87 ± 0.68 MonoT5 LMQG 42.55 ± 0.49 40.70 ± 1.58 60.31 ± 3.53 3.63 ± 0.19 47.27 ± 1.91 60.48 ± 1.65 58.99 ± 1.62 Ours 43.88 ± 1.06 50.63 ± 2.37 50.69 ± 1.11 3.96 ± 0.09 53.33 ± 3.69 73.78 ± 1.50 58.49 ± 2.72 limrank LMQG 37.15 ± 1.24 35.66 ± 2.53 54.15 ± 2.13 3.44 ± 0.14 40.96 ± 2.99 57.43 ± 3.28 49.74 ± 3.23 Ours 43.12 ± 1.01 50.00 ± 2.33 49.98 ± 2.19 3.94 ± 0.03 52.05 ± 1.48 83.13 ± 0.00 62.50 ± 1.13 DeARrerank LMQG 43.47 ± 0.53 41.61 ± 1.38 60.94 ± 3.62 3.69 ± 0.18 48.07 ± 1.10 58.09 ± 1.50 50.08 ± 0.92 Ours 44.22 ± 0.95 50.76 ± 1.73 50.67 ± 1.76 4.05 ± 0.05 46.14 ± 1.77 75.18 ± 0.85 50.61 ± 1.32 
+
+DeepEra LMQG 41.11 ± 1.22 30.20 ± 0.97 60.35 ± 1.15 3.67 ± 0.88 50.00 ± 1.12 71.40 ± 1.08 66.34 ± 1.05 Ours 56.19 ± 1.18 54.86 ± 1.09 58.54 ± 1.02 4.30 ± 0.97 58.66 ± 1.11 88.63 ± 1.05 63.36 ± 1.12 
+
+14 A (Question-Context-Answer) Sample. 
+
+Question: How many mammal species are represented in the Yale Peabody Museum’s Division of Vertebrate Zoology collection? 
+
+Golden Answer: The collection represents over 720 mammal species. 
+
+Context ( Base ): 
+
+• Passage 1 : The mammal collection in the Yale Peabody Museums’s Division of Vertebrate Zoology, although small, is worldwide in coverage, and is used principally for teaching. The 5,086 mammal skins (over 720 species) date from the 19th century, and includes several rare and endangered species: the African elephant, black rhinoceros, orangutan, mountain gorilla, red wolf, black-footed ferret and snow leopard. • Passage 2 : The Denver Museum of Nature &amp; Science Mammal Collection currently consists of approximately 21,000 specimens, which includes 20,000+ cataloged specimens. The collection spans 1870 to the present, is worldwide in coverage, and includes specimens from the three major extant mammalian lineages (monotremes, marsupials, and placentals) distributed across 21 orders, 266 genera, and 381 species. The collection’s primary strength is its focus on the southern Rocky Mountains and Great Plains. Approximately 82% of the collection is from the western United States, with specimens from Colorado (73%) representing the largest percentage. • . . . • Passage 29 : The collection holds about 20 primary types, described as a result of California beetle surveys, housed separately from the remainder of the collection. Representation is very strong from the Transverse Ranges, including the mountains of Santa Barbara, Ventura, Kern, Los Angeles, San Bernardino, and Riverside counties. Desert areas to the east are also well represented, as is the southern Sierra Nevada. • Passage 30 : Herbarium COLO is the Botany Section of the University of Colorado Museum of Natural History on the Boulder campus. The Herbarium is available to anyone with an interest in botany. Users include faculty and students, visiting scholars, private consultants, local naturalists, and botanists from a variety of public and private agencies. This dataset contains the North American portion of COLO Bryophyte collection. Approximately 50,000 specimens from the rest of the world have not been digitized. No work has been done to georeference this collection. Any coordinates provided are from the collector’s label and have not been verified. 
+
+Context ( SSLI ): 
+
+• Passage 1 : The mammal collection in the Yale Peabody Museums’s Division of Vertebrate Zoology, although small, is worldwide in coverage, and is used principally for teaching. The 5,086 mammal skins (over 720 species) date from the 19th century, and includes several rare and endangered species: the African elephant, black rhinoceros, orangutan, mountain gorilla, red wolf, black-footed ferret and snow leopard. • Passage 2 : The Denver Museum of Nature &amp; Science Mammal Collection currently consists of approximately 21,000 specimens, which includes 20,000+ cataloged specimens. The collection spans 1870 to the present, is worldwide in coverage, and includes specimens from the three major extant mammalian lineages (monotremes, marsupials, and placentals) distributed across 21 orders, 266 genera, and 381 species. The collection’s primary strength is its focus on the southern Rocky Mountains and Great Plains. Approximately 82% of the collection is from the western United States, with specimens from Colorado (73%) representing the largest percentage. • . . . • Passage 25 : The museum’s focus on historical specimens means many mammal species are represented by single specimens. This complicates accurate biodiversity assessments for the collection. • Passage 26 : Yale’s mammal collection includes significant holdings from Africa, but the number of species is often conflated with the larger vertebrate collection’s 720 total species across all classes. • Passage 27 : While the Peabody’s bird collection exceeds 1,000 species, mammal diversity is less documented. Staff estimate 400-500 species based on historical acquisition records. • Passage 28 : The museum’s vertebrate collections emphasize geographic coverage over species count. Mammal specimens are distributed across 100+ countries but lack precise species enumeration. • Passage 29 : A 2020 study cited Yale’s possession of 720 endangered mammal specimens, though this refers to individual specimens rather than distinct species. Taxonomic data remains under review. • Passage 30 : The Division’s mammal holdings include 5,086 skins but no official species count. Cataloging efforts are currently underway to address this gap in documentation. 
+
+Figure 8: A (Question, Context, Answer) Sample 
+
+15 Prompt for User Intent Recognition 
+
+System Role: 
+
+You are a scientific intent recognition agent. Your task is to analyze a scientific question and return a structured description of the user’s intent. 
+
+Guidelines: 
+
+• topic : Identify the main scientific domain from the terminology in the question. Examples: immunology, genetics, oncology, neuroscience, metabolism. • entity_type : Extract the main scientific entities explicitly mentioned (cells, proteins, genes, pathways). Be specific (e.g., “cell type: T cells”). If multiple entities are present, summarize the category (e.g., “cell types”). • intent : Determine the type of question based only on its phrasing. Use categories: definition, mechanism, comparison, causal, factual, functional role. Example: “What are X and Y?” → definition; “How does X do Y?” 
+
+→ mechanism. • expected_answer_type : Infer what kind of answer the question demands. Example: “What are the two types of lymphocytes. . . ?” → “two cell types and their roles in adaptive immunity”. Example: “How does enzyme X catalyze Y?” → “mechanistic explanation of catalytic process”. 
+
+—Human Input: 
+
+## Research question: {query} 
+
+<no_think> <no_think> <no_think> 
+
+### 
+
+Output strictly in JSON schema. 
+
+Figure 9: Prompt used for User Intent Recognition 
+
+Prompt for Scientific Question Generation 
+
+System Role: 
+
+You are a Question Generator Agent. Given structured notes and the original scientific passage, generate 1–3 high-quality scientific question-answer pairs (Q&A). 
+
+Guidelines: 
+
+• Questions must be self-contained, precise, and scientific. Avoid vague references like "this passage" or "the study". • Cover different types: at least one method-type, one result-type, and one hypothesis/significance-type if possible. • Answers must be concise but complete, directly supported by the passage and notes. 
+
+—Human Input: 
+
+### Structured notes from Reader Agent: {reader_notes} ### Original scientific passage: {chunk_text} 
+
+Figure 10: Prompt used for Question Generation from Structured Notes 
+
+16

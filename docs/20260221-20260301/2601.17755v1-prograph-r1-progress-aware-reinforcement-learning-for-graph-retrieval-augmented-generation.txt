@@ -1,0 +1,517 @@
+Title: ProGraph-R1: Progress-aware Reinforcement Learning for Graph Retrieval Augmented Generation
+
+URL Source: https://arxiv.org/pdf/2601.17755v1
+
+Published Time: Tue, 27 Jan 2026 01:54:09 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# ProGraph-R1: Progress-aware Reinforcement Learning for Graph Retrieval Augmented Generation 
+
+Jinyoung Park 1 Sanghyeok Lee 1 Omar Zia Khan 2∗ Hyunwoo J. Kim 1† Joo-Kyung Kim 3†
+
+> 1
+
+KAIST, 2Microsoft, 3Amazon 
+
+{jinyoung.park, sanghyeoklee, hyunwoojkim}@kaist.ac.kr omarkhan@microsoft.com , jookyk@amazon.com 
+
+Abstract 
+
+Graph Retrieval-Augmented Generation (GraphRAG) has been successfully applied in various knowledge-intensive question answering tasks by organizing external knowledge into structured graphs of entities and relations. It enables large language models (LLMs) to perform complex reasoning beyond text-chunk retrieval. Recent works have employed reinforcement learning (RL) to train agentic GraphRAG frameworks that perform iterative interactions between LLMs and knowledge graphs. However, existing RL-based frameworks such as Graph-R1 suffer from two key limitations: (1) they primarily depend on semantic similarity for retrieval, often overlooking the underlying graph structure, and (2) they rely on sparse, outcome-level rewards, failing to capture the quality of intermediate retrieval steps and their dependencies. To address these limitations, we propose ProGraph-R1, a progress-aware agen-tic framework for graph-based retrieval and multi-step reasoning. ProGraph-R1 introduces a structure-aware hypergraph retrieval mecha-nism that jointly considers semantic relevance and graph connectivity, encouraging coherent traversal along multi-hop reasoning paths. We also design a progress-based step-wise policy optimization, which provides dense learning signals by modulating advantages according to intermediate reasoning progress within a graph, rather than relying solely on final outcomes. Experiments on multi-hop question answering benchmarks demonstrate that ProGraph-R1 consistently improves reasoning accuracy and generation quality over existing GraphRAG methods. 
+
+1 Introduction 
+
+Large Language Models (LLMs) (Zhao et al., 2023) have achieved remarkable performance across a broad range of natural language processing   
+
+> ∗Work done while at Amazon.
+> †Co-corresponding authors.
+
+tasks. Despite their success, LLMs are prone to hallucination—producing plausible but factu-ally incorrect outputs—particularly in knowledge-intensive settings. Retrieval-Augmented Genera-tion (RAG) (Lewis et al., 2020) mitigates this issue by augmenting additional information from exter-nal knowledge sources to the inputs of the model. However, most existing RAG frameworks retrieve text chunks (Lewis et al., 2020; Jin et al., 2025; Song et al., 2025), overlooking the relational struc-ture among entities and documents. To address this limitation, recent GraphRAG approaches (Edge et al., 2024; Han et al., 2025) organize knowledge into entity–relation graphs, enabling more struc-tured retrieval and multi-step reasoning. To enhance GraphRAG frameworks, a rein-forcement learning (RL)-based agentic GraphRAG frameworks, such as Graph-R1 (Luo et al., 2025a), have been proposed inspired by the success of DeepSeek-R1 (Guo et al., 2025a) and Search-R1 (Jin et al., 2025). These approaches adopt a multi-step retrieval strategy that empowers LLMs to iteratively perform reasoning steps with external knowledge. The agent LLM is optimized via re-inforcement learning using sparse, outcome-level rewards. Despite their promise, existing RL-based agentic GraphRAG frameworks face two key chal-lenges: (i) Overreliance on contextual similarity in graph retrieval, overlooking relational structures and topological proximities inherent in knowledge graphs; and (ii) Sparse and delayed reward sig-nals that fail to adequately capture the quality of intermediate reasoning steps, thereby hindering ef-fective learning in complex, multi-step retrieval scenarios. To deal with these challenges, we propose ProGraph-R1, a step-level progress-aware rein-forcement learning framework that enhances multi-turn graph retrieval-augmented generation in multi-hop knowledge-intensive tasks. ProGraph-R1 in-troduces a graph structure-aware retrieval module 
+
+> arXiv:2601.17755v1 [cs.CL] 25 Jan 2026
+
+that jointly considers semantic similarity and struc-tural proximity within a knowledge graph, enabling more accurate and contextually coherent subgraph retrieval. Furthermore, we design a progress-based step-wise policy optimization that assigns dense signals to intermediate reasoning steps. Specifi-cally, intermediate retrieval actions are rewarded based on their contribution to reasoning progress, which is measured by structural consistency with the reasoning path and uncertainty reduction to-ward the target answer, rather than relying solely on final outcome rewards. This design facilitates finer-grained credit assignment across multi-step retrieval trajectories and promotes effective explo-ration of the knowledge graph. Our extensive exper-iments on multiple knowledge-intensive QA and reasoning benchmarks demonstrate that ProGraph-R1 consistently outperforms existing GraphRAG and RL-based agentic baselines. Overall, our main contributions are as follows: (1) We introduce a graph structure-aware retrieval module that jointly leverages semantic and struc-tural signals to enhance subgraph retrieval. (2) We design a step progress-aware reward reshaping that provides fine-grained rewards on intermediate reasoning steps based on the informativeness and coherence of each step within a graph. (3) Our ProGraph-R1 achieves the best performance com-pared to existing GraphRAG and RL-based agen-tic frameworks on multi-hop question answering datasets. 
+
+2 Related Works 
+
+2.1 Graph Retrieval–Augmented Generation 
+
+Retrieval-Augmented Generation (RAG) (Lewis et al., 2020; Jiang et al., 2023; Trivedi et al., 2023) has been introduced to deal with non-factual or hallucinated responses generated by large language models. GraphRAG (Edge et al., 2024) has extended the RAG paradigm by lever-aging knowledge graphs to provide richer con-text and improve complex reasoning. Following GraphRAG, Hyper-RAG (Feng et al., 2025b) and HypergraphRAG (Luo et al., 2025b) harness the power of hypergraphs, enabling the capture of higher-order relationships beyond simple pairwise links. In parallel, another line of work (Chen et al., 2025; Guo et al., 2025b; Gutiérrez et al., 2025; Wang et al., 2025; Xu et al., 2025) explores re-trieval mechanisms that emphasize computational efficiency without sacrificing reasoning accuracy. More recently, Graph-R1 (Luo et al., 2025a) further extends graph RAG by leveraging reinforcement learning to enhance adaptability and reasoning per-formance. 
+
+2.2 Reinforcement Fine-Tuning for LLM 
+
+Reinforcement learning (RL), such as RLHF (Ouyang et al., 2022), has emerged as a key technique to boost LLM reasoning capabilities, either by optimizing for outcome-based rewards or by using preference feedback. For example, DeepSeek-R1 (Guo et al., 2025a) is trained with the Group Relative Policy Op-timization (GRPO), which evaluates multiple outputs from the model to compute relative advantages, thereby eliminating the need for a separate value model for Generalized Advantage Estimation (Schulman et al., 2015). In addition, several works have explored agentic reinforcement learning frameworks (Zheng et al., 2025; Feng et al., 2025a; Zeng et al., 2025), enabling LLMs to automatically decide when to invoke tools, thereby significantly improving their multi-turn interaction and tool-use capabilities. Motivated by the success of reinforcement fine-tuning approaches, Search-R1 (Jin et al., 2025) leverages multi-turn interleaved reasoning and search by dynamically retrieving external information, while R1-Searcher (Song et al., 2025) employs a two-stage, outcome-based reinforcement learning scheme that enables LLMs to invoke search engines during reasoning. 
+
+3 ProGraph-R1 
+
+In this section, we present ProGraph-R1, aprogress-aware reinforcement learning framework that enhances multi-step reasoning and retrieval over knowledge graphs. We begin by describing the background of a RL-based GraphRAG frame-work, including the group-relative policy optimiza-tion formulation (Guo et al., 2025a), which serves as the foundation of our training strategy. Next, we present our inter-turn entity connectiveness-based step-wise policy optimization that enables the agent LLM to iteratively perform multi-step reasoning and retrieval, progressively refining its knowledge-grounded generation. Finally, we introduce our entity informativeness–based hypergraph retrieval mechanism that jointly leverages contextual seman-tics and graph structural relations to improve re-trieval precision. 3.1 Background 
+
+Reinforcement Learning (RL)-based Graph RAG frameworks, such as Graph-R1 (Luo et al., 2025a), aim to learn an output reasoning trajectory y that yields a final answer, given the input question x and knowledge graph GK . Formally, the RL objective function with a retrieval can be written as follows: 
+
+max  
+
+> θ
+
+E[x∼D X ,y∼πθ (·| x;GK )] [R (x, y)] 
+
+−βDKL (πθ (y | x, GK ) || πref (y | x, GK )) ,
+
+(1) where R (·, ·) is the reward function, DKL indi-cates KL-divergence measure, and πθ, π ref are pol-icy and reference model, respectively. The in-put question x is drawn from the dataset DX
+
+and y is the generated multi-step reasoning trajec-tory interleaved with sequences sampled from the policy πold (· | x; GK ) and results of graph-based knowledge retrieval GK . Each multi-step trajectory 
+
+y = (( s1, a 1), (s2, a 2), . . . , (sT , a T )) comprises a sequence of states and actions ( e.g. , generation of the LLM, retrieval), where the initial state s1
+
+corresponds to the input question x.
+
+Hypergraph construction. GraphRAG leverages knowledge graphs to model the relational infor-mation inherent in the external knowledge. Given knowledge corpus K = {d1, d2 . . . , dN }, a hyper-graph is constructed with a hyperedge ei consisting of more than two enitities (nodes). Unlike con-ventional graphs, where an edge consists of two entities, a hyperedge can have more than two en-tities. Each hyperedge ei is associated with enti-ties Vei =
+
+n
+
+v1, . . . , v |Vei |
+
+o
+
+. We use LLM πext to extract hypergraph from knowledge document d
+
+by identifying m n-ary relational facts (Luo et al., 2025b): 
+
+GK = ( V, E ) , where {(ei, Vei )}mi=1 ∼ πext (d)
+
+(2) where V, E are set of nodes and hyperedges, re-spectively. πext is an LLM that is prompted to transform the knowledge segment d into a set of relation-entity pairs {(ei, Vei )}, where ei and 
+
+Vei = {v1, . . . , v n} denote the hyperedge and its participating entities, respectively. 
+
+Context similarity-based graph retrieval. Con-ventional methods (Jin et al., 2025) perform the retrieval based on their semantic similarity to the query representation. It can be formulated as: 
+
+RH (qt) = k
+
+argmax 
+
+> ei∈E
+
+
+
+sim (ϕ(qt), ϕ (ei)) 
+
+
+
+,
+
+Fret  
+
+> t
+
+= [ 
+
+> ej∈R H
+
+{(ej , V ej ) | ej ∈ E}, (3) where ϕ(qt) denote the query embeddings, and 
+
+ϕ(ei) represents the hyperedge embedding. The top-k retrieved set Fret  
+
+> t
+
+forms the final knowledge set. Graph-R1 applies the hybrid hyperedge re-trieval where both entity and hyperedge similarity measurements are leveraged to retrieve hypereges. 
+
+Group-Relative Policy Optimization. Group-Relative Policy Optimization (GRPO) (Shao et al., 2024; DeepSeek-AI, 2025) is one of the represen-tative RL approaches with its strong performance and efficiency. We apply GRPO to fine-tuning the agent, which is formulated as: 
+
+JGRPO (θ) = E[x∼D X ,{y(i)}Ni=1 ∼πθold (·| x;GK )]
+
+"
+
+1
+
+y(i)
+
+|y(i)|X
+
+> t=1
+
+min 
+
+
+
+ρθ
+
+
+
+x, y (i)
+
+> t
+
+ ˆA(i),
+
+clip 
+
+
+
+ρθ
+
+
+
+x, y (i)
+
+> t
+
+
+
+, 1 ± ϵ
+
+ ˆA(i)#
+
+− βDKL (πθ (y | x; GK ) || πref (y | x; GK )) ,
+
+(4) where ρθ
+
+
+
+x, y (i)
+
+> t
+
+
+
+= πθ   
+
+> 
+> y(i)
+> t|x,y<t ;GK
+> 
+> πold
+> 
+> y(i)
+> t|x,y<t ;GK
+> 
+
+denotes the likelihood ratio between current πθ and the old policy models πold . The advantage is calculated as: 
+
+ˆA(i) =
+
+R  x, y(i) − mean 
+
+R  x, y(j) Nj=1 
+
+
+
+Fnorm 
+
+R  x, y(j) Nj=1 
+
+ ,
+
+(5) where Fnorm (·) can be viewed as rewards normal-ized within the group R  x, y(i) Ni=1 . Most ex-isting approaches have applied outcome-supervised settings (Guo et al., 2025a), which assign the same reward at every token in each output y based on the sequence-level reward of the output y.Despite the improvement of the reasoning per-formance of RL-based agentic GraphRAG frame-works, they are still in their early stage and face two key challenges. (i) They primarily rely on con-textual similarity for graph retrieval, overlooking the underlying relational structures and topological dependencies within knowledge graphs. (ii) They Retrieval 
+
+> Query
+> Retrieved
+> Knowledge
+> GraphEvo
+> RAG Agent
+> Hypergraph
+> Construction
+> Hyperedge
+> Rescorin g
+> Entity
+> Relevance
+> Score
+
+Figure 1: Overview of the online entity-uniqueness–based hypergraph retrieval procedure. 
+
+are trained with sparse, outcome-level rewards that ignore the quality of intermediate reasoning steps, resulting in sub-optimal learning in multi-step re-trieval scenarios. 
+
+3.2 Entity Informativeness-based Hypergraph Retrieval 
+
+We propose a novel hypergraph retrieval mecha-nism that uses not only semantic similarity but also hypergraph structural signals. The overall procedure is in Figure 1. Unlike conventional ap-proaches (Edge et al., 2024; Feng et al., 2025b) that rely solely on the semantic alignment between query and knowledge entities or hyperedges, we leverage hypergraph structural proximity between queries and knowledge entities by calculating the relevance of entity between the query on the hyper-graph structure. 
+
+Entity relevance score calculation. Given a query 
+
+qt at t-th step, our objective is to identify the most relevant hyperedges from the knowledge hyper-graph by considering both semantic relevance and structural distinctiveness. We begin by comput-ing a semantic similarity score between each entity 
+
+v ∈ V and the query: 
+
+sv = sim (ϕ (v) , ϕ (Vqt )) , ∀v ∈ V, (6) where ϕ(v) is the entity embedding, ϕ(Vqt ) = 
+
+> 1
+
+|Vqt |
+
+P 
+
+> u∈Vqt
+
+ϕ (u) is the aggregated embedding of Vqt , which is a set of entities included in the query. This measures how well entity v semanti-cally aligns with the query qt.
+
+Hyperedge rescoring. Since not all entities are proximal to the query qt in the hypergraph struc-ture, we further refine the retrieval score. In-spired by participation coefficient (Guimera and Nunes Amaral, 2005) in graph theory, which mea-sures how evenly node is connected to different communities, we compute the importance of enti-ties based on how they are included in relevant (tar-get) hyperedges in a hypergraph. To the end, we calculate the entity relevance score by counting the number of target hyperedges where the query en-tities are embedded across the entire hypergraph as: 
+
+I (v) = log 
+
+"
+
+1 + |{ ei ∈ Eqt : v ∈ Vei }| 
+
+ej ∈ E : v ∈ Vej
+
+#
+
+, (7) where Eqt denotes the set of hyperedges containing query entities, and E is the set of all hyperedges. This formulation reduces the influence of overly common entities while amplifying the signal from more distinctive ones. Next, we normalize the im-portance score ˆS (v, e i) of entity v within hyper-edge ei to reflect the relative contribution of entity 
+
+v to the semantic content of hyperedge ei.In sum, we compute the relevance of entity v to a hyperedge eH as: 
+
+R (v, e i) = ˆS (v, e i) · I (v) . (8) Summing over entities yields the overall hyperedge score: 
+
+ˆRt (ei) = X
+
+> v∈ei
+
+R (v, e i) (9) Finally, we rank hyperedges by ˆR (ei) and select the top-k:
+
+RH (qt) = arg k
+
+max 
+
+> ei∈E
+
+ ˆRt (ei)
+
+
+
+,
+
+Fret  
+
+> t
+
+= [
+
+> ei∈R H
+
+{(ei, V ei ) | Vei ⊆ V }, (10) where k is the number of facts Fret  
+
+> t
+
+returned to the agent. This method ensures that the retrieved knowledge paths are not only semantically aligned with the query but also structurally informative and diverse, thereby improving relevance in down-stream reasoning tasks. 
+
+3.3 Step Progress-Aware Policy Optimization 
+
+Most prior RL-optimized RAG frameworks (Jin et al., 2025; Luo et al., 2025a) treat retrieval as an intermediate step and optimize the policy primarily with sparse and sequence -level supervision. All step (turn)-level decisions within a reasoning trace share the same learning signal regardless of the quality of each step. This uniform signal assign-ment may over-reinforce correct trajectories with wrong reasoning or noisy retrieval actions. Moreover, existing methods typically do not con-sider the quality of retrieved evidence in the opti-mization process. In knowledge-intensive tasks, a final answer accuracy depends not only on the model’s generation policy but also on whether the retrieved information is relevant and consis-tent with the evolving reasoning state. However, most existing works neglect this interaction, which makes the policy rely on spurious correlations in retrieved contexts or fail to correct the retrieval behavior. To address these limitations, we propose a retrieval-aware step-level policy optimization framework where the agent iteratively generates sub-queries qt and interacts with a knowledge hy-pergraph GK . Our ProGraph-R1 can be formulated as a step-wise reasoning process where the agent iteratively generates sub-queries qt for each turn t
+
+and interacts with a knowledge hypergraph. 
+
+Step progress-based dense rewarding. We ap-ply the dense reward scoring mechanism to reflect the step-level progress. We design the progress score rSP t at step t, which captures the certainty of reaching ground-truth outputs y∗ after generating the current intermediate step: 
+
+rsp t = P (y∗ | s≤t, G≤t) − P (y∗ | s<t , G<t ). (11) We estimate P (y∗ | st, Gt) by sampling multiple output sequences conditioned on the current history and retrieved context and averaging the resulting outcome reward values. 
+
+Structure-consistent progressive dense reward-ing. While rSP t quantifies the informativeness of the intermediate thoughts at current step t, it does not enforce graph-consistent progress in multi-hop reasoning. We therefore introduce retrieval-aware reward shaping terms that encourage progress along coherent chains in the knowledge hyper-graph. Let V(·) denote the set of entities (nodes) con-tained within a given text or hyperedge. We define two connectivity scores for the retrieved hyperedge 
+
+Gt. We design a structure-based reward as: 
+
+rstruct t = rcon t + rans t , (12) where the reward consists of the connectivity score and answer reachness score. To ensure consis-tent multi-hop reasoning, we reward retrievals that share entities with the previously generated state 
+
+s<t or previously retrieved contexts. This encour-ages the agent to extend existing reasoning chains rather than retrieving isolated facts: 
+
+rcon t = |V (Gt) ∩ V (s<t )||V (Gt)| (13) To guide the agent toward the solution, we pro-vide a sparse reward when the retrieved hyperedge contains entities present in the ground truth answer 
+
+y∗:
+
+rans t = |V (Gt) ∩ V (y∗)||V (Gt)| (14) 
+
+Total Reward. The final step-level reward Rt is defined as: 
+
+Rt = routcome + λ1rsp t + λ2rstruct t , (15) where routcome is the reward value calculated by outcome reward functions ( e.g. , format reward, ac-curacy reward). This yields step-level supervision that reflects both (i) informational progress (uncer-tainty reduction) and (ii) structural progress (co-herent traversal of the knowledge hypergraph). 
+
+Step-wise Policy Optimization. Different from standard GRPO using sequence-level advantage ˆA,our ProGraph-R1 is trained with step-wise group-relative policy optimization using step-level modu-lated advantage ˆ˜A as follows: 
+
+JStepGRPO (θ) = E[x∼D X ,{y(i)}Ni=1 ∼πθold (·| x;GK )]
+
+"
+
+1
+
+y(i)
+
+|y(i)|X
+
+> t=1
+
+min 
+
+
+
+ρθ
+
+
+
+x, y (i)
+
+> t
+
+ ˆ˜A(i) 
+
+> t
+
+,
+
+clip 
+
+
+
+ρθ
+
+
+
+x, y (i)
+
+> t
+
+
+
+, 1 ± ϵ
+
+ ˆ˜A(i)
+
+> t
+
+#
+
+− βDKL (πθ (y | x; GK ) || πref (y | x; GK )) ,
+
+(16) where ˆ˜A(i) 
+
+> t
+
+denotes the step-wise modulated advan-tage at decoding step t for trajectory i, enabling the policy to focus on local rewards associated with specific reasoning decisions. The step-wise modu-lated advantage differentiates the advantage value for each step, reflecting the quality of each reason-ing step. This allows for more fine-grained credit assignment during training, especially beneficial in multi-hop or structured reasoning settings. By optimizing this step-level objective, ProGraph-R1 provides step-wise dense policy gradients that im-proves the reasoning capabilites of LLMs on com-plex reasoning tasks. Method 2Wiki. HotpotQA MuSiQue NQ Avg. EM F1 EM F1 EM F1 EM F1 EM F1 
+
+Qwen2.5-3B-Instruct 
+
+NaiveGeneration 2.34 7.59 6.25 11.16 0.78 3.67 2.34 8.90 2.93 7.83 
+
+StandardRAG 3.91 12.52 7.03 15.41 0.00 2.92 0.00 10.69 2.74 10.39 
+
+SFT 7.03 12.40 10.94 16.48 1.56 5.04 3.12 11.23 5.66 11.29 
+
+R1 20.31 28.45 20.31 25.33 3.12 8.07 11.72 21.51 13.87 20.84 
+
+Search-R1 31.25 38.04 38.28 43.84 3.91 7.65 24.22 37.96 24.42 31.87 
+
+R1-Searcher 13.28 23.50 35.94 42.44 7.81 12.81 24.22 36.53 20.31 28.82 
+
+Graph-R1 50.00 57.56 50.78 56.75 32.81 40.51 30.47 44.75 41.02 49.89 
+
+ProGraph-R1 55.47 61.72 55.47 61.90 37.50 47.27 34.38 47.34 45.71 54.56 
+
+Qwen2.5-7B-Instruct 
+
+NaiveGeneration 3.12 12.25 6.25 16.58 0.00 4.06 1.56 13.00 2.73 11.47 
+
+StandardRAG 7.81 12.75 10.16 21.10 0.78 4.53 1.56 15.97 5.08 13.59 
+
+SFT 11.72 20.28 19.53 27.59 5.47 10.02 5.12 19.02 10.46 19.23 
+
+R1 25.00 30.99 31.25 37.05 7.03 14.53 16.41 28.45 19.92 27.76 
+
+Search-R1 36.72 41.29 44.53 50.85 14.84 22.35 32.03 45.88 32.03 40.09 
+
+R1-Searcher 27.34 33.96 39.84 46.36 10.16 16.63 32.03 44.93 27.34 35.47 
+
+Graph-R1 55.47 65.04 57.03 62.69 36.72 46.17 33.59 49.87 45.70 55.94 
+
+ProGraph-R1 59.38 69.75 60.94 67.57 39.84 49.47 35.94 50.71 49.03 59.38 
+
+Table 1: Main results with best in bold . means prompt engineering, means training, means no knowledge interaction, means chunk-based knowledge, and means graph-based knowledge. 
+
+4 Experiments 
+
+4.1 Experimental Setup Datasets. 
+
+We evaluate our proposed methods on three multi-hop question answering benchmark datasets: 2WikiMultihopQA ( 2Wiki. ) (Ho et al., 2020), Hot-PotQA (Yang et al., 2018), MuSiQue (Trivedi et al., 2022). We also adopt a single-hop QA dataset, Natural Questions ( NQ ) (Kwiatkowski et al., 2019) to explore the performance under simple questions. Models. We conduct exper-iments using Qwen-2.5-Instruct (3B, and 7B) (Qwen et al., 2025) as the base LLMs following existing works (Luo et al., 2025a). For the retrieval, we employ bge-large-en-v1.5 (Xiao et al., 2024) following Graph-R1 (Luo et al., 2025a). 
+
+Baselines. To show the effectiveness of our ProGraph-R1 over previous methods, we compare it with the following baselines: NaiveGenera-tion , StandardRAG , SFT , R1 (Shao et al., 2024), 
+
+Search-R1 (Jin et al., 2025), R1-Searcher (Song et al., 2025), and Graph-R1 (Luo et al., 2025a). 
+
+4.2 Experimental Results 
+
+We evaluate our proposed methods using two vari-ants of Qwen2.5-Instruct (3B and 7B) in Ta-ble 1. From the table, our ProGraph-R1 consis-tently achieves the best average performance, show-ing remarkable improvements over both naive gen-eration and retrieval-augmented baselines. With 2Wiki. MuSiQue Ent. Info. Ret. Progress-aware PO EM F1 EM F1 50.00 57.56 32.81 40.51              
+
+> ✓51.56 58.45 33.59 42.14
+> ✓53.91 60.47 34.38 45.16
+> ✓✓55.47 61.72 37.50 47.27
+
+Table 2: Ablation studies of our ProGraph-R1 on multi-hop question answering datasets with Qwen-2.5-3B. (Ent. Info. Ret.: Entity informativeness-based hy-pergraph retrieval, Progress-aware PO: Progress-aware Step-level policy optimization). 
+
+Qwen2.5-3B-Instruct , our method reaches an average F1 of 54.56, compared to 49.89 from the strongest baseline (Graph-R1). Similarly, under the 
+
+Qwen2.5-7B-Instruct , our method achieves the highest overall performance with an average F1 of 59.38, improving upon the best baseline (Graph-R1, 55.94) by more than 3.4 points. Note that the performance improvement of ProGraph-R1 is relatively higher on multi-hop question answering datasets such as 2Wiki., HotpotQA, and MuSiQue, compared to NQ dataset. These results highlight that our step-aware graph evolution and policy op-timization helps more effective reasoning on com-plex question answering tasks. 
+
+4.3 Additional Experimental Results Ablation studies. To evaluate the effectiveness of the entity informativeness-based retrieval (Sec. 3.2) and progress-aware policy optimization (Sec. 3.3), we conduct an ablation study on two multi-hop QA benchmarks in Table 2. The results show that 2Wiki. MuSiQue Step Progress Structure Progress EM F1 EM F1 51.56 58.45 33.59 42.14              
+
+> ✓53.13 59.61 35.16 44.81
+> ✓54.69 60.55 34.38 44.29
+> ✓✓55.47 61.72 37.50 47.27
+
+Table 3: Performance comparison according to the policy optimization using Qwen-2.5-3B. Step progress means step progress-based dense rewarding. Structure progress means structure-consistent progressive dense rewarding.                          
+
+> 2Wiki. MuSiQue Retrieval method EM F1 EM F1 No Retrieval 20.31 28.45 3.12 8.07 Knowledge corpus (Ctxt.) 31.25 43.84 3.91 7.65 Hyperedge (Ctxt.) 50.78 58.13 32.03 40.31 Graph-R1 (Ctxt.) 53.91 61.21 34.38 43.41
+> ProGraph-R1 ( ours ) (Ctxt.+Struct.) 55.47 61.72 37.50 47.27
+
+Table 4: Performance comparison according to the retrieval methods on multi-hop question answering datasets using Qwen-2.5-3B. Ctxt. indicates the nat-ural language context-based relevance. Struct. indicates the graph structure-based relevance.                      
+
+> 2Wiki. MuSiQue Method # Turns F1 # Turns F1
+> Qwen2.5-3B-Instruct
+> Graph-R1 2.63 57.56 3.79 40.51
+> ProGraph-R1 ( ours )2.45 61.72 3.16 47.27
+> Qwen2.5-7B-Instruct
+> Graph-R1 2.72 65.04 3.92 46.17
+> ProGraph-R1 ( ours )2.56 69.75 3.54 49.47
+
+Table 5: Comparison on the number of turns between Graph-R1 and ProGraph-R1 (Ours). 
+
+both components contribute to performance im-provements across all datasets. Specifically, apply-ing progress-aware step-wise policy optimization leads to better learning dynamics and enhanced rea-soning ability. Similarly, incorporating our entity informativeness-based retrieval framework alone yields consistent gains over the baseline, demon-strating the benefit of integrating hypergraph struc-tural information during retrieval. Then, combin-ing both components, our full model achieves the best performance, with notable improvements in F1 scores, such as +4.16 on 2Wiki. and +6.76 on MuSiQue over the baseline. These results confirm that both finer-grained policy updates and structure-aware retrieval are crucial for improving multi-hop question answering with large language models. 
+
+Policy optimization analysis. Additionally. we conduct an ablation study to examine the effect of different progress-aware dense rewarding func-tions used for policy optimization. Table 3 reports the experimental results on 2Wiki and MuSiQue. The best performance is obtained when both step progress-based rsp t and structure-consistent pro-gressive rstruct t dense rewarding are jointly applied. These results suggest that the two dense reward sig-nals capture complementary aspects of reasoning progress, and that their combination more effec-tively guides the policy toward accurate multi-hop reasoning. 
+
+Retrieval method analysis. Table 4 compares dif-ferent retrieval strategies on multi-hop QA datasets using Qwen2.5-3B-Instruct . Our ProGraph-R1 consistently achieves the best performance across all datasets, highlighting the effectiveness of integrating both contextual and structural rel-evance in retrieval. Compared to the text-only retrieval baselines (Knowledge corpus and Hy-peredge), ProGraph-R1 yields substantial gains, demonstrating that leveraging graph structures en-ables more accurate and semantically coherent knowledge selection. These results confirm that combining semantic and structural information is crucial for improving reasoning consistency and factual precision in complex question answering. 
+
+Efficiency analysis. We evaluate the effi-ciency of ProGraph-R1 by comparing the average number of reasoning turns with Graph-R1 using Qwen-2.5-3B-Instruct and 
+
+Qwen-2.5-7B-Instruct in Table 5. The results show that ProGraph-R1 achieves higher performance with fewer, or at least no more, turns even though turn count is not used as a reward signal. This demonstrates that our method improves both reasoning effectiveness and efficiency. 
+
+4.4 Qualitative Analysis 
+
+Here, we conduct a qualitative comparison between Graph-R1 and ProGraph-R1 to illustrate how our reasoning framework enhances multi-hop reason-ing (Table 6). While Graph-R1 correctly retrieves relevant knowledge snippets, it often produces re-dundant or conflicting reasoning steps—such as repeatedly querying the election day in Alabama and overgeneralizing the final answer to the na-tional level. In contrast, ProGraph-R1 success-fully generates the reasoning trajectory by pro-gressively refining each step, leveraging retrieved graph context to eliminate unnecessary or mislead-ing hops. As shown in the example, ProGraph-R1 accurately identifies the specific “special elec-tion” event on December 12, 2017, by integrating Question & Answer Graph-R1 ProGraph-R1 (Ours) Question: When is election day for senate in the state where Tay-lor Hicks is from? 
+
+Answer: December 12, 2017 <think> To answer this question, I need to determine the state Taylor Hicks is from and then find out when the election day for the senate is in that state. </think> <query> where is Taylor Hicks from </query> <knowledge> According to season five winner Taylor Hicks, who is from the state of Alabama, ... </knowledge> <think> The knowledge base states that Taylor Hicks, the season five winner, is from Alabama. Now I need to find out when the election day for the senate is in Alabama. </think> <query> election day for senate in Alabama </query> <knowledge> A special election for the United States Senate in Alabama took place on December 12, 2017,... </knowledge> <think> The knowledge base provides information about a special election for the United States Senate in Alabama... Typically, senate elections occur every two years on the same day as the general midterm elections, which is usually the first Tuesday after the first Monday in November. </think> <query> when is the election day for senate in the united states </query> <knowledge> A special election for the United States Senate in Alabama took place on December 12, 2017,... The 2018 United States House of Representatives elections will be held on November 6, 2018. </knowledge> <think> Based on the information provided, the typical election day for the senate in the United States is the first Tuesday after the first Monday in November every two years. This is the general midterm election day. </think> <answer> The election day for the senate in the United States is the first Tuesday after the first Monday in November. </answer> <think> To answer this question, I need to find out which state Taylor Hicks is from first. Then, I can find the election day for the senate election in that state. </think> <query> Taylor Hicks state </query> <knowledge> According to season five winner Taylor Hicks, who is from the state of Alabama, ... </knowledge> <think> From the search results, we can see that Taylor is from the state of Alabama. Now, I need to find out the election day for the senate election in Alabama. </think> <query> election day for senate election in Alabama </query> <knowledge> A special election for the United States Senate in Alabama took place on December 12, 2017,... </knowledge> <think> From the search results, the special election for the United States Senate in Alabama took place on December 12, 2017. </think> <answer> December 12, 2017 </answer> 
+
+Table 6: Comparison on reasoning steps and answers generated by Graph-R1 and ProGraph-R1 (Ours). 
+
+contextual knowledge about the Senate vacancy, while Graph-R1 misleads itself toward the general midterm schedule. This highlights that ProGraph-R1 effectively mitigates reasoning drift and enables precise, context-aware multi-hop inference. 
+
+5 Conclusion 
+
+We have introduced ProGraph-R1, a step-aware re-inforcement learning framework for graph-based retrieval and reasoning. While prior GraphRAG frameworks advanced agentic multi-step reasoning, they remain limited by structural unawareness and sparse reward feedback. ProGraph-R1 overcomes these issues through structure-aware retrieval and step-wise advantage modulation, enabling more coherent reasoning. Experiments on knowledge-intensive QA benchmarks show that ProGraph-R1 consistently improves factual grounding over exist-ing GraphRAG and RL-based baselines. 
+
+Limitations 
+
+ProGraph-R1 method is significantly influenced by the prompt, retriever, the base LLM, and the given input graph. Specifically, based on the structure and quality of the input graph, the downstream task performance can vary substantially. 
+
+Ethics Statement 
+
+As we use LLM with external knowledge bases, the outputs may contain unintentionally hallucinating, harmful, sensitive, or biased content. Therefore, the LLM and the knowledge base should be care-fully selected to evade such situations. 
+
+References 
+
+Boyu Chen, Zirui Guo, Zidan Yang, Yuluo Chen, Junze Chen, Zhenghao Liu, Chuan Shi, and Cheng Yang. 2025. Pathrag: Pruning graph-based retrieval aug-mented generation with relational paths. arXiv preprint arXiv:2502.14902 .DeepSeek-AI. 2025. Deepseek-v3.2: Pushing the fron-tier of open large language models. Darren Edge, Ha Trinh, Newman Cheng, Joshua Bradley, Alex Chao, Apurva Mody, Steven Truitt, Dasha Metropolitansky, Robert Osazuwa Ness, and Jonathan Larson. 2024. From local to global: A graph rag approach to query-focused summarization. 
+
+arXiv preprint arXiv:2404.16130 .Lang Feng, Zhenghai Xue, Tingcong Liu, and Bo An. 2025a. Group-in-group policy optimization for llm agent training. arXiv preprint arXiv:2505.10978 .Yifan Feng, Hao Hu, Xingliang Hou, Shiquan Liu, Shihui Ying, Shaoyi Du, Han Hu, and Yue Gao. 2025b. Hyper-rag: Combating llm hallucinations using hypergraph-driven retrieval-augmented genera-tion. arXiv preprint arXiv:2504.08758 .Roger Guimera and Luís A Nunes Amaral. 2005. Func-tional cartography of complex metabolic networks. 
+
+nature , 433(7028):895–900. Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Ruoyu Zhang, Runxin Xu, Qihao Zhu, Shirong Ma, Peiyi Wang, Xiao Bi, Xiaokang Zhang, Xingkai Yu, Yu Wu, Z. F. Wu, Zhibin Gou, Zhihong Shao, Zhu-oshu Li, Ziyi Gao, Aixin Liu, Bing Xue, Bingxuan Wang, Bochao Wu, Bei Feng, Chengda Lu, Cheng-gang Zhao, Chengqi Deng, Chenyu Zhang, Chong Ruan, Damai Dai, Deli Chen, Dongjie Ji, Erhang Li, Fangyun Lin, Fucong Dai, Fuli Luo, Guangbo Hao, Guanting Chen, Guowei Li, H. Zhang, Han Bao, Han-wei Xu, Haocheng Wang, Honghui Ding, Huajian Xin, Huazuo Gao, Hui Qu, Hui Li, Jianzhong Guo, Jiashi Li, Jiawei Wang, Jingchang Chen, Jingyang Yuan, Junjie Qiu, Junlong Li, J. L. Cai, Jiaqi Ni, Jian Liang, Jin Chen, Kai Dong, Kai Hu, Kaige Gao, Kang Guan, Kexin Huang, Kuai Yu, Lean Wang, Lecong Zhang, Liang Zhao, Litong Wang, Liyue Zhang, Lei Xu, Leyi Xia, Mingchuan Zhang, Minghua Zhang, Minghui Tang, Meng Li, Miaojun Wang, Ming-ming Li, Ning Tian, Panpan Huang, Peng Zhang, Qiancheng Wang, Qinyu Chen, Qiushi Du, Ruiqi Ge, Ruisong Zhang, Ruizhe Pan, Runji Wang, R. J. Chen, R. L. Jin, Ruyi Chen, Shanghao Lu, Shangyan Zhou, Shanhuang Chen, Shengfeng Ye, Shiyu Wang, Shuip-ing Yu, Shunfeng Zhou, Shuting Pan, S. S. Li, Shuang Zhou, Shaoqing Wu, Shengfeng Ye, Tao Yun, Tian Pei, Tianyu Sun, T. Wang, Wangding Zeng, Wan-jia Zhao, Wen Liu, Wenfeng Liang, Wenjun Gao, Wenqin Yu, Wentao Zhang, W. L. Xiao, Wei An, Xi-aodong Liu, Xiaohan Wang, Xiaokang Chen, Xiaotao Nie, Xin Cheng, Xin Liu, Xin Xie, Xingchao Liu, Xinyu Yang, Xinyuan Li, Xuecheng Su, Xuheng Lin, X. Q. Li, Xiangyue Jin, Xiaojin Shen, Xiaosha Chen, Xiaowen Sun, Xiaoxiang Wang, Xinnan Song, Xinyi Zhou, Xianzu Wang, Xinxia Shan, Y. K. Li, Y. Q. Wang, Y. X. Wei, Yang Zhang, Yanhong Xu, Yao Li, Yao Zhao, Yaofeng Sun, Yaohui Wang, Yi Yu, Yichao Zhang, Yifan Shi, Yiliang Xiong, Ying He, Yishi Piao, Yisong Wang, Yixuan Tan, Yiyang Ma, Yiyuan Liu, Yongqiang Guo, Yuan Ou, Yuduan Wang, Yue Gong, Yuheng Zou, Yujia He, Yunfan Xiong, Yuxiang Luo, Yuxiang You, Yuxuan Liu, Yuyang Zhou, Y. X. Zhu, Yanhong Xu, Yanping Huang, Yao-hui Li, Yi Zheng, Yuchen Zhu, Yunxian Ma, Ying Tang, Yukun Zha, Yuting Yan, Z. Z. Ren, Zehui Ren, Zhangli Sha, Zhe Fu, Zhean Xu, Zhenda Xie, Zhengyan Zhang, Zhewen Hao, Zhicheng Ma, Zhi-gang Yan, Zhiyu Wu, Zihui Gu, Zijia Zhu, Zijun Liu, Zilin Li, Ziwei Xie, Ziyang Song, Zizheng Pan, Zhen Huang, Zhipeng Xu, Zhongyu Zhang, and Zhen Zhang. 2025a. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. Nature ,645:633–638. Zirui Guo, Lianghao Xia, Yanhua Yu, Tu Ao, and Chao Huang. 2025b. LightRAG: Simple and fast retrieval-augmented generation. In EMNLP .Bernal Jiménez Gutiérrez, Yiheng Shu, Weijian Qi, Sizhe Zhou, and Yu Su. 2025. From RAG to Memory: Non-parametric continual learning for large language models. In ICML .Haoyu Han, Yu Wang, Harry Shomer, Kai Guo, Ji-ayuan Ding, Yongjia Lei, Mahantesh Halappanavar, Ryan A. Rossi, Subhabrata Mukherjee, Xianfeng Tang, Qi He, Zhigang Hua, Bo Long, Tong Zhao, Neil Shah, Amin Javari, Yinglong Xia, and Jiliang Tang. 2025. Retrieval-augmented generation with graphs (graphrag). Xanh Ho, Anh-Khoa Duong Nguyen, Saku Sugawara, and Akiko Aizawa. 2020. Constructing a multi-hop qa dataset for comprehensive evaluation of reasoning steps. In COLING , pages 6609–6625. Zhengbao Jiang, Frank F Xu, Luyu Gao, Zhiqing Sun, Qian Liu, Jane Dwivedi-Yu, Yiming Yang, Jamie Callan, and Graham Neubig. 2023. Active retrieval augmented generation. In EMNLP .Bowen Jin, Hansi Zeng, Zhenrui Yue, Jinsung Yoon, Sercan Arik, Dong Wang, Hamed Zamani, and Jiawei Han. 2025. Search-R1: Training llms to reason and leverage search engines with reinforcement learning. In COLM .Tom Kwiatkowski, Jennimaria Palomaki, Olivia Red-field, Michael Collins, Ankur Parikh, Chris Alberti, Danielle Epstein, Illia Polosukhin, Jacob Devlin, Ken-ton Lee, et al. 2019. Natural questions: a benchmark for question answering research. Transactions of the Association for Computational Linguistics , 7:453– 466. Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Hein-rich Küttler, Mike Lewis, Wen-tau Yih, Tim Rock-täschel, et al. 2020. Retrieval-augmented generation for knowledge-intensive nlp tasks. In NeurIPS , vol-ume 33, pages 9459–9474. Haoran Luo, Guanting Chen, Qika Lin, Yikai Guo, Fangzhi Xu, Zemin Kuang, Meina Song, Xiaobao Wu, Yifan Zhu, Luu Anh Tuan, et al. 2025a. Graph-r1: Towards agentic graphrag framework via end-to-end reinforcement learning. arXiv preprint arXiv:2507.21892 .Haoran Luo, Guanting Chen, Yandan Zheng, Xi-aobao Wu, Yikai Guo, Qika Lin, Yu Feng, Zemin Kuang, Meina Song, Yifan Zhu, et al. 2025b. Hy-perGraphRAG: Retrieval-augmented generation via hypergraph-structured knowledge representation. In 
+
+NeurIPS .Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, Carroll Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, et al. 2022. Training language models to follow instruc-tions with human feedback. In NeurIPS , volume 35, pages 27730–27744. Qwen, :, An Yang, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chengyuan Li, Dayiheng Liu, Fei Huang, Haoran Wei, Huan Lin, Jian Yang, Jianhong Tu, Jianwei Zhang, Jianxin Yang, Jiaxi Yang, Jingren Zhou, Junyang Lin, Kai Dang, Keming Lu, Keqin Bao, Kexin Yang, Le Yu, Mei Li, Mingfeng Xue, Pei Zhang, Qin Zhu, Rui Men, Runji Lin, Tianhao Li, Tianyi Tang, Tingyu Xia, Xingzhang Ren, Xuancheng Ren, Yang Fan, Yang Su, Yichang Zhang, Yu Wan, Yuqiong Liu, Zeyu Cui, Zhenru Zhang, and Zihan Qiu. 2025. Qwen2.5 technical report. John Schulman, Philipp Moritz, Sergey Levine, Michael Jordan, and Pieter Abbeel. 2015. High-dimensional continuous control using generalized advantage esti-mation. arXiv preprint arXiv:1506.02438 .Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Junxiao Song, Xiao Bi, Haowei Zhang, Mingchuan Zhang, YK Li, Yang Wu, et al. 2024. Deepseekmath: Pushing the limits of mathematical reasoning in open language models. arXiv preprint arXiv:2402.03300 .Huatong Song, Jinhao Jiang, Yingqian Min, Jie Chen, Zhipeng Chen, Wayne Xin Zhao, Lei Fang, and Ji-Rong Wen. 2025. R1-searcher: Incentivizing the search capability in llms via reinforcement learning. 
+
+arXiv preprint arXiv:2503.05592 .Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, and Ashish Sabharwal. 2022. MuSiQue: Multi-hop questions via single-hop question composition. 
+
+TACL , 10:539–554. Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, and Ashish Sabharwal. 2023. Interleaving retrieval with chain-of-thought reasoning for knowledge-intensive multi-step questions. In ACL , pages 10014– 10037. Nengbo Wang, Xiaotian Han, Jagdip Singh, Jing Ma, and Vipin Chaudhary. 2025. CausalRAG: Integrating causal graphs into retrieval-augmented generation. In ACL Findings .Shitao Xiao, Zheng Liu, Peitian Zhang, Niklas Muen-nighoff, Defu Lian, and Jian-Yun Nie. 2024. C-pack: Packed resources for general chinese embeddings. In 
+
+SIGIR .Tianyang Xu, Haojie Zheng, Chengze Li, Haoxiang Chen, Yixin Liu, Ruoxi Chen, and Lichao Sun. 2025. Noderag: Structuring graph-based rag with heteroge-neous nodes. arXiv preprint arXiv:2504.11544 .Zhilin Yang, Peng Qi, Saizheng Zhang, Yoshua Ben-gio, William W Cohen, Ruslan Salakhutdinov, and Christopher D Manning. 2018. HotpotQA: A dataset for diverse, explainable multi-hop question answer-ing. In EMNLP .Siliang Zeng, Quan Wei, William Brown, Oana Frunza, Yuriy Nevmyvaka, and Mingyi Hong. 2025. Reinforcing multi-turn reasoning in llm agents via turn-level credit assignment. arXiv preprint arXiv:2505.11821 .Wayne Xin Zhao, Kun Zhou, Junyi Li, Tianyi Tang, Xiaolei Wang, Yupeng Hou, Yingqian Min, Beichen Zhang, Junjie Zhang, Zican Dong, et al. 2023. Asurvey of large language models. arXiv preprint arXiv:2303.18223 .Ziwei Zheng, Michael Yang, Jack Hong, Chenxiao Zhao, Guohai Xu, Le Yang, Chao Shen, and Xing Yu. 2025. Deepeyes: Incentivizing" thinking with images" via reinforcement learning. arXiv preprint arXiv:2505.14362 .

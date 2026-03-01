@@ -9,55 +9,56 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-02-20 ~ 2026-02-28
-- 运行时间：2026-02-28 19:06:54 UTC
+- 最新运行日期：2026-02-21 ~ 2026-03-01
+- 运行时间：2026-03-01 19:06:02 UTC
 - 运行状态：成功
 - 本次总论文数：17
 - 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-今日精选 17 篇前沿论文，深度解析大模型从“自我演化推理”到“结构化知识检索”的技术跨越。
-核心突破在于揭示了长链推理（Co
-- 详情：[/20260220-20260228/README](/20260220-20260228/README)
+本期收录 17 篇前沿论文，深度聚焦 RAG 效能预测、代码多任务微调及强化学习对齐等核心领域。
+重点关注 RAG 检索效能与答案质量的量化预测，以及通过进度感知强化学习（ProGraph-R1）优化图检索增强生成。
+建议优先研读两篇满分精读论文，掌握提升代码处理能力与 RAG 系统可靠性的实战策略。
+- 详情：[/20260221-20260301/README](/20260221-20260301/README)
 
 ### 精读区论文标签
-1. [Dual-Phase LLM Reasoning: Self-Evolved Mathematical Frameworks](/20260220-20260228/2601.05616v1-dual-phase-llm-reasoning-self-evolved-mathematical-frameworks)  
+1. [Predicting Retrieval Utility and Answer Quality in Retrieval-Augmented Generation](/20260221-20260301/2601.14546v1-predicting-retrieval-utility-and-answer-quality-in-retrieval-augmented-generation)  
    标签：评分：10.0/10、query:sr-llm
-2. [The Molecular Structure of Thought: Mapping the Topology of Long Chain-of-Thought Reasoning](/20260220-20260228/2601.06002v2-the-molecular-structure-of-thought-mapping-the-topology-of-long-chain-of-thought-reasoning)  
+2. [Parameter-Efficient Multi-Task Fine-Tuning in Code-Related Tasks](/20260221-20260301/2601.15094v1-parameter-efficient-multi-task-fine-tuning-in-code-related-tasks)  
    标签：评分：10.0/10、query:sr-llm
-3. [Ministral 3](/20260220-20260228/2601.08584v1-ministral-3)  
+3. [Graph-Anchored Knowledge Indexing for Retrieval-Augmented Generation](/20260221-20260301/2601.16462v1-graph-anchored-knowledge-indexing-for-retrieval-augmented-generation)  
    标签：评分：10.0/10、query:sr-llm
-4. [Fast KVzip: Efficient and Accurate LLM Inference with Gated KV Eviction](/20260220-20260228/2601.17668v1-fast-kvzip-efficient-and-accurate-llm-inference-with-gated-kv-eviction)  
+4. [DeepEra: A Deep Evidence Reranking Agent for Scientific Retrieval-Augmented Generated Question Answering](/20260221-20260301/2601.16478v1-deepera-a-deep-evidence-reranking-agent-for-scientific-retrieval-augmented-generated-question-answering)  
    标签：评分：10.0/10、query:sr-llm
-5. [Native LLM and MLLM Inference at Scale on Apple Silicon](/20260220-20260228/2601.19139v2-native-llm-and-mllm-inference-at-scale-on-apple-silicon)  
+5. [DF-RAG: Query-Aware Diversity for Retrieval-Augmented Generation](/20260221-20260301/2601.17212v1-df-rag-query-aware-diversity-for-retrieval-augmented-generation)  
    标签：评分：10.0/10、query:sr-llm
-6. [AttentionRetriever: Attention Layers are Secretly Long Document Retrievers](/20260220-20260228/2602.12278v1-attentionretriever-attention-layers-are-secretly-long-document-retrievers)  
+6. [When Iterative RAG Beats Ideal Evidence: A Diagnostic Study in Scientific Multi-hop Question Answering](/20260221-20260301/2601.19827v2-when-iterative-rag-beats-ideal-evidence-a-diagnostic-study-in-scientific-multi-hop-question-answering)  
    标签：评分：10.0/10、query:sr-llm
 
 ### 速读区论文标签
-1. [Structured Knowledge Representation through Contextual Pages for Retrieval-Augmented Generation](/20260220-20260228/2601.09402v1-structured-knowledge-representation-through-contextual-pages-for-retrieval-augmented-generation)  
+1. [The Viscosity of Logic: Phase Transitions and Hysteresis in DPO Alignment](/20260221-20260301/2601.17260v1-the-viscosity-of-logic-phase-transitions-and-hysteresis-in-dpo-alignment)  
    标签：评分：10.0/10、query:sr-llm
-2. [Reasoning in Trees: Improving Retrieval-Augmented Generation for Multi-Hop Question Answering](/20260220-20260228/2601.11255v1-reasoning-in-trees-improving-retrieval-augmented-generation-for-multi-hop-question-answering)  
+2. [ProGraph-R1: Progress-aware Reinforcement Learning for Graph Retrieval Augmented Generation](/20260221-20260301/2601.17755v1-prograph-r1-progress-aware-reinforcement-learning-for-graph-retrieval-augmented-generation)  
    标签：评分：10.0/10、query:sr-llm
-3. [Neural Chain-of-Thought Search: Searching the Optimal Reasoning Path to Enhance Large Language Models](/20260220-20260228/2601.11340v1-neural-chain-of-thought-search-searching-the-optimal-reasoning-path-to-enhance-large-language-models)  
+3. [FABLE: Forest-Based Adaptive Bi-Path LLM-Enhanced Retrieval for Multi-Document Reasoning](/20260221-20260301/2601.18116v1-fable-forest-based-adaptive-bi-path-llm-enhanced-retrieval-for-multi-document-reasoning)  
    标签：评分：10.0/10、query:sr-llm
-4. [Predict the Retrieval! Test time adaptation for Retrieval Augmented Generation](/20260220-20260228/2601.11443v1-predict-the-retrieval-test-time-adaptation-for-retrieval-augmented-generation)  
+4. [RPO-RAG: Aligning Small LLMs with Relation-aware Preference Optimization for Knowledge Graph Question Answering](/20260221-20260301/2601.19225v2-rpo-rag-aligning-small-llms-with-relation-aware-preference-optimization-for-knowledge-graph-question-answering)  
    标签：评分：10.0/10、query:sr-llm
-5. [Utilizing Metadata for Better Retrieval-Augmented Generation](/20260220-20260228/2601.11863v1-utilizing-metadata-for-better-retrieval-augmented-generation)  
+5. [A2RAG: Adaptive Agentic Graph Retrieval for Cost-Aware and Reliable Reasoning](/20260221-20260301/2601.21162v1-a2rag-adaptive-agentic-graph-retrieval-for-cost-aware-and-reliable-reasoning)  
    标签：评分：10.0/10、query:sr-llm
-6. [Agentic Reasoning for Large Language Models](/20260220-20260228/2601.12538v1-agentic-reasoning-for-large-language-models)  
+6. [RAG-E: Quantifying Retriever-Generator Alignment and Failure Modes](/20260221-20260301/2601.21803v1-rag-e-quantifying-retriever-generator-alignment-and-failure-modes)  
    标签：评分：10.0/10、query:sr-llm
-7. [Augmenting Question Answering with A Hybrid RAG Approach](/20260220-20260228/2601.12658v2-augmenting-question-answering-with-a-hybrid-rag-approach)  
-   标签：评分：10.0/10、query:sr-llm
-8. [Improving Large Molecular Language Model via Relation-aware Multimodal Collaboration](/20260220-20260228/2601.12256v1-improving-large-molecular-language-model-via-relation-aware-multimodal-collaboration)  
+7. [STELP: Secure Transpilation and Execution of LLM-Generated Programs](/20260221-20260301/2601.05467v3-stelp-secure-transpilation-and-execution-of-llm-generated-programs)  
    标签：评分：7.0/10、query:sr-llm
-9. [The Side Effects of Being Smart: Safety Risks in MLLMs' Multi-Image Reasoning](/20260220-20260228/2601.14127v1-the-side-effects-of-being-smart-safety-risks-in-mllms-multi-image-reasoning)  
+8. [SketchJudge: A Diagnostic Benchmark for Grading Hand-drawn Diagrams with Multimodal Large Language Models](/20260221-20260301/2601.06944v1-sketchjudge-a-diagnostic-benchmark-for-grading-hand-drawn-diagrams-with-multimodal-large-language-models)  
    标签：评分：7.0/10、query:sr-llm
-10. [HELIOS: Hierarchical Graph Abstraction for Structure-Aware LLM Decompilation](/20260220-20260228/2601.14598v2-helios-hierarchical-graph-abstraction-for-structure-aware-llm-decompilation)  
+9. [M^4olGen: Multi-Agent, Multi-Stage Molecular Generation under Precise Multi-Property Constraints](/20260221-20260301/2601.10131v2-m4olgen-multi-agent-multi-stage-molecular-generation-under-precise-multi-property-constraints)  
    标签：评分：7.0/10、query:sr-llm
-11. [Empowering LLMs for Structure-Based Drug Design via Exploration-Augmented Latent Inference](/20260220-20260228/2601.15333v2-empowering-llms-for-structure-based-drug-design-via-exploration-augmented-latent-inference)  
+10. [OctoBench: Benchmarking Scaffold-Aware Instruction Following in Repository-Grounded Agentic Coding](/20260221-20260301/2601.10343v2-octobench-benchmarking-scaffold-aware-instruction-following-in-repository-grounded-agentic-coding)  
    标签：评分：7.0/10、query:sr-llm
+11. [LLM-Guided Diagnostic Evidence Alignment for Medical Vision-Language Pretraining under Limited Pairing](/20260221-20260301/2602.07540v1-llm-guided-diagnostic-evidence-alignment-for-medical-vision-language-pretraining-under-limited-pairing)  
+   标签：评分：6.0/10、query:sr-llm
 
 
 <div class="dpr-home-promo-card">
