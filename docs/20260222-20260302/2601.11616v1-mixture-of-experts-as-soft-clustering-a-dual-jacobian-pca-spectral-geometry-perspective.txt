@@ -1,0 +1,744 @@
+Title: 20260109_Jacobian.docx
+
+URL Source: https://arxiv.org/pdf/2601.11616v1
+
+Published Time: Thu, 19 Feb 2026 02:03:38 GMT
+
+Number of Pages: 20
+
+Markdown Content:
+Mixture-of-Experts as Soft Clustering: 
+
+A Dual Jacobian-PCA Spectral Geometry Perspective 
+
+Feilong Liu, IEEE Senior Member, Dec., 2025 
+
+drbruceliu@gmail.com 
+
+https://www.linkedin.com/in/feilong-liu-19b6b18/ 
+
+Abstract 
+
+Mixture-of-Experts (MoE) architectures are commonly motivated by efficiency and conditional computation, but their effect on the geometry of learned functions and representations remains poorly characterized. In this work, we study MoEs through a geometric lens, interpreting routing as a form of soft partitioning of the representation space into overlapping local charts. We introduce a Dual Jacobian-PCA Spectral Geometry probe. It analyzes local function geometry via Jacobian singular-value spectra and representation geometry via weighted PCA of routed hidden states. 
+
+Using a controlled MLP-MoE setting that permits exact Jacobian computation, we compare dense, Top-k, and fully-soft routing architectures under matched capacity. Across random seeds, we observe that MoE routing consistently reduces local sensitivity, with expert-local Jacobians exhibiting smaller leading singular values and faster spectral decay than dense baselines. At the same time, weighted PCA reveals that expert-local representations distribute variance across a larger number of principal directions, indicating higher effective rank under identical input distributions. We further find that average expert Jacobians are nearly orthogonal, suggesting a decomposition of the transformation into low-overlap expert-specific subspaces rather than scaled variants of a shared map. 
+
+We analyze how routing sharpness modulates these effects, showing that Top-k routing produces lower-rank, more concentrated expert-local structure, while fully-soft routing yields broader, higher-rank representations. Together, these results support a geometric interpretation of MoEs as soft partitionings of function space that flatten local curvature while redistributing representation variance. 
+
+While our study focuses on a simplified setting to isolate routing effects, the findings provide a mechanistic baseline for understanding how expert routing reshapes function and representation geometry in MoE models. 
+
+1. Introduction 
+
+Mixture-of-Experts (MoE) architectures are often motivated as efficiency mechanisms for scaling neural networks through conditional computation. By activating only a subset of parameters per input, MoEs enable larger model capacity at fixed computational cost and have become a central component of large-scale language models. However, beyond efficiency considerations, the impact of expert routing on the geometry of learned functions and representations remains incompletely understood. 
+
+Large language models (LLMs) can be viewed as high-dimensional probabilistic sequence models that map a history of tokens to a distribution over the next token in a vocabulary (Vaswani et al., 2017). This mapping is implemented by a deep, nonlinear function that must simultaneously support a wide range of behaviors, including factual recall, reasoning, dialogue conventions, and stylistic variation. In dense architectures, these heterogeneous behaviors are represented within a single, globally shared parameterization, requiring the model to approximate diverse local mappings within a unified function. 
+
+From a geometric perspective, this global approximation can induce strong curvature and sensitivity: small perturbations in representation space may be amplified along certain directions, and interactions between disparate 
+
+## 1regions of the input space may lead to entangled representations. While such effects do not preclude strong empirical performance, they motivate the question of whether alternative architectures reshape the underlying function geometry in systematic ways. 
+
+Mixture-of-Experts architectures relax this constraint by introducing an explicit routing mechanism that assigns each input to a subset of expert networks (Shazeer et al., 2017; Lepikhin et al., 2020; Fedus et al., 2022). The routed output is a weighted combination of expert responses, allowing different experts to specialize on different regions of the representation space. This mechanism can be viewed as inducing a soft partition of the input domain, where experts act as local models that collectively approximate the global function. 
+
+In this work, we adopt a geometric interpretation of MoEs, viewing expert routing as a form of soft clustering in function space. Under this view, each expert defines a local chart with its own sensitivity profile and internal representation structure, while routing controls how sharply these charts are separated and how much overlap they exhibit. This perspective naturally suggests analyzing MoEs using tools that probe both local function behavior and representation geometry. 
+
+Despite extensive work on MoEs focusing on scaling, routing strategies, and efficiency, comparatively little is known about how expert routing reshapes the spectral geometry of learned transformations. In particular, it remains unclear how MoEs differ from dense models in terms of local sensitivity, curvature distribution, and the dimensionality of expert-local representations. Addressing these questions requires probes that can isolate routing effects from architectural and data-dependent confounders. 
+
+To this end, we study dense and MoE architectures in a controlled setting that enables exact computation of Jacobian spectra and stable estimation of representation covariance. We combine two complementary probes—Jacobian singular-value analysis and weighted principal component analysis (PCA) of routed hidden states—to characterize how routing affects both function-space sensitivity and representation-space variance. While our experiments focus on a simplified MLP-MoE architecture with synthetic inputs, this design allows us to isolate routing-induced geometric effects that are difficult to measure directly in large-scale language models. 
+
+1.1 Contributions 
+
+This paper makes the following contributions: 
+
+● Geometric interpretation of MoEs as soft partitionings. 
+
+We frame Mixture-of-Experts architectures as inducing a soft partition of function space, where routing assigns inputs to overlapping expert-local charts. This interpretation connects MoEs to clustering and manifold learning perspectives and motivates a geometric analysis of expert specialization. 
+
+● Spectral comparison of dense, Top-k, and fully-soft routing architectures. 
+
+We provide a systematic comparison of dense models and MoEs under matched capacity, analyzing how routing sharpness affects both local function geometry and representation-space variance structure. 
+
+● Jacobian spectral analysis of expert-local sensitivity. 
+
+We use Jacobian singular-value spectra as a probe of local function behavior, showing that expert-local Jacobians exhibit smaller leading singular values and faster spectral decay than dense baselines in our setting, consistent with reduced local sensitivity. 
+
+● Cross-expert Jacobian alignment as a probe of functional decomposition. 
+
+We measure cosine similarity between average expert Jacobians and find consistently low alignment across experts, suggesting limited overlap in the learned transformations under this metric. 
+
+● Weighted PCA for routed representation geometry. 
+
+We develop a weighted PCA procedure that accounts for routing probabilities and apply it to expert-local 
+
+## 2hidden states. This reveals substantial differences in variance concentration and effective rank between dense and MoE architectures. 
+
+● Effect of routing sharpness on internal structure. 
+
+We show that Top-k routing produces more concentrated, lower effective-rank expert-local representations, while fully-soft routing yields broader, higher-rank internal structure, linking routing behavior to classical bias–variance tradeoffs. 
+
+● Seed-robust geometric trends in a controlled setting. 
+
+Across random initializations, MoEs consistently exhibit flatter expert-local Jacobian spectra alongside broader representation-space variance, providing evidence that these effects are not artifacts of a particular seed. 
+
+1.2 Relation to prior work 
+
+Mixture-of-Experts routing and scaling. 
+
+Early MoE work focused on conditional computation and scalability, demonstrating that sparse expert activation enables large parameter counts without proportional increases in compute (Shazeer et al., 2017; Lepikhin et al., 2020; Fedus et al., 2022). Subsequent studies refined routing mechanisms, load-balancing objectives, and scaling laws (Ludziejewski et al., 2025). While these works establish MoEs as an effective architectural strategy, they largely emphasize efficiency and training dynamics rather than the geometric structure of learned transformations. 
+
+Jacobian spectra and sensitivity in deep networks. 
+
+Jacobian singular values have been used to study stability, robustness, and training dynamics in dense networks (e.g., Dadoun et al., 2025). These analyses link spectral properties of the Jacobian to sensitivity and generalization, but they do not consider MoE architectures or examine how routing affects local function geometry and cross-component structure. 
+
+MoE compression and expert merging. 
+
+A separate line of work explores compressing MoEs through expert merging, pruning, or low-rank approximation (e.g., Li et al., 2025; Miao et al., 2025; Yang et al., 2024; Huang et al., 2025). These approaches demonstrate that MoEs can often be approximated by more compact representations, but they do not directly analyze the spectral geometry that governs when such approximations preserve or distort expert-local structure. 
+
+Our perspective. 
+
+In contrast to these lines of work, we focus on the spectral geometry induced by expert routing. By jointly analyzing Jacobian spectra and routed representation variance in a controlled setting, we aim to characterize how MoEs reshape local sensitivity and internal dimensionality. Our results suggest that routing induces a decomposition into expert-local transformations with low mutual alignment under this metric, while simultaneously redistributing variance across representation directions. This geometric viewpoint complements efficiency- and compression-oriented perspectives and provides a mechanistic baseline for understanding expert specialization. 
+
+2. Methodology 
+
+We study how dense and Mixture-of-Experts (MoE) architectures differ in spectral geometry by analyzing both local function behavior and representation-space variance. Our methodology combines two complementary probes: Jacobian singular-value spectra, which characterize local sensitivity and curvature of the learned function, and weighted principal component analysis (PCA), which characterizes how variance is distributed across representation directions under expert routing. 
+
+## 3To isolate the geometric effects of routing from architectural and data-dependent confounders, we conduct our analysis in a controlled MLP-MoE setting that permits exact Jacobian computation and stable covariance estimation. This design allows us to attribute observed spectral differences directly to routing mechanisms rather than to attention dynamics, tokenization artifacts, or dataset structure. 
+
+2.1 Notation and Definitions 
+
+We denote the MoE layer as a collection of E experts  together with a routing function  that 𝑓 𝑒 { }𝑒=1 𝐸  𝑔(𝑥) ∈ ∆ 𝐸−1 
+
+assigns mixture weights to experts. For Top ‑k routing,  is sparse with at most k non ‑zero entries; for fully ‑soft 𝑔(𝑥) 
+
+routing, all entries may be non ‑zero. The routed output is 
+
+𝑓 𝑀𝑜𝐸 (𝑥) = 𝑒=1 𝐸 
+
+∑ 𝑔 𝑒 (𝑥)𝑓 𝑒 (𝑥) 
+
+For each expert e, we define the expert ‑local Jacobian 
+
+𝐽 𝑒 (𝑥) = ∂𝑓 𝑒 (𝑥) ∂𝑥 
+
+While the full MoE Jacobian includes additional terms arising from gradients of the routing function, in this work 
+
+we focus on expert-local Jacobians  . This choice isolates the geometric properties of the transformations 𝐽 𝑒 (𝑥) 
+
+learned by individual experts, independent of router sensitivity. 
+
+The expert ‑weighted representation is defined as 
+
+ℎ𝑒 (𝑥) = 𝑔 𝑒 (𝑥)ℎ(𝑥) 
+
+where  is the hidden state entering the MoE layer. ℎ(𝑥) 
+
+To analyze function geometry, we compute singular ‑value spectra of  . To analyze representation geometry, we 𝐽 𝑒 (𝑥) 
+
+perform weighted PCA on routed hidden states using weights  . More details are provided in Appendix A. 𝑔 𝑒 (𝑥) 
+
+2.2 Probes for Function and Representation Geometry 
+
+We analyze MoE geometry using two complementary probes that capture distinct but related aspects of model behavior. 
+
+Jacobian spectral probe (function geometry). To characterize local function behavior, we compute the 
+
+singular-value spectrum of the expert-local Jacobian  .. The largest singular value  corresponds to the 𝐽 𝑒 (𝑥)  σ₁(𝐽 𝑒 (𝑥)) 
+
+local spectral norm and reflects worst-case sensitivity to input perturbations, while the decay of the spectrum indicates how sensitivity is distributed across directions. 
+
+For each expert, we compute Jacobian spectra at multiple input points and aggregate them using routing weights to obtain expert-level summaries. We analyze: 
+
+● the magnitude of leading singular values, 
+
+## 4● the shape and decay rate of the spectrum, and 
+
+● normalized cumulative spectral energy. 
+
+These quantities serve as proxies for local curvature and anisotropy under the expert transformation. We emphasize that these are local, probe-dependent measures rather than global characterizations of the learned function. 
+
+Cross-expert Jacobian alignment 
+
+To assess functional overlap between experts, we compute cosine similarity between average expert-local Jacobians. Specifically, we flatten each expert’s average Jacobian into a vector and compute pairwise cosine similarity. Low similarity under this metric indicates limited alignment between expert transformations, suggesting a decomposition into low-overlap functional components. 
+
+We interpret this measure conservatively: near-zero cosine similarity reflects low average alignment, not strict orthogonality in an algebraic sense. 
+
+Weighted PCA probe (representation geometry). 
+
+To analyze representation-space structure, we perform weighted PCA on the hidden states entering the MoE layer. 
+
+For each expert ee, routing weights  are used as sample weights when estimating the covariance matrix. This 𝑔 𝑒 (𝑥) 
+
+ensures that each expert’s PCA reflects the distribution of inputs it actually receives under the router. 
+
+From the resulting eigenvalue spectra, we analyze: 
+
+● explained-variance ratios, 
+
+● cumulative variance curves, and 
+
+● the number of components required to reach a fixed variance threshold (used as an effective-rank proxy). 
+
+Throughout, we interpret PCA results as characterizing variance structure under a fixed input distribution, not intrinsic dimensionality or representational capacity. 
+
+More details are provided in Appendix  A. 
+
+2.3 Experimental setup 
+
+To enable exact Jacobian computation and eliminate confounding factors, we conduct our experiments using a controlled MLP-based MoE architecture rather than a full transformer. This abstraction removes attention mechanisms, layer normalization, and sequence structure, allowing us to focus specifically on the geometric effects of expert routing. 
+
+All models—dense baselines, Top-k MoEs, and fully-soft MoEs—are matched in hidden dimension, activation functions, and per-expert capacity. The only difference across conditions is the routing mechanism. This matching ensures that observed geometric differences arise from routing rather than parameter count or architectural asymmetry. 
+
+We train all models on fixed synthetic inputs drawn from an isotropic Gaussian distribution. While this setting does not reflect natural language data, it provides a stable and reproducible input distribution that supports precise estimation of Jacobian spectra and representation covariance. Our goal is not to model downstream task performance, but to isolate routing-induced geometric effects in a setting where exact analysis is tractable. 
+
+## 5Additional architectural details, training hyperparameters, and implementation specifics are provided in Appendix B. 
+
+3 Results 
+
+We evaluate dense and Mixture-of-Experts (MoE) models using the two probes introduced in Section 2: Jacobian spectra, which characterize local function sensitivity, and weighted PCA, which characterizes the variance structure of expert-local representations. Unless otherwise noted, results are shown for a single random seed; qualitative trends are consistent across seeds. 
+
+3.1 Jacobian Analysis 
+
+(A)  (B) 
+
+(C )  (D) 
+
+Figure 1: (A) Jacobian norm over training, (B) Cross-expert cosine similarity at the final training step, (C ) Jacobian singular value spectrum at the final step, and (D) Jacobian cumulative energy spectrum at the final step 
+
+## 6Jacobian norm dynamics during training 
+
+Figure 1A shows the evolution of the Jacobian spectral norm during training. The dense model exhibits steady growth in the Jacobian norm throughout training, increasing from approximately 5 to over 50. This behavior indicates increasing sensitivity of the learned mapping under the dense parameterization. 
+
+In contrast, the MoE model shows early growth followed by stabilization. Both the effective MoE Jacobian and individual expert-local Jacobians increase during early training but plateau after approximately 250 iterations. This stabilization suggests that expert routing constrains the growth of local sensitivity once routing patterns have stabilized, rather than allowing sensitivity to increase uniformly across the input space. 
+
+We emphasize that these observations reflect training dynamics under our controlled setting and do not imply universal behavior across architectures or objectives. 
+
+Cross-expert Jacobian alignment 
+
+Figure 1B reports cosine similarity between average expert-local Jacobians at the final training step. Across random seeds, pairwise similarities are tightly concentrated near zero, with values typically ranging between −0.01 and 0.015. 
+
+Under this metric, expert-local Jacobians exhibit low average alignment. This suggests that experts implement transformations with limited overlap in their dominant sensitivity directions, rather than learning scaled variants of a shared mapping. We interpret this result conservatively: near-zero cosine similarity indicates low alignment on average, not strict orthogonality in an algebraic sense. 
+
+Nevertheless, this pattern is robust across seeds and routing regimes, indicating that expert routing is associated with a decomposition of sensitivity across experts in this setting. 
+
+Jacobian singular-value spectrum 
+
+Figure 1C compares the singular-value spectra of dense and MoE expert-local Jacobians at the end of training. Dense models exhibit larger singular values across much of the spectrum, indicating higher local sensitivity under the dense mapping. 
+
+MoE experts, by contrast, show smaller leading singular values—approximately 1.5–1.7× lower than the dense baseline—and a more rapidly decaying spectrum. In our setting, this difference is consistent with flatter expert-local sensitivity profiles and reduced anisotropy. 
+
+We note that singular-value decay reflects how sensitivity is distributed across directions, not overall expressivity or capacity. Accordingly, these results should be interpreted as local geometric properties under the chosen probe. 
+
+Normalized Cumulative Jacobian Energy 
+
+Figure 1D shows normalized cumulative singular-value energy for dense and MoE Jacobians. After normalization, MoE experts accumulate a large fraction of their total spectral energy in fewer directions than the dense baseline. 
+
+This indicates that, while MoE experts have smaller absolute singular values, their sensitivity is more concentrated along a smaller number of dominant directions. Dense models, in contrast, distribute normalized sensitivity more broadly across directions. 
+
+## 7Together with the low cross-expert alignment observed above, these results suggest that MoEs decompose sensitivity across experts into multiple concentrated but low-overlap components. 
+
+3.2 Representation Geometry via Principal Component Analysis (PCA) 
+
+We analyze representation geometry using weighted PCA on hidden states entering the MoE layer, with routing weights determining expert-specific sample contributions. This ensures that each expert’s PCA reflects the distribution of inputs it actually processes. 
+
+(A)  (B) 
+
+Figure  2: Representation geometry via PCA. (A) Explained variance ratios for Dense and MoE Experts (Top ‑2routing, seed  = 0); inset shows PC ‑10 variance. (B) Cumulative variance captured over increasing numbers of principal components. 
+
+Explained variance spectra 
+
+Figure 2A shows per-component explained-variance ratios for the dense model and MoE experts. The dense model exhibits rapid variance concentration, with the first few principal components capturing a large fraction of total variance. 
+
+In contrast, MoE experts show slower eigenvalue decay, with variance distributed more evenly across components. No small set of principal components dominates the spectrum to the same extent as in the dense baseline. 
+
+Cumulative variance and effective rank 
+
+Figure 2B reports cumulative explained variance as a function of the number of components. Under identical input distributions, the dense model reaches 90% cumulative variance with approximately three components. MoE experts typically require more than twenty components to reach the same threshold. 
+
+We interpret this difference as reflecting higher effective rank under the PCA probe for expert-local representations. Importantly, this does not imply higher intrinsic dimensionality or greater expressivity, but rather indicates that variance is less concentrated along a small number of directions. 
+
+These results show that MoE routing redistributes representation variance across directions rather than collapsing representations into lower-dimensional subspaces in this setting. 
+
+## 83.3 Top-k routing MoE and Fully-soft routing MoE 
+
+(A)  (B) 
+
+(C )  (D) 
+
+Figure  3: Explained ‑variance spectra and cumulative explained ‑variance curves under Top ‑2 routing (A,  B) and fully ‑soft routing (C,  D) 
+
+To examine how routing sharpness affects expert-local geometry, we compare Top-k and fully-soft routing regimes. 
+
+Cumulative variance structure 
+
+Figures 3A and 3B show cumulative variance curves under Top-k routing. Experts reach high cumulative variance rapidly, with cum-var@10 consistently higher than in the fully-soft case. This indicates that variance concentrates into fewer dominant directions, corresponding to lower effective rank under this probe. 
+
+Figures 3C and 3D show the corresponding results for fully-soft routing. Here, cumulative variance increases more gradually, and cum-var@10 is lower, indicating that variance is distributed across a larger number of components. 
+
+Eigenvalue decay 
+
+## 9Under Top-k routing, the explained-variance spectrum decays steeply: a small number of principal components dominate, while later components contribute little. Under fully-soft routing, the decay is noticeably flatter, with many components carrying non-negligible variance. 
+
+These differences are consistent across seeds and reflect how routing sharpness modulates the internal variance structure of expert-local representations. 
+
+Summary of routing effects 
+
+Taken together, these results show that sharper routing produces more concentrated, lower effective-rank expert-local representations, while softer routing preserves broader, higher effective-rank internal structure. Routing sharpness thus controls not only which experts are active, but also how variance is organized within each expert. 
+
+3.4 MoE Routing as Soft Clustering in Function Space 
+
+The combined Jacobian and PCA analyses support a coherent geometric interpretation of MoE architectures in this setting. Expert routing is associated with a decomposition of sensitivity across experts, as indicated by low cross-expert Jacobian alignment, while simultaneously reshaping the internal variance structure of expert-local representations. 
+
+Under Top-k routing, strong data segregation leads each expert to operate on a narrower subset of the input distribution. This is associated with concentrated PCA spectra and more sharply structured Jacobian energy, consistent with lower internal variability. Under fully-soft routing, experts receive more heterogeneous inputs, resulting in broader variance structure and flatter PCA spectra. 
+
+Importantly, low cross-expert Jacobian alignment persists across routing regimes, suggesting that routing primarily modulates the internal structure of experts rather than the existence of functional decomposition itself. We interpret these findings as evidence that MoEs implement a form of soft partitioning of function space, where routing controls the dimensionality and overlap of expert-local charts. 
+
+We emphasize that these conclusions are specific to the controlled architecture and probes studied here. Whether similar geometric patterns persist in deeper, attention-based, or pretrained language models remains an open question. 
+
+4 Scope, Limitations, and Expected Failure Modes 
+
+This work is intentionally scoped to isolate the geometric effects of expert routing under controlled conditions. While this design enables precise measurement and clear attribution, it also imposes limitations that are important for interpreting the results and for understanding where the conclusions may not directly apply. 
+
+Scope of conclusions 
+
+Our analysis focuses on local geometric properties of dense and Mixture-of-Experts (MoE) architectures as measured by two probes: expert-local Jacobian spectra and weighted PCA of routed hidden states. These probes characterize local sensitivity and variance structure under a fixed input distribution, rather than global expressivity, task performance, or asymptotic scaling behavior. 
+
+## 10 Accordingly, our conclusions are restricted to statements about how routing reshapes local function geometry and representation variance in this setting . We do not claim that MoEs are inherently more stable, more generalizable, or more robust than dense models, nor that the observed geometric properties directly translate to downstream performance improvements. 
+
+Architectural simplifications 
+
+We study MoEs within a simplified MLP-based architecture that omits attention, recurrence, and normalization layers. This abstraction is necessary to enable exact Jacobian computation and stable covariance estimation, but it also removes architectural features that are central to modern language models. 
+
+In particular, attention mechanisms introduce input-dependent mixing across sequence positions, which may interact nontrivially with expert routing. Similarly, layer normalization can alter Jacobian spectra and representation variance in ways that are orthogonal to routing effects. As a result, the geometric patterns observed here should be viewed as 
+
+routing-induced effects in isolation , rather than as complete descriptions of MoEs in transformer-based LLMs. 
+
+Input distribution and data realism 
+
+All experiments are conducted using synthetic inputs drawn from an isotropic Gaussian distribution. This choice ensures statistical stability and reproducibility, and avoids confounds introduced by linguistic structure or dataset-specific correlations. 
+
+However, real-world language inputs are highly structured, non-Gaussian, and sequence-dependent. In such settings, routing decisions may correlate strongly with semantic or syntactic features, potentially altering both expert specialization and representation geometry. Our results therefore do not claim to capture the full complexity of expert behavior under natural language data, but rather provide a mechanistic baseline against which more realistic settings can be compared. 
+
+Limitations of Jacobian-based probes 
+
+Jacobian spectra capture local, infinitesimal sensitivity of the learned function around specific inputs. While this is informative for understanding curvature and anisotropy, it does not reflect global behavior, long-range interactions, or finite perturbations. 
+
+Moreover, in MoE architectures the full Jacobian includes additional terms arising from gradients of the routing function. In this work, we intentionally focus on expert-local Jacobians to isolate the transformations learned by individual experts. This choice omits router sensitivity and therefore does not characterize end-to-end robustness or routing instability. Conclusions drawn from Jacobian analysis should be interpreted as expert-local properties under this probe. 
+
+Limitations of PCA-based analysis 
+
+Weighted PCA characterizes how variance is distributed across representation directions under a fixed input distribution and routing policy. While effective-rank proxies derived from PCA are useful for comparing variance concentration, they should not be interpreted as intrinsic dimensionality, representational capacity, or minimal sufficient subspace. 
+
+## 11 Additionally, PCA is a linear probe and may fail to capture nonlinear structure in representations. Differences in PCA spectra across routing regimes therefore reflect changes in linear variance structure, not necessarily deeper differences in nonlinear representational geometry. 
+
+Expected failure modes 
+
+Based on the design of our analysis, we expect several regimes where the observed geometric patterns may weaken or fail to appear: 
+
+1.  Highly entangled routing. 
+
+If routing weights are nearly uniform across experts for most inputs, expert-local specialization may be weak, reducing both Jacobian decomposition and PCA differences. 
+
+2.  Strong architectural coupling. 
+
+In architectures with heavy cross-expert interaction, residual connections, or shared normalization layers, expert-local geometry may be dominated by shared components rather than expert-specific transformations. 
+
+3.  Task-driven specialization overriding routing effects. 
+
+In settings where experts are explicitly trained for predefined tasks or modalities, specialization may reflect task structure rather than routing-induced geometric partitioning. 
+
+4.  Deep or multi-layer MoEs. 
+
+In deeper MoE stacks, routing effects may compound, interfere, or average out across layers, potentially obscuring the clear geometric signatures observed in a single-layer setting. 
+
+Outlook 
+
+Despite these limitations, the controlled setting studied here provides a clear and interpretable baseline for understanding how expert routing reshapes local function geometry and representation variance. We view this work as complementary to large-scale empirical studies: it does not aim to replicate LLM behavior, but to offer 
+
+mechanistic insights that can inform the interpretation of MoE behavior in more complex models. 
+
+Future work can build on this foundation by extending these probes to attention-based architectures, natural language data, and pretrained models, as well as by incorporating router gradients into a unified geometric analysis. 
+
+5 Discussion and Conclusion 
+
+This work examined Mixture-of-Experts (MoE) architectures through a geometric lens, focusing on how expert routing reshapes local function sensitivity and representation-space variance in a controlled setting. By combining Jacobian spectral analysis with weighted PCA, we aimed to isolate routing-induced effects that are difficult to observe directly in large-scale language models. 
+
+Summary of findings 
+
+Across routing regimes and random seeds, we observed three consistent geometric patterns. First, expert-local Jacobians exhibited smaller leading singular values and faster spectral decay than dense baselines, indicating reduced local sensitivity under the expert transformations. Second, cross-expert Jacobian alignment remained near zero under a cosine-similarity metric, suggesting limited overlap in dominant sensitivity directions across experts. Third, representation variance was redistributed under routing: expert-local representations showed higher effective rank under weighted PCA than dense representations, with routing sharpness modulating the degree of variance concentration. 
+
+## 12 Taken together, these results support an interpretation of MoEs as implementing a soft partitioning of function space, where routing decomposes sensitivity across experts while controlling the internal variance structure of expert-local representations. As emphasized in Section 4, these conclusions pertain to local geometric properties under specific probes and do not imply global guarantees about expressivity, robustness, or performance. 
+
+Interpreting routing sharpness 
+
+Our comparison of Top-k and fully-soft routing highlights routing sharpness as a key factor shaping expert-local geometry. Sharper routing produces experts that operate on narrower input distributions, leading to more concentrated variance and lower effective rank under PCA. Softer routing exposes experts to more heterogeneous inputs, resulting in broader variance structure and flatter PCA spectra. 
+
+Importantly, the presence of low cross-expert Jacobian alignment across both regimes suggests that functional decomposition arises even when routing is not sparse. Routing sharpness therefore appears to regulate how experts organize internal structure, rather than whether they specialize at all, at least in the setting studied here. 
+
+Relation to prior MoE perspectives 
+
+Most prior work on MoEs emphasizes efficiency, scalability, and routing stability. From that perspective, expert specialization is often inferred indirectly through load balancing or task performance. Our results complement this view by providing direct geometric probes of expert-local behavior, offering a mechanistic perspective on how specialization manifests at the level of local sensitivity and representation variance. 
+
+At the same time, recent work on expert merging and MoE compression suggests that many experts can be approximated or combined without significant loss. Our findings do not contradict this observation: low cross-expert alignment under a Jacobian metric does not preclude functional redundancy under other metrics or tasks. Rather, the geometric decomposition we observe may coexist with approximate compressibility, depending on how expert behavior is measured. 
+
+Implications and hypotheses 
+
+While our analysis is intentionally limited in scope, it suggests several hypotheses that can be tested in more realistic settings. If similar geometric patterns persist in transformer-based MoEs, one might expect routing to influence robustness, optimization dynamics, or representation diversity by modulating local sensitivity and variance concentration. Conversely, architectural components such as attention and normalization may attenuate or reshape these effects. 
+
+Our results also suggest that routing design choices—such as the degree of sparsity or softness—can have systematic effects on internal representation geometry, beyond their role in compute allocation. Understanding these effects may help inform routing strategies that balance specialization and overlap in practice. 
+
+Outlook 
+
+This work establishes a controlled geometric baseline for analyzing MoE architectures. Future work can extend these probes to deeper and multi-layer MoEs, incorporate router gradients into end-to-end Jacobian analysis, and apply similar techniques to attention-based and pretrained language models. Another promising direction is to connect geometric measures more directly to downstream behavior, such as robustness to perturbations or generalization across domains. 
+
+## 13 By clarifying the scope and limitations of our conclusions and by grounding interpretation in explicit geometric probes, we hope this work provides a useful reference point for future studies of expert routing and specialization. 
+
+# References 
+
+● Fedus, W., Zoph, B., & Shazeer, N. (2022). Switch Transformers: Scaling to trillion ‑parameter models with simple and efficient sparsity, JMLR 2022 
+
+● Shazeer, N., Mirhoseini, A., Maziarz, K., Davis, A., Le, Q., Hinton, G., & Dean, J. (2017). Outrageously large neural networks: The sparsely ‑gated mixture ‑of ‑experts layer. 
+
+● Lepikhin, D., Lee, H., Xu, Y., Chen, D., Firat, O., Huang, Y., Krikun, M., Shazeer, N., & Wu, Y. (2020). GShard: Scaling giant models with conditional computation. 
+
+● Ludziejewski, J., et al. (2025). Scaling laws for fine ‑grained mixture of experts. 
+
+● Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., & Polosukhin, I. (2017). Attention is all you need. 
+
+● BENJAMIN DADOUN, SOUFIANE HAYOU, HANAN SALAM, MOHAMED EL AMINE SEDDIK, AND PIERRE YOUSSEF, ON THE STABILITY OF THE JACOBIAN MATRIX IN DEEP NEURAL NETWORKS, arXiv:2506.08764v2 [cs.LG] 21 Nov 2025 
+
+● Lujun Li , Zhu Qiyuan , Jiacheng Wang , Wei Li , Hao Gu , Sirui Han , Yike Guo , Sub-MoE: Efficient 
+
+Mixture-of-Expert LLMs Compression via Subspace Expert Merging, arXiv:2506.23266v1 [cs.LG] 29 Jun 2025 
+
+● Ruijie Miao , Yilun Yao , Zihan Wang , Zhiming Wang , Bairen Yi , LingJun Liu , Yikai Zhao , Tong Yang 
+
+MergeMoE: Efficient Compression of MoE Models via Expert Output Merging, arXiv:2510.14436v1 [cs.LG] 16 Oct 2025 
+
+● Wei Li , Lujun Li , You-Liang Huang , Mark G. Lee , Shengjie Sun , Wei Xue , Yike Guo , STRUCTURED 
+
+MIXTURE-OF-EXPERTS LLMS COMPRESSION VIA SINGULAR VALUE DECOMPOSITION, 2025 
+
+● Cheng Yang , Yang Sui , Jinqi Xiao , Lingyi Huang , Yu Gong , Yuanlin Duan , Wenqi Jia , Miao Yin , Yu 
+
+Cheng , Bo Yuan  MoE ‑I²: Compressing Mixture of Experts Models through Inter-Expert Pruning and 
+
+Intra-Expert Low-Rank Decomposition, arXiv:2411.01016v1 [cs.LG] 1 Nov 2024 
+
+● Wei Huang, Yue Liao, Jianhui Liu, Ruifei He, Haoru Tan, Shiming Zhang, Hongsheng Li, Si Liu, Xiaojuan Qi, Mixture Compressor (2025). MIXTURE COMPRESSOR FOR MIXTURE-OF-EXPERTS LLMS GAINS MORE, arXiv:2410.06270v2 [cs.LG] 22 Feb 2025 
+
+Appendix A Notation, Formal Definitions, and Methodological Details 
+
+This appendix provides the full mathematical definitions and derivations underlying the notation introduced in Section  2.1. We include the formal routing definitions, weighted PCA construction, Jacobian estimation procedure, and notation tables used throughout the paper. 
+
+A.1 MoE Layer and Routing Functions 
+
+An MoE layer consists of a set of experts 
+
+𝐹 = 𝑓 𝑒 : ℜ 𝑑 𝑚𝑜𝑑𝑒𝑙 → ℜ 𝑑 𝑚𝑜𝑑𝑒𝑙 
+
+# { }𝑒=1 𝐸 
+
+And a routing function 
+
+## 14 𝑔: ℜ 𝑑 𝑚𝑜𝑑𝑒𝑙 → ∆ 𝐸−1 
+
+Where  is the probability simplex. ∆𝐸−1 
+
+For an input hidden state  , the MoE output is 𝑥 ∈ ℜ 𝑑 𝑚𝑜𝑑𝑒𝑙 
+
+𝑓 𝑀𝑜𝐸 (𝑥) = 𝑒=1 𝐸 
+
+∑ 𝑔 𝑒 (𝑥)𝑓 𝑒 (𝑥) 
+
+Top ‑k routing. 
+
+The router produces a sparse vector  , let  denote the selected experts, then 𝑔 𝑒 (𝑥)  𝑇𝑜𝑝𝐾(𝑥) ⊆ 1,..., 𝐸 { }
+
+𝑔 𝑒 (𝑥) = 𝑒𝑥𝑝(𝑠 𝑒 (𝑥)) Σ𝑗∈𝑇𝑜𝑝𝐾(𝑥) 𝑒𝑥𝑝(𝑠 𝑗 (𝑥)) , 𝑒 ∈ 𝑇𝑜𝑝𝐾(𝑥), 𝑜, 𝑜𝑡ℎ𝑒𝑟𝑤𝑖𝑠𝑒 ⎰⎱⎱⎰
+
+Where  is the router logits. 𝑠 𝑒 (𝑥) 
+
+Fully ‑soft routing. 
+
+All experts receive non ‑zero weight: 
+
+𝑔 𝑒 (𝑥) = 𝑒𝑥𝑝(𝑠 𝑒 (𝑥)) Σ𝑗=1 𝐸 𝑒𝑥𝑝(𝑠 𝑗 (𝑥)) 
+
+A.2 Expert ‑Local Jacobians 
+
+For each expert e, the expert ‑local Jacobian is 
+
+𝐽 𝑒 (𝑥) = ∂𝑓 𝑒 (𝑥) ∂𝑥 ∈ ℜ 𝑑 𝑚𝑜𝑑𝑒𝑙 ×𝑑 𝑚𝑜𝑑𝑒𝑙 
+
+The Jacobian of the full MoE layer is: 
+
+𝐽 𝑀𝑜𝐸 (𝑥) = ∂∂𝑥 𝑒=1 𝐸 
+
+∑ 𝑔 𝑒 (𝑥)𝑓 𝑒 (𝑥) 
+
+# ( ) = 𝑒=1 𝐸 
+
+∑ 𝑔 𝑒 (𝑥) 𝐽 𝑒 (𝑥) + 𝑒=1 𝐸 
+
+∑ 𝑓 𝑒 (𝑥) ∂𝑔(𝑥) ∂𝑥 
+
+In this work, we focus on expert ‑local geometry , analyzing  rather than the full MoE Jacobian  . This 𝐽 𝑒 (𝑥)  𝐽 𝑀𝑜𝐸 (𝑥) 
+
+isolates the functional structure learned by each expert independent of router gradients. 
+
+Jacobian spectra. 
+
+For each expert, we compute the singular values 
+
+σ₁(𝐽 𝑒 (𝑥)) ≥ σ₂(𝐽 𝑒 (𝑥)) ≥ … ≥ σ (𝐽 𝑒 (𝑥)) 
+
+## 15 We report: 
+
+● The largest singular value  , which is also called the Jacobian norm, the spectral norm, Lipschitz σ₁(𝐽 𝑒 (𝑥)) 
+
+constant and worst ‑case sensitivity. 
+
+● normalized cumulative energy 
+
+The average Jacobian for expert e is 
+
+𝐽 𝑒 = 1𝑁 𝑒 𝑖=1 𝑁 
+
+∑ 𝑔 𝑒 (𝑥 𝑖 ) 𝐽 𝑒 (𝑥 𝑖 )
+
+Where  is the effective sample count. 𝑁 𝑒 = 𝑖=1 𝑁 
+
+∑ 𝑔 𝑒 (𝑥 𝑖 )
+
+A.3 Cross ‑Expert Jacobian Similarity 
+
+To quantify functional decomposition, we compute cosine similarity between average expert Jacobians of two 
+
+experts  :𝑒 1, 𝑒 2
+
+𝑐𝑜𝑠(𝑒 1, 𝑒 2) =
+
+> <𝑣𝑒𝑐(𝐽 𝑒 1
+> ), 𝑣𝑒𝑐(𝐽 𝑒 2
+> )> 𝑣𝑒𝑐(𝐽 𝑒 1
+> )||||||||||||2
+> 𝑣𝑒𝑐(𝐽 𝑒 2
+> )||||||||||||2
+
+Near ‑zero similarity indicates that experts implement distinct transformation subspaces .
+
+A.4 Weighted PCA for Routed Hidden States 
+
+Let  be hidden states entering the MoE layer. For expert e, define the expert-weighted samples: ℎ𝑖 { }𝑖=1 𝑁 
+
+ℎ𝑖,𝑒 = 𝑔 𝑒 (ℎ 𝑖 )ℎ𝑖 
+
+The weighted covariance matrix is: 
+
+𝐶 𝑒 = 1𝑁 𝑒 𝑖=1 𝑁 
+
+∑ 𝑔 𝑒 (ℎ 𝑖 ) ℎ 𝑖 − μ 𝑒 ( ) ℎ𝑖 − μ 𝑒 ( )𝑇 
+
+Where  μ𝑒 = 1𝑁 𝑒 𝑖=1 𝑁 
+
+∑ 𝑔 𝑒 (ℎ 𝑖 )ℎ 𝑖 
+
+We compute eigenvalues 
+
+λ1,𝑒 ≥ λ 2,𝑒 ≥···≥ λ 𝑑,𝑒 
+
+The Explained variance is 
+
+𝑒 𝑖 = λ𝑖 
+
+> Σ𝑗 λ𝑖
+
+## 16 Cumulative variance is: 
+
+𝐸 𝑘 = 𝑖=1 𝑘 
+
+∑ 𝑒 𝑖 = 𝑖=1 𝑘 
+
+> ∑ λ 𝑖
+> Σ𝑗 λ𝑗
+
+We use the number of components required to reach 90% cumulative variance ( k@0.9) as an effective rank metric. This construction ensures that each expert’s PCA reflects the distribution of inputs it actually receives under the router. 
+
+A.5 Implementation Details 
+
+● The largest singular value σ ₁ of Jacobians is extracted via exact SVD. For deeper models where J becomes prohibitively large, σ ₁ can be estimated via power iteration. 
+
+● PCA computed on centered, weighted hidden states. 
+
+● Top ‑k uses k=2 unless otherwise specified. 
+
+● Fully ‑soft uses full softmax over experts. 
+
+Appendix B Experimental Setup 
+
+This appendix describes the model configurations, datasets, routing settings, and probing procedures used in our spectral geometry analysis of Mixture ‑of ‑Experts (MoE) models. 
+
+B.1 Models 
+
+We evaluate three model classes: 
+
+● Dense Transformer (baseline). A standard feedforward block with identical hidden dimension, activation, and parameter count to the MoE experts, but without routing. 
+
+● MoE ‑Top ‑k. A sparsely ‑activated MoE layer using Top ‑k routing with k=2 unless otherwise specified. 
+
+● MoE ‑Fully ‑Soft. A fully ‑soft MoE layer using a softmax router over all experts. 
+
+All models share the same hidden dimension, number of heads, feedforward width, and activation functions. The only difference across conditions is the routing mechanism. 
+
+Expert configuration 
+
+● Number of experts: E=8 
+
+● Expert architecture: 2 ‑layer MLP with GELU 
+
+● Model dimension:  =64 𝑑 𝑚𝑜𝑑𝑒𝑙 
+
+● Expert hidden dimension (same as dense FFN):  =128 𝑑 ℎ𝑖𝑑𝑑𝑒𝑛 
+
+● Batch size: 512 tokens 
+
+● Router: single linear projection followed by softmax or Top ‑k selection 
+
+This configuration provides a balanced regime where (i) routing behavior is non ‑trivial, (ii) Jacobian computation remains tractable, and (iii) PCA spectra are stable across seeds. The dimensions are chosen to match the per ‑expert capacity of small transformer feedforward blocks while enabling full spectral analysis without approximation. 
+
+## 17 B.2 Synthetic Data Generation 
+
+To isolate the geometric effects of routing from a dataset ‑specific structure, all experiments use fixed synthetic inputs rather than natural language corpora. This controlled setting ensures that differences in PCA spectra, Jacobian curvature, and expert specialization arise solely from the routing mechanism and not from semantic or distributional artifacts. 
+
+We generate a batch of hidden states 
+
+𝑥 ∼ ℵ(0, 𝐼 𝑑 𝑚𝑜𝑑𝑒𝑙 
+
+)
+
+using a fixed random seed for reproducibility. Targets are sampled independently from the same distribution: 
+
+This synthetic ‑data regime provides a stable foundation for computing full Jacobian spectra and weighted PCA without the confounding influence of tokenization, sequence structure, or linguistic variability. Because the goal of this work is to analyze spectral geometry rather than downstream performance, no tokenization or text preprocessing is required. 
+
+B.3 Routing Settings 
+
+Top ‑k routing 
+
+For the Top ‑k MoE configuration, the router produces a sparse distribution over experts: 
+
+● Top ‑k: k=2 
+
+● Routing weights: obtained by applying a softmax to router logits, then selecting the top ‑k entries 
+
+● Temperature: 1.0 
+
+● Noisy gating: disabled 
+
+● Normalization: selected expert weights are renormalized to sum to 1 
+
+This setting enforces sharp expert selection and produces sparse expert activation patterns. 
+
+Fully ‑soft routing 
+
+For the fully ‑soft MoE configuration, the router assigns non ‑zero weight to all experts: 
+
+● Routing weights: full softmax over all E experts 
+
+● Temperature: 1.0 
+
+● No sparsity constraints: every expert contributes to the output 
+
+● No renormalization: softmax already produces a valid probability distribution 
+
+This setting yields diffuse expert activation and higher ‑entropy routing behavior. 
+
+Batching and weighting 
+
+Routing weights  are computed per token (per sample in the synthetic batch). These weights are used 𝑔 𝑒 (𝑥) 
+
+consistently across all probes: 
+
+● Weighted PCA: routing weights serve as sample weights for expert ‑specific covariance estimation 
+
+● Jacobian averaging: expert ‑local Jacobians are averaged using the same per ‑token routing weights 
+
+## 18 This ensures that each expert’s spectral geometry reflects the distribution of inputs it actually receives under the router. 
+
+B. 4 Jacobian Computation 
+
+To analyze expert ‑local function geometry, we compute the Jacobian of each expert with respect to the input hidden state. Because our experiments use a controlled MLP ‑MoE architecture with synthetic inputs, we can compute full Jacobian matrices without approximation. 
+
+For each sample x and expert e, we compute 
+
+𝐽 𝑒 (𝑥) = ∂𝑓 𝑒 (𝑥) ∂𝑥 
+
+using automatic differentiation. Expert ‑local Jacobians are then aggregated using routing weights: 
+
+## ,𝐽 𝑒 = 1𝑁 𝑒 𝑖=1 𝑁 
+
+∑ 𝑔 𝑒 (𝑥 𝑖 ) 𝐽 𝑒 (𝑥 𝑖 ) 𝑁 𝑒 = 𝑖=1 𝑁 
+
+## ∑ 𝑔 𝑒 (𝑥 𝑖 )
+
+We analyze: 
+
+● singular ‑value spectra of  𝐽 𝑒 
+
+● largest singular values (curvature) 
+
+● spectral decay (distribution of curvature across directions) 
+
+● cross ‑expert cosine similarity (functional decomposition) 
+
+All Jacobians are computed on a fixed synthetic batch to ensure reproducibility and eliminate dataset ‑induced variability. 
+
+B. 5 Weighted PCA Procedure 
+
+To probe expert ‑local representation geometry, we perform weighted PCA on the hidden states entering the MoE 
+
+layer. For each expert e, routing weights  determine the contribution of each sample. 𝑔 𝑒 (𝑥) 
+
+Given hidden states  , we compute: ℎ𝑖 { }𝑖=1 𝑁 
+
+1.  Weighted mean 
+
+μ𝑒 = 1𝑁 𝑒 𝑖=1 𝑁 
+
+∑ 𝑔 𝑒 (ℎ 𝑖 )ℎ 𝑖 
+
+2.  Weighted covariance 
+
+𝐶 𝑒 = 1𝑁 𝑒 𝑖=1 𝑁 
+
+∑ 𝑔 𝑒 (ℎ 𝑖 ) ℎ 𝑖 − μ 𝑒 ( ) ℎ𝑖 − μ 𝑒 ( )𝑇 
+
+## 19 3.  Eigenvalue decomposition 
+
+𝐶 𝑒 = 𝑉 𝑒 Λ𝑒 𝑉 𝑒 𝑇 
+
+where  Λ𝑒 = 𝑑𝑖𝑎𝑔(λ 1,𝑒 , λ 2,𝑒 , ··· λ 𝑑,𝑒 )
+
+We report: 
+
+● eigenvalue spectra 
+
+● cumulative variance curves 
+
+● cum ‑var@10 
+
+● effective rank 
+
+Weighted PCA ensures that each expert’s representation geometry reflects the distribution of inputs it actually receives under the router. 
+
+B.6 Training Details 
+
+Both the dense baseline and the MoE models are trained using mean ‑squared error (MSE) on fixed synthetic inputs. We use the Adam optimizer with a learning rate of 1×10−3. Each model is trained independently using the same batch of synthetic data to ensure that differences in spectral geometry arise solely from the routing mechanism. 
+
+The training loop consists of forward passes through the dense model and the MoE model, followed by backpropagation and parameter updates. 
+
+Because the architecture is lightweight and the dataset is synthetic, full Jacobian matrices can be computed exactly after training. All spectral analyses (Jacobian spectra, PCA spectra, and cross ‑expert similarity) are performed on the trained models using the same fixed batch of synthetic inputs. 
+
+B.7 Hardware 
+
+All experiments are executed on a CPU ‑only environment. The controlled MLP ‑MoE architecture and synthetic ‑data setup make full Jacobian computation tractable without GPU acceleration. Running on CPU ensures deterministic behavior across seeds and platforms, and avoids variability introduced by GPU kernel implementations. 
+
+## 20

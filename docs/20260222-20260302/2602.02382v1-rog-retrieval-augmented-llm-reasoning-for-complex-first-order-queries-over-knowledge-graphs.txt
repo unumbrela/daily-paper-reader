@@ -1,0 +1,140 @@
+Title: ROG: Retrieval-Augmented LLM Reasoning for Complex First-Order Queries over Knowledge Graphs
+
+URL Source: https://arxiv.org/pdf/2602.02382v1
+
+Published Time: Tue, 03 Feb 2026 03:51:44 GMT
+
+Number of Pages: 7
+
+Markdown Content:
+# ROG: Retrieval-Augmented LLM Reasoning for Complex First-Order Queries over Knowledge Graphs 
+
+Ziyan Zhang 1, Chao Wang 2, Zhuo Chen 2, Chiyi Li 2, Kai Song 1
+
+> 1
+
+School of Information Science and Engineering, Chongqing Jiaotong University 
+
+> 2
+
+State Grid Chongqing Electric Power Company 
+
+Abstract 
+
+Answering first-order logic (FOL) queries over incomplete knowledge graphs (KGs) is diffi-cult, especially for complex query structures that compose projection, intersection, union, and negation. We propose ROG, a retrieval-augmented framework that combines query-aware neighborhood retrieval with large lan-guage model (LLM) chain-of-thought reason-ing. ROG decomposes a multi-operator query into a sequence of single-operator sub-queries and grounds each step in compact, query-relevant neighborhood evidence. Intermedi-ate answer sets are cached and reused across steps, improving consistency on deep reason-ing chains. This design reduces compounding errors and yields more robust inference on com-plex and negation-heavy queries. Overall, ROG provides a practical alternative to embedding-based logical reasoning by replacing learned operators with retrieval-grounded, step-wise inference. Experiments on standard KG rea-soning benchmarks show consistent gains over strong embedding-based baselines, with the largest improvements on high-complexity and negation-heavy query types. 
+
+1 Introduction 
+
+Knowledge graphs (KGs) represent facts as rela-tional triples and support structured reasoning over large knowledge bases such as Freebase and Word-Net (Bollacker et al., 2008; Miller, 1995). In many real deployments, KGs are large, sparse, and incom-plete, which makes it difficult to answer queries that require multi-hop reasoning. Answering first-order logic (FOL) queries (Enderton, 2001) on in-complete KGs is therefore challenging, especially for complex operator compositions (Liang et al., 2024). Most existing approaches rely on geometric embeddings (Hamilton et al., 2018), but perfor-mance and generalization often degrade on com-plex queries and heterogeneous graphs (Choudhary and Reddy, 2023; Choudhary et al., 2021; Teru et al., 2020). We propose ROG , which combines (i) query-aware neighborhood retrieval and (ii) LLM-based chain-of-thought inference over retrieved evidence. ROG abstracts entity/relation names to identifiers, decomposes a multi-operator query into single-operator sub-queries, and answers them sequen-tially with cached intermediate results, guided by prompting strategies (Huang et al., 2024). This decomposition helps the model focus on executing a single logical operation. At a high level, ROG treats logical query answer-ing as a sequence of small, verifiable set operations. Each sub-query is answered using only a compact, query-relevant neighborhood, and the resulting in-termediate answer sets are cached and reused. This design keeps the LLM grounded in retrieved evi-dence while still exploiting its flexible reasoning ability. Unlike purely embedding-based approaches, ROG does not require learning task-specific op-erator parameterizations for each dataset. Instead, it delegates the combinatorial composition of op-erators to decomposition plus prompting, and uses retrieval to supply the minimal evidence needed for each step. As a result, the framework is easy to adapt to different KGs and query distributions, as long as neighborhoods can be retrieved and serial-ized consistently. In addition, the same prompting and execution strategy can be applied across opera-tor types, simplifying system engineering. Our contributions are: • An LLM-driven KG reasoning framework for FOL query answering that combines decom-position, retrieval, and step-by-step inference. • A practical abstraction strategy that replaces entity/relation names with identifiers to reduce hallucination and improve cross-KG robust-ness. 1
+
+> arXiv:2602.02382v1 [cs.CL] 2 Feb 2026 Figure 1: Workflow of Logical Reasoning Decomposition and LLM-Based Answer Generation.
+
+• Empirical results on standard benchmarks showing improved MRR over strong embed-ding baselines, especially on high-complexity query types. 
+
+2 Related Work 
+
+LLM prompting and decomposition. LLMs can solve many NLP tasks via prompting (Wu et al., 2024), and chain-of-thought prompting improves multi-step reasoning (Wei et al., 2022). Recent work explores decomposition and tool/symbolic augmentation (Creswell et al., 2022; Gao et al., 2023; Yang et al., 2024b,a; Xiong et al., 2025; Zhou et al., 2022; Khot et al., 2022; Wang et al., 2022; Yao et al., 2023). ROG follows this line but targets structured KG reasoning: we explic-itly decompose logical operators, ground each step in retrieved triples, and cache intermediate sets to stabilize multi-step inference. 
+
+Logical KG reasoning. Embedding-based meth-ods model projection and set operations over KGs (Nickel et al., 2011; Bordes et al., 2013; Nickel and Kiela, 2017; Ren et al., 2020; Ren and Leskovec, 2020; Minervini et al., 2021). These approaches are typically efficient at inference time but depend on learning operator behaviors from data and can be sensitive to changes in graph schema or query distri-butions. Hybrid approaches incorporate KG neigh-borhoods for reasoning (Yasunaga et al., 2021), and extensions address temporal KGs (Xiong et al., 2024b,a). In contrast, ROG performs retrieval-augmented LLM inference directly over a compact, query-relevant subgraph. This shifts complexity from training to query-time reasoning, which can be advantageous when deploying across multiple KGs. 
+
+3 Methodology 
+
+ROG answers FOL queries over a KG G ⊆ E ×
+
+R × E using four operators: projection ( P ), inter-section ( ∧), union ( ∨), and negation ( ¬). Instead of reasoning over the full KG, ROG retrieves a com-pact query-relevant neighborhood and performs retrieval-augmented inference with an LLM. 
+
+3.1 Problem Setup and Operators 
+
+A query is defined by a small set of grounded enti-ties and relations and returns an entity set that sat-isfies the logical constraints. We focus on standard query families composed of P , ∧, ∨, and ¬ oper-ators. Intuitively, projection follows a relation to obtain a candidate set, intersection/union combine candidate sets, and negation removes entities that satisfy a constraint. In practice, complex queries 2Figure 2: Data flow of the ROG model. 
+
+are built by composing these primitives into deeper reasoning chains. Operationally, each intermediate set can be viewed as a candidate pool of entity identifiers. ROG treats the execution of each operator as pro-ducing or transforming such pools, which makes in-termediate states explicit and reusable. This aligns naturally with retrieval: for a given operator appli-cation, we only need evidence that is local to the current pool and the queried relations. 
+
+3.2 Abstraction 
+
+We replace concrete entity and relation surface forms with unique identifiers. This forces the LLM to reason from the provided evidence rather than memorized world knowledge, reducing hallu-cination and improving portability across heteroge-neous KGs. Abstraction also makes prompts more uniform across datasets, which reduces the amount of prompt engineering needed when changing KGs. 
+
+3.3 Neighborhood Retrieval and Query Decomposition 
+
+Given a query q, we retrieve a query-relevant neigh-borhood around the entities and relations appearing in q. To control context length, ROG decomposes a complex multi-operator query into a chain of single-operator sub-queries (e.g., 3p becomes three consecutive 1p queries; a 3i query becomes three projections followed by one intersection). Each sub-query is answered with the evidence restricted to its local neighborhood, and intermediate answer sets are cached and injected into later prompts. De-composition ensures that each prompt is short and operator-focused, which improves reliability. 
+
+Retrieval granularity. In practice, we retrieve a small k-hop neighborhood for each grounded entity involved in the current sub-query and optionally expand around newly produced intermediate enti-ties. We cap the number of retrieved triples to fit the LLM context window and prioritize edges that match the relations appearing in the query. This makes the evidence both compact and query-aware. When the neighborhood is large, truncation pre-vents the LLM from being distracted by unrelated facts. 
+
+Deterministic execution order. Decomposition follows the syntactic structure of the logical query and produces a fixed execution plan. For compos-ite queries, we compute projections first to obtain candidate sets and then apply set operations (in-tersection/union) on the cached intermediate sets. For negation, we explicitly represent the “to-be-removed” set and apply subtraction at the end of the corresponding sub-query. A deterministic plan also simplifies caching because intermediate results can be indexed by step type and arguments. 
+
+3.4 Chain-of-Thought Prompting 
+
+After decomposing a query into a chain of simple sub-queries, ROG performs sequential inference with the LLM. We use prompt templates to (i) se-rialize the retrieved neighborhood into a compact, deterministic text format and (ii) present a single logical operation to be executed at each step. 3Dataset Model 1p 2p 3p 2i 3i ip pi 2u up FB15k GQE 57.2 55.9 29.9 52.4 47.7 41.8 44.5 29.8 31.2 Q2B 58.1 48.7 43.3 65.1 56.9 47.1 50.2 35.2 29.9 CQD 72.4 56.9 41.5 64.6 61.3 54.4 58.8 55.7 36.9 ROG 81.4 67.7 49.2 75.6 72.3 62.0 65.1 69.4 45.6                                     
+
+> NELL995 GQE 52.5 29.5 15.3 35.6 38.8 28.5 25.4 26.9 18.6 Q2B 53.1 31.0 22.4 51.4 46.9 31.1 29.1 37.6 21.5 CQD 66.4 32.7 26.8 55.8 51.2 37.7 33.6 45.4 39.2 ROG 83.3 59.2 41.5 61.1 58.7 42.9 50.1 62.2 57.2
+> Table 1: MRR comparison between ROG and traditional methods on nine typical query types.
+
+Evidence serialization. The retrieved neighbor-hood is rendered as a list of triples and small adja-cency lists, using the abstract identifiers from the previous stage. This keeps the context structured and makes it easy to verify whether an output en-tity is supported by the evidence. It also allows downstream components to audit the reasoning by checking whether each returned entity appears in the evidence. 
+
+Step-wise reasoning with caching. For each sub-query, the prompt includes: the operator type, its ar-guments (entity IDs, relation IDs, and/or previously computed answer sets), and the local evidence. The LLM returns an intermediate answer set, which is stored in a cache. Later prompts reference cached sets using placeholders, so that multi-step queries remain consistent and do not require the model to “re-derive” earlier answers. Caching also reduces redundant computation when a query contains re-peated sub-structures. 
+
+Multi-agent consensus (optional). For domain-specific scenarios, ROG can instantiate multiple agents (each pairing an LLM with the same ev-idence) and aggregate their outputs via a simple consensus rule (e.g., majority voting over candi-date entities). This can improve robustness when the base model is sensitive to prompt phrasing. In addition, disagreement among agents can be used as a signal that the retrieved evidence is insufficient or ambiguous. 
+
+Output constraints. To avoid verbose genera-tions and reduce post-processing ambiguity, we constrain the LLM output to a simple list format. When a sub-query expects a set of entities, the model outputs only entity identifiers (one per line). When a sub-query expects an empty set, the model outputs an explicit NONE token. This lightweight constraint improves determinism and makes cached intermediate sets easy to parse and reuse. It also makes evaluation straightforward because outputs can be directly compared as sets. 
+
+4 Experiments 
+
+4.1 Experimental Setup 
+
+We evaluate ROG on FB15k (Bordes et al., 2013) and NELL995 (Xiong et al., 2017), following the standard benchmark protocols for complex logical query answering. We use ChatGLM (GLM et al., 2024) as the base LLM and store KGs in Neo4j for efficient neighborhood retrieval. All experiments are run on a workstation with an NVIDIA GeForce RTX 4090 GPU. 
+
+Baselines. We compare against representa-tive embedding-based methods, including GQE, Query2Box (Q2B), and CQD. These baselines cover both neural set-operator designs and decomposition-style embedding methods. 
+
+Query types and evaluation. We evaluate typi-cal projection, intersection, union, and composite query types (e.g., 1p–3p, 2i–3i, 2u, ip , pi ), and additionally report results on negation-heavy query types. We use Mean Reciprocal Rank (MRR) as the main metric. MRR is sensitive to the rank posi-tion of the correct entity and is widely used for KG query answering evaluation. 
+
+Implementation details. For retrieval, we use Neo4j to execute neighborhood expansion queries and return a bounded set of triples for each sub-query. For prompting, we use a fixed template that includes: (i) a short instruction describing the operator to apply, (ii) the serialized neighbor-hood evidence, and (iii) the current arguments (en-tity/relation IDs or cached intermediate sets). To improve stability, we constrain the output format to a newline-separated list of entity identifiers. We also keep the prompt structure fixed across datasets to avoid tuning to a specific benchmark. 4Dataset Model 2in 3in inp pin pni FB15k BetaE 29.8 21.7 19.1 14.4 18.4 ROG 36.4 35.7 22.3 19.6 25.0            
+
+> NELL995 BetaE 29.6 27.9 23.4 21.1 15.6 ROG 34.7 32.8 29.5 27.3 19.5
+> Table 2: MRR comparison between ROG and BetaE on complex query types.
+
+Practical considerations. We found that prompt stability depends on keeping evidence compact and avoiding distractor relations. Therefore, retrieval prioritizes triples whose relations occur in the cur-rent sub-query and truncates long adjacency lists. When the retrieved evidence is insufficient (e.g., because the KG is incomplete or the neighborhood cutoff is too strict), ROG may under-generate can-didate entities; this behavior is preferable to hal-lucinating unsupported entities. In addition, the deterministic execution plan ensures that the same sub-query always triggers the same retrieval strat-egy. 
+
+4.2 Effectiveness of ROG for Logical Reasoning 
+
+We report Mean Reciprocal Rank (MRR): 
+
+MRR = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+1
+
+pi
+
+. (1) Table 1 shows that ROG achieves the best per-formance across typical projection, intersection, union, and composite query types on both datasets. In particular, ROG is consistently strong on deeper and more complex queries. This suggests that de-composition and evidence grounding help mitigate the difficulty of long reasoning chains. A clear trend is that the improvement is larger when the logical structure requires composing mul-tiple operations (e.g., multi-hop projection or com-bined projection+set operators), where embedding-based approximations can accumulate error. We also observe that the gains are generally more pro-nounced on NELL995, which is typically more sparse and thus benefits more from explicitly grounding each reasoning step in retrieved neigh-borhood evidence. 
+
+4.3 Advantages of Chain-of-Thought Decomposition 
+
+We analyze the impact of CoT-style decomposi-tion by focusing on complex, operator-rich queries (Table 2). Embedding-based approaches such as BetaE address multi-hop reasoning by iteratively transforming latent representations, which can ac-cumulate approximation errors as query depth and branching increase. This is particularly problem-atic for negation, where a small error in the “to-be-removed” set can lead to a large change in the final answer set. In contrast, ROG converts a complex query into a small sequence of simple sub-queries and explic-itly materializes intermediate answer sets. This turns multi-operator reasoning into a sequence of easier classification/filtering steps grounded in re-trieved evidence. Materialization also makes it possible to localize errors: if the final answer is wrong, we can inspect intermediate sets to find which sub-query failed. Empirically, Table 2 shows consistent improvements (about 25%–35% MRR) on high-complexity negation queries. These results support the hypothesis that decomposition plus re-trieval provides a more stable pathway for complex logical inference than purely embedding-based set operations. 
+
+5 Conclusion 
+
+We presented ROG, a framework that integrates log-ical reasoning over knowledge graphs with large language model inference by combining query de-composition, query-aware neighborhood retrieval, and step-by-step reasoning. ROG achieves con-sistent performance improvements over traditional embedding-based methods on standard KG bench-marks, with particularly strong gains on complex and negation-heavy query types. Future work in-cludes more efficient retrieval policies and tighter coupling between symbolic execution plans and prompting. 
+
+References    
+
+> Kurt Bollacker, Colin Evans, Praveen Paritosh, Tim Sturge, and Jamie Taylor. 2008. Freebase: a collabo-ratively created graph database for structuring human knowledge. In Proceedings of the 2008 ACM SIG-MOD international conference on Management of data , pages 1247–1250. Antoine Bordes and 1 others. 2013. Translating embed-dings for modeling multi-relational data. In NeurIPS .Nurendra Choudhary, Nikhil Rao, Sumeet Katariya, Karthik Subbian, and Chandan Reddy. 2021. Proba-bilistic entity representation model for reasoning over knowledge graphs. Advances in neural information processing systems , 34:23440–23451.
+
+5Nurendra Choudhary and Chandan K Reddy. 2023. Complex logical reasoning over knowledge graphs using large language models. arXiv preprint arXiv:2305.01157 .Antonia Creswell, Murray Shanahan, and Irina Higgins. 2022. Selection-inference: Exploiting large language models for interpretable logical reasoning. arXiv preprint .Herbert B Enderton. 2001. A mathematical introduction to logic . Elsevier. Luyu Gao, Aman Madaan, Shuyan Zhou, Uri Alon, Pengfei Liu, Yiming Yang, Jamie Callan, and Gra-ham Neubig. 2023. Pal: Program-aided language models. In International Conference on Machine Learning , pages 10764–10799. PMLR. Team GLM, Aohan Zeng, Bin Xu, Bowen Wang, Chen-hui Zhang, Da Yin, Dan Zhang, Diego Rojas, Guanyu Feng, Hanlin Zhao, and 1 others. 2024. Chatglm: A family of large language models from glm-130b to glm-4 all tools. arXiv preprint arXiv:2406.12793 .Will Hamilton, Payal Bajaj, Marinka Zitnik, Dan Juraf-sky, and Jure Leskovec. 2018. Embedding logical queries on knowledge graphs. Advances in neural information processing systems , 31. Qiong Huang, Wenmin Shan, and Meirong Guo. 2024. Design and implementation of trustworthy large-model-based question answering systems. Informa-tion Security Research , 10(1):191–195. Tushar Khot, Harsh Trivedi, Matthew Finlayson, Yao Fu, Kyle Richardson, Peter Clark, and Ashish Sab-harwal. 2022. Decomposed prompting: A modular approach for solving complex tasks. arXiv preprint arXiv:2210.02406 .Chao Liang, Bo Wang, and Yaofang Zhang. 2024. A knowledge-graph reasoning method for industrial control vulnerability exploitation relation prediction. 
+
+Information Security Research , 10(6):498–505. George A Miller. 1995. Wordnet: a lexical database for english. Communications of the ACM , 38(11):39–41. Pasquale Minervini, Erik Arakelyan, and Daniel Daza. 2021. Complex query answering with neural link predictors. arXiv preprint .Maximilian Nickel, Volker Tresp, and Hans-Peter Kriegel. 2011. A three-way model for collective learning on multi-relational data. In Proceedings of the 28th International Conference on Machine Learn-ing (ICML) , pages 809–816, Washington. Maximillian Nickel and Douwe Kiela. 2017. Poincaré embeddings for learning hierarchical representations. 
+
+Advances in neural information processing systems ,30. Hongyu Ren, Weihua Hu, and Jure Leskovec. 2020. Query2box: Reasoning over knowledge graphs in vector space using box embeddings. arXiv preprint .Hongyu Ren and Jure Leskovec. 2020. Beta embed-dings for multi-hop logical reasoning in knowledge graphs. arXiv preprint .Komal Teru, Etienne Denis, and Will Hamilton. 2020. Inductive relation prediction by subgraph reasoning. In International conference on machine learning ,pages 9448–9457. PMLR. Xuezhi Wang, Jason Wei, Dale Schuurmans, Quoc Le, Ed Chi, Sharan Narang, Aakanksha Chowdhery, and Denny Zhou. 2022. Self-consistency improves chain of thought reasoning in language models. arXiv preprint arXiv:2203.11171 .Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou, and 1 others. 2022. Chain-of-thought prompting elic-its reasoning in large language models. Advances in neural information processing systems , 35:24824– 24837. Peize Wu, Guanghui Li, and Jinning Wu. 2024. A large language model based framework for vulnerability management in power monitoring systems. Informa-tion Security Research , 10(Supplement 1):241–245. Siheng Xiong, Ali Payani, Ramana Kompella, and Fara-marz Fekri. 2024a. Large language models can learn temporal reasoning. In Proceedings of the 62nd An-nual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 10452– 10470. Siheng Xiong, Ali Payani, Yuan Yang, and Faramarz Fekri. 2025. Deliberate reasoning in language mod-els as structure-aware planning with an accurate world model. In Proceedings of the 63rd Annual Meeting of the Association for Computational Lin-guistics (Volume 1: Long Papers) , pages 31900– 31931. Siheng Xiong, Yuan Yang, Faramarz Fekri, and James Clayton Kerce. Tilp: Differentiable learning of temporal logical rules on knowledge graphs. In 
+
+The Eleventh International Conference on Learning Representations .Siheng Xiong, Yuan Yang, Ali Payani, James C Kerce, and Faramarz Fekri. 2024b. Teilp: Time prediction over knowledge graphs via logical reasoning. In 
+
+Proceedings of the AAAI conference on artificial in-telligence , volume 38, pages 16112–16119. Wenhan Xiong, Thien Hoang, and William Yang Wang. 2017. Deeppath: A reinforcement learning method for knowledge graph reasoning. arXiv preprint arXiv:1707.06690 .Yuan Yang, Siheng Xiong, Ali Payani, Ehsan Shareghi, and Faramarz Fekri. 2024a. Can llms reason in the wild with programs? In Findings of the Association for Computational Linguistics: EMNLP 2024 , pages 9806–9829. 
+
+6Yuan Yang, Siheng Xiong, Ali Payani, Ehsan Shareghi, and Faramarz Fekri. 2024b. Harnessing the power of large language models for natural language to first-order logic translation. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 6942– 6959. Shunyu Yao, Dian Yu, Jeffrey Zhao, Izhak Shafran, Tom Griffiths, Yuan Cao, and Karthik Narasimhan. 2023. Tree of thoughts: Deliberate problem solving with large language models. Advances in neural information processing systems , 36:11809–11822. Michihiro Yasunaga, Hongyu Ren, and Antoine Bosse-lut. 2021. Qa-gnn: Reasoning with language models and knowledge graphs for question answering. arXiv preprint .Denny Zhou, Nathanael Schärli, Le Hou, Jason Wei, Nathan Scales, Xuezhi Wang, Dale Schuurmans, Claire Cui, Olivier Bousquet, Quoc Le, and 1 oth-ers. 2022. Least-to-most prompting enables complex reasoning in large language models. arXiv preprint arXiv:2205.10625 .
+
+7

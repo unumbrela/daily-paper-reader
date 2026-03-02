@@ -1,0 +1,1074 @@
+Title: SPARC-RAG: Adaptive Sequential-Parallel Scaling with Context Management for Retrieval-Augmented Generation
+
+URL Source: https://arxiv.org/pdf/2602.00083v1
+
+Published Time: Tue, 03 Feb 2026 01:05:16 GMT
+
+Number of Pages: 21
+
+Markdown Content:
+## SP AR C-RAG: Adaptive Sequential–Parallel Scaling with Context Management for Retrieval-Augmented Generation 
+
+Yuxin Yang 1, Gangda Deng 1, Ömer Faruk Akgül 1, Nima Chitsazan 2, Yash Govilkar 2,Akasha Tigalappanavara 2, Shi-Xiong Zhang 2, Sambit Sahu 2, Viktor Prasanna 11University of Southern California 2Capital One 
+
+Abstract 
+
+Retrieval-Augmented Generation (RAG) grounds large language model outputs in external evidence, but remains challenged on multi-hop question answering that requires long reasoning. Recent works scale RAG at inference time along two complementary dimensions: sequential depth for iterative refinement and parallel width for coverage expansion. However, naive scaling causes context contamination and scaling inefficiency, leading to diminishing or negative returns despite increased computation. To address these limitations, we propose SP AR C-RAG, a multi-agent framework that coordinates sequential and parallel inference-time scaling under a unified context management mech-anism. SP AR C-RAG employs specialized agents that maintain a shared global context and provide explicit control over the scaling process. It generates targeted, complementary sub-queries for each branch to enable diverse parallel exploration, and explicitly regulates exiting decisions based on answer correctness and evidence grounding. To optimize scaling behavior, we further introduce a lightweight fine-tuning method with process-level verifi-able preferences, which improves the efficiency of sequential scaling and effectiveness of parallel scaling. Across single- and multi-hop QA benchmarks, SP AR C-RAG consistently outperforms previous RAG baselines, yielding an average +6.2 F1 improvement under lower inference cost. 
+
+1 Introduction 
+
+Large Language Models (LLMs) (Yang et al., 2025a; Achiam et al., 2023) augmented with re-trieval have become a dominant approach for knowledge-intensive tasks. Retrieval-Augmented Generation (RAG) (Lewis et al., 2020) grounds LLM outputs in external evidence, providing ac-cess to current and factual information. Despite these advantages, standard RAG systems with a single retrieval and question answering step often struggle on complex queries, particularly multi-hop queries (Gao et al., 2023; Tang and Yang, 2024) which demand deep reasoning and hypothesis ex-ploration. To handle these intricate demands, re-cent works focus on scaling RAG at inference time along two dimensions: deepening the reasoning chain (sequential scaling or depth) (Trivedi et al., 2023; Wang et al., 2025b; Lee et al., 2024) and broadening hypothesis exploration (parallel scaling or width) (Wang et al., 2024; Li et al., 2024). However, scaling is not straightforward: me-chanically increasing depth and width results in re-dundant computation and thus Scaling Inefficiency ,while uncontrolled context growth introduces noise and leads to Context Contamination ; together, these effects cause performance to plateau and place the system on a suboptimal cost–accuracy trade-off curve (Leng et al., 2024; Wang et al., 2025d; Lin et al., 2025). More concretely, sequential scaling it-eratively refines reasoning but suffers from context contamination as evidence accumulates indiscrimi-nately, overwhelming the model’s attention capac-ity and deteriorating performance (Wu et al., 2025; Misaki et al., 2025). Parallel scaling increases coverage by exploring multiple reasoning paths, but it often produces redundant branches and re-lies on simple aggregation schemes (e.g., majority voting) that fail to synthesize complementary evi-dence (Wang et al., 2025c; Xiao et al., 2025). Although sequential depth and parallel width are intrinsically complementary — the former enables iterative refinement while the latter expands evi-dence coverage — this complementarity is difficult to realize. Without explicit regulation of scaling behavior and information consolidation, their in-teraction amplifies redundancy and noise, under-mining both efficiency and answer quality. This highlights the need for a framework that coordi-nates sequential refinement and parallel exploration under a unified context management mechanism. 1
+
+> arXiv:2602.00083v1 [cs.IR] 22 Jan 2026
+
+Building on these insights, we propose SP AR C-RAG (Adaptive Sequential– Par allel Scaling with 
+
+Context Management for Retrieval-Augmented Generation), a multi-agent framework that explic-itly controls reasoning width, depth, and context during inference-time scaling. Instead of indis-criminately increasing computation, SP AR C-RAG organizes scaling around specialized collaborating agents. In particular, the scaling process is orches-trated by three key agents: a Q UERY REWRITER 
+
+generates complementary sub-queries to maximize parallel diversity; an A NSWER EVALUATOR de-termines when to continue or stop reasoning, pre-venting premature termination; and a C ONTEXT 
+
+MANAGER consolidates evidence across sequen-tial rounds and parallel branches, selectively inte-grating relevent information while filtering noise, thereby maintaining a compact and stable con-text. Together, these agents enable SP AR C-RAG to achieve better accuracy-cost trade-offs than prior sequential-only or parallel-only approaches. Furthermore, we design a lightweight fine-tuning strategy that leverages process-level pref-erence pairs derived from scaling behaviors. These preference pairs guide the model toward more ef-fective and efficient scaling by reducing redundant expansions and learning a more accurate stopping policy. We summarize our contributions as follows:  
+
+> 1
+
+Agent design principles for efficient scaling. 
+
+We identify Context Contamination and Scaling Inefficiency as the key challenges in inference-time RAG scaling and formulate agent-level design prin-ciples for mitigating them, including enhanced ex-ploration diversity and context management across sequential depth and parallel width.  
+
+> 2
+
+A collaborative multi-agent framework for efficient scaling. We introduce SP AR C-RAG, a multi-agent sequential–parallel RAG scaling frame-work that controls the complementary width and depth scaling with a global information consolida-tion mechanism, generalizing prior sequential-only and parallel-only methods while achieving superior accuracy–cost trade-offs.  
+
+> 3
+
+Scaling-oriented fine-tuning. We design a scaling-oriented fine-tuning strategy that super-vises the scaling process. Preference pairs are con-structed from verifiable intermediate metrics (evi-dence coverage and stopping accuracy), allowing the model to internalize when scaling is beneficial. This process-level calibration enhances both effec-tiveness and efficiency without heavy fine-tuning. 
+
+2 Background and Related Work 
+
+We review sequential scaling and parallel scaling in RAG, along with recent work that introduces limited adaptive control over these processes. 
+
+Sequential Scaling in RAG. Sequential RAG methods iteratively refine reasoning through multi-round retrieval and generation. IRCoT (Trivedi et al., 2023) interleaves retrieval and chain-of-thought reasoning via iterative query reformula-tion. Iter-RetGen (Shao et al., 2023) alternates retrieval and generation to gradually surface evi-dence. Chain-of-RAG (Wang et al., 2025a) con-structs stepwise retrieval chains with explicit super-vision. These methods demonstrate the value of deeper reasoning but typically rely on fixed itera-tion counts and accumulate evidence across steps ,which can lead to noisy context and deteriorated performance (context contamination) (Wu et al., 2025; Misaki et al., 2025). 
+
+Parallel Scaling in RAG. Parallel approaches expand coverage by exploring multiple reasoning paths in parallel. DMQR-RAG (Li et al., 2024) and MCTS-RAG (Hu et al., 2025) generate di-verse query rewrites or reasoning branches to re-trieve complementary evidence, while Speculative-RAG (Wang et al., 2024) drafts multiple candidate answers for verification. However, these methods typically use fixed branching factors and simple ag-gregation strategies (e.g., majority voting), which limits cross-branch evidence synthesis (Wang et al., 2025c; Xiao et al., 2025). 
+
+Adaptive and Planning-Based RAG. Recent work introduces adaptive behaviors and planning into RAG pipelines. Self-RAG (Asai et al., 2024) and following works (Yan et al., 2024; Xu et al., 2025) evaluate retrieval quality to dynamically re-vise outputs. Planning-based approaches (Lee et al., 2024; Verma et al., 2024; Gu et al., 2025) generate structured plans before retrieval, while question-decomposition methods (Ammann et al., 2025) split complex queries into sub-questions and plans the following execution. DeepNote (Wang et al., 2025b) maintains a persistent note state across steps and employs a heuristic stopping rule. However, these approaches do not treat sequential depth and parallel width as jointly controllable inference-time resources , making scaling implicit and inefficient. This gap motivates a mechanism that coordinates sequential refinement, parallel exploration, and context evolution in a unified manner. 2Information Retrieval Answer Generation Context Maintenance  
+
+> Retrieved Document :
+> …Robert Khayat
+> graduated from the
+> University of Mississippi.
+
+Query 
+
+Rewriter 
+
+Document 
+
+Retriever 
+
+Answer 
+
+Generator 
+
+Answer 
+
+Evaluator    
+
+> Aggregated Context :
+> ‘Robert Khayat’ is not a valid
+> answer because it is not
+> supported by reasoning.
+> ‘Not enough information’
+> better describes current status .
+> Let us get more information
+> about Robert’s education
+> background and his university.
+
+Context 
+
+Manager            
+
+> Current Query :
+> Who was the first
+> African -American…
+> Robert’s Education
+> [In] latest query/queries [In] latest query:
+> Who was the first …
+> [In] Context:
+> According to…
+> [Out] Answer:
+> Not enough info.
+> [Out] Answer:
+> Robert Khayat.
+> [In] Context:
+> Robert Khayat is a
+> student at …
+> [In] Answer:
+> No information.
+> [Out]
+> [In] latest query:
+> Who was the first …
+> [In] Context:
+> According to retrieved info…
+> [Out] Rewritten query:
+> Univ. of Mississippi
+> Robert’s Education ❌❌
+
+Symbols   
+
+> [Query] Who was the
+> first African -American
+> student at the university
+> Robert Khayat was
+> educated at?
+> [Type] Bridge
+> Agents
+> Dispatch
+> reasoning
+> Combine
+> reasoning
+> Separate
+> info flow
+
+Input Task      
+
+> 𝑖 !" iter 𝑞 #
+> [Out] Retrieved docs
+> [Tool] DB search
+
+Figure 1: Overall SP AR C-RAG framework. The figure illustrates the interactions, information flow, and decision signals across agents. 
+
+3 Methods 
+
+To address the Context Contamination and Scaling Inefficiency challenges identified in Section 1, we introduce SP AR C-RAG, a multi-agent framework that provides explicit control over depth, width, and information consolidation during inference-time scaling. We begin by formally characterizing scaling in RAG. 
+
+3.1 Task Formulation & System Overview Problem Formulation. We formulate the multi-hop QA task as a joint optimization process over Sequential Depth ( D) and Parallel Width ( W ). Given an initial query q0 and an external corpus 
+
+C, SP AR C-RAG models the reasoning process as a hierarchical composition of three core operators, denoted as Π = S ◦ P ◦ I (formal formulation in Appendix B.1): (i) Single-path Inference Operator ( I): Exe-cutes a standard “retrieve-reason-generate” opera-tion, as in naive RAG. (ii) Parallel Expansion Operator ( P ): Dynami-cally generates W (t) parallel branches at the t-th inference step and aggregates information upon completion. (iii) Sequential Refinement Operator ( S): Con-nects multiple parallel rounds in sequence, deter-mining based on the current state whether to deepen the reasoning or terminate with the current answer. Moving from the abstract formulation to its system-level realization, we provide overview of system in Figure 1 and rollout in 2. At round t,... 
+
+> Document
+> Retrieval
+> Context
+> Management
+> Answer
+> Generation
+> Ans
+> Eval
+> Query
+> Rewrite
+> ...
+> ...
+> Input /
+> Output
+> Reject
+> (Continue)
+> Accep t
+> (Stop)
+
+Figure 2: Single left-to-right rollout of the SP AR C-RAG reasoning process. The Accept (Stop) and Reject (Continue) decisions are produced by the C ONTEXT 
+
+MANAGER after merging the branches. 
+
+the Q UERY REWRITER generates parallel rewrit-ten queries that form independent branches, where the R ETRIEVER gathers evidence, the C ONTEXT 
+
+MANAGER updates the shared context, and the ANSWER GENERATOR produces a candidate an-swer that is evaluated by the A NSWER EVALUA -
+
+TOR . The C ONTEXT MANAGER then selects the best branch, merges evidence into a unified state, and decides whether to continue or stop reasoning based on the selected answer’s evaluation. Together with standard RAG components, the C ONTEXT 
+
+MANAGER , Q UERY REWRITER , and A NSWER 
+
+EVALUATOR enable coordinated depth–width scal-ing with improved accuracy–cost trade-offs over prior sequential-only or parallel-only approaches. 
+
+3.2 Agents RETRIEVER . Given the current query q(t), the retriever selects a small subset of passages from the corpus C using a similarity-based retrieval func-tion followed by top-k ranking. σ(t) denotes the retrieval strategy used at this round. 
+
+r(t) ∼ Retrieve σ(t)
+
+ q(t), C .
+
+3ANSWER GENERATOR . Conditioned on the global query q0 and current memory m(t), the gen-erator produces a candidate answer for this round using a language model. 
+
+a(t) ∼ AnsGenerate LLM 
+
+ q0, m (t).
+
+ANSWER EVALUATOR . The evaluator evaluates the quality of the generated answer based on the query and current memory, generating a decision signal e(t) (e.g., CONTINUE or STOP ). 
+
+e(t) ∼ EvaluateAns LLM 
+
+ q0, q(t), a (t), m (t).
+
+Crucially, this prevents redundant iterations on simple queries, dynamically allocating the compu-tational budget only to complex instances, reducing 
+
+Scaling Inefficiency .
+
+CONTEXT MANAGER . This module lies in the center of the Context Management functionality. It maintains the evolving reasoning state by consol-idating newly retrieved documents and generated candidate answers with the existing memory during scaling, mitigating Context Contamination . Within each branch, it performs a query-aware update that attends to the current question and retains only the relevant evidence. 
+
+m(t) ∼ MemUpdate LLM 
+
+ q0, q(t), m (t−1) , r (t), a (t).
+
+This mechanism ensures the memory update is both incremental and minimal , thereby main-taining a consistent context window with low noise. After parallel branches complete, the C ON - 
+
+> TEXT
+
+MANAGER orchestrates the aggregation of branches: it selects the most promising reasoning path based on answer quality and evidence support, then consolidates complementary information from all branches into a unified context. 
+
+k∗ ← SelectBest LLM 
+
+ {(ak, m ′
+
+> k
+
+)}Wk=1 
+
+,m(t) ← ContextMerge LLM 
+
+ m′ 
+
+> k∗
+
+, {m′
+
+> k
+
+}k̸ =k∗
+
+.
+
+These operations alleviate Context Contamination 
+
+by maintaining a unified, query-focused memory state rather than concatenating all evidence without focus. 
+
+QUERY REWRITER . To operationalize the Paral-lel Expansion Operator ( P ) efficiently, this agent functions as a one-to-many generator . Distinct from standard rewriters that sequentially refine a single query, it synthesizes W (t) intent-specific queries (and their corresponding retrieval strate-gies) in a single inference pass . Conditioned on the global question q0, current memory m(t), and the target width W (t), it explores orthogonal retrieval directions to maximize information coverage, alle-viating the Scaling Inefficiency .
+
+ {σ(t+1 ,k ), q (t+1 ,k )}W (t)
+
+> k=1
+
+
+
+∼ RewriteQuery LLM 
+
+ q0, q(t), m (t), W (t).
+
+3.3 Execution Protocol 
+
+We formally describe the execution flow as a dy-namic execution loop (summarized in Algorithm 1). The process begins with the user query q0. The memory state is initialized as empty, m(0) ← ∅ .SP AR C-RAG regulates the consumption of com-putational resources ( B) through two mechanisms: 
+
+Parallel Distribution & Branch Execution. To explore the search space (Width W ), the system first triggers the Q UERY REWRITER to generate a set of intent-specific rewritten queries {qk}Wk=1 .Crucially, each rewritten query spawns an inde-pendent parallel execution branch . Within each branch k, the agents perform a full atomic update cycle: (i) Retrieve: The branch retrieves raw evidence rk
+
+relevant to the rewritten query. (ii) Context Update: The C ONTEXT MANAGER 
+
+compresses rk and integrates it with the previous history m(t−1) to form a branch-local memory m′
+
+> k
+
+.(iii) Generate & Evaluate: Conditioned on updated state m′
+
+> k
+
+, answer ak is generated and evaluated. This phase yields W fully processed hypothesis tuples {(m′
+
+> k
+
+, a k, e k)}Wk=1 .
+
+Aggregation & Global Control. Once the par-allel branches complete, the system performs a select-and-decide operation: (i) Selection and Consolidation: The C ONTEXT 
+
+MANAGER selects the most promising branch k∗
+
+from the candidate paths {(ak, m ′
+
+> k
+
+)}Wk=1 and con-solidates evidence into a unified memory, preserv-ing complementary information while reducing re-dundancy and noise. (ii) Termination Decision: The system checks the decision signal of the selected winner ( ek∗ ). If 
+
+ek∗ == STOP or the budget Dmax is reached, the process terminates returning ak∗ . Otherwise, the loop continues to t ← t + 1 .
+
+3.4 Scaling-oriented Fine-tuning 
+
+To improve system performance without incurring high cost, we adopt a scaling-oriented, preference-4Algorithm 1 SP AR C-RAG Inference Algorithm 
+
+Require: Query q0, Corpus C, Max Depth Dmax  
+
+> 1:
+
+m(0) ← ∅ , t ← 1 
+
+> 2:
+
+while t ≤ Dmax do  
+
+> 3:
+
+// Phase 1: Parallel Distribution  
+
+> 4:
+
+{qk}Wk=1 ← RewriteQuery (q0, m (t−1) ) 
+
+> 5:
+
+// Phase 2: Sequential Execution  
+
+> 6:
+
+for all k ∈ { 1, . . . , W } in parallel do  
+
+> 7:
+
+rk ← Retrieve (qk, C) 
+
+> 8:
+
+m′ 
+
+> k
+
+← MemUpdate (m(t−1) , r k) 
+
+> 9:
+
+ak ← AnsGenerate (q0, m ′
+
+> k
+
+) 
+
+> 10:
+
+ek ← EvaluateAns (ak, m ′
+
+> k
+
+) 
+
+> 11:
+
+// Phase 3: Aggregation & Control  
+
+> 12:
+
+k∗ ← SelectBest LLM 
+
+ {(ak, e k, m ′
+
+> k
+
+)}Wk=1 
+
+ 
+
+> 13:
+
+m(t) ← ContextMerge (m′ 
+
+> k∗
+
+, {m′
+
+> k
+
+}k̸ =k∗ ) 
+
+> 14:
+
+if ek∗ = STOP then  
+
+> 15:
+
+return ak∗ 
+
+> 16:
+
+t ← t + 1 
+
+based fine-tuning strategy. We construct preference pairs that reward higher combined paragraph recall for parallel scaling and more accurate stopping decisions for sequential scaling. Through these process-level preferences, the model is explicitly encouraged to achieve broader evidence coverage and more reliable stopping behavior, improving scaling effectiveness and efficiency. 
+
+Preference Data Collection for the Query Rewriter. The Q UERY REWRITER is supervised using paragraph-level retrieval recall. Rewrites that retrieve more gold-supporting evidence are preferred over those with lower recall. Although this supervision signal is purely recall-based, it implicitly encourages diverse yet focused sub-queries: improving recall typically requires access-ing complementary evidence rather than duplicat-ing the same retrieval trajectory. As a result, the trained rewriter reduces redundancy across paral-lel branches(Section 5.2), making width expansion more effective. 
+
+Preference Data Collection for the Answer Eval-uator. We construct preference data by sampling multiple STOP /CONTINUE decisions of A NSWER 
+
+EVALUATOR and assigning preferences based on the correctness of the corresponding answers. A key challenge in supervising this decision is the asymmetry of error costs: a wrong stop (accept-ing an incorrect answer, exiting prematurely) is typically far more damaging than a wrong continue 
+
+(rejecting a correct answer, continuing reasoning), as it eliminates the possibility of further corrections. To reflect this asymmetry, we introduce a weight-ing function w(y+, y −) over preference pairs. For early-stop–critical cases in which the preferred ac-tion is continue but the rejected action is stop , we assign w(y+, y −) = λ > 1; all other preference pairs retain unit weight. The weighted DPO loss for A NSWER EVALUATOR is therefore 
+
+LAE (x, y +, y −) = w(y+, y −)
+
+h
+
+− log σ 
+
+β[ log pθ(y+ | x) − log pθ(y− | x)] i
+
+,
+
+where λ > 1 emphasizes penalties on incorrect early stopping while still allowing early termination on easy instances. As we show in Section 5.2, targeted fine-tuning calibrates stopping behaviour while encouraging diverse parallel exploration. 
+
+4 Experiments 
+
+4.1 Datasets and Metrics 
+
+We evaluate SP AR C-RAG on both single-hop and multi-hop QA benchmarks. For single-hop QA, we use Natural Questions (NQ; Kwiatkowski et al. 2019). For multi-hop QA, we include 2-hop datasets HotpotQA (Yang et al., 2018), 2WikiMul-tiHopQA (or 2WikiMQA ) (Ho and Choi, 2020), 
+
+Bamboogle (Press et al., 2023), and 2-4 hop dataset 
+
+MuSiQue (Trivedi et al., 2022). All training of the QUERY REWRITER and A NSWER EVALUATOR 
+
+uses the training splits of datasets, and we report evaluation results on their test splits of 500 subsam-ples (detailed in Appendix A.1). We report Exact Match (EM), F1, and Accuracy following Vu and Moschitti (2021) and Asai et al. (2024), and additionally use paragraph recall to assess retrieval effectiveness. Cost is measured by total token usage (input + output) and latency. 
+
+4.2 Backbone Models 
+
+All agent components are instantiated using Qwen2.5-7B-Instruct (Yang et al., 2025b) and Qwen3-32B (Yang et al., 2025a). These two back-bones enable us to evaluate SP AR C-RAG under different levels of reasoning capacity. 
+
+4.3 Retrievers 
+
+We employ a hybrid retrieval stack for SP AR C-RAG across all experiments, as is the common practice in RAG systems (Thakur et al., 2021; Seo et al., 2019; Zhao et al., 2024). SP AR C-RAG uses 520 40           
+
+> 0.4
+> 0.6
+> F1 Score
+> 2WikiMultiHopQA
+> 20 40 60
+> 0.2
+> 0.3
+> MuSiQue
+> 20 40 60
+> 0.4
+> 0.5
+> 0.6
+> HotpotQA
+> 20 40 60
+> 0.2
+> 0.4
+> Bamboogle
+> Tokens per question (k)
+> W=1 W=2 W=4 Best F1 DPO-Tuned
+
+Figure 3: F1–cost tradeoff across (W, D ) configurations with Qwen2.5-7B-Instruct model. Each panel plots F1 versus tokens per question for one dataset. Curves correspond to widths W =1 , 2, 4. For W =1 , the sequential depths are D=2 , 4, 6, 8, 10 , 12 , 14 . For W =2 and W =4 , the depths are D=2 , 4, 6, 8. Along each curve, points are ordered from left to right by increasing D. The gold star marks the best untuned (W, D ) configuration, and the red diamond denotes our fine-tuned model, which achieves comparable or better F1 at substantially lower token cost. 
+
+an agentic selection of sparse and dense retrieval (see Appendix A.3) by default. As most baselines only support using a single retrieval method, ab-lation results of using only one retrieval method are reported in Appendix C.4, demonstrating that using one retrieval method does not deteriorate per-formance and keeping the fairness of comparison with other baseline methods. 
+
+4.4 Baselines 
+
+We compare SP AR C-RAG against strong inference-time scaling paradigms in RAG: (i) sequential refinement methods IRCoT (Trivedi et al., 2023), Iter-RetGen (Shao et al., 2023), and DeepNote (Wang et al., 2025b); (ii) sequential self-reflective correction method Self-RAG (Asai et al., 2024); and (iii) parallel drafting–verification method Speculative-RAG (Wang et al., 2024). See Appendix A.5 for more details. 
+
+4.5 Implementation Details 
+
+All experiments are conducted on a multi-GPU ma-chine equipped with four NVIDIA RTX PRO 6000 Blackwell Server Edition GPUs (96GB each) and dual Intel Xeon 6730P processors (128 logical cores). LLMs are served using vLLM (v0.10.2) with continuous batching and tensor parallelism. For all results, the sequential controller is capped at a maximum depth of 8. We use fixed W = 2 for all reported results. For SP AR C-RAG without fine-tuning, we use D = 6 for Qwen-2.5-7B-Instruct and D = 8 for Qwen3-32B to avoid confounding performance with noisy termination signals. We finetune the base LLM using the combined training data from single-step generation of Q UERY 
+
+REWRITER and A NSWER EVALUATOR , trained with LoRA (Hu et al., 2022); additional hyperpa-rameters are provided in Appendix A.4. 20%    
+
+> 40%
+> 60%
+> 80%
+> 100%
+> NQ
+> HotpotQA
+> 2WikiMQA MuSiQue
+> Bamboogle
+> Qwen2.57BInstruct
+> 20%
+> 40%
+> 60%
+> 80%
+> 100%
+> NQ
+> HotpotQA
+> 2WikiMQA MuSiQue
+> Bamboogle
+> Qwen332B
+> Vanilla RAG SpeculativeRAG DeepNote MASC (Ours)
+
+Figure 4: Relative performance of different RAG sys-tems using two backbone LLMs across five datasets. Each plot compares Vanilla RAG, the representative parallel (Speculative-RAG) and sequential (DeepNote) RAG scaling methods, and SP AR C-RAG (ours). 
+
+5 Results 
+
+Figure 4 and Table 1 summarize end-to-end perfor-mance across QA datasets. 
+
+Without fine-tuning , SP AR C-RAG with joint depth-width scaling consistently matches or ex-ceeds strong sequential- or parallel-only base-lines. SP AR C-RAG yields substantial gains, es-pecially on multi-hop QA datasets. On MuSiQue (2-4 hops) with Qwen2.5-7B-Instruct model for example, SP AR C-RAG achieves 24.3 F1 score compared to 19.8 of DeepNote (previous SOTA), demonstrating the benefit of unified depth-width control on complex queries even with base models. 
+
+After fine-tuning , SP AR C-RAG achieves matched or higher accuracy with significantly lower cost. SP AR C-RAG+DPO with Qwen2.5-7B-Instruct backbone improves average F1 score on multihop QA datasets by 5.1 and reduces the cost by ~60%. For Qwen3-32B, SP AR C-RAG+DPO slightly decreases the performance but reduces the average token cost by ~90% (Figure 3, details in Table 3). Compared with the previous best RAG scaling baseline, SP AR C-RAG achieves +6.19 F1 score with 52.2% less token cost on average (see Appendix C.2). 6Table 1: End-to-end performance across QA benchmarks. Best and second-best results are highlighted. For some datasets, we report DeepNote *results using the numbers provided in the original paper.                                                                                                                                                                                                                                                                                                                                                                                                                                         
+
+> Methods & LLMs Single-hop Multi-hop NQ HotpotQA 2WikiMQA MusiQue Bamboogle
+> acc. f1 em avg. acc. f1 em avg. acc. f1 em avg. acc. f1 em avg. acc. f1 em avg.
+> Vanilla RAG
+> Qwen2.5-7B-Instruct 26 .213 .32.414 .042 .442 .532 .039 .035 .638 .532 .635 .611 .413 .86.610 .614 .417 .712 .014 .7
+> Qwen3-32B 28 .216 .04.216 .151 .237 .321 .836 .848 .432 .214 .231 .615 .810 .62.49.625 .617 .26.416 .4
+> Baselines using Qwen2.5-7B-Instruct
+> Parallel (Naive) 27 .613 .03.014 .541 .042 .432 .638 .735 .638 .232 .035 .311 .013 .86.410 .419 .224 .015 .219 .5
+> Sequential (Naive) 28 .613 .63.215 .143 .241 .330 .238 .235 .637 .130 .034 .210 .812 .15.29.419 .222 .515 .219 .0
+> IRCoT 39 .617 .34.620 .540 .433 .823 .232 .540 .033 .223 .632 .311 .812 .44.89.719 .216 .712 .016 .0
+> Iter-RetGen 55 .246 .535 .245 .648 .050 .238 .645 .643 .437 .929 .436 .919 .821 .413 .018 .132 .036 .628 .032 .2
+> Speculative-RAG 40 .641 .531 .437 .829 .234 .628 .230 .739 .641 .636 .839 .39.815 .78.011 .216 .819 .816 .017 .5
+> Self-RAG 37 .637 .226 .633 .842 .646 .035 .441 .340 .841 .335 .239 .111 .615 .88.011 .837 .641 .129 .636 .1
+> DeepNote 52 .853 .340 .248 .850 .6*59 .2*48 .0*52 .6*50 .0*51 .4*41 .8*47 .7*14 .6*19 .8*11 .6*15 .3*26 .436 .324 .829 .2
+> SP AR C-RAG (Ours) 45 .446 .935 .642 .648 .455 .945 .449 .956 .256 .245 .252 .517 .824 .316 .219 .436 .842 .736 .038 .5
+> SP AR C-RAG + DPO (Ours) 51 .451 .840 .047 .753 .861 .349 .454 .863 .061 .248 .457 .525 .232 .420 .826 .138 .444 .733 .638 .9
+> Baselines using Qwen3-32B
+> Parallel (Naive) 31 .216 .44.417 .351 .038 .123 .637 .644 .632 .916 .631 .414 .810 .92.69.427 .216 .66.416 .7
+> Sequential (Naive) 31 .415 .64.017 .051 .237 .422 .236 .945 .231 .514 .830 .514 .610 .31.88.928 .815 .44.016 .1
+> IRCoT 33 .222 .711 .222 .434 .436 .127 .232 .624 .419 .612 .018 .76.610 .15.47.425 .612 .97.215 .2
+> Iter-RetGen 54 .447 .434 .645 .552 .461 .448 .654 .153 .854 .742 .250 .223 .229 .418 .623 .740 .847 .333 .640 .6
+> Speculative-RAG 45 .648 .036 .043 .233 .639 .031 .234 .631 .232 .729 .431 .113 .819 .110 .814 .632 .037 .331 .233 .5
+> Self-RAG 45 .444 .931 .840 .753 .057 .945 .052 .055 .855 .346 .252 .412 .020 .710 .414 .449 .654 .642 .448 .9
+> DeepNote 58 .441 .326 .442 .060 .265 .251 .258 .969 .264 .450 .661 .430 .830 .918 .626 .840 .847 .033 .640 .5
+> SP AR C-RAG (Ours) 53 .654 .739 .449 .262 .668 .755 .062 .178 .474 .161 .271 .231 .836 .623 .830 .756 .063 .049 .656 .2
+> SP AR C-RAG + DPO (Ours) 56 .651 .138 .048 .658 .265 .051 .058 .175 .269 .857 .667 .528 .833 .921 .428 .053 .659 .544 .852 .6
+
+These results validate our two main claims: (i) joint sequential-parallel scaling substantially strengthens multi-hop reasoning compared to ex-isting single-direction scaling, and (ii) targeted lightweight fine-tuning improves both answer qual-ity and computational efficiency. 
+
+5.1 Analysis of Sequential Depth and Parallel Width 
+
+To better understand the gains in joint scaling, we first analyze how sequential depth and paral-lel width individually and jointly contribute to the performance and cost of SP AR C-RAG. 
+
+Depth and width provide complementary ben-efits under scaling. Figure 5 shows accuracy curves for 2WikiMQA and MuSiQue under 
+
+W =1 , 2, 4. Increasing depth yields gains from 
+
+D=1 to D=4 overall. Beyond this point, quality plateaus or even slightly decreases. On the other hand, increasing width improves answer quality when depth-only scaling saturates. Across both datasets, the paragraph recall grows consistently with width, indicating that parallel branching ex-plores more diverse reformulations of the question and retrieval of more evidence, and directly trans-lates into increased F1 score. Latency increases approximately linearly with depth and width, im-plying a rapidly rising cost at larger scaling levels. This motivates a closer examination of how differ-ent scaling choices affect the cost–quality tradeoff. 
+
+Cost–quality tradeoffs. Figure 3 provides a di-rect comparison of performance at matched com-pute budgets. Across all configurations, W =2 1 2 4 6 8
+
+> 0.4
+> 0.6
+> 2WikiMQA
+
+F1 Score     
+
+> 12468
+> 0.6
+> 0.8
+> 1.0
+
+Para Recall     
+
+> 12468
+> 0
+> 50
+> 100
+
+Latency (s)             
+
+> 12468
+> 0.2
+> 0.3
+> MuSiQue
+> 12468
+> 0.4
+> 0.6
+> 12468
+> 0
+> 100
+> 200
+
+Depth   
+
+> W=1 W=2 W=4
+
+Figure 5: Answer quality (F1 scores, top row) and retrieval performance (paragraph recall, bottom row) on 2WikiMQA and MuSiQue for W =1 , 2, 4 using Qwen2.5-7B-Instruct model. 
+
+strikes the best balance between answer quality and cost. It outperforms W =1 configuration by intro-ducing diversity in reasoning and in retrieval, while avoiding the sharp cost increases associated with 
+
+W =4 . We observe that the best performance–cost trade-off emerges at moderate depth and width rather than extreme scaling in either direction con-sistently on all datasets. For the results reported in Table 1, we uniformly employed W =2 based on this observation. Moreover, the fact that the optimal depth varies across datasets justifies the adaptive, query-dependent depth controller that ad-justs the reasoning length according to the difficulty of each query. Finally, fine-tuning (Section 5.2) yields a more favorable F1–cost operating point: it achieves matching or higher F1 scores to the W × D grid search at substantially lower token costs by diver-sifying parallel exploration (Q UERY REWRITER )and avoiding wasteful continuation (A NSWER 
+
+70         
+
+> 1
+> 2
+> 3
+> 0
+> 1
+> 2
+> 3
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> Avg Length
+> 123
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> Score
+> HotpotQA
+> 123
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 2WikiMultiHopQA
+> 123
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> MuSiQue
+> F1 Acc EM Avg Length
+
+Figure 6: Effect of the weighting parameter λ on A N- 
+
+> SWER
+
+EVALUATOR behavior evaluated on a 100-sample test subset. 
+
+EVALUATOR ). For example, on 2WikiMulti-HopQA, the fine-tuned model at W =2 matches the base model’s best performance across all W × D
+
+configurations while using only ~30% tokens. 
+
+5.2 Fine-Tuning for Improved Sequential and Parallel Scaling 
+
+In this subsection, we provide an in-depth analy-sis of how targeted fine-tuning of the base LLM enhances the scaling behavior of SP AR C-RAG. 
+
+Larger document coverage in Query Rewrit-ing. Fine-tuning directly improves the recall of re-trieval by improving the quality of rewritten queries. We conduct a controlled comparison on samples where the tuned model proceeds to the second re-trieval iteration (first iteration for rewriting) and show that fine-tuning consistently improves re-trieval recall across all datasets. For 7B model, recall improvements range from +2.3% (MuSiQue) to +36.1% (NQ), with an average gain of +13.1% (Appendix C.3). The 32B model exhibits a smaller gain of +0.5% to +5.2% across datasets. To further assess how finetuning affects the struc-ture of query rewrites, we measure the average pairwise Jaccard overlap between the document sets retrieved with rewritten queries, following the definition in Appendix B.2. Fine-tuning reduces the overlap among retrieved documents by up to 27.4%(NQ), indicating that rewritten queries be-come less redundant and more focused. This reduc-tion emerges naturally from optimizing for higher recall, as improved recall requires retrieving com-plementary rather than overlapping evidence. 
+
+Weighted DPO leads to more conservative stop-ping and deeper reasoning. Figure 6 shows per-dataset trends as we vary the weighting parameter 
+
+λ, which up-weights wrong-stop errors during train-ing. Increasing λ strengthens the penalty on prema-ture termination, leading the fine-tuned evaluator to adopt a more conservative stopping criterion and reducing early exits on difficult instances. HotpotQA 2WikiMQA MuSiQue 
+
+> 0
+> 10
+> 20
+> 30
+> 40
+> 50
+> Incorrect Acceptance Rate (%)
+> 2.5
+> 11.3
+> 4.4
+> 15.0
+> 8.3
+> 14.2
+> 7B
+> 7B-DPO
+> 32B
+> 32B-DPO
+
+Figure 7: Incorrect acceptance rates across datasets for base and DPO-finetuned models. 
+
+On more complex MuSiQue (2–4 hops), this results in deeper rollouts and higher F1, as addi-tional reasoning enables multi-step evidence aggre-gation. On 2-hop 2WikiMQA dataset, however, large λ can slightly degrade performance due to unnecessary continuation and occasional distrac-tors. We use λ=2 in our final model, as it provides a favorable trade-off across datasets—improving robustness on harder benchmarks while avoiding over-conservative behavior on simpler ones. 
+
+Reduced incorrect acceptance rates during An-swer Evaluation. Fine-tuning substantially re-duces the tendency to accept incorrect intermediate answers. As shown in Figure 7, larger base mod-els (32B) exhibit higher over-acceptance rates than the 7B model, reflecting stronger overconfidence, while DPO fine-tuning consistently mitigates this failure—reducing incorrect acceptance by 11 –15 
+
+points on 32B and 3–8 points on 7B across datasets. These behaviors translate into higher end-to-end QA performance (Table 1). 
+
+6 Conclusions 
+
+We introduced SP AR C-RAG, a multi-agent frame-work that addresses Context Contamination and 
+
+Scaling Inefficiency in RAG scaling. Through spe-cialized control agents that jointly regulate scaling along sequential depth and parallel width, SP AR C-RAG coordinates how computation is expanded across branches and rounds while consolidating complementary evidence into a unified context state, yielding substantial gains across single-hop and multi-hop QA benchmarks. We further intro-duced a scaling-targeted, preference-based fine-tuning strategy that encourages complementary parallel queries and improves the stability of stop-ping decisions, thereby reducing unnecessary ex-pansions and achieving better cost–performance characteristics for SP AR C-RAG. 87 Limitations 
+
+Our approach focuses on improving retrieval-augmented generation through agentic test-time scaling and structured control over depth and width of reasoning. As a result, the proposed method introduces additional inference-time overhead com-pared to standard single-pass RAG pipelines, which may limit its applicability in latency-critical set-tings. While our design aims to make this overhead cost-aware, the trade-off between performance and efficiency depends on the quality of the stopping and aggregation mechanisms. Moreover, our exper-iments are conducted on established open-domain question answering benchmarks with retrieval pref-erences. Performance may vary under different retrieval systems, corpus characteristics, or domain-specific knowledge bases. Finally, while the pro-posed framework improves robustness to incom-plete retrieval by exploring multiple reasoning paths, it does not guarantee correctness when re-trieved evidence is systematically misleading or missing. 
+
+8 License and Ethics 
+
+This work uses publicly available datasets and pre-trained language models, and does not involve the collection of personal or sensitive data. The proposed method does not introduce risks beyond those already associated with large language mod-els and retrieval-augmented generation systems. As with other RAG-based approaches, generated out-puts may reflect biases or inaccuracies present in the underlying models or databases. We emphasize that the method is intended for research purposes and should be applied with appropriate safeguards when used in real-world or high-stakes scenarios. Parts of this paper were refined using AI-assisted writing tools to improve clarity and presentation, and minor code edits were conducted with AI cod-ing assistance under human supervision. All tech-nical ideas, experimental design choices, and fi-nal implementations were created and verified by the authors, and the AI tools were used only as auxiliary aids rather than sources of substantive intellectual contributions. 9References 
+
+Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge Akkaya, Florencia Leoni Aleman, Diogo Almeida, Janko Altenschmidt, Sam Altman, Shyamal Anadkat, and 1 others. 2023. Gpt-4 techni-cal report. arXiv preprint arXiv:2303.08774 .Paul J. L. Ammann, Jonas Golde, and Alan Akbik. 2025. Question decomposition for retrieval-augmented gen-eration. In Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Vol-ume 4: Student Research Workshop) , pages 497–507, Vienna, Austria. Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil, and Hannaneh Hajishirzi. 2024. Self-RAG: Learning to retrieve, generate, and critique through self-reflection. In Proceedings of the Twelfth International Confer-ence on Learning Representations .Yunfan Gao, Yun Xiong, Xinyu Gao, Kangxiang Jia, Jinliu Pan, Yuxi Bi, Yixin Dai, Jiawei Sun, Haofen Wang, and Haofen Wang. 2023. Retrieval-augmented generation for large language models: A survey. 
+
+arXiv preprint arXiv:2312.10997 , 2(1). Hongchao Gu, Dexun Li, Kuicai Dong, Hao Zhang, Hang Lv, Hao Wang, Defu Lian, Yong Liu, and Enhong Chen. 2025. Rapid: Efficient retrieval-augmented long text generation with writing plan-ning and information discovery. arXiv preprint arXiv:2503.00751 .Yipu Ho and Eunsol Choi. 2020. Constructing a multi-hop qa dataset using knowledge graph and wikipedia. In Workshop on Machine Reading for Question An-swering .Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, and Weizhu Chen. 2022. Lora: Low-rank adaptation of large language models. In International Conference on Learning Representations .Yunhai Hu, Yilun Zhao, Chen Zhao, and Arman Cohan. 2025. Mcts-rag: Enhancing retrieval-augmented gen-eration with monte carlo tree search. arXiv preprint arXiv:2503.20757 .Jeff Johnson and doubling researchers. 2017. Faiss: A library for efficient similarity search and clus-tering of dense vectors. https://github.com/ facebookresearch/faiss . Used for flat inner-product indexing (IndexFlatIP) for dense retrieval. Vladimir Karpukhin, Barlas Oguz, Sewon Min, and 1 others. 2020. Dense passage retrieval for open-domain question answering. In EMNLP .Tom Kwiatkowski, Jenna Palomaki, Michael Redfield, and 1 others. 2019. Natural questions: A benchmark for question answering research. In Transactions of the Association for Computational Linguistics .Myeonghoon Lee and 1 others. 2024. PlanRAG: A plan-then-retrieval augmented generation for generative large language models as decision makers. In Pro-ceedings of the 2024 Conference of the North Amer-ican Chapter of the Association for Computational Linguistics , Mexico City, Mexico. Quinn Leng, Jacob Portes, Sam Havens, Matei Zaharia, and Michael Carbin. 2024. Long context rag per-formance of large language models. arXiv preprint arXiv:2411.03538 .Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Hein-rich Küttler, Mike Lewis, Wen-tau Yih, Tim Rock-täschel, Sebastian Riedel, and Douwe Kiela. 2020. Retrieval-augmented generation for knowledge-intensive nlp tasks. In Advances in Neural Infor-mation Processing Systems , volume 33, pages 9459– 9474. Curran Associates, Inc. Zhicong Li, Jiahao Wang, Zhishu Jiang, Hangyu Mao, Zhongxia Chen, Jiazhen Du, Yuanxing Zhang, Fuzheng Zhang, Di Zhang, and Yong Liu. 2024. Dmqr-RAG: Diverse multi-query rewriting for RAG. 
+
+arXiv preprint arXiv:2411.13154 .Xiaoqiang Lin, Aritra Ghosh, Bryan Kian Hsiang Low, Anshumali Shrivastava, and Vijai Mohan. 2025. Re-frag: Rethinking rag based decoding. arXiv preprint arXiv:2509.01092 .Kou Misaki, Yuichi Inoue, Yuki Imajuku, So Kuroki, Taishi Nakamura, and Takuya Akiba. 2025. Wider or deeper? scaling LLM inference-time compute with adaptive branching tree search. In ICLR 2025 Workshop on Foundation Models in the Wild .Ofir Press, Muru Zhang, Sewon Min, Ludwig Schmidt, Noah A Smith, and Mike Lewis. 2023. Measuring and narrowing the compositionality gap in language models. In Findings of the Association for Computa-tional Linguistics: EMNLP 2023 , pages 5687–5711. Minjoon Seo, Jinhyuk Lee, Tom Kwiatkowski, Ankur Parikh, Ali Farhadi, and Hannaneh Hajishirzi. 2019. Real-time open-domain question answering with dense-sparse phrase index. In Proceedings of the 57th Annual Meeting of the Association for Compu-tational Linguistics , pages 4430–4441. Zhihong Shao, Yeyun Gong, Yelong Shen, Minlie Huang, Nan Duan, and Weizhu Chen. 2023. En-hancing retrieval-augmented large language models with iterative retrieval-generation synergy. In Find-ings of the Association for Computational Linguistics: EMNLP 2023 , pages 9248–9274, Singapore. Yifan Shen, Yu-Cheng Chuang, Yi-An Chuang, Weijia Shi, and Wenhu Chen. 2024. Adaptive-rag: Learning to adapt retrieval-augmented generation at test time. 
+
+Preprint , arXiv:2403.14403. Yixuan Tang and Yi Yang. 2024. Multihop-rag: Bench-marking retrieval-augmented generation for multi-hop queries. arXiv preprint arXiv:2401.15391 .
+
+10 Nandan Thakur, Nils Reimers, Johannes Daxenberger, and 1 others. 2021. Beir: A heterogeneous bench-mark for zero-shot evaluation of information retrieval models. In NeurIPS .Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, and Ashish Sabharwal. 2022. Musique: Multi-hop questions via single-hop question composition. 
+
+Transactions of the Association for Computational Linguistics .Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, and Ashish Sabharwal. 2023. Interleaving retrieval with chain-of-thought reasoning for knowledge-intensive multi-step questions. In Proceedings of the 61st Annual Meeting of the Association for Com-putational Linguistics , Toronto, Canada. Prakhar Verma, Sukruta Prakash Midigeshi, Gaurav Sinha, Arno Solin, Nagarajan Natarajan, and Amit Sharma. 2024. Plan-rag: Planning-guided retrieval augmented generation. Thuy Vu and Alessandro Moschitti. 2021. Ava: an au-tomatic evaluation approach for question answering systems. In Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Tech-nologies , pages 5223–5233. Liang Wang, Haonan Chen, Nan Yang, Xiaolong Huang, Zhicheng Dou, and Furu Wei. 2025a. Chain-of-retrieval augmented generation. arXiv preprint arXiv:2501.14342 .Ruobing Wang, Qingfei Zhao, Yukun Yan, Daren Zha, Yuxuan Chen, Shi Yu, Zhenghao Liu, Yixuan Wang, Shuo Wang, Xu Han, Zhiyuan Liu, and Maosong Sun. 2025b. Deepnote: Note-centric deep retrieval-augmented generation. In Findings of the Association for Computational Linguistics: EMNLP 2025 , pages 19688–19715, Suzhou, China. Yiming Wang, Pei Zhang, Siyuan Huang, Baosong Yang, Zhuosheng Zhang, Fei Huang, and Rui Wang. 2025c. Sampling-efficient test-time scaling: Self-estimating the best-of-n sampling in early decoding. In The Thirty-ninth Annual Conference on Neural Information Processing Systems .Yuhao Wang, Ruiyang Ren, Yucheng Wang, Jing Liu, Wayne Xin Zhao, Hua Wu, and Haifeng Wang. 2025d. Bee-rag: Balanced entropy engineering for retrieval-augmented generation. arXiv preprint arXiv:2508.05100 .Zilong Wang, Zifeng Wang, Long Le, Huaixiu Steven Zheng, Swaroop Mishra, Vincent Perot, Yuwei Zhang, Anush Mattapalli, Ankur Taly, Jingbo Shang, Chen-Yu Lee, and Tomas Pfister. 2024. Specula-tive RAG: Enhancing retrieval augmented generation through drafting. arXiv preprint arXiv:2407.08223 .Zongqian Wu, Tianyu Li, Baoduo Xu, Jiaying Yang, Mengmeng Zhan, Xiaofeng Zhu, and Lei Feng. 2025. Is depth all you need? an exploration of iterative reasoning in llms. arXiv preprint arXiv:2502.10858 .Yang Xiao, Jessie Wang, Ruifeng Yuan, Chunpu Xu, Kaishuai Xu, Wenjie Li, and Pengfei Liu. 2025. LIMOPro: Reasoning refinement for efficient and effective test-time scaling. In The Thirty-ninth An-nual Conference on Neural Information Processing Systems .Ran Xu, Hui Liu, Sreyashi Nag, Zhenwei Dai, Yaochen Xie, Xianfeng Tang, Chen Luo, Yang Li, Joyce C Ho, Carl Yang, and 1 others. 2025. Simrag: Self-improving retrieval-augmented generation for adapt-ing large language models to specialized domains. In 
+
+Proceedings of the 2025 Conference of the Nations of the Americas Chapter of the Association for Compu-tational Linguistics: Human Language Technologies (Volume 1: Long Papers) , pages 11534–11550. Shi-Qi Yan, Jia-Chen Gu, Yun Zhu, and Zhen-Hua Ling. 2024. Corrective retrieval augmented generation. 
+
+arXiv preprint arXiv:2401.15884 .An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang Gao, Chengen Huang, Chenxu Lv, and 1 others. 2025a. Qwen3 technical report. arXiv preprint arXiv:2505.09388 .An Yang, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chengyuan Li, Dayiheng Liu, Fei Huang, Haoran Wei, Huan Lin, Jian Yang, Jian-hong Tu, Jianwei Zhang, Jianxin Yang, Jiaxi Yang, Jingren Zhou, Junyang Lin, Kai Dang, and 23 oth-ers. 2025b. Qwen2.5 technical report. Preprint ,arXiv:2412.15115. Zhilin Yang, Peng Qi, Saizheng Zhang, and 1 others. 2018. Hotpotqa: A dataset for diverse, explainable multi-hop question answering. In EMNLP .Jiawei Zhang, Yidong Li, Wenhao Wang, and Xi-aodong Liu. 2025. Evorag: Evolutionary reasoning for retrieval-augmented generation. arXiv preprint arXiv:2509.00877 .Penghao Zhao, Hailin Zhang, Qinhan Yu, Zhen-gren Wang, Yunteng Geng, Fangcheng Fu, Ling Yang, Wentao Zhang, Jie Jiang, and Bin Cui. 2024. Retrieval-augmented generation for ai-generated con-tent: A survey. arXiv preprint arXiv:2402.19473 .
+
+11 Appendix A Experiment details 
+
+A.1 Datasets 
+
+We evaluate our method on five knowledge-intensive QA benchmarks, covering both single-hop and multi-hop reasoning. 
+
+Natural Questions (NQ). Natural Questions (Kwiatkowski et al., 2019) is a single-hop open-domain QA benchmark consisting of real anonymized Google search queries. In our ex-periments, we follow the AdaptiveRAG evalua-tion setup (Shen et al., 2024), which introduces a 500-query test subset. The retrieval corpus is the standard DPR Wikipedia passage collection (Karpukhin et al., 2020), chunked into 100-word passages. Indexing follows the dense retrieval pipeline described in the AdaptiveRAG documen-tation. 
+
+HotpotQA. HotpotQA (Yang et al., 2018) is a 2-hop QA benchmark with supporting-fact super-vision. Following IRCoT (Trivedi et al., 2023), we use the 500-query subsampled test set provided by the IRCoT repository. 1 The corpus is constructed using the IRCoT Wikipedia passage-building pro-cedure. 
+
+2WikiMultiHopQA. 2WikiMultiHopQA (Ho and Choi, 2020) contains 2-hop questions requiring cross-entity bridging inference based on Wikipedia pages. We again follow IRCoT (Trivedi et al., 2023) and use the 500-query subsampled test set distributed in the IRCoT processed-data package. The corpus is the same IRCoT Wikipedia passage corpus. 
+
+MuSiQue. MuSiQue (Trivedi et al., 2022) is a challenging 2–4 hop QA benchmark created by compositional reasoning over multiple Wikipedia paragraphs. As with the previous datasets, we use the 500-query subsampled test set following IRCoT (Trivedi et al., 2023), and apply the same corpus construction procedure as IRCoT. 
+
+Bamboogle. Bamboogle (Press et al., 2023) is a 2-hop QA dataset targeting adversarial or low-resource settings, with a small official test set. We use the official test split from the HuggingFace dis-tribution. 2 Following EvoRAG (Zhang et al., 2025), 
+
+> 1https://github.com/StonyBrookNLP/ircot
+> 2https://huggingface.co/datasets/chiayewken/ bamboogle
+
+we evaluate Bamboogle using a unified Wikipedia passage corpus. 
+
+A.2 Indexing 
+
+We build separate retrieval indices for each dataset corpus. The indexing pipeline consists of the fol-lowing components: 
+
+Document Chunking. In the retrieval corpus, documents are organized at the paragraph level, where each paragraph is associated with a title and treated as an independent retrieval unit. For datasets that use Wikipedia as the corpus (i.e., Natural Questions, Bamboogle), we use the DPR Wikipedia passages 3, which splits Wikipedia arti-cles into 100-word passages. 
+
+Sparse Indexing. We use Elasticsearch 7.10.2 to build BM25 indices. Each document is indexed with the following fields: title , paragraph_text ,
+
+paragraph_index , url , and is_abstract . The 
+
+title and paragraph_text fields are analyzed using the English analyzer for stemming and stop-word removal. 
+
+Dense Indexing. We use BGE-large-en-v1.5 (BAAI/bge-large-en-v1.5 hosted on Hugging-face) as the embedding model to encode all doc-uments into dense vectors. The embeddings are indexed using FAISS (Johnson and doubling re-searchers, 2017) with a flat inner product (FlatIP) index for exact nearest neighbor search. At query time, we compute the dot product similarity be-tween the query embedding and all document em-beddings. 
+
+A.3 Retrieval methods 
+
+Our system supports two retrieval methods, which can be dynamically selected by the language model during inference: 
+
+Sparse Retrieval (BM25). Given a query, we perform BM25 retrieval against the Elasticsearch index. The query is preprocessed by removing wh-words (e.g., “what”, “where”, “when”) to improve lexical matching. We retrieve the top-k documents ranked by BM25 score, where k = 6 for all base-lines and our method. 
+
+Dense Retrieval. Given a query, we encode it using the same BGE-large-en-v1.5 model used for indexing and retrieve the top-k documents based 
+
+> 3https://dl.fbaipublicfiles.com/dpr/wikipedia_ split/psgs_w100.tsv.gz
+
+12 on dot product similarity with the document embed-dings. We use the same k = 6 as sparse retrieval. 
+
+Dynamic Retrieval Selection. Unlike prior methods that rely on a single fixed retrieval ap-proach, our agentic system treats different retrieval methods as tools that can be intelligently selected based on the query characteristics. At each re-trieval step, the language model decides which re-trieval method to invoke. This design choice is mo-tivated by the complementary strengths of sparse and dense retrieval: BM25 excels at lexical match-ing and handling rare entities, while dense retrieval better captures semantic similarity. We acknowledge that this introduces a poten-tial fairness consideration when comparing against baselines, as most prior methods use a single re-trieval method. However, we note that: (i) these baseline methods do not natively support dynamic retrieval selection in their architectures, (ii) there is limited motivation for them to use multiple retrieval methods since they lack the decision-making mech-anism to choose between them, and (iii) ablation study for SP AR C-RAG using only dense retrieval in Appendix C.4 indicates that the improvement does not originate from the dynamic retrieval selec-tion. 
+
+Note on global_max_num_paras . For all base-line methods that accumulate retrieved passages into an ever-growing context, we set a unified 
+
+global_max_num_paras threshold. Without such a cap, these methods may receive excessively long contexts across iterations, which is known to harm LLM generation quality and distort fair compari-son. This design follows the IRCoT (Trivedi et al., 2023) implementation, where limiting the accumu-lated context is necessary to prevent the model from being overwhelmed by large, redundant evidence pools. In contrast, note-based or context-compression methods, i.e., Deepnote (Wang et al., 2025b) and our SP AR C-RAG, do not rely on raw accumulation of retrieved passages. Their internal representa-tions remain compact, so global_max_num_paras 
+
+is not applicable to them. 
+
+A.4 Implementation Details Hardware. All training and inference work-loads run on a single server with four NVIDIA RTX PRO 6000 Blackwell Server Edition GPUs (97,887 MiB each; 384 GB total), dual Intel Xeon 6730P CPUs (2 sockets × 32 cores × 2 threads = 128 logical cores), and 1.0 TiB RAM. 
+
+Software Environment. Experiments are exe-cuted under Python 3.11.13 with the following key libraries: PyTorch 2.8.0+cu128, vLLM 0.10.2, Transformers 4.56.1, PEFT 0.17.1, TRL 0.23.1, and DeepSpeed 0.18.0. Sparse retrieval is imple-mented using Elasticsearch 7.10.2. Dense retrieval does not rely on FAISS in our deployment and is served via model-backed embedding queries. 
+
+Inference Configuration. Generation modules use temperature 0.5, top-p = 1 .0, and a maximum generation length of 600 tokens. Answer Evaluator modules operate deterministically with tempera-ture 0. Parallel branches use global random seed 42. The sequential controller is allowed up to 8 reasoning rounds per query. 
+
+Training Hyperparameters. The DPO training use LoRA adapters with rank 16, α=32 , dropout 0.05, and target modules q_proj , k_proj , v_proj ,
+
+o_proj . DPO training uses learning rate 5e–5 (LoRA), 5e–7 (full fine-tuning), batch size 1 with gradient accumulation 4 (effective batch size 16 across 4 GPUs), maximum sequence length 8192, BF16 precision, and DPO β=0 .1. We use the AdamW optimizer and train for 3 epochs. 
+
+Retriever Configuration. Sparse retrieval uses Elasticsearch 7.10.2 with BM25 scoring. Dense retrieval uses model-encoded embeddings served via lightweight FastAPI endpoints. The same re-trieval stack is used for all baselines to ensure fair comparison. 
+
+A.5 Baseline Configurations 
+
+We compare against the following representative RAG methods, categorized by their scaling strat-egy: 
+
+Vanilla RAG is a single-step retrieval baseline: given a query, the system retrieves the top-k doc-uments using dense retrieval and generates an an-swer conditioned on the concatenation of the query and retrieved passages. No iterative refinement or parallel exploration is performed. 
+
+Parallel (Naive) is a naive parallel scaling base-line that generates W independent answers at tem-perature 0.7, then aggregates via majority voting (self-consistency). This baseline uses the same answer generation prompt as Vanilla RAG but sam-ples multiple responses to leverage diversity. The 13 final answer is selected by counting exact-match votes among the postprocessed candidates. We sweep W ∈ { 2, 4, 6, 8, 10 } and report the best re-sult for each dataset. 
+
+Sequential (Naive) is a naive sequential scaling baseline that implements a verify-and-retry strategy. The system generates an answer, then prompts the same LLM to self-evaluate and output a confidence score (0–1). If confidence falls below a threshold (0.7), the system retries up to D=3 attempts. The final answer is selected from the attempt with high-est self-evaluated confidence. 
+
+IRCoT (Trivedi et al., 2023) is an interleaved retrieval method with Chain-of-Thought prompt-ing. The model alternates between generating a reasoning step and retrieving relevant documents, iterating until the answer is produced. We use the official implementation 4 and follow its original de-sign, which utilizes a BM25 sparse retriever, as the method relies heavily on keyword-level lexical overlap. 
+
+Iter-RetGen (Shao et al., 2023) is an iterative retrieval-generation method that alternates between retrieval and generation, using the previous genera-tion as context for the next retrieval query. Since no official implementation is publicly available, we re-implemented this method following the algorithm described in the original paper. 
+
+Speculative-RAG (Wang et al., 2024) is a paral-lel drafting approach that generates multiple draft answers using different retrieved document sub-sets and selects the best response via a verification step. Since no official implementation is publicly available, we re-implemented this method based on the original paper. We use k=6 document sub-sets with m=10 drafts for 2WikiMultiHopQA and MuSiQue, and k=3 subsets with m=5 drafts for the other datasets, with a maximum of 15 retrieved documents. 
+
+Self-RAG (Asai et al., 2024) is a self-reflective retrieval-augmented generation method that learns to retrieve, generate, and critique its own output through special reflection tokens. Rather than us-ing the original fine-tuned model, we adopt the LangGraph-based re-implementation 5 which re-produces the Self-RAG workflow using standard 
+
+> 4https://github.com/StonyBrookNLP/ircot
+> 5https://langchain-ai.github.io/langgraph/ tutorials/rag/langgraph_self_rag/
+
+LLMs without specialized fine-tuning. This en-ables fair comparison using the same backbone models (Qwen2.5-7B-Instruct and Qwen3-32B) across all methods. 
+
+DeepNote (Wang et al., 2025b) is a sequential RAG method that maintains a structured note rep-resentation across iterations, compressing retrieved evidence into a running summary. We use the offi-cial implementation 6 but replace the retrieval back-end and generator LLM to match our unified evalu-ation setup. 
+
+B Extended Definitions 
+
+B.1 Task Formulation 
+
+We formalize the retrieval-augmented reasoning task that our system aims to solve. The objective is to answer a complex query q0 by iteratively in-teracting with an external corpus C and refining intermediate hypotheses over multiple rounds of reasoning. To facilitate a precise formulation, we introduce the notations used throughout this section in Table 2. 
+
+> Table 2: Notation summary for the RAG task formula-tion.
+
+Symbol Description 
+
+C Corpus available for retrieval. 
+
+q0 Global (initial) query. 
+
+q(t) Query at round t.
+
+m(t) ∈ M Memory state at round t.
+
+a(t) ∈ A Candidate answer at round t.
+
+D Total number of reasoning rounds (depth). 
+
+W (t) Number of parallel reasoning branches at round t (width). We describe the reasoning process as a hierarchi-cal composition of three operators: an intra-path 
+
+operator I, a parallel operator P, and a sequential 
+
+operator S. The overall system can be expressed as 
+
+Π( q0, C ) ≜ (S ◦ P ◦ I)( q0, C ).
+
+The operator I performs one round of retrieval-augmented inference along a single reasoning path, updating its memory and optionally producing a 
+
+> 6https://github.com/thunlp/DeepNote/tree/main
+
+14 candidate answer. Note that an operator in our for-mulation is an abstract computational role, rather than a concrete agent. The parallel operator P(t) applies I across W (t)
+
+branches at round t and aggregates their outcomes: 
+
+P(t)(q(t), m (t−1) , C )= Merge 
+
+I(q(t,k ), m (t−1,k ), C ) W (t)
+
+> k=1
+
+
+
+.
+
+Finally, the sequential operator composes the round-specific parallel processes: 
+
+S {P(t)}Dt=1 
+
+(q0, C ) =  P(D) ◦ · · · ◦ P(1) (q0, C ),
+
+where D denotes the number of reasoning rounds until termination. This formulation captures the hierarchical struc-ture of multi-step RAG: sequential composition models refinement over time, while parallel com-position captures the breadth of exploration within each round. 
+
+B.2 Jaccard Overlap of Query Groups. 
+
+Given a set of rewritten queries generated for the same question, we measure the degree of redun-dancy between them using the Jaccard overlap of their retrieved document sets. For a rewritten query 
+
+q, let R(q) denote the set of top-k retrieved para-graphs obtained from the dense retriever. For two rewritten queries qi and qj , their Jaccard overlap is defined as 
+
+Jac( qi, q j ) = |R (qi) ∩ R (qj )||R (qi) ∪ R (qj )| .
+
+This quantity ranges from 0 (no shared retrieved evidence) to 1 (identical retrieval results). For a group of rewrites {q1, . . . , q m}, we report the average pairwise Jaccard overlap , defined as 
+
+JacAvg = 2
+
+m(m − 1) 
+
+X
+
+> i<j
+
+Jac( qi, q j ).
+
+Lower overlap indicates that the rewrites retrieve more complementary evidence, whereas high over-lap suggests that rewrites collapse to similar re-trieval trajectories. In our analysis, we compute this metric separately for DPO-chosen and DPO-rejected rewrites; the former consistently exhibit lower overlap, indicating that recall-based super-vision implicitly encourages more diverse and evidence-complementary sub-queries. 
+
+Table 3: DPO fine-tuning result: accuracy and effi-ciency comparison between fixed-depth baseline and DPO-tuned model with adaptive depth control. 7B uses 
+
+D=6 , W =2 ; 32B uses D=8 , W =2 .                                                                               
+
+> Model Dataset F1 (%) Avg Depth Tokens (K)
+> Fixed Tuned ( ∆)Fixed Tuned Fixed Tuned 7B HotpotQA 55.9 61.3 (+5.4) 61.8 20.2 6.5 MuSiQue 24.3 32.4 (+8.1) 63.0 23.6 16.5 2WikiMQA 56.2 61.2 (+5.0) 62.0 22.0 7.8 NQ 34.7 51.8 (+17.1) 61.7 16.2 7.1 Bamboogle 42.7 44.7 (+2.0) 61.6 24.3 5.3 32B HotpotQA 68.7 65.0 (-3.7) 81.4 39.0 4.6 MuSiQue 36.6 33.9 (-2.7) 81.7 53.2 7.2 2WikiMQA 74.1 69.8 (-4.3) 81.8 88.1 7.0 NQ 54.7 51.1 (-3.6) 81.1 129.6 2.9 Bamboogle 63.0 57.9 (-5.1) 81.3 104.6 3.9
+
+C Additional Results 
+
+C.1 Token cost before and after fine-tuning 
+
+Table 3 presents the impact of DPO fine-tuning on answer evaluation accuracy and computational ef-ficiency. For the 7B model, DPO training yields consistent improvements across all five datasets, with F1 gains ranging from +2.0% (Bamboogle) to +17.1% (NQ). Notably, these accuracy improve-ments are accompanied by substantial efficiency gains: the tuned model reduces average retrieval depth from 6 to 1.6–3.0 iterations, resulting in 56– 78% reduction in token consumption. For the 32B model, while DPO tuning did not improve the answer performance, it achieves dra-matic efficiency improvements—reducing depth from 8 to 1.1–1.8 iterations and cutting token us-age by 87–98%. We attribute this to a distribution mismatch: the DPO training data was generated using the 7B model, causing the 32B model to adopt overly conservative early-stopping behavior. Despite this, the 32B tuned model still achieves competitive absolute performance (e.g., 69.8% F1 on 2WikiMQA) while consuming only 7–8% of the baseline’s computational budget. These results suggest that DPO fine-tuning effec-tively teaches the model to recognize answer suf-ficiency, enabling adaptive depth control that bal-ances accuracy and efficiency. Future work could explore model-specific DPO training to better pre-serve the capabilities of larger models. 
+
+C.2 Comparison of token cost with other methods 
+
+Table 4 compares the computational cost of our DPO-tuned models against DeepNote, a state-of-the-art adaptive RAG baseline that employs itera-15 Table 4: Token cost comparison between DeepNote and our DPO-tuned models. Values represent average tokens per query. As we directly report the results from the DeepNote paper for some datasets using the Qwen2.5-7B-Instruct model, token costs on some datasets are marked missing ’-’.                                            
+
+> Dataset 7B Model 32B Model
+> DeepNote Ours ∆DeepNote Ours ∆
+> HotpotQA 6,235 6,511 +4.4% 10,561 4,640 -56.1%
+> MuSiQue –16,477 –13,206 7,166 -45.7%
+> 2WikiMQA –7,785 –11,416 6,981 -38.8%
+> NQ 8,359 7,081 -15.3% 18,816 2,935 -84.4%
+> Bamboogle 7,452 5,348 -28.2% 17,102 3,887 -77.3%
+> Avg 7,349 6,313 -14.1% 14,220 5,122 -64.0%
+
+tive retrieval with early stopping. We did not report the cost comparison with other methods as their performance are significantly worse than these two methods. We conduct the comparison using both 7B and 32B model variants to ensure a fair compar-ison. For the 32B model, our approach achieves sub-stantial token savings across all five datasets, with an average reduction of 64.0% compared to Deep-Note. For the 7B model, on single-hop datasets (NQ and Bamboogle), our method reduces token consumption by 15.3% and 28.2% respectively and achieves a 14.1% average reduction while main-taining competitive accuracy. A key advantage of our approach lies in learn-ing when to stop retrieval through direct preference optimization. While DeepNote uses heuristic stop-ping criteria, our method learns a fine-grained stop-ping policy from preference data, leading to more efficient scaling behaiviors. 
+
+C.3 Analysis of DPO fine-tuning on paragraph recall 
+
+To isolate the effect of DPO fine-tuning on query rewriting quality, we conduct a controlled compari-son on samples where the tuned model proceeds to the second retrieval iteration (Table 5). The results reveal that DPO fine-tuning consis-tently improves recall across all datasets. For the 7B model, there is an average recall improvement of +13.1%. The substantial improvement on NQ (+36.1%) is particularly notable: the base model achieves only 18.7% recall on these samples, in-dicating poor query rewriting for single-hop ques-tions, while the tuned model reaches 54.8%. For multi-hop datasets, improvements are more mod-est but consistent (+2.3% to +7.3%), suggesting that DPO training enhances the model’s ability to 
+
+Table 5: Recall comparison on samples where the DPO-tuned model proceeds to the second retrieval iteration. This controlled comparison isolates the effect of DPO on query rewriting quality, excluding samples that ter-minate early. 
+
+Model Dataset Samples Base Tuned ∆
+
+7B HotpotQA 209 70.6 77.3 +6.7 
+
+MuSiQue 348 58.8 61.1 +2.3 
+
+2WikiMQA 271 77.6 84.9 +7.3 
+
+NQ 157 18.7 54.8 +36.1 
+
+32B HotpotQA 104 67.8 71.6 +3.8 
+
+MuSiQue 224 55.5 60.0 +4.5 
+
+2WikiMQA 246 81.3 86.5 +5.2 
+
+NQ 29 39.1 39.7 +0.5 
+
+generate effective follow-up queries. The 32B model exhibits similar trends with gains of +0.5% to +5.2% across datasets. The smaller improvement magnitude compared to 7B can be attributed to two factors: (1) fewer samples reach the second iteration (e.g., only 29 NQ samples for 32B vs. 157 for 7B), limiting statistical power, and (2) the base 32B model already produces higher-quality rewrites, leaving less room for improve-ment. These findings demonstrate that DPO fine-tuning improves how queries are rewritten when additional retrieval is necessary. 
+
+Table 6: Ablation study comparing adaptive retrieval with dense-only retrieval, using finetuned model Qwen-2.5-7B-Instruct-DPO. The grey texts shows differences compared to hybrid retrieval.                                                              
+
+> Dataset Hybrid Retrieval Dense-Only EM F1 Acc EM F1 Acc HotpotQA 49.4 61.3 53.8 48.8 (−0.6) 62.1 (+0.8) 53.0 (−0.8)
+> MuSiQue 20.8 32.4 25.2 20.4 (−0.4) 31.7 (−0.7) 25.4 (+0.2)
+> 2WikiMQA 48.4 61.2 63.0 49.2 (+0.8) 61.6 (+0.4) 62.8 (−0.2)
+> NQ 40.0 51.8 51.4 39.2 (−0.8) 52.5 (+0.7) 52.6 (+1.2)
+> Bamboogle 33.6 44.7 38.4 33.6 (0.0) 44.5 (−0.2) 40.0 (+1.6)
+> Average 38.4 50.3 46.4 38.2 (−0.2) 50.5 (+0.2) 46.8 (+0.4)
+
+C.4 Ablation on retrieval methods 
+
+Most baselines in our comparison only use a single retrieval method. To enable a fair comparison, we therefore evaluate our framework under a dense-only setting, matching the retrieval configuration used by the baselines. Although mixed retrieval is a common and robust practice in RAG systems, prior work (Thakur et al., 2021) has also noted that strong dense retrievers often perform comparably to hybrid configurations when the corpus is well-structured and the embedding model is high quality. 16 In this ablation, the retriever is fixed to use dense retrieval for all queries. Table 6 reports results across five datasets. Over-all, the differences between the adaptive hybrid setting and dense-only retrieval are small and in-consistent across datasets. These results suggest that dense retrieval alone is sufficiently effective for our task. This finding indi-cates that the primary performance improvements of our system stem from other components, such as the iterative query rewriting and answer evaluation modules, rather than the retrieval strategy selection. 
+
+C.5 Case study 
+
+To illustrate why increasing parallel width im-proves multi-hop retrieval, we present a represen-tative HotpotQA example (Figure 8). The sys-tem is asked: “Where is Anticimex’s parent com-pany headquartered?” Under a single path (W=1), the system fails to retrieve the document about EQT—the parent company—making the answer unreachable. With two parallel branches (W=2), different sub-queries explore complementary di-rections: one identifies EQT as the parent com-pany, while the other retrieves EQT’s headquarters. Together they recover all necessary evidence and produce the correct final answer. 
+
+Analysis. The example in Figure 8 reveals a clear pattern: • W=1 fails due to insufficient retrieval. The single branch retrieves “Anticimex” but never surfaces “EQT”, preventing the system from answering the headquarters question. • W=2 enables specialization. One rewritten query targets the parent-company relationship; the other explicitly seeks EQT’s headquarters. This division of labor increases coverage. • Complementarity resolves ambiguity. Only when the two branches are combined does the system access all gold evidence (both An-ticimex and EQT documents). • Merging selects the supported answer. Al-though branches propose different answers, the system resolves them by grounding final selection in retrieved evidence. This case concretely demonstrates our central claim: parallel width expands the search space and recovers evidence that sequential refine-ment alone cannot reach .17 Question 
+
+Where is Anticimex's parent company headquartered? 
+
+Gold Answer:  EQT Plaza in Pittsburgh, Pennsylvania 
+
+Gold Supporting Documents 
+
+EQT  Anticimex 
+
+Width = 1 (Single Path)  FAILED 
+
+Model Prediction  Not explicitly mentioned 
+
+Execution Trace 
+
+Width = 2 (Parallel Branches)  SUCCESS 
+
+Model Prediction  Pittsburgh, Pennsylvania 
+
+Execution Trace 
+
+Retrieval Coverage Comparison 
+
+Gold Document  W=1 
+
+W=2  
+
+> B0 B1
+
+EQT  ✗ ✓ ✗
+
+Anticimex  ✓ ✗ ✓
+
+Total Gold Retrieved  1/2  2/2 
+
+💡 Key Insight: Branch Complementarity 
+
+Branch 0  directly searches for  "EQT headquarters location"  , successfully retrieving the "EQT" document that contains the headquarters information 
+
+Branch 1  explores the  "relationship between Anticimex and EQT"  , retrieving the "Anticimex" document that establishes EQT as the parent company 
+
+The two branches are  complementary : Branch 0 finds the headquarters location, while Branch 1 confirms the parent-subsidiary relationship 
+
+W=1 fails because it cannot retrieve the "EQT" document needed to answer where the headquarters is located. W=2 succeeds by having Branch 0 directly target the key entity:  Pittsburgh, Pennsylvania HotpotQA | 5ab969ca55429970cfb8eac9 
+
+Question 
+
+Where is Anticimex's parent company headquartered? 
+
+Retrieval  6 docs 
+
+Cemex  Anticimex  Esteve  ExxonMobil  Telmex  Mexichem 
+
+Answer Generation & Evaluation  Rejected 
+
+Not explicitly mentioned 
+
+Query Rewriting 
+
+"What is the headquarters of Anticimex's parent company?" 
+
+Retrieval  6 docs 
+
+Cemex  Anticimex  Esteve  ExxonMobil  Mexichem  Telmex 
+
+Final Answer 
+
+Not explicitly mentioned 
+
+Question 
+
+Where is Anticimex's parent company headquartered? 
+
+Retrieval  6 docs 
+
+Cemex  Anticimex  Esteve  ExxonMobil  Telmex  Mexichem 
+
+Answer Generation & Evaluation  Rejected 
+
+Stockholm, Sweden 
+
+Query Rewriting 
+
+> B0
+
+"EQT headquarters location" 
+
+> B1
+
+"relationship between Anticimex and EQT" 
+
+Retrieval      
+
+> B0
+> EQT EQT Plaza EQT Ventures
+> EQT (disambiguation) EQT Partners
+> Headquarters and Headquarters Squadron
+> B1
+> Anticimex
+> Esterified estrogens/methyltestosterone
+> AEM (psychedelic) Etifoxine
+> Dexetimide Guaifenesin/phenylephrine
+
+Answer Generation & Merging 
+
+> B0
+
+Pittsburgh, Pennsylvania 
+
+> B1
+
+Stockholm, Sweden 
+
+Final Answer:  Pittsburgh, Pennsylvania Figure 8: Case study illustrating how W=2 retrieves complementary evidence that W=1 misses. 
+
+18 C.6 Width × Depth Grid Search Results 
+
+Table 7: Width × Depth grid search results for Qwen2.5-7B-Instruct on multi-hop QA datasets.                                                                                                                                                                                                                                                                        
+
+> W×DHotpotQA 2WikiMQA MuSiQue Bamboogle
+> acc. f1 em avg. tok. acc. f1 em avg. tok. acc. f1 em avg. tok. acc. f1 em avg. tok. 1×237 .045 .535 .039 .23.2k57 .052 .744 .051 .23.1k11 .020 .710 .013 .94.2k30 .437 .129 .632 .43.5k1×444 .052 .938 .045 .08.2k56 .052 .242 .050 .17.1k15 .021 .513 .016 .510 .6k36 .041 .834 .437 .48.0k1×641 .051 .438 .043 .513 .2k52 .051 .444 .049 .111 .3k18 .023 .316 .019 .117 .3k31 .238 .630 .433 .412 .7k1×846 .057 .945 .049 .619 .0k50 .050 .242 .047 .415 .8k15 .020 .213 .016 .124 .8k39 .246 .336 .840 .817 .7k2×243 .052 .142 .045 .73.8k53 .049 .842 .048 .35.5k15 .020 .712 .015 .94.1k33 .638 .432 .034 .75.8k2×450 .061 .046 .052 .39.4k56 .053 .343 .050 .813 .6k12 .021 .611 .014 .811 .1k35 .242 .435 .237 .614 .6k2×650 .056 .242 .049 .415 .8k61 .056 .144 .053 .722 .2k26 .030 .021 .025 .718 .8k36 .846 .234 .439 .124 .3k2×846 .056 .241 .047 .730 .7k62 .055 .942 .053 .331 .6k21 .027 .518 .022 .237 .7k36 .841 .333 .637 .235 .3k4×250 .055 .943 .049 .65.9k52 .050 .544 .048 .88.6k22 .027 .918 .022 .66.7k36 .041 .132 .836 .69.3k4×448 .057 .244 .049 .817 .4k64 .061 .349 .058 .124 .0k17 .024 .617 .019 .520 .4k37 .643 .936 .839 .425 .9k4×650 .058 .743 .050 .631 .7k59 .056 .047 .054 .040 .7k21 .030 .918 .023 .337 .2k35 .544 .231 .437 .045 .3k4×848 .055 .137 .046 .762 .4k56 .053 .944 .051 .353 .4k20 .026 .618 .021 .572 .9k34 .439 .031 .234 .966 .3k
+
+Table 7 presents the full grid search results across different width ( W ) and depth ( D) configurations using the Qwen2.5-7B-Instruct model on multi-hop QA datasets. For the efficiency of the grid search, we report the result on a 100-sample subset of the dev set. For each configuration, we report accuracy, F1 score, exact match (EM), average score, and token usage across four multi-hop QA datasets. These results inform our selection of W =2 as the default width setting, which provides the best trade-off between performance and computational cost. 
+
+D Prompts for the LLM Agents 
+
+Context Manager Prompt 
+
+Act as the context manager for a Retrieval-Augmented Generation (RAG) system. Your job is to maintain a single, up-to-date note that contains all the information relevant to answering the original query. Please ensure that the note includes all original text information useful for answering the question. Steps: - Based on the retrieved documents, supplement the notes with content not yet included but useful for answering the question. - Resolve conflicts: if statements disagree, keep the most reliable or recent version. End your response with the literal tag [END]. Original query: {query} Old note: {note} New information: {new_context} Updated note: 
+
+Answer Generator Prompt 
+
+Answer the question based on the given notes. Output ONLY the exact answer in as few words as possible. Do not include the question, reasoning, or any extra text. End your response with the literal tag [END]. The following are given notes: {note} Question: {query} Answer: 
+
+19 Multi-Path Dispatch Rewrite Prompt 
+
+You are an intelligent assistant in a Retrieval-Augmented Generation (RAG) system. Your goal is to (a) diagnose retrieval needs for the current question and (b) produce exactly {N} rewritten queries, each paired with the most suitable retrieval strategy for that specific rewrite. Information: - Original Query: {query} - Current Query: {current_query} - Context: {context} Available Retrieval Strategies: - bm25 (sparse / lexical): Prioritizes exact token and phrase matches. - dense (semantic / vector similarity): Matches by meaning despite paraphrases. Instructions: 1. Use the context to reflect on what is missing to answer the query. Think about both the big picture and the small atomic facts that might need verification. 2. Generate exactly {N} rewritten queries. - Do not just paraphrase — each query should explore a different angle, granularity, or fact. - Avoid near-duplicates. - Each query must serve a distinct retrieval purpose. 3. For each query, select the most suitable retrieval strategy: - Use bm25 when exact names, phrases, or quoted terms matter; remove “wh” words. - Use dense when searching for meanings, definitions, or related concepts. Output Format (strict): 1. First provide your analysis and rationale in a <think> block, including per-item strategy justification. 2. Then output exactly {N} query rewrites using the following structure: <queries> <item rank="1"><strategy>bm25|dense</strategy> <query>...</query> </item> <item rank="2"><strategy>bm25|dense</strategy> <query>...</query> </item> ... <item rank="{N}"><strategy>bm25|dense</strategy> <query>...</query> </item> </queries> 3. End your response with the literal tag [END]. Output: 
+
+Answer Selection Prompt (C ONTEXT MANAGER )
+
+Question: {question} All Generated Answers: {answer_blocks} Based on all the answers and reasoning provided, select the best answer. Consider accuracy and relevance to the question. Give the final answer directly. Then, provide a direct, concise, and accurate answer inside <answer> </answer> tags. End your response with the literal tag [END]. Final answer: 
+
+20 Context Merging Prompt (C ONTEXT MANAGER )
+
+You are an expert at combining contexts in a Retrieval Augmented Generation system for answering question {question}. Here are several notes: {reasoning_list}. Combine the above notes into a single note that includes all information and is useful for final answer generation. Please ensure that the note includes all original text information useful for answering the question. End your response with the literal tag [END]. Your response: 
+
+21

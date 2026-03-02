@@ -9,55 +9,55 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-02-21 ~ 2026-03-01
-- 运行时间：2026-03-01 19:06:02 UTC
+- 最新运行日期：2026-02-22 ~ 2026-03-02
+- 运行时间：2026-03-02 19:23:08 UTC
 - 运行状态：成功
 - 本次总论文数：17
 - 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-本期收录 17 篇前沿论文，深度聚焦 RAG 效能预测、代码多任务微调及强化学习对齐等核心领域。
-重点关注 RAG 检索效能与答案质量的量化预测，以及通过进度感知强化学习（ProGraph-R1）优化图检索增强生成。
-建议优先研读两篇满分精读论文，掌握提升代码处理能力与 RAG 系统可靠性的实战策略。
-- 详情：[/20260221-20260301/README](/20260221-20260301/README)
+本期日报精选 17 篇前沿成果，深度攻克 RAG 检索冗余与复杂逻辑推理两大核心瓶颈。
+重点推荐 IFDNS 的迭代反馈逻辑推理与基于信息增益的 RAG 剪枝技术，实现生成效果与推理忠实度的双重飞跃。
+建议优先研读检索增强与对抗微调相关论文，掌握提升大模型在复杂知识图谱及长文本场景下实战表现的关键策略。
+- 详情：[/20260222-20260302/README](/20260222-20260302/README)
 
 ### 精读区论文标签
-1. [Predicting Retrieval Utility and Answer Quality in Retrieval-Augmented Generation](/20260221-20260301/2601.14546v1-predicting-retrieval-utility-and-answer-quality-in-retrieval-augmented-generation)  
+1. [IFDNS: An Iterative Feedback-Driven Neuro-Symbolic Method for Faithful Logical Reasoning](/20260222-20260302/2601.07464v1-ifdns-an-iterative-feedback-driven-neuro-symbolic-method-for-faithful-logical-reasoning)  
    标签：评分：10.0/10、query:sr-llm
-2. [Parameter-Efficient Multi-Task Fine-Tuning in Code-Related Tasks](/20260221-20260301/2601.15094v1-parameter-efficient-multi-task-fine-tuning-in-code-related-tasks)  
+2. [Less is More for RAG: Information Gain Pruning for Generator-Aligned Reranking and Evidence Selection](/20260222-20260302/2601.17532v1-less-is-more-for-rag-information-gain-pruning-for-generator-aligned-reranking-and-evidence-selection)  
    标签：评分：10.0/10、query:sr-llm
-3. [Graph-Anchored Knowledge Indexing for Retrieval-Augmented Generation](/20260221-20260301/2601.16462v1-graph-anchored-knowledge-indexing-for-retrieval-augmented-generation)  
+3. [ChunkWise LoRA: Adaptive Sequence Partitioning for Memory-Efficient Low-Rank Adaptation and Accelerated LLM Inference](/20260222-20260302/2601.21109v1-chunkwise-lora-adaptive-sequence-partitioning-for-memory-efficient-low-rank-adaptation-and-accelerated-llm-inference)  
    标签：评分：10.0/10、query:sr-llm
-4. [DeepEra: A Deep Evidence Reranking Agent for Scientific Retrieval-Augmented Generated Question Answering](/20260221-20260301/2601.16478v1-deepera-a-deep-evidence-reranking-agent-for-scientific-retrieval-augmented-generated-question-answering)  
+4. [FedKRSO: Communication and Memory Efficient Federated Fine-Tuning of Large Language Models](/20260222-20260302/2602.03019v1-fedkrso-communication-and-memory-efficient-federated-fine-tuning-of-large-language-models)  
    标签：评分：10.0/10、query:sr-llm
-5. [DF-RAG: Query-Aware Diversity for Retrieval-Augmented Generation](/20260221-20260301/2601.17212v1-df-rag-query-aware-diversity-for-retrieval-augmented-generation)  
+5. [Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning](/20260222-20260302/2602.03249v1-accordion-thinking-self-regulated-step-summaries-for-efficient-and-readable-llm-reasoning)  
    标签：评分：10.0/10、query:sr-llm
-6. [When Iterative RAG Beats Ideal Evidence: A Diagnostic Study in Scientific Multi-hop Question Answering](/20260221-20260301/2601.19827v2-when-iterative-rag-beats-ideal-evidence-a-diagnostic-study-in-scientific-multi-hop-question-answering)  
+6. [RAGTurk: Best Practices for Retrieval Augmented Generation in Turkish](/20260222-20260302/2602.03652v1-ragturk-best-practices-for-retrieval-augmented-generation-in-turkish)  
    标签：评分：10.0/10、query:sr-llm
 
 ### 速读区论文标签
-1. [The Viscosity of Logic: Phase Transitions and Hysteresis in DPO Alignment](/20260221-20260301/2601.17260v1-the-viscosity-of-logic-phase-transitions-and-hysteresis-in-dpo-alignment)  
+1. [SPARC-RAG: Adaptive Sequential-Parallel Scaling with Context Management for Retrieval-Augmented Generation](/20260222-20260302/2602.00083v1-sparc-rag-adaptive-sequential-parallel-scaling-with-context-management-for-retrieval-augmented-generation)  
    标签：评分：10.0/10、query:sr-llm
-2. [ProGraph-R1: Progress-aware Reinforcement Learning for Graph Retrieval Augmented Generation](/20260221-20260301/2601.17755v1-prograph-r1-progress-aware-reinforcement-learning-for-graph-retrieval-augmented-generation)  
+2. [Self-Generative Adversarial Fine-Tuning for Large Language Models](/20260222-20260302/2602.01137v1-self-generative-adversarial-fine-tuning-for-large-language-models)  
    标签：评分：10.0/10、query:sr-llm
-3. [FABLE: Forest-Based Adaptive Bi-Path LLM-Enhanced Retrieval for Multi-Document Reasoning](/20260221-20260301/2601.18116v1-fable-forest-based-adaptive-bi-path-llm-enhanced-retrieval-for-multi-document-reasoning)  
+3. [ROG: Retrieval-Augmented LLM Reasoning for Complex First-Order Queries over Knowledge Graphs](/20260222-20260302/2602.02382v1-rog-retrieval-augmented-llm-reasoning-for-complex-first-order-queries-over-knowledge-graphs)  
    标签：评分：10.0/10、query:sr-llm
-4. [RPO-RAG: Aligning Small LLMs with Relation-aware Preference Optimization for Knowledge Graph Question Answering](/20260221-20260301/2601.19225v2-rpo-rag-aligning-small-llms-with-relation-aware-preference-optimization-for-knowledge-graph-question-answering)  
+4. [A-RAG: Scaling Agentic Retrieval-Augmented Generation via Hierarchical Retrieval Interfaces](/20260222-20260302/2602.03442v1-a-rag-scaling-agentic-retrieval-augmented-generation-via-hierarchical-retrieval-interfaces)  
    标签：评分：10.0/10、query:sr-llm
-5. [A2RAG: Adaptive Agentic Graph Retrieval for Cost-Aware and Reliable Reasoning](/20260221-20260301/2601.21162v1-a2rag-adaptive-agentic-graph-retrieval-for-cost-aware-and-reliable-reasoning)  
+5. [Use Graph When It Needs: Efficiently and Adaptively Integrating Retrieval-Augmented Generation with Graphs](/20260222-20260302/2602.03578v1-use-graph-when-it-needs-efficiently-and-adaptively-integrating-retrieval-augmented-generation-with-graphs)  
    标签：评分：10.0/10、query:sr-llm
-6. [RAG-E: Quantifying Retriever-Generator Alignment and Failure Modes](/20260221-20260301/2601.21803v1-rag-e-quantifying-retriever-generator-alignment-and-failure-modes)  
+6. [QUATRO: Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning](/20260222-20260302/2602.04620v2-quatro-query-adaptive-trust-region-policy-optimization-for-llm-fine-tuning)  
    标签：评分：10.0/10、query:sr-llm
-7. [STELP: Secure Transpilation and Execution of LLM-Generated Programs](/20260221-20260301/2601.05467v3-stelp-secure-transpilation-and-execution-of-llm-generated-programs)  
+7. [Enhancing Spatial Reasoning in Large Language Models for Metal-Organic Frameworks Structure Prediction](/20260222-20260302/2601.09285v1-enhancing-spatial-reasoning-in-large-language-models-for-metal-organic-frameworks-structure-prediction)  
    标签：评分：7.0/10、query:sr-llm
-8. [SketchJudge: A Diagnostic Benchmark for Grading Hand-drawn Diagrams with Multimodal Large Language Models](/20260221-20260301/2601.06944v1-sketchjudge-a-diagnostic-benchmark-for-grading-hand-drawn-diagrams-with-multimodal-large-language-models)  
+8. [Mixture-of-Experts as Soft Clustering: A Dual Jacobian-PCA Spectral Geometry Perspective](/20260222-20260302/2601.11616v1-mixture-of-experts-as-soft-clustering-a-dual-jacobian-pca-spectral-geometry-perspective)  
    标签：评分：7.0/10、query:sr-llm
-9. [M^4olGen: Multi-Agent, Multi-Stage Molecular Generation under Precise Multi-Property Constraints](/20260221-20260301/2601.10131v2-m4olgen-multi-agent-multi-stage-molecular-generation-under-precise-multi-property-constraints)  
+9. [Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models](/20260222-20260302/2601.16200v2-feature-space-adversarial-robustness-certification-for-multimodal-large-language-models)  
    标签：评分：7.0/10、query:sr-llm
-10. [OctoBench: Benchmarking Scaffold-Aware Instruction Following in Repository-Grounded Agentic Coding](/20260221-20260301/2601.10343v2-octobench-benchmarking-scaffold-aware-instruction-following-in-repository-grounded-agentic-coding)  
+10. [CG-MLLM: Captioning and Generating 3D content via Multi-modal Large Language Models](/20260222-20260302/2601.21798v1-cg-mllm-captioning-and-generating-3d-content-via-multi-modal-large-language-models)  
    标签：评分：7.0/10、query:sr-llm
-11. [LLM-Guided Diagnostic Evidence Alignment for Medical Vision-Language Pretraining under Limited Pairing](/20260221-20260301/2602.07540v1-llm-guided-diagnostic-evidence-alignment-for-medical-vision-language-pretraining-under-limited-pairing)  
+11. [Epistemic Uncertainty Quantification for Pre-trained VLMs via Riemannian Flow Matching](/20260222-20260302/2601.21662v1-epistemic-uncertainty-quantification-for-pre-trained-vlms-via-riemannian-flow-matching)  
    标签：评分：6.0/10、query:sr-llm
 
 

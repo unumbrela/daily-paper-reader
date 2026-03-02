@@ -1,0 +1,647 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-03-02T19:13:45.964069+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 233,
+    "deep_cap": 6,
+    "deep_selected": 6,
+    "quick_candidates": 243,
+    "quick_skim_target": 11,
+    "quick_selected": 11
+  },
+  "deep_dive": [
+    {
+      "id": "2601.07464v1",
+      "title": "IFDNS: An Iterative Feedback-Driven Neuro-Symbolic Method for Faithful Logical Reasoning",
+      "abstract": "Large language models (LLMs) have demonstrated impressive capabilities across a wide range of reasoning tasks, including logical and mathematical problem-solving. While prompt-based methods like Chain-of-Thought (CoT) can enhance LLM reasoning abilities to some extent, they often suffer from a lack of faithfulness, where the derived conclusions may not align with the generated reasoning chain. To address this issue, researchers have explored neuro-symbolic approaches to bolster LLM logical reasoning capabilities. However, existing neuro-symbolic methods still face challenges with information loss during the process. To overcome these limitations, we introduce Iterative Feedback-Driven Neuro-Symbolic (IFDNS), a novel prompt-based method that employs a multi-round feedback mechanism to address LLM limitations in handling complex logical relationships. IFDNS utilizes iterative feedback during the logic extraction phase to accurately extract causal relationship statements and translate them into propositional and logical implication expressions, effectively mitigating information loss issues. Furthermore, IFDNS is orthogonal to existing prompt methods, allowing for seamless integration with various prompting approaches. Empirical evaluations across six datasets demonstrate the effectiveness of IFDNS in significantly improving the performance of CoT and Chain-of-Thought with Self-Consistency (CoT-SC). Specifically, IFDNS achieves a +9.40% accuracy boost for CoT on the LogiQA dataset and a +11.70% improvement for CoT-SC on the PrOntoQA dataset.",
+      "authors": [
+        "Xiaoheng Wang",
+        "Tongxuan Liu",
+        "Zi Gong",
+        "Xianzhe Dong",
+        "Yuting Zeng",
+        "Minhan Hu",
+        "Weizhe Huang",
+        "Jing Li"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-01-12T12:20:19+00:00",
+      "link": "https://arxiv.org/pdf/2601.07464v1",
+      "tags": [
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Neuro-symbolic method to enhance LLM logical reasoning",
+      "llm_evidence_cn": "增强 LLM 逻辑推理的神经符号方法",
+      "llm_evidence": "增强 LLM 逻辑推理的神经符号方法",
+      "llm_tldr_en": "Introduces IFDNS to improve the faithfulness of LLM logical reasoning beyond standard CoT methods.",
+      "llm_tldr_cn": "引入了 IFDNS，旨在提高 LLM 逻辑推理的忠实度，超越了标准的 CoT 方法。",
+      "llm_tldr": "引入了 IFDNS，旨在提高 LLM 逻辑推理的忠实度，超越了标准的 CoT 方法。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Chain of Thought reasoning in large language models",
+      "matched_requirement_id": "req-6"
+    },
+    {
+      "id": "2601.17532v1",
+      "title": "Less is More for RAG: Information Gain Pruning for Generator-Aligned Reranking and Evidence Selection",
+      "abstract": "Retrieval-augmented generation (RAG) grounds large language models with external evidence, but under a limited context budget, the key challenge is deciding which retrieved passages should be injected. We show that retrieval relevance metrics (e.g., NDCG) correlate weakly with end-to-end QA quality and can even become negatively correlated under multi-passage injection, where redundancy and mild conflicts destabilize generation. We propose \\textbf{Information Gain Pruning (IGP)}, a deployment-friendly reranking-and-pruning module that selects evidence using a generator-aligned utility signal and filters weak or harmful passages before truncation, without changing existing budget interfaces. Across five open-domain QA benchmarks and multiple retrievers and generators, IGP consistently improves the quality--cost trade-off. In a representative multi-evidence setting, IGP delivers about +12--20% relative improvement in average F1 while reducing final-stage input tokens by roughly 76--79% compared to retriever-only baselines.",
+      "authors": [
+        "Zhipeng Song",
+        "Yizhi Zhou",
+        "Xiangyu Kong",
+        "Jiulong Jiao",
+        "Xinrui Bao",
+        "Xu You",
+        "Xueqing Shi",
+        "Yuhang Zhou",
+        "Heng Qi"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.AI"
+      ],
+      "published": "2026-01-24T17:14:10+00:00",
+      "link": "https://arxiv.org/pdf/2601.17532v1",
+      "tags": [
+        "keyword:SR-LLM",
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Reranking and evidence selection for RAG",
+      "llm_evidence_cn": "RAG的重排序与证据选择",
+      "llm_evidence": "RAG的重排序与证据选择",
+      "llm_tldr_en": "Proposes Information Gain Pruning to select the most useful retrieved passages for RAG generators.",
+      "llm_tldr_cn": "提出信息增益剪枝技术，为RAG生成器选择最有用的检索段落。",
+      "llm_tldr": "提出信息增益剪枝技术，为RAG生成器选择最有用的检索段落。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Retrieval-Augmented Generation techniques and frameworks",
+      "matched_requirement_id": "req-5"
+    },
+    {
+      "id": "2601.21109v1",
+      "title": "ChunkWise LoRA: Adaptive Sequence Partitioning for Memory-Efficient Low-Rank Adaptation and Accelerated LLM Inference",
+      "abstract": "Recent advances in low-rank adaptation (LoRA) have enabled efficient fine-tuning of large language models (LLMs) with minimal additional parameters. However, existing LoRA methods apply static rank configurations uniformly across all input tokens, ignoring variation in token complexity and computational requirements. In this work, we propose ChunkWise LoRA, a dynamic and adaptive approach that partitions sequences into variable-length chunks based on token complexity and assigns each chunk a tailored low-rank configuration. Our system introduces a runtime scheduler that estimates token difficulty, performs adaptive chunking, and selects per-chunk LoRA rank and scaling using a rank-ladder mechanism. To preserve output consistency, we further introduce a boundary-safe composition module and integrate policy-driven KV-cache strategies. Experiments on benchmark datasets such as Wikitext-103 and SQuAD demonstrate that ChunkWise LoRA achieves up to 34\\% lower latency and 38% memory reduction compared to baseline LoRA, while maintaining or improving task performance metrics like BLEU, EM, and perplexity. The proposed framework remains fully compatible with existing transformer architectures and inference frameworks, providing a practical solution for real-world deployment of parameter-efficient LLMs.",
+      "authors": [
+        "Ketan Thakkar",
+        "Maitreyi Chatterjee",
+        "Ramasubramanian Balasubramanian",
+        "Achyuthan Jootoo",
+        "Rajendra Ugrani"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-01-28T22:58:28+00:00",
+      "link": "https://arxiv.org/pdf/2601.21109v1",
+      "tags": [
+        "keyword:SR-LLM",
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Adaptive sequence partitioning for memory-efficient LoRA fine-tuning",
+      "llm_evidence_cn": "用于内存高效 LoRA 微调的自适应序列分区",
+      "llm_evidence": "用于内存高效 LoRA 微调的自适应序列分区",
+      "llm_tldr_en": "Presents ChunkWise LoRA for dynamic, memory-efficient fine-tuning and accelerated LLM inference.",
+      "llm_tldr_cn": "提出了 ChunkWise LoRA，用于动态、内存高效的微调和加速 LLM 推理。",
+      "llm_tldr": "提出了 ChunkWise LoRA，用于动态、内存高效的微调和加速 LLM 推理。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Instruction fine-tuning and parameter-efficient tuning",
+      "matched_requirement_id": "req-4"
+    },
+    {
+      "id": "2602.03019v1",
+      "title": "FedKRSO: Communication and Memory Efficient Federated Fine-Tuning of Large Language Models",
+      "abstract": "Fine-tuning is essential to adapt general-purpose large language models (LLMs) to domain-specific tasks. As a privacy-preserving framework to leverage decentralized data for collaborative model training, Federated Learning (FL) is gaining popularity in LLM fine-tuning, but remains challenging due to the high cost of transmitting full model parameters and computing full gradients on resource-constrained clients. While Parameter-Efficient Fine-Tuning (PEFT) methods are widely used in FL to reduce communication and memory costs, they often sacrifice model performance compared to FFT. This paper proposes FedKRSO (Federated $K$-Seed Random Subspace Optimization), a novel method that enables communication and memory efficient FFT of LLMs in federated settings. In FedKRSO, clients update the model within a shared set of random low-dimension subspaces generated by the server to save memory usage. Furthermore, instead of transmitting full model parameters in each FL round, clients send only the model update accumulators along the subspaces to the server, enabling efficient global model aggregation and dissemination. By using these strategies, FedKRSO can substantially reduce communication and memory overhead while overcoming the performance limitations of PEFT, closely approximating the performance of federated FFT. The convergence properties of FedKRSO are analyzed rigorously under general FL settings. Extensive experiments on the GLUE benchmark across diverse FL scenarios demonstrate that FedKRSO achieves both superior performance and low communication and memory overhead, paving the way towards on federated LLM fine-tuning at the resource-constrained edge.",
+      "authors": [
+        "Guohao Yang",
+        "Tongle Wu",
+        "Yuanxiong Guo",
+        "Ying Sun",
+        "Yanmin Gong"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI"
+      ],
+      "published": "2026-02-03T02:39:33+00:00",
+      "link": "https://arxiv.org/pdf/2602.03019v1",
+      "tags": [
+        "keyword:SR-LLM",
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "federated fine-tuning and parameter-efficient optimization for LLMs",
+      "llm_evidence_cn": "大语言模型的联邦微调与参数高效优化",
+      "llm_evidence": "大语言模型的联邦微调与参数高效优化",
+      "llm_tldr_en": "Proposes FedKRSO for communication and memory efficient federated fine-tuning of large language models.",
+      "llm_tldr_cn": "提出 FedKRSO，用于大语言模型的高效联邦微调，降低通信和内存开销。",
+      "llm_tldr": "提出 FedKRSO，用于大语言模型的高效联邦微调，降低通信和内存开销。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Instruction fine-tuning and parameter-efficient tuning",
+      "matched_requirement_id": "req-4",
+      "paper_id": "2602.03019v1"
+    },
+    {
+      "id": "2602.03249v1",
+      "title": "Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning",
+      "abstract": "Scaling test-time compute via long Chain-ofThought unlocks remarkable gains in reasoning capabilities, yet it faces practical limits due to the linear growth of KV cache and quadratic attention complexity. In this paper, we introduce Accordion-Thinking, an end-to-end framework where LLMs learn to self-regulate the granularity of the reasoning steps through dynamic summarization. This mechanism enables a Fold inference mode, where the model periodically summarizes its thought process and discards former thoughts to reduce dependency on historical tokens. We apply reinforcement learning to incentivize this capability further, uncovering a critical insight: the accuracy gap between the highly efficient Fold mode and the exhaustive Unfold mode progressively narrows and eventually vanishes over the course of training. This phenomenon demonstrates that the model learns to encode essential reasoning information into compact summaries, achieving effective compression of the reasoning context. Our Accordion-Thinker demonstrates that with learned self-compression, LLMs can tackle complex reasoning tasks with minimal dependency token overhead without compromising solution quality, and it achieves a 3x throughput while maintaining accuracy on a 48GB GPU memory configuration, while the structured step summaries provide a human-readable account of the reasoning process.",
+      "authors": [
+        "Zhicheng Yang",
+        "Zhijiang Guo",
+        "Yinya Huang",
+        "Yongxin Wang",
+        "Wenlei Shi",
+        "Yiwei Wang",
+        "Xiaodan Liang",
+        "Jing Tang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.LG"
+      ],
+      "published": "2026-02-03T08:34:20+00:00",
+      "link": "https://arxiv.org/pdf/2602.03249v1",
+      "tags": [
+        "keyword:SR-LLM",
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Chain-of-Thought reasoning and test-time compute scaling",
+      "llm_evidence_cn": "思维链推理与测试时计算量扩展优化",
+      "llm_evidence": "思维链推理与测试时计算量扩展优化",
+      "llm_tldr_en": "Introduces Accordion-Thinking to make long Chain-of-Thought reasoning more efficient via dynamic summarization.",
+      "llm_tldr_cn": "提出Accordion-Thinking框架，通过动态摘要技术提升长思维链推理的效率和可读性。",
+      "llm_tldr": "提出Accordion-Thinking框架，通过动态摘要技术提升长思维链推理的效率和可读性。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Chain of Thought reasoning in large language models",
+      "matched_requirement_id": "req-6",
+      "paper_id": "2602.03249v1"
+    },
+    {
+      "id": "2602.03652v1",
+      "title": "RAGTurk: Best Practices for Retrieval Augmented Generation in Turkish",
+      "abstract": "Retrieval-Augmented Generation (RAG) enhances LLM factuality, yet design guidance remains English-centric, limiting insights for morphologically rich languages like Turkish. We address this by constructing a comprehensive Turkish RAG dataset derived from Turkish Wikipedia and CulturaX, comprising question-answer pairs and relevant passage chunks. We benchmark seven stages of the RAG pipeline, from query transformation and reranking to answer refinement, without task-specific fine-tuning. Our results show that complex methods like HyDE maximize accuracy (85%) that is considerably higher than the baseline (78.70%). Also a Pareto-optimal configuration using Cross-encoder Reranking and Context Augmentation achieves comparable performance (84.60%) with much lower cost. We further demonstrate that over-stacking generative modules can degrade performance by distorting morphological cues, whereas simple query clarification with robust reranking offers an effective solution.",
+      "authors": [
+        "Süha Kağan Köse",
+        "Mehmet Can Baytekin",
+        "Burak Aktaş",
+        "Bilge Kaan Görür",
+        "Evren Ayberk Munis",
+        "Deniz Yılmaz",
+        "Muhammed Yusuf Kartal",
+        "Çağrı Toraman"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.AI",
+        "cs.IR"
+      ],
+      "published": "2026-02-03T15:35:11+00:00",
+      "link": "https://arxiv.org/pdf/2602.03652v1",
+      "tags": [
+        "keyword:SR-LLM",
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "benchmarking RAG pipeline stages and query transformation",
+      "llm_evidence_cn": "对RAG流水线阶段和查询转换进行基准测试",
+      "llm_evidence": "对RAG流水线阶段和查询转换进行基准测试",
+      "llm_tldr_en": "Optimizes RAG for Turkish by benchmarking query transformation and reranking stages.",
+      "llm_tldr_cn": "通过基准测试查询转换和重排序阶段，优化了土耳其语的RAG性能。",
+      "llm_tldr": "通过基准测试查询转换和重排序阶段，优化了土耳其语的RAG性能。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Retrieval-Augmented Generation techniques and frameworks",
+      "matched_requirement_id": "req-5",
+      "paper_id": "2602.03652v1"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2602.00083v1",
+      "title": "SPARC-RAG: Adaptive Sequential-Parallel Scaling with Context Management for Retrieval-Augmented Generation",
+      "abstract": "Retrieval-Augmented Generation (RAG) grounds large language model outputs in external evidence, but remains challenged on multi-hop question answering that requires long reasoning. Recent works scale RAG at inference time along two complementary dimensions: sequential depth for iterative refinement and parallel width for coverage expansion. However, naive scaling causes context contamination and scaling inefficiency, leading to diminishing or negative returns despite increased computation. To address these limitations, we propose SPARC-RAG, a multi-agent framework that coordinates sequential and parallel inference-time scaling under a unified context management mechanism. SPARC-RAG employs specialized agents that maintain a shared global context and provide explicit control over the scaling process. It generates targeted, complementary sub-queries for each branch to enable diverse parallel exploration, and explicitly regulates exiting decisions based on answer correctness and evidence grounding. To optimize scaling behavior, we further introduce a lightweight fine-tuning method with process-level verifiable preferences, which improves the efficiency of sequential scaling and effectiveness of parallel scaling. Across single- and multi-hop QA benchmarks, SPARC-RAG consistently outperforms previous RAG baselines, yielding an average +6.2 F1 improvement under lower inference cost.",
+      "authors": [
+        "Yuxin Yang",
+        "Gangda Deng",
+        "Ömer Faruk Akgül",
+        "Nima Chitsazan",
+        "Yash Govilkar",
+        "Akasha Tigalappanavara",
+        "Shi-Xiong Zhang",
+        "Sambit Sahu",
+        "Viktor Prasanna"
+      ],
+      "primary_category": "cs.IR",
+      "categories": [
+        "cs.IR",
+        "cs.AI",
+        "cs.CL",
+        "cs.LG"
+      ],
+      "published": "2026-01-22T20:18:55+00:00",
+      "link": "https://arxiv.org/pdf/2602.00083v1",
+      "tags": [
+        "keyword:SR-LLM",
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Adaptive scaling for Retrieval-Augmented Generation",
+      "llm_evidence_cn": "检索增强生成的自适应扩展",
+      "llm_evidence": "检索增强生成的自适应扩展",
+      "llm_tldr_en": "Proposes SPARC-RAG, a multi-agent framework to optimize sequential and parallel scaling in RAG systems.",
+      "llm_tldr_cn": "提出SPARC-RAG多智能体框架，优化检索增强生成（RAG）的推理缩放与上下文管理。",
+      "llm_tldr": "提出SPARC-RAG多智能体框架，优化检索增强生成（RAG）的推理缩放与上下文管理。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Retrieval-Augmented Generation techniques and frameworks",
+      "matched_requirement_id": "req-5",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.09285v1",
+      "title": "Enhancing Spatial Reasoning in Large Language Models for Metal-Organic Frameworks Structure Prediction",
+      "abstract": "Metal-organic frameworks (MOFs) are porous crystalline materials with broad applications such as carbon capture and drug delivery, yet accurately predicting their 3D structures remains a significant challenge. While Large Language Models (LLMs) have shown promise in generating crystals, their application to MOFs is hindered by MOFs' high atomic complexity. Inspired by the success of block-wise paradigms in deep generative models, we pioneer the use of LLMs in this domain by introducing MOF-LLM, the first LLM framework specifically adapted for block-level MOF structure prediction. To effectively harness LLMs for this modular assembly task, our training paradigm integrates spatial-aware continual pre-training (CPT), structural supervised fine-tuning (SFT), and matching-driven reinforcement learning (RL). By incorporating explicit spatial priors and optimizing structural stability via Soft Adaptive Policy Optimization (SAPO), our approach substantially enhances the spatial reasoning capability of a Qwen-3 8B model for accurate MOF structure prediction. Comprehensive experiments demonstrate that MOF-LLM outperforms state-of-the-art denoising-based and LLM-based methods while exhibiting superior sampling efficiency.",
+      "authors": [
+        "Mianzhi Pan",
+        "JianFei Li",
+        "Peishuo Liu",
+        "Botian Wang",
+        "Yawen Ouyang",
+        "Yiming Rong",
+        "Hao Zhou",
+        "Jianbing Zhang"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cond-mat.mtrl-sci"
+      ],
+      "published": "2026-01-14T08:45:07+00:00",
+      "link": "https://arxiv.org/pdf/2601.09285v1",
+      "tags": [
+        "query:SR-LLM"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "spatial-aware continual pre-training for LLMs",
+      "llm_evidence_cn": "大语言模型的空间感知持续预训练",
+      "llm_evidence": "大语言模型的空间感知持续预训练",
+      "llm_tldr_en": "Adapts LLMs for MOF structure prediction using specialized continual pre-training and fine-tuning.",
+      "llm_tldr_cn": "通过专门的持续预训练和微调，使 LLM 能够进行金属有机框架结构预测。",
+      "llm_tldr": "通过专门的持续预训练和微调，使 LLM 能够进行金属有机框架结构预测。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Self-supervised pre-training techniques for LLMs",
+      "matched_requirement_id": "req-3",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2601.21662v1",
+      "title": "Epistemic Uncertainty Quantification for Pre-trained VLMs via Riemannian Flow Matching",
+      "abstract": "Vision-Language Models (VLMs) are typically deterministic in nature and lack intrinsic mechanisms to quantify epistemic uncertainty, which reflects the model's lack of knowledge or ignorance of its own representations. We theoretically motivate negative log-density of an embedding as a proxy for the epistemic uncertainty, where low-density regions signify model ignorance. The proposed method REPVLM computes the probability density on the hyperspherical manifold of the VLM embeddings using Riemannian Flow Matching. We empirically demonstrate that REPVLM achieves near-perfect correlation between uncertainty and prediction error, significantly outperforming existing baselines. Beyond classification, we also demonstrate that the model also provides a scalable metric for out-of-distribution detection and automated data curation.",
+      "authors": [
+        "Li Ju",
+        "Mayank Nautiyal",
+        "Andreas Hellander",
+        "Ekta Vats",
+        "Prashant Singh"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-01-29T12:58:42+00:00",
+      "link": "https://arxiv.org/pdf/2601.21662v1",
+      "tags": [
+        "query:SR-LLM"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Pre-trained Vision-Language Models (VLMs)",
+      "llm_evidence_cn": "预训练视觉语言模型 (VLM)",
+      "llm_evidence": "预训练视觉语言模型 (VLM)",
+      "llm_tldr_en": "Develops REPVLM to quantify epistemic uncertainty in pre-trained vision-language models.",
+      "llm_tldr_cn": "开发了 REPVLM，用于量化预训练视觉语言模型中的认知不确定性。",
+      "llm_tldr": "开发了 REPVLM，用于量化预训练视觉语言模型中的认知不确定性。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Large Language Models research papers and surveys",
+      "matched_requirement_id": "req-1",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.01137v1",
+      "title": "Self-Generative Adversarial Fine-Tuning for Large Language Models",
+      "abstract": "Fine-tuning large language models (LLMs) for alignment typically relies on supervised fine-tuning or reinforcement learning from human feedback, both limited by the cost and scarcity of high-quality annotations. Recent self-play and synthetic data approaches reduce this dependence but often rely on heuristic assumptions or ungrounded self-evaluation, which can cause bias accumulation and performance drift. In this paper, we propose Self-Generative Adversarial LLM (SGALM), a unified fine-tuning framework that formulates alignment as a generative adversarial game within a single LLM. SGALM jointly evolves generation and discrimination capabilities without external reward models. Theoretical and empirical results demonstrate that SGALM achieves state-of-the-art performance, serves as an effective alignment algorithm and a robust synthetic data engine.",
+      "authors": [
+        "Shiguang Wu",
+        "Yaqing Wang",
+        "Quanming Yao"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-01T10:20:27+00:00",
+      "link": "https://arxiv.org/pdf/2602.01137v1",
+      "tags": [
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Self-generative adversarial fine-tuning for LLM alignment without external rewards",
+      "llm_evidence_cn": "无需外部奖励的LLM对齐自生成对抗微调",
+      "llm_evidence": "无需外部奖励的LLM对齐自生成对抗微调",
+      "llm_tldr_en": "Proposes SGALM to align LLMs through a self-contained generative adversarial game without external reward models.",
+      "llm_tldr_cn": "提出SGALM，通过自包含的生成对抗博弈实现LLM对齐，无需外部奖励模型。",
+      "llm_tldr": "提出SGALM，通过自包含的生成对抗博弈实现LLM对齐，无需外部奖励模型。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "LLM alignment techniques including RLHF and DPO",
+      "matched_requirement_id": "req-9",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.11616v1",
+      "title": "Mixture-of-Experts as Soft Clustering: A Dual Jacobian-PCA Spectral Geometry Perspective",
+      "abstract": "Mixture-of-Experts (MoE) architectures are commonly motivated by efficiency and conditional computation, but their effect on the geometry of learned functions and representations remains poorly characterized. In this work, we study MoEs through a geometric lens, interpreting routing as a form of soft partitioning of the representation space into overlapping local charts. We introduce a Dual Jacobian-PCA Spectral Geometry probe. It analyzes local function geometry via Jacobian singular-value spectra and representation geometry via weighted PCA of routed hidden states. Using a controlled MLP-MoE setting that permits exact Jacobian computation, we compare dense, Top-k, and fully-soft routing architectures under matched capacity. Across random seeds, we observe that MoE routing consistently reduces local sensitivity, with expert-local Jacobians exhibiting smaller leading singular values and faster spectral decay than dense baselines. At the same time, weighted PCA reveals that expert-local representations distribute variance across a larger number of principal directions, indicating higher effective rank under identical input distributions. We further find that average expert Jacobians are nearly orthogonal, suggesting a decomposition of the transformation into low-overlap expert-specific subspaces rather than scaled variants of a shared map. We analyze how routing sharpness modulates these effects, showing that Top-k routing produces lower-rank, more concentrated expert-local structure, while fully-soft routing yields broader, higher-rank representations. Together, these results support a geometric interpretation of MoEs as soft partitionings of function space that flatten local curvature while redistributing representation variance.",
+      "authors": [
+        "Feilong Liu"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI",
+        "cs.CL"
+      ],
+      "published": "2026-01-09T23:07:14+00:00",
+      "link": "https://arxiv.org/pdf/2601.11616v1",
+      "tags": [
+        "query:SR-LLM"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Mixture-of-Experts architectures in LLMs",
+      "llm_evidence_cn": "大语言模型中的混合专家架构",
+      "llm_evidence": "大语言模型中的混合专家架构",
+      "llm_tldr_en": "Analyzes the geometric properties of Mixture-of-Experts (MoE) routing using a spectral geometry probe.",
+      "llm_tldr_cn": "通过光谱几何探针分析混合专家（MoE）架构中路由机制的几何特性。",
+      "llm_tldr": "通过光谱几何探针分析混合专家（MoE）架构中路由机制的几何特性。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Large Language Models research papers and surveys",
+      "matched_requirement_id": "req-1",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.02382v1",
+      "title": "ROG: Retrieval-Augmented LLM Reasoning for Complex First-Order Queries over Knowledge Graphs",
+      "abstract": "Answering first-order logic (FOL) queries over incomplete knowledge graphs (KGs) is difficult, especially for complex query structures that compose projection, intersection, union, and negation. We propose ROG, a retrieval-augmented framework that combines query-aware neighborhood retrieval with large language model (LLM) chain-of-thought reasoning. ROG decomposes a multi-operator query into a sequence of single-operator sub-queries and grounds each step in compact, query-relevant neighborhood evidence. Intermediate answer sets are cached and reused across steps, improving consistency on deep reasoning chains. This design reduces compounding errors and yields more robust inference on complex and negation-heavy queries. Overall, ROG provides a practical alternative to embedding-based logical reasoning by replacing learned operators with retrieval-grounded, step-wise inference. Experiments on standard KG reasoning benchmarks show consistent gains over strong embedding-based baselines, with the largest improvements on high-complexity and negation-heavy query types.",
+      "authors": [
+        "Ziyan Zhang",
+        "Chao Wang",
+        "Zhuo Chen",
+        "Chiyi Li",
+        "Kai Song"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-02-02T17:45:43+00:00",
+      "link": "https://arxiv.org/pdf/2602.02382v1",
+      "tags": [
+        "keyword:SR-LLM",
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "RAG combined with Chain-of-Thought reasoning",
+      "llm_evidence_cn": "RAG与思维链推理相结合",
+      "llm_evidence": "RAG与思维链推理相结合",
+      "llm_tldr_en": "Combines neighborhood retrieval with CoT reasoning to solve complex logic queries over knowledge graphs.",
+      "llm_tldr_cn": "结合邻域检索与思维链推理，解决知识图谱上的复杂逻辑查询。",
+      "llm_tldr": "结合邻域检索与思维链推理，解决知识图谱上的复杂逻辑查询。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Chain of Thought reasoning in large language models",
+      "matched_requirement_id": "req-6",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.16200v2",
+      "title": "Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models",
+      "abstract": "Multimodal large language models (MLLMs) exhibit strong capabilities across diverse applications, yet remain vulnerable to adversarial perturbations that distort their feature representations and induce erroneous predictions. To address this vulnerability, we propose Feature-space Smoothing (FS), a general framework that provides certified robustness guarantees at the feature representation level of MLLMs. We theoretically prove that FS converts a given feature extractor into a smoothed variant that is guaranteed a certified lower bound on the cosine similarity between clean and adversarial features under $\\ell_2$-bounded perturbations. Moreover, we establish that the value of this Feature Cosine Similarity Bound (FCSB) is determined by the intrinsic Gaussian robustness score of the given encoder. Building on this insight, we introduce the Gaussian Smoothness Booster (GSB), a plug-and-play module that enhances the Gaussian robustness score of pretrained MLLMs, thereby strengthening the robustness guaranteed by FS, without requiring additional MLLM retraining. Extensive experiments demonstrate that applying the FS to various MLLMs yields strong certified feature-space robustness and consistently leads to robust task-oriented performance across diverse applications.",
+      "authors": [
+        "Song Xia",
+        "Meiwen Ding",
+        "Chenqi Kong",
+        "Wenhan Yang",
+        "Xudong Jiang"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.CV"
+      ],
+      "published": "2026-01-22T18:52:21+00:00",
+      "link": "https://arxiv.org/pdf/2601.16200v2",
+      "tags": [
+        "query:SR-LLM"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Multimodal Large Language Models robustness",
+      "llm_evidence_cn": "多模态大语言模型鲁棒性",
+      "llm_evidence": "多模态大语言模型鲁棒性",
+      "llm_tldr_en": "Provides a certification framework for feature-space adversarial robustness in multimodal LLMs.",
+      "llm_tldr_cn": "为多模态大语言模型的特征空间对抗鲁棒性提供了一种认证框架。",
+      "llm_tldr": "为多模态大语言模型的特征空间对抗鲁棒性提供了一种认证框架。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Large Language Models research papers and surveys",
+      "matched_requirement_id": "req-1",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.03442v1",
+      "title": "A-RAG: Scaling Agentic Retrieval-Augmented Generation via Hierarchical Retrieval Interfaces",
+      "abstract": "Frontier language models have demonstrated strong reasoning and long-horizon tool-use capabilities. However, existing RAG systems fail to leverage these capabilities. They still rely on two paradigms: (1) designing an algorithm that retrieves passages in a single shot and concatenates them into the model's input, or (2) predefining a workflow and prompting the model to execute it step-by-step. Neither paradigm allows the model to participate in retrieval decisions, preventing efficient scaling with model improvements. In this paper, we introduce A-RAG, an Agentic RAG framework that exposes hierarchical retrieval interfaces directly to the model. A-RAG provides three retrieval tools: keyword search, semantic search, and chunk read, enabling the agent to adaptively search and retrieve information across multiple granularities. Experiments on multiple open-domain QA benchmarks show that A-RAG consistently outperforms existing approaches with comparable or lower retrieved tokens, demonstrating that A-RAG effectively leverages model capabilities and dynamically adapts to different RAG tasks. We further systematically study how A-RAG scales with model size and test-time compute. We will release our code and evaluation suite to facilitate future research. Code and evaluation suite are available at https://github.com/Ayanami0730/arag.",
+      "authors": [
+        "Mingxuan Du",
+        "Benfeng Xu",
+        "Chiwei Zhu",
+        "Shaohan Wang",
+        "Pengyu Wang",
+        "Xiaorui Wang",
+        "Zhendong Mao"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-02-03T12:07:21+00:00",
+      "link": "https://arxiv.org/pdf/2602.03442v1",
+      "tags": [
+        "keyword:SR-LLM",
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Agentic RAG framework with hierarchical retrieval interfaces",
+      "llm_evidence_cn": "具有分层检索接口的智能体 RAG 框架",
+      "llm_evidence": "具有分层检索接口的智能体 RAG 框架",
+      "llm_tldr_en": "Introduces A-RAG to scale retrieval-augmented generation by allowing models to make retrieval decisions.",
+      "llm_tldr_cn": "引入 A-RAG 框架，通过允许模型参与检索决策来扩展检索增强生成。",
+      "llm_tldr": "引入 A-RAG 框架，通过允许模型参与检索决策来扩展检索增强生成。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Retrieval-Augmented Generation techniques and frameworks",
+      "matched_requirement_id": "req-5",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.21798v1",
+      "title": "CG-MLLM: Captioning and Generating 3D content via Multi-modal Large Language Models",
+      "abstract": "Large Language Models(LLMs) have revolutionized text generation and multimodal perception, but their capabilities in 3D content generation remain underexplored. Existing methods compromise by producing either low-resolution meshes or coarse structural proxies, failing to capture fine-grained geometry natively. In this paper, we propose CG-MLLM, a novel Multi-modal Large Language Model (MLLM) capable of 3D captioning and high-resolution 3D generation in a single framework. Leveraging the Mixture-of-Transformer architecture, CG-MLLM decouples disparate modeling needs, where the Token-level Autoregressive (TokenAR) Transformer handles token-level content, and the Block-level Autoregressive (BlockAR) Transformer handles block-level content. By integrating a pre-trained vision-language backbone with a specialized 3D VAE latent space, CG-MLLM facilitates long-context interactions between standard tokens and spatial blocks within a single integrated architecture. Experimental results show that CG-MLLM significantly outperforms existing MLLMs in generating high-fidelity 3D objects, effectively bringing high-resolution 3D content creation into the mainstream LLM paradigm.",
+      "authors": [
+        "Junming Huang",
+        "Weiwei Xu"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV"
+      ],
+      "published": "2026-01-29T14:42:46+00:00",
+      "link": "https://arxiv.org/pdf/2601.21798v1",
+      "tags": [
+        "query:SR-LLM"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Multimodal Large Language Models for 3D content generation",
+      "llm_evidence_cn": "用于3D内容生成的多模态大语言模型",
+      "llm_evidence": "用于3D内容生成的多模态大语言模型",
+      "llm_tldr_en": "Develops CG-MLLM, a multimodal model for 3D captioning and high-resolution 3D content generation.",
+      "llm_tldr_cn": "开发了CG-MLLM，一种能够进行3D描述和高分辨率3D内容生成的双向多模态大模型。",
+      "llm_tldr": "开发了CG-MLLM，一种能够进行3D描述和高分辨率3D内容生成的双向多模态大模型。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Large Language Models research papers and surveys",
+      "matched_requirement_id": "req-1",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.03578v1",
+      "title": "Use Graph When It Needs: Efficiently and Adaptively Integrating Retrieval-Augmented Generation with Graphs",
+      "abstract": "Large language models (LLMs) often struggle with knowledge-intensive tasks due to hallucinations and outdated parametric knowledge. While Retrieval-Augmented Generation (RAG) addresses this by integrating external corpora, its effectiveness is limited by fragmented information in unstructured domain documents. Graph-augmented RAG (GraphRAG) emerged to enhance contextual reasoning through structured knowledge graphs, yet paradoxically underperforms vanilla RAG in real-world scenarios, exhibiting significant accuracy drops and prohibitive latency despite gains on complex queries. We identify the rigid application of GraphRAG to all queries, regardless of complexity, as the root cause. To resolve this, we propose an efficient and adaptive GraphRAG framework called EA-GraphRAG that dynamically integrates RAG and GraphRAG paradigms through syntax-aware complexity analysis. Our approach introduces: (i) a syntactic feature constructor that parses each query and extracts a set of structural features; (ii) a lightweight complexity scorer that maps these features to a continuous complexity score; and (iii) a score-driven routing policy that selects dense RAG for low-score queries, invokes graph-based retrieval for high-score queries, and applies complexity-aware reciprocal rank fusion to handle borderline cases. Extensive experiments on a comprehensive benchmark, consisting of two single-hop and two multi-hop QA benchmarks, demonstrate that our EA-GraphRAG significantly improves accuracy, reduces latency, and achieves state-of-the-art performance in handling mixed scenarios involving both simple and complex queries.",
+      "authors": [
+        "Su Dong",
+        "Qinggang Zhang",
+        "Yilin Xiao",
+        "Shengyuan Chen",
+        "Chuang Zhou",
+        "Xiao Huang"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.AI"
+      ],
+      "published": "2026-02-03T14:26:28+00:00",
+      "link": "https://arxiv.org/pdf/2602.03578v1",
+      "tags": [
+        "keyword:SR-LLM",
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Integrating Retrieval-Augmented Generation with Graphs",
+      "llm_evidence_cn": "将检索增强生成与图结构集成",
+      "llm_evidence": "将检索增强生成与图结构集成",
+      "llm_tldr_en": "Optimizes GraphRAG by adaptively choosing between vanilla RAG and graph-based retrieval for efficiency.",
+      "llm_tldr_cn": "通过在普通 RAG 和图检索之间进行自适应选择，优化了 GraphRAG 的效率和准确性。",
+      "llm_tldr": "通过在普通 RAG 和图检索之间进行自适应选择，优化了 GraphRAG 的效率和准确性。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "Retrieval-Augmented Generation techniques and frameworks",
+      "matched_requirement_id": "req-5",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2602.04620v2",
+      "title": "QUATRO: Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning",
+      "abstract": "GRPO-style reinforcement learning (RL)-based LLM fine-tuning algorithms have recently gained popularity. Relying on heuristic trust-region approximations, however, they can lead to brittle optimization behavior, as global importance-ratio clipping and group-wise normalization fail to regulate samples whose importance ratios fall outside the clipping range. We propose Query-Adaptive Trust-Region policy Optimization (QUATRO), which directly enforces trust-region constraints through a principled optimization. This yields a clear and interpretable objective that enables explicit control over policy updates and stable, entropy-controlled optimization, with a stabilizer terms arising intrinsically from the exact trust-region formulation. Empirically verified on diverse mathematical reasoning benchmarks, QUATRO shows stable training under increased policy staleness and aggressive learning rates, maintaining well-controlled entropy throughout training.",
+      "authors": [
+        "Doyeon Lee",
+        "Eunyi Lyou",
+        "Hyunsoo Cho",
+        "Sookyung Kim",
+        "Joonseok Lee",
+        "Jaemoo Choi"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-04T14:51:04+00:00",
+      "link": "https://arxiv.org/pdf/2602.04620v2",
+      "tags": [
+        "query:SR-LLM"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "Trust region policy optimization for LLM fine-tuning",
+      "llm_evidence_cn": "用于LLM微调的置信域策略优化",
+      "llm_evidence": "用于LLM微调的置信域策略优化",
+      "llm_tldr_en": "Introduces QUATRO to improve the stability and interpretability of RL-based LLM alignment and fine-tuning.",
+      "llm_tldr_cn": "提出QUATRO算法，通过置信域约束提升基于强化学习的LLM对齐微调的稳定性。",
+      "llm_tldr": "提出QUATRO算法，通过置信域约束提升基于强化学习的LLM对齐微调的稳定性。",
+      "llm_tags": [
+        "query:sr-llm"
+      ],
+      "matched_query_tag": "query:sr-llm",
+      "matched_query_text": "LLM alignment techniques including RLHF and DPO",
+      "matched_requirement_id": "req-9",
+      "quick_tier": "8plus"
+    }
+  ]
+}

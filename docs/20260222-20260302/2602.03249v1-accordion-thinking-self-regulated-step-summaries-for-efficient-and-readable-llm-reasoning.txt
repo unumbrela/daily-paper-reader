@@ -1,0 +1,1115 @@
+Title: Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning
+
+URL Source: https://arxiv.org/pdf/2602.03249v1
+
+Published Time: Wed, 04 Feb 2026 01:50:47 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning 
+
+Zhicheng Yang 1 Zhijiang Guo 1 2 Yinya Huang 3 Yongxin Wang 4 Wenlei Shi 5 Yiwei Wang 6
+
+Xiaodan Liang 4 7 Jing Tang 1 2 
+
+yangzhch6@gmail.com 
+
+Project Repo : https://github.com/yangzhch6/Accordion-Thinking 
+
+Abstract 
+
+Scaling test-time compute via long Chain-of-Thought unlocks remarkable gains in reasoning capabilities, yet it faces practical limits due to the linear growth of KV cache and quadratic at-tention complexity. In this paper, we introduce 
+
+Accordion-Thinking , an end-to-end framework where LLMs learn to self-regulate the granularity of the reasoning steps through dynamic summa-rization. This mechanism enables a Fold inference mode, where the model periodically summarizes its thought process and discards former thoughts to reduce dependency on historical tokens. We apply reinforcement learning to incentivize this capability further, uncovering a critical insight: the accuracy gap between the highly efficient 
+
+Fold mode and the exhaustive Unfold mode pro-gressively narrows and eventually vanishes over the course of training. This phenomenon demon-strates that the model learns to encode essential reasoning information into compact summaries, achieving effective compression of the reasoning context. Our Accordion-Thinker demonstrates that with learned self-compression, LLMs can tackle complex reasoning tasks with minimal de-pendency token overhead without compromising solution quality, and it achieves a 3× through-put while maintaining accuracy on a 48GB GPU memory configuration, while the structured step summaries provide a human-readable account of the reasoning process. 
+
+1. Introduction 
+
+Recent advances in Large Language Models (LLMs) have demonstrated that scaling test-time computation through 
+
+> 1
+
+HKUST-GZ 2HKUST 3ETH AI Center, ETH Zurich 
+
+> 4
+
+MBZUAI 5ByteDance, Seed 6University of California, Merced 
+
+> 7
+
+Sun Yat-Sen University. 
+
+Preprint. February 4, 2026. 
+
+long Chain-of-Thought (CoT) reasoning can dramati-cally enhance performance on complex problem-solving tasks (Wei et al., 2022). Methods such as o1-like think-ing (Jaech et al., 2024; Guo et al., 2025) exemplify this trend, where models generate extended reasoning traces that often span tens of thousands of tokens through iterative re-flection, backtracking, and self-correction. However, such long-form reasoning inherently produces verbose and of-ten unstructured internal thought processes, which not only hinder human readability but also impose significant com-putational burdens. Specifically, the linear growth of the KV cache and quadratic attention complexity with respect to context length limit the practical scalability of reasoning models, leading to prohibitive memory and computational costs in both training and inference Prior work has explored compressing intermediate thoughts, either through heuristic token eviction (Zhang et al., 2025) or fixed-length chunking with state carryover (Aghajohari et al., 2025). However, such approaches often rely on ex-ternal heuristics or rule-based segmentation, which may disrupt the natural flow of reasoning and fail to improve the readability of reasoning traces. Moreover, they typically treat compression as a separate stage or a static hyperparam-eter, rather than as a learnable capability integrated into the model’s reasoning process. In this paper, we revisit the problem from a self-regulatory perspective: rather than imposing compression schedules externally, we enable the LLM to learn when and how to summarize its own reasoning process dynamically. We in-troduce Accordion-Thinking , an end-to-end training frame-work in which the model learns to alternate between detailed reasoning steps and compact summaries, thereby reducing its reliance on long token histories without compromising reasoning integrity. Inspired by the human ability to con-dense complex thoughts into concise summaries while re-taining logical continuity, our approach is built on a sim-ple but powerful insight: reasoning and summarization are complementary skills that can be jointly cultivated through reinforcement learning. We therefore conduct a systematic study of post-training 1
+
+> arXiv:2602.03249v1 [cs.AI] 3 Feb 2026 Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning
+
+strategies for Accordion-Thinking , starting from a base language model without prior compression-specific tuning. To instill foldable capability, we synthetically augment stan-dard CoT data into a structured format where each reason-ing segment is followed by a concise summary formatted in <step>...</step> , training the model to produce and later rely on these self-generated summaries during ex-tended inference. However, supervised fine-tuning alone is insufficient for robust generalization. We therefore employ Reinforcement Learning to further incentivize efficient and accurate compression behavior. We compare three train-ing regimes: (1) standard long-context reasoning ( Unfold 
+
+mode), (2) compressed-step reasoning with periodic sum-marization ( Fold mode), and (3) a mixed regime that in-terleaves both. Crucially, we observe a “Gap-Vanishing” phenomenon: while the Fold mode initially lags behind the full-context Unfold mode, the performance gap between the two gradually disappears as RL training progresses. This convergence indicates that the model successfully learns to preserve essential reasoning information even in compressed form, making the Fold mode a viable, high-efficiency alter-native to standard CoT. Moreover, the structured step sum-maries produced by Accordion-Thinking provide a clear andreadable account of the model’s reasoning traces. We observe that the sequence of summaries alone can serve as a faithful substitute for the final solution, providing users with immediate insight into how the answer was derived. We consider this is a significant step towards efficient and transparent reasoning systems. Our contributions are summarized as follows: • We propose the Accordion-Thinking framework, which includes a data synthesis pipeline to teach LLMs to generate and use step-wise summaries, and an RL training pipeline that instills self-regulated compres-sion into reasoning dynamics. • We systematically explore post-training strategies for foldable CoT reasoning. Our RL experiments reveal that the performance gap between the compressed Fold 
+
+mode and the full-context Unfold mode vanishes over training, validating the model’s ability to perform ef-fective self-compression. Experimental results show that our method achieves triple the throughput under limited GPU memory conditions, without compromise in performance. • Experimental analyses across multiple reasoning benchmarks show that Accordion-Thinker achieves competitive accuracy while reducing dependency on historical tokens, validating its efficiency and scalabil-ity for long-horizon reasoning tasks. Human evaluation confirms that the generated step summaries are coher-ent and semantically faithful, often serving as direct substitutes for the final answer. 
+
+2. Related Works 
+
+2.1. Slow Thinking 
+
+Complex reasoning tasks (He et al., 2024; Lewkowycz et al., 2022; Zeng et al., 2024; Yang et al., 2025c; Xiang et al., 2025), such as mathematical problem solving, are one of the most challenging tasks for LLMs, necessitating a shift from fast-thinking to slow-thinking. Chain-of-Thoughts (Wei et al., 2022) teaches the LLM to decompose complex ques-tions and solve them step-by-step. Based on this, OpenAI-o1 (Jaech et al., 2024), DeepSeek-R1 (Guo et al., 2025), and Kimi-1.5 (Team et al., 2025), has pushed the frontier of LLM capability, especially for demanding tasks in com-plex reasoning such as mathematics and programming. Fol-lowing early approaches that trained reward models from preference data (Ouyang et al., 2022), subsequent methods like Direct Preference Optimization (Rafailov et al., 2023) offered a more streamlined alternative by optimizing pol-icy objectives directly on pairwise comparisons. Recent advancements have shifted focus towards training with Re-inforcement Learning under Verifiable Rewards (RLVR), a paradigm exemplified by DeepSeek-R1 (Guo et al., 2025) which aims to cultivate a model’s capacity for deliberate, multi-step reasoning. However, emerging analysis (Liu et al., 2025a; Zhao et al., 2025a; Shah et al., 2025) suggests that the self-improvement behaviors elicited by such training may be inherent capabilities of the base model, unlocked rather than created by the RL process. Algorithmically, Group Relative Policy Optimization (GRPO) (Shao et al., 2024) has become a prominent RLVR technique. DARS (Yang et al., 2025b) is proposed to work as a focal loss in GPRO. Building on PPO (Schulman et al., 2017), group-relative advantage estimation has inspired several variants, including DAPO (Yu et al., 2025), VAPO (Yue et al., 2025), and Dr. GRPO (Liu et al., 2025b). 
+
+2.2. Efficient Reasoning 
+
+Prior research has pursued efficiency through various strate-gies. Several approaches distill reasoning processes by omit-ting intermediate steps or tokens (Liu et al., 2024a; Xia et al., 2025; Li et al., 2025). Alternative methods dynami-cally manage length via early-exit mechanisms (Ding et al., 2024), certainty guided generation (Huang et al., 2025), al-locate token budgets adaptively based on problem difficulty (Han et al., 2025), or guide model activations toward more concise outputs (Zhao et al., 2025b). Structured prompting and collaborative frameworks also contribute to token reduc-tion; for instance, CoThinking first outlines a plan before reasoning (Fan et al., 2025). Similarly, Cheng & Van Durme (2024) employs shorter traces of contemplative tokens to streamline reasoning. Another line of work approximates attention computations during inference by modifying at-tention mechanisms and masking less critical tokens. For 2Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning 
+
+example, Zhang et al. (2023); Yang et al. (2024b) identify and retain tokens with high estimated attention contribu-tions, whereas Xiao et al. (2023) maintains a limited set of attention-sink tokens to preserve stability under sliding-window contexts. Complementary compression techniques reduce the memory footprint of each retained token via ag-gressive quantization without sacrificing accuracy (Hooper et al., 2024; Liu et al., 2024b). More recent efforts leverage existing model parameters to learn token-eviction policies during inference, typically through distillation on original model predictions combined with sparsity regularization (Ła ´ncucki et al., 2025). LighterThinker (Zhang et al., 2025) compresses verbose thought steps into compact representa-tions and discards the original reasoning chains. Delethink (Aghajohari et al., 2025) structures the reasoning process into fixed-size chunks, and abandons the first half chunk in each generation step. Unlike previous approaches, we propose Accordion-Thinking , which allows the model to perform progressive step-by-step reasoning by retaining the summary of its current reasoning at each step before pro-ceeding further. This not only leads to an improvement in token efficiency but also significantly enhances the readabil-ity of long reasoning chains in models. 
+
+3. Method: Accordion-Thinking 
+
+3.1. Problem Formulation 
+
+We formulate the reasoning process as a sequential genera-tion task. Let x denote the input query and a denote the final answer. In standard Chain-of-Thought (CoT) reasoning, the model generates a reasoning chain r before predicting a.We propose to structure this chain into K discrete reasoning steps. 
+
+Accordion Structure. Each reasoning step k ∈{1, . . . , K } consists of a tuple (dk, sk), where: • dk: The detailed reasoning segment, containing the free-form exploration and derivation. • sk: The step summary , a concise abstraction of the state updates and logical conclusions derived in dk.The full sequence is thus y = [ x, d1, s1, . . . , dK , sK , a].Special control tokens (e.g., <step> ) are used to delineate these segments in implementation, but omitted here for notational clarity. 
+
+Context Definitions. The core distinction between stan-dard CoT and our approach lies in the visible history (con-text) available to the model when generating the next seg-ment. Let Hk denote the context used to generate the k-th detailed segment dk.
+
+1. Unfold Mode (Full-Context). This corresponds to stan-dard CoT, where the model attends to the complete history of all previous details and summaries. The context at step k
+
+is: 
+
+Hunfold  
+
+> k
+
+= [ x, d1, s1, . . . , dk−1, sk−1] (1) The computational complexity for attention at step K scales with O(|x| + PK−1 
+
+> i=1
+
+(|di| + |si|)) .
+
+2. Fold Mode (Compressed-Context). In this mode, we enforce a dynamic context pruning mechanism. Once a sum-mary sk−1 is generated, the corresponding detailed deriva-tion dk−1 is discarded from the KV cache. The context retains only the input and the sequence of past summaries: 
+
+Hfold  
+
+> k
+
+= [ x, s1, s2, . . . , sk−1] (2) Consequently, the generation of the next reasoning step is modeled as: 
+
+P (dk | · ) = πθ (dk | H fold  
+
+> k
+
+) (3) Crucially, when generating the summary sk immediately following dk, the detailed segment dk remains temporarily visible to ensure the summary faithfully captures the just-derived logic. The folding operation (pruning dk) occurs strictly after sk is completed. This formulation reduces the memory complexity to O(|x|+
+
+PK−1 
+
+> i=1
+
+|si|). Since |si| ≪ | di|, Fold mode significantly extends the effective context window and inference through-put. 
+
+3.2. Accordion Data Synthesis 
+
+To instill the ability of self-summarization and stepwise reasoning, we construct a synthetic training dataset with a segmented format and explicit step summaries. The goal is to teach the model to produce and later rely on concise, structured summaries of its reasoning process, enabling both efficient inference (Fold mode) and human-readable reasoning traces. The pipeline consists of three stages 1. Seed Data Collection. We randomly sample 10,000 reasoning traces from the openr1-math-46k 
+
+dataset (Qu et al., 2025), a large-scale collection of long-form CoT examples within 16k response length. Each seed example contains a query X and a long reasoning trace Rraw followed by a final answer A.2. Structured Rewriting via Teacher LLM. For each seed pair (X, R raw ), we prompt DeepSeek-V3.2 (DeepSeek-AI et al., 2025) to rewrite the free-form reasoning trace into our structured Accordion format as shown in Figure 1. The prompt template is shown in D. 3Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning Vanilla  CoT  Accordion  CoT  (Fold mode) 
+
+S
+
+Q Q
+
+step 1 
+
+> summary 1
+> thought 1
+
+Q
+
+> summary 1
+> summary 2
+> thought 2
+
+Q
+
+> summary 1
+> summary 2
+> thought 3
+> summary 3
+
+Q
+
+> summary 1
+> summary 2
+> …
+> thought n
+> summary 3 …
+
+S
+
+step 2  step 3  step N 
+
+> <think >
+> // Step 1: A segment of your thought
+> process.
+> <step_bed619fva643c0v108hd53gcy >
+> // A precise summary of Step 1.
+> </ step_bed619fva643c0v108hd53gcy >
+> // Step 2: The 2nd segment of your
+> thought process .
+> <step_bed619fva643c0v108hd53gcy >
+> // A precise summary of Step 2.
+> </ step_bed619fva643c0v108hd53gcy >
+> ...
+> // Step N: The Nth segment of your
+> thought process.
+> <step_bed619fva643c0v108hd53gcy >
+> // A precise summary of Step N.
+> </ step_bed619fva643c0v108hd53gcy >
+> </ think >
+> // The final solution from the LLM.
+
+Accordion Format 
+
+𝐿   
+
+> gen eration token length
+> token time  cost
+> token time cost
+
+𝐿     
+
+> Accordion CoT
+> Vanill aCoT
+> gen eration token length
+
+Figure 1. Comparison of Vanilla CoT and our Accordion CoT. As the generation length increases, the computational complexity per token in Vanilla CoT grows quadratically. In contrast, our Accordion CoT folds the context after each step, reducing the computational complexity for the next token generation and improving inference speed. We force the model to follow the Accordion Format, which splits the whole thinking process into several coarse level steps followed by a readable summary. We add 2 special tokens to the model vocabulary. Each generation stops at </step> or the EOS token. 
+
+3. Rule-based Filter. To ensure high-quality training data, we apply the following criteria to each rewrit-ten example. Examples that fail any of the following criteria are discarded: • Structural integrity : Each step must be prop-erly enclosed by <step> and </step> tags, and the entire trace must be wrapped in 
+
+<think>...</think> .• Step count and length : The total number of steps 
+
+K must be between 2 and 6 (inclusive) to avoid overly fragmented or monolithic reasoning. Each detailed reasoning block must not exceed 6,144 tokens to prevent excessively verbose steps. • Summary length : Each summary must contain at least 100 tokens, encouraging sufficiently infor-mative compression. We hypothesize that richer summaries provide better support for subsequent reasoning in Fold mode. We collect 3,900 samples with the above pipeline, and then convert them to Fold mode with 14,653 samples. We provide additional ablation studies on the data synthesis pipeline in Section 4.3. The synthetic dataset is combined with the original openr1-math-46k to cold-start the base models. 
+
+3.3. Accordion Reinforcement Learning 
+
+Supervised Fine-Tuning (SFT) effectively aligns the model with the structural requirements of Accordion-Thinking (i.e., generating <step> tags). However, SFT alone is insuffi-cient to guarantee that the generated summaries are seman-tically complete. In the Fold mode, the model must learn to compress all necessary historical state information into the summary, as the detailed reasoning trace is discarded. If the summary is lossy, subsequent reasoning steps will fail. To address this, we employ Reinforcement Learning to in-centivize the model to generate high-quality, self-contained summaries that support robust reasoning under compressed contexts. We posit that the ability to reason ( generating the solution ) and the ability to compress ( summarizing the state )are mutually reinforcing skills. 3.3.1. O PTIMIZATION OBJECTIVE 
+
+We adopt the clipped objective of GRPO without the KL penalty term. Following Dr. GRPO, we likewise remove the response length handling from the GRPO target. Specifi-cally, for a problem q sampled in training data D, the train-ing target is formalized as: 
+
+J (θ) = E(q∼D ,{oi}G 
+
+> i=1 ∼πθold (q)
+
+"
+
+1
+
+G
+
+> G
+
+X
+
+> i=1
+> |oi|
+
+X
+
+> t=1
+
+min 
+
+
+
+ri,t (θ) ˆAi,t , clip 
+
+
+
+ri,t (θ), 1 − ε, 1 + ε
+
+ ˆAi,t 
+
+!# 
+
+,
+
+(4) 
+
+where 
+
+ri,t (θ) = πθ (oi,t | q, o i,<t )
+
+πθold (oi,t | q, o i,<t ) . (5) 4Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning 
+
+The token advantage ˆAi,t is computed using Equation 6. 
+
+ˆAi = ri − u, (6) Here, ri ∈ 0, 1 is the binary, trajectory-level verifiable re-ward for the i-th generated output oi (e.g., final answer correctness). u is the mean rewards across the group of G
+
+samples generated for the same query q.3.3.2. D YNAMIC CONTEXT PRUNING AND TRAINING 
+
+STRATEGIES 
+
+Unlike standard RLHF, which operates on static full se-quences, Accordion-RL introduces a dynamic environment where the context window changes based on the model’s own outputs. We define three training strategies: 
+
+1. Unfold Mode (Full Context Baseline). In this setting, the model generates the full sequence with access to the entire history. The context Ci,<t simply includes the query and all previous tokens [q, o i,<t ]. In practice, the rule filter in Section 3.2 performs a format check on the rollout. 
+
+2. Fold Mode (Compressed Context). To enforce effi-cient state tracking, we implement the Fold mode during rollout generation. The generation process is constrained by a maximum number of steps N and a maximum token length per step L. Let the output stream be divided into seg-ments S1, S 2, . . . . When the model generates the closing tag <step> , the environment triggers a Fold operation: 1. The detailed reasoning content within the current step is identified. 2. The context is updated to retain only the query and the sequence of summaries generated so far. Consequently, when generating the next step, the policy πθ
+
+conditions only on the compressed history. This forces the model to encode all critical logic into the summary block. If the summary is insufficient, the model loses the context required to solve the problem, leading to a zero reward. The reward ri is set to 1 only when the rollout oi correctly solves the problem and passes the rule filter; otherwise, it is set to 0. Furthermore, all steps within a rollout share the same reward. This hard constraint serves as a strong signal for learning effective summarization. 
+
+3. Mixed-Mode Training. To better observe the relation-ship between the Fold and Unfold modes, we introduced mixed training. Both modes were executed in a single train-ing step, and then updated sequentially. Notably, we observe a ”gap-vanishing” phenomenon: over the course of Mixed-Mode RL training, the accuracy gap between the highly efficient Fold inference and the exhaustive Unfold infer-ence narrows and eventually disappears, indicating that the model has successfully internalized the ability to compress reasoning without information loss. It also indicates that both modes can be optimized simultaneously. 
+
+4. Experiments 
+
+4.1. Setup Evaluation and Training Data: We evaluate our models using 5 widely used mathematical reasoning benchmarks: MATH-500 (Lightman et al., 2023), OlympiadBench (He et al., 2024), MinvervaMath (Lewkowycz et al., 2022), AIME24, and AMC23. We report the Pass@1 (Avg@32 )performance on all of the evaluation benchmarks. The train-ing data used in this work is OpenR1-45K, which is a subset of OpenR1-Math-220k (Hugging Face, 2025). 
+
+Implementation Details: Our experiments are conducted with Qwen2.5-Math-7B (Yang et al., 2024a) and Qwen3-4B-Base (Yang et al., 2025a). For Qwen2.5-Math, we change the rope theta to 40000 and extend the window size to 32768. In addition, to facilitate step format detection, we added two step special tokens to the model’s vocabulary, as shown in Figure 1. The model terminates generation upon encounter-ing either the </step> or EOS token. For cold start SFT, the warmup ratio is 0.1, the learning rate is 1e-5, and the batch size is set as 8. We train each model for 3 epochs. During the RL training, the learning rate is 1e-6, the rollout batch size is 128, and each prompt has 8 rollout generations. In practice, we do not use the reference model and KL loss. We use Math-Verify 1 as our reward function. We use tem-perature=1.0 for both rollout generation and evaluation. For training with Fold mode, the maximum number of steps 
+
+N is set as 6 the maximum token length per step L is set as 6144. This configuration limits the model’s maximum output length to 36k tokens. In practice, due to our format check mechanism, the model can hardly reach this limit. 
+
+Baseline and Methods: We compared the following meth-ods: (1) Zero-RL : Directly using GRPO to perform zero-RL on the base model. (2) Direct SFT : We directly used the cold-start dataset constructed in Section 3.2 to fine-tune the base model (3) UnFold-RL : Conducting Unfold mode RL experiments based on the cold-start model. (4) Fold-RL : Conducting Fold mode RL experiments based on the cold-start model. (5) Mix-RL : Conducting Mix mode RL experiments based on the cold-start model. We denote the acquired model trained with Mix-RL start from Qwen2.5-Math-7B / Qwen3-4B-Base as Accordion-Thinker -7B / Accordion-Thinker -4B. In Fold mode, they demonstrate the same performance as UnFold-RL trained models, while possessing efficient CoT folding capabilities and can provide instant, readable step summaries. 
+
+> 1https://github.com/huggingface/Math-Verify
+
+5Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning                                                                                                                                                          
+
+> Table 1. Overall performance comparison of Pass@1 (Avg@32 ) for Qwen2.5-Math-7B and Qwen3-4B-Base on selected benchmarks.
+> Method Gen Mode AIME24 AIME25 MATH500 AMC Minerva Macro
+> Qwen2.5-Math-7B
+> Zero-RL Unfold 25.8 18.1 82.2 58.9 37.8 44.6 Cold-Start Unfold 26.7 24.6 86.2 65.4 39.7 48.5
+> Fold 23.0 ( ↓3.7 )23.1 ( ↓1.5 )82.3 ( ↓3.9 )62.4 ( ↓3.0 )37.6 ( ↓2.1 )45.7 ( ↓2.8 )
+> Unfold -RL Unfold 32.0 26.7 89.2 71.2 42.1 52.2
+> Fold 29.1( ↓2.9 )25.1 ( ↓1.6 )87.3 ( ↓1.9 )70.2 ( ↓1.0 )39.7 ( ↓2.4 )50.3 ( ↓1.9 )
+> Fold -RL ( ours )Fold 31.3 ( ↓0.7)26.9 ( ↑0.2)89.9 ( ↑0.7)73.8 ( ↑2.6 )42.0 ( ↓0.1)52.7 ( ↑0.5)
+> Mix -RL ( ours )Fold 32.2 ( ↑0.2)28.3 ( ↑1.6 )89.6 ( ↑0.4)71.9 ( ↑0.7)41.8 ( ↓0.3)52.8 ( ↑0.6)
+> Qwen3-4B-Base
+> Zero-RL Unfold 25.5 22.5 85.5 65.4 39.2 47.6 Cold-Start Unfold 23.8 25.4 84.7 64.1 39.5 47.5
+> Fold 19.2 ( ↓4.6 )22.0 ( ↓3.4 )79.2 ↓5.5 )57.3 ( ↓6.8 )35.5 ( ↓4.0 )42.6 ( ↓4.9 )
+> Unfold -RL Unfold 27.5 27.8 88.9 73.2 42.5 52.0
+> Fold 25.8 ( ↓1.7 )25.0 ( ↓2.8 )85.6 ( ↓3.3 )69.7 ( ↓3.5 )39.9 ( ↓2.6 )49.2 ( ↓2.8 )
+> Fold -RL ( ours )Fold 28.4 ( ↑0.9)27.8 ( ↑0.0)89.1 ( ↑0.2)72.2 ( ↓1.0)42.9 ( ↑0.4)52.1 ( ↑0.1)
+> Mix -RL ( ours )Fold 27.6 ( ↑0.1)28.0 ( ↑0.2)88.6 ( ↓0.3)72.8 ( ↓0.4)43.4 ( ↑0.9)52.1 ( ↑0.1)
+
+4.2. Main Results 
+
+Table 1 presents the comprehensive evaluation results across two model architectures (Qwen2.5-Math-7B and Qwen3-4B-Base) on five challenging mathematical reasoning bench-marks. We report Pass@1 with 32 samples ( Avg@32 ). The results highlight three critical observations regarding the efficacy of Accordion-Thinking .
+
+1. SFT is insufficient for robust self-compression. We observe that the Cold-Start model, trained solely via Su-pervised Fine-Tuning on synthetic Accordion data, suffers significant performance degradation when switching from 
+
+Unfold to Fold mode. On Qwen2.5-Math-7B, the average accuracy drops from 48.5% ( Unfold ) to 45.7% ( Fold ), a decline of 2.8 points. The gap is even more pronounced for Qwen3-4B-Base, with a 4.9 point drop. This indicates that while SFT teaches the model the structural format of sum-marization, it fails to incentivize the model to encode critical reasoning states into the summaries, leading to information loss when the detailed context is discarded. 
+
+2. Standard RL improves reasoning but still neglects compression. The Unfold -RL baseline, which optimizes reasoning using the full context history, significantly boosts general performance compared to the Cold-Start model (e.g., 52.2% vs. 48.5% on Qwen2.5-Math-7B). However, it does not close the compression gap. When Fold -RL models are forced to operate in Fold mode during inference, they still exhibit a notable performance drop ( ↓1.9% on 7B and ↓2.8% on 4B). This suggests that without explicit penalties for information loss during training, the model continues to rely on the full context rather than high-quality step summaries. 
+
+3. Accordion-Thinking achieves lossless compression. 
+
+Our proposed methods, Fold -RL and Mix -RL, successfully bridge the performance gap. Strikingly, Fold -RL operating in compressed mode not only recovers the performance lost in the Cold-Start phase but also matches the performance of the full-context Unfold -RL baseline. This demonstrates that 
+
+Accordion-Thinking learns to treat summarization as an in-tegral part of the reasoning process, enabling high-efficiency inference without compromising solution accuracy. 
+
+4.3. Ablation Study on Data Synthesis Pipeline 
+
+To validate the design of our data synthesis pipeline, we con-duct an ablation study on two key components: the Prompt Strategy used for rewriting CoT traces and the Rule-Based Filter . We compare our proposed Strict Prompt as shown in Appendix D, which enforces semantic completeness and coherent segmentation, against a Lax Prompt that requests general segmentation without rigorous content constraints. Additionally, we evaluate the impact of applying the rule Filter (described in Section 3.2). Figure 2 reports the Fold accuracy of models trained under these four configurations. The results reveal two consistent trends. First, Strict Prompting significantly outperforms Lax Prompting. Models trained with Lax prompts often generate vague summaries (e.g., “I calculated the result”) that fail to preserve the reasoning state, leading to inference collapse. 6Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning strict w/ rule filter strict w/o rule filter lax w/o rule filter  lax w/ rule filter      
+
+> AIME24 MATH500 AMC AIME24 MATH500 AMC
+> 12.9
+> 62.4
+
+Qwen2.5 -Math -7B  Qwen3 -4B -Base    
+
+> 23.0
+> 13.8
+> 82.3
+> 72.7
+> 69.7
+> 74.5
+> 50.6
+> 45.4 45.9
+> 79.2
+> 75.7
+> 67.8
+> 72.5
+> 55.7
+> 52.1 55.2 57.3
+> 19.2
+> 19.8
+> 18.8
+> 19.3
+> 17.8
+
+Figure 2. Ablation study on synthetic Accordion data for Qwen2.5-Math-7B and Qwen3-4B-Base on Fold mode. Qwen2.5 -Math -7B  Qwen3 -4B -Base      
+
+> gap vanish gap vanish
+> 0.3
+> 0.8
+> 0.7
+> 0.6
+> 0.5
+> 0.4
+> 300 300 300 300
+> 0.8
+> 0.7
+> 0.5
+> 0.4
+> 0.3
+> 0.4
+> 0.2
+> 0.1
+> 0.0
+> 0.2
+> 0.25
+> 0.15
+> 0.1
+> 0.0
+> 0.05 Unfol d
+> Fold
+> Unfol d
+> Fold
+> Training Reward Reward Gap of the 2 Mode Training Reward Reward Gap of the 2 Mode
+
+Figure 3. Reward gap between Fold mode and Unfold mode vanishes during Mix -RL training. 
+
+In contrast, the Strict prompt ensures that summaries con-tain sufficient information density to substitute for detailed reasoning. Second, applying the Rule-Based Filter yields consistent gains. Consequently, the combination of Strict Prompting and Filtering achieves the highest performance, confirming the necessity of high-quality supervision for the Cold-Start stage. 
+
+4.4. Performance Gap Vanish 
+
+To understand the dynamic relationship between full-context and compressed reasoning, we visualize the reward trajec-tories of both Fold and Unfold modes during the Mix -RL training process in Figure 3. At the onset of RL training, a significant performance gap exists between the two infer-ence modes, with Fold lagging behind Unfold by approx-imately 42 points for Qwen3-4B-Base and 27 points for Qwen2.5-Math-7B. This initial disparity confirms that al-though the SFT stage teaches the model the structural format of Accordion-Thinking, the model has not yet learned to compress critical state information effectively, resulting in severe information loss when the reasoning trace is hidden. As the training progresses, however, we observe a striking “Gap-Vanishing” phenomenon where the performance of the Fold mode improves at a significantly faster rate than that of the Unfold mode. The model quickly adapts to the penalty of information loss by generating higher-fidelity summaries that preserve essential logic, eventually causing the reward curves to converge and eliminating the initial gap. This synchronization suggests that the model successfully internalizes the compression mechanism, reaching a state where the sequence of step summaries carries virtually the same informational value as the full reasoning chain, thus empirically validating that Accordion-Thinking achieves effective compression through reinforcement learning. 
+
+Table 2. Comparison of token efficiency under memory limit scenarios on AIME24/25. 
+
+Model Mode Mem Throughput 
+
+Fold -RL-4B Fold 24Gb 2971 token/s 
+
+Mix -RL-4B Fold 24Gb 3182 token/s 
+
+Unfold -RL-4B Unfold 24Gb 1083 token/s 
+
+Fold -RL-4B Fold 48Gb 5612 token/s 
+
+Mix -RL-4B Fold 48Gb 5888 token/s 
+
+Unfold -RL-4B Unfold 48Gb 1483 token/s 7Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning ## Step 1 Summary: 
+
+We need to place a digit (0 -9) in each cell of a 2 ×3 grid such that: 
+
+(1) the sum of the two numbers formed by reading left to right in each 
+
+row is exactly 999; 
+
+(2) the sum of the three numbers formed by reading top to bottom in each 
+
+column is exactly 99. The given example does not satisfy condition (1), 
+
+but the conditions are as stated. 
+
+## Step 2 Summary: 
+
+We express the problem in variables: let A, B, C be the top row digits 
+
+(0 –9); D, E, F be the bottom row digits (0 –9). 
+
+Condition (1): (100A+10B+C)+(100D+10E+F)=999. 
+
+Condition (2): (10A+D)+(10B+E)+(10C+F)=99. 
+
+Simplify condition (1): 100(A+D)+10(B+E)+(C+F)=999, implying A+D must be 
+
+9, B+E must be 9, and C+F must be 9. Thus we obtain the constraints D=9−A, 
+
+E=9−B, F=9−C. 
+
+Substituting into condition (2): 
+
+10(A+B+C)+(D+E+F)=10(A+B+C)+(27−(A+B+C))=99, which simplifies to 
+
+9(A+B+C)+27=99, so 9(A+B+C)=72, hence A+B+C=8. 
+
+Consequently, D+E+F=19. Thus the only constraints are A+B+C=8 and A, B, C, 
+
+D, E, F digits with D=9−A, E=9−B, F=9−C. 
+
+## Step 3 Summary: 
+
+We count the number of triples (A, B, C) with A, B, C digits from 0 to 9
+
+satisfying A+B+C=8. The equation has ⌊8/3 ⌋+1=3 possibilities for A (0 –8), 
+
+and for each A, the number of solutions to B+C=8−A is (8−A)+1=9−A. 
+
+Summing from A=0 to 8: ∑_{A=0}^8 (9−A)=∑_{k=1}^9 k=45. Thus there are 45 
+
+ways to choose the top row digits; the bottom row digits are determined 
+
+uniquely as D=9−A, E=9−B, F=9−C. Each such choice yields a valid grid 
+
+that satisfies both conditions. 
+
+Hence the answer is 45. 
+
+To solve the problem, we need to determine the number of ways to place 
+
+digits in a 2x3 grid such that the sum of the two numbers formed by each 
+
+row is 999, and the sum of the three numbers formed by each column is 99. 
+
+We denote the top row digits as \\(A, B, C \\) and the bottom row digits as 
+
+\\(D, E, F \\). The conditions translate to the following equations: 
+
+1. The sum of the numbers formed by each row: 
+
+(100A + 10B + C) + (100D + 10E + F) = 999 
+
+Simplifying, we get: 
+
+100(A + D) + 10(B + E) + (C + F) = 999 
+
+This implies: 
+
+A + D = 9, \\quad B + E = 9, \\quad C + F = 9 
+
+2. The sum of the numbers formed by each column: 
+
+(10A + D) + (10B + E) + (10C + F) = 99 
+
+Substituting \\(D = 9 - A\\), \\(E = 9 - B\\), \\(F = 9 - C\\) into the 
+
+equation, we get: 
+
+10(A + B + C) + (27 - (A + B + C)) = 99 
+
+Simplifying, we find: 
+
+9(A + B + C) + 27 = 99 \\implies 9(A + B + C) = 72 \\implies A + B
+
++ C = 8 
+
+Thus, we need to find the number of non -negative integer solutions to \\(A 
+
++ B + C = 8 \\) where \\(A, B, C\\) are digits (0 -9). The number of 
+
+solutions is given by the combination formula \\( \\binom{8 + 3 - 1}{3 - 1} 
+
+= \\binom{10}{2} = 45 \\). 
+
+Each solution for \\(A, B, C \\) determines \\(D, E, F\\) uniquely, leading 
+
+to 45 valid grids. 
+
+Therefore, the answer is: \\boxed{45} 
+
+Generated Summaries  Final Solution 
+
+## Question: Find the number of ways to place a digit in each cell of a 2x3 grid so that the sum of the two numbers formed by reading left to right is $999$, 
+
+and the sum of the three numbers formed by reading top to bottom is $99$. The grid below is an example of such an arrangement be cause $8+991=999$ and 
+
+$9+9+81=99$. \n\\[\\begin{array}{| c|c|c |} \\hline 0 & 0 & 8 \\\\ \\hline 9 & 9 & 1 \\\\ \\hline \\end{array} \\]
+
+Figure 4. Case study analysis of summary readability. The step summaries, when pieced together, can serve as a substitute for the final solution. Accordion CoT provides users with instant, readable information about the reasoning process. 
+
+4.5. Accordion-Thinking Efficiency System Throughput. We evaluate deployment efficiency using the vLLM engine on a single GPU, simulating memory-constrained environments (24GB/48GB) typical of high-concurrency scenarios. As shown in Table 2, 
+
+Accordion-Thinking delivers substantial throughput gains, achieving a near 3× speedup (5888 vs. 1483 tokens/s) for the 4B model under a 48GB limit. While standard CoT suf-fers from linear KV cache growth that forces reduced batch sizes or memory swapping, our Fold mechanism periodi-cally discards the intermediate activation states of completed reasoning steps. This keeps the active context compact, max-imizing GPU utilization and maintaining high generation speeds even during extensive reasoning chains. 0    
+
+> 0.5
+> 1
+> 1.5
+> 2
+> 2.5
+> 3
+> 3.5
+> 4
+> 02000 4000 6000 8000
+> time (s)
+> generation length
+
+Token Generation Time     
+
+> Unfold-RL-4B
+> Accordion-Thinker-4B
+> 0
+> 2000
+> 4000
+> 6000
+> 8000
+> 10000
+> 12000
+> 02000 4000 6000 8000
+> time (s)
+> generation length
+
+Cumulative Generation Time 
+
+> Unfold-RL-4B
+> Accordion-Thinker-4B
+
+Figure 5. Comparison of token efficiency in raw PyTorch. 
+
+Algorithmic Scalability. To analyze latency independent of system optimizations, we measure per-token generation time using raw PyTorch. As illustrated in Figure 5, vanilla CoT shows the O(L2) total complexity as the sequence lengthens. In contrast, Accordion-Thinker displays a “saw-tooth” pattern where computational costs drop immediately after folding operations. 
+
+4.6. Accordion-Thinking Readability 
+
+Standard long-form CoT often suffers from poor readabil-ity due to verbose, unstructured, and meandering internal monologues. In contrast, Accordion-Thinking produces structured step summaries that offer immediate, high-level explanations of the detailed derivation. As illustrated in Figure 4, the sequence of generated summaries forms a co-herent logical narrative. These summaries align closely with the model’s final solution, effectively serving as a concise yet faithful substitute for the solution. We further conduct a human evaluation where 2 annotators cross-examined 20 randomly sampled step summaries for semantic complete-ness. Only 1 out of 20 summaries fails to fully capture the critical information from the reasoning block. This confirms that Accordion-Thinking not only improves efficiency but also provides a transparent and human-readable window into the model’s thought process. 
+
+5. Conclusion 
+
+In this work, we introduced Accordion-Thinking , a frame-work that empowers Large Language Models to conduct efficient long-form reasoning through iterative context com-pression. By optimizing the generation of concise step sum-maries via Reinforcement Learning, our method drastically reduces token consumption and KV cache overhead while maintaining accuracy competitive with standard Chain-of-Thought. Furthermore, the structured summaries produced by Accordion-Thinking enhance human readability, offer-ing a scalable and transparent solution for complex reason-ing tasks. 8Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning 
+
+Impact Statement 
+
+This paper presents work whose goal is to advance the field of Machine Learning. There are many potential societal consequences of our work, none which we feel must be specifically highlighted here 
+
+References 
+
+Aghajohari, M., Chitsaz, K., Kazemnejad, A., Chandar, S., Sordoni, A., Courville, A., and Reddy, S. The markovian thinker: Architecture-agnostic linear scaling of reason-ing, 2025. URL https://arxiv.org/abs/2510. 06557 .Cheng, J. and Van Durme, B. Compressed chain of thought: Efficient reasoning through dense representations. arXiv preprint arXiv:2412.13171 , 2024. DeepSeek-AI, Liu, A., Mei, A., Lin, B., Xue, B., Wang, B., Xu, B., Wu, B., Zhang, B., Lin, C., Dong, C., Lu, C., Zhao, C., Deng, C., Xu, C., Ruan, C., Dai, D., Guo, D., Yang, D., Chen, D., Li, E., Zhou, F., Lin, F., Dai, F., Hao, G., Chen, G., Li, G., Zhang, H., Xu, H., Li, H., Liang, H., Wei, H., Zhang, H., Luo, H., Ji, H., Ding, H., Tang, H., Cao, H., Gao, H., Qu, H., Zeng, H., Huang, J., Li, J., Xu, J., Hu, J., Chen, J., Xiang, J., Yuan, J., Cheng, J., Zhu, J., Ran, J., Jiang, J., Qiu, J., Li, J., Song, J., Dong, K., Gao, K., Guan, K., Huang, K., Zhou, K., Huang, K., Yu, K., Wang, L., Zhang, L., Wang, L., Zhao, L., Yin, L., Guo, L., Luo, L., Ma, L., Wang, L., Zhang, L., Di, M. S., Xu, M. Y., Zhang, M., Zhang, M., Tang, M., Zhou, M., Huang, P., Cong, P., Wang, P., Wang, Q., Zhu, Q., Li, Q., Chen, Q., Du, Q., Xu, R., Ge, R., Zhang, R., Pan, R., Wang, R., Yin, R., Xu, R., Shen, R., Zhang, R., Liu, S. H., Lu, S., Zhou, S., Chen, S., Cai, S., Chen, S., Hu, S., Liu, S., Hu, S., Ma, S., Wang, S., Yu, S., Zhou, S., Pan, S., Zhou, S., Ni, T., Yun, T., Pei, T., Ye, T., Yue, T., Zeng, W., Liu, W., Liang, W., Pang, W., Luo, W., Gao, W., Zhang, W., Gao, X., Wang, X., Bi, X., Liu, X., Wang, X., Chen, X., Zhang, X., Nie, X., Cheng, X., Liu, X., Xie, X., Liu, X., Yu, X., Li, X., Yang, X., Li, X., Chen, X., Su, X., Pan, X., Lin, X., Fu, X., Wang, Y. Q., Zhang, Y., Xu, Y., Ma, Y., Li, Y., Li, Y., Zhao, Y., Sun, Y., Wang, Y., Qian, Y., Yu, Y., Zhang, Y., Ding, Y., Shi, Y., Xiong, Y., He, Y., Zhou, Y., Zhong, Y., Piao, Y., Wang, Y., Chen, Y., Tan, Y., Wei, Y., Ma, Y., Liu, Y., Yang, Y., Guo, Y., Wu, Y., Wu, Y., Cheng, Y., Ou, Y., Xu, Y., Wang, Y., Gong, Y., Wu, Y., Zou, Y., Li, Y., Xiong, Y., Luo, Y., You, Y., Liu, Y., Zhou, Y., Wu, Z. F., Ren, Z. Z., Zhao, Z., Ren, Z., Sha, Z., Fu, Z., Xu, Z., Xie, Z., Zhang, Z., Hao, Z., Gou, Z., Ma, Z., Yan, Z., Shao, Z., Huang, Z., Wu, Z., Li, Z., Zhang, Z., Xu, Z., Wang, Z., Gu, Z., Zhu, Z., Li, Z., Zhang, Z., Xie, Z., Gao, Z., Pan, Z., Yao, Z., Feng, B., Li, H., Cai, J. L., Ni, J., Xu, L., Li, M., Tian, N., Chen, R. J., Jin, R. L., Li, S. S., Zhou, S., Sun, T., Li, X. Q., Jin, X., Shen, X., Chen, X., Song, X., Zhou, X., Zhu, Y. X., Huang, Y., Li, Y., Zheng, Y., Zhu, Y., Ma, Y., Huang, Z., Xu, Z., Zhang, Z., Ji, D., Liang, J., Guo, J., Chen, J., Xia, L., Wang, M., Li, M., Zhang, P., Chen, R., Sun, S., Wu, S., Ye, S., Wang, T., Xiao, W. L., An, W., Wang, X., Sun, X., Wang, X., Tang, Y., Zha, Y., Zhang, Z., Ju, Z., Zhang, Z., and Qu, Z. Deepseek-v3.2: Pushing the frontier of open large language models, 2025. URL 
+
+https://arxiv.org/abs/2512.02556 .Ding, M., Liu, H., Fu, Z., Song, J., Xie, W., and Zhang, Y. Break the chain: Large language models can be shortcut reasoners, 2024. URL https://arxiv.org/abs/ 2406.06580 .Fan, S., Han, P., Shang, S., Wang, Y., and Sun, A. Cothink: Token-efficient reasoning via instruct models guiding rea-soning models. arXiv preprint arXiv:2505.22017 , 2025. Guo, D., Yang, D., Zhang, H., Song, J., Zhang, R., Xu, R., Zhu, Q., Ma, S., Wang, P., Bi, X., et al. Deepseek-r1: In-centivizing reasoning capability in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 , 2025. Han, T., Wang, Z., Fang, C., Zhao, S., Ma, S., and Chen, Z. Token-budget-aware llm reasoning, 2025. URL https: //arxiv.org/abs/2412.18547 .He, C., Luo, R., Bai, Y., Hu, S., Thai, Z., Shen, J., Hu, J., Han, X., Huang, Y., Zhang, Y., Liu, J., Qi, L., Liu, Z., and Sun, M. OlympiadBench: A challenging benchmark for promoting AGI with olympiad-level bilingual multimodal scientific problems. In Ku, L.-W., Martins, A., and Sriku-mar, V. (eds.), Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 3828–3850, Bangkok, Thailand, August 2024. Association for Computational Linguis-tics. doi: 10.18653/v1/2024.acl-long.211. URL https: //aclanthology.org/2024.acl-long.211/ .Hooper, C., Kim, S., Mohammadzadeh, H., Mahoney, M. W., Shao, Y. S., Keutzer, K., and Gholami, A. Kvquant: Towards 10 million context length llm infer-ence with kv cache quantization. Advances in Neural Information Processing Systems , 37:1270–1303, 2024. Huang, J., Lin, B., Feng, G., Chen, J., He, D., and Hou, L. Efficient reasoning for large reasoning language models via certainty-guided reflection suppression, 2025. URL 
+
+https://arxiv.org/abs/2508.05337 .Hugging Face. Open r1: A fully open reproduction of deepseek-r1, January 2025. URL https://github. com/huggingface/open-r1 .9Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning 
+
+Jaech, A., Kalai, A., Lerer, A., Richardson, A., El-Kishky, A., Low, A., Helyar, A., Madry, A., Beutel, A., Car-ney, A., et al. Openai o1 system card. arXiv preprint arXiv:2412.16720 , 2024. Ła ´ncucki, A., Staniszewski, K., Nawrot, P., and Ponti, E. M. Inference-time hyper-scaling with kv cache compression. 
+
+arXiv preprint arXiv:2506.05345 , 2025. Lewkowycz, A., Andreassen, A., Dohan, D., Dyer, E., Michalewski, H., Ramasesh, V., Slone, A., Anil, C., Schlag, I., Gutman-Solo, T., Wu, Y., Neyshabur, B., Gur-Ari, G., and Misra, V. Solving quantitative reasoning problems with language models. In Koyejo, S., Mo-hamed, S., Agarwal, A., Belgrave, D., Cho, K., and Oh, A. (eds.), Advances in Neural Information Processing Systems , volume 35, pp. 3843–3857. Curran Associates, Inc., 2022. Li, Z.-Z., Liang, X., Tang, Z., Ji, L., Wang, P., Xu, H., W, X., Huang, H., Deng, W., Gong, Y., Guo, Z., Liu, X., Yin, F., and Liu, C.-L. Tl;dr: Too long, do re-weighting for efficient llm reasoning compression, 2025. URL https: //arxiv.org/abs/2506.02678 .Lightman, H., Kosaraju, V., Burda, Y., Edwards, H., Baker, B., Lee, T., Leike, J., Schulman, J., Sutskever, I., and Cobbe, K. Let’s verify step by step. arXiv preprint arXiv:2305.20050 , 2023. Liu, T., Guo, Q., Hu, X., Jiayang, C., Zhang, Y., Qiu, X., and Zhang, Z. Can language models learn to skip steps? 
+
+Advances in Neural Information Processing Systems , 37: 45359–45385, 2024a. Liu, Z., Yuan, J., Jin, H., Zhong, S., Xu, Z., Braverman, V., Chen, B., and Hu, X. Kivi: a tuning-free asymmetric 2bit quantization for kv cache. In Proceedings of the 41st International Conference on Machine Learning , pp. 32332–32344, 2024b. Liu, Z., Chen, C., Li, W., Pang, T., Du, C., and Lin, M. There may not be aha moment in r1-zero-like training—a pilot study, 2025a. Liu, Z., Chen, C., Li, W., Qi, P., Pang, T., Du, C., Lee, W. S., and Lin, M. Understanding r1-zero-like training: A critical perspective. arXiv preprint arXiv:2503.20783 ,2025b. Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Ray, A., et al. Training language models to follow instructions with human feedback. NeurIPS , 2022. Qu, Y., Setlur, A., Smith, V., Salakhutdinov, R., and Ku-mar, A. Learning to reason on hard problems with privileged on-policy exploration. In The 5th Workshop on Mathematical Reasoning and AI at NeurIPS 2025 ,2025. URL https://openreview.net/forum? id=zKn6mVwPZE .Rafailov, R., Sharma, A., Mitchell, E., Manning, C. D., Ermon, S., and Finn, C. Direct preference optimization: Your language model is secretly a reward model. NeurIPS ,2023. Schulman, J., Wolski, F., Dhariwal, P., Radford, A., and Klimov, O. Proximal policy optimization algorithms. 
+
+arXiv preprint arXiv:1707.06347 , 2017. Shah, D. J., Rushton, P., Singla, S., Parmar, M., Smith, K., Vanjani, Y., Vaswani, A., Chaluvaraju, A., Hojel, A., Ma, A., et al. Rethinking reflection in pre-training. arXiv preprint arXiv:2504.04022 , 2025. Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Bi, X., Zhang, H., Zhang, M., Li, Y. K., Wu, Y., and Guo, D. Deepseekmath: Pushing the limits of mathemat-ical reasoning in open language models, 2024. URL 
+
+https://arxiv.org/abs/2402.03300 .Team, K., Du, A., Gao, B., Xing, B., Jiang, C., Chen, C., Li, C., Xiao, C., Du, C., Liao, C., et al. Kimi k1. 5: Scaling reinforcement learning with llms. arXiv preprint arXiv:2501.12599 , 2025. Wei, J., Wang, X., Schuurmans, D., Bosma, M., Xia, F., Chi, E., Le, Q. V., Zhou, D., et al. Chain-of-thought prompting elicits reasoning in large language models. Advances in neural information processing systems , 35:24824–24837, 2022. Xia, H., Leong, C. T., Wang, W., Li, Y., and Li, W. To-kenSkip: Controllable chain-of-thought compression in LLMs. In Christodoulopoulos, C., Chakraborty, T., Rose, C., and Peng, V. (eds.), Proceedings of the 2025 Confer-ence on Empirical Methods in Natural Language Pro-cessing , pp. 3351–3363, Suzhou, China, November 2025. Association for Computational Linguistics. ISBN 979-8-89176-332-6. doi: 10.18653/v1/2025.emnlp-main. 165. URL https://aclanthology.org/2025. emnlp-main.165/ .Xiang, K., Li, H., Zhang, T. J., Huang, Y., Liu, Z., Qu, P., He, J., Chen, J., Yuan, Y.-J., Han, J., Xu, H., Li, H., Sachan, M., and Liang, X. Seephys: Does seeing help thinking? – benchmarking vision-based physics reasoning, 2025. URL https://arxiv.org/abs/2505.19099 .Xiao, G., Tian, Y., Chen, B., Han, S., and Lewis, M. Ef-ficient streaming language models with attention sinks. In The Twelfth International Conference on Learning Representations , 2023. 10 Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning 
+
+Yang, A., Zhang, B., Hui, B., Gao, B., Yu, B., Li, C., Liu, D., Tu, J., Zhou, J., Lin, J., Lu, K., Xue, M., Lin, R., Liu, T., Ren, X., and Zhang, Z. Qwen2.5-math techni-cal report: Toward mathematical expert model via self-improvement, 2024a. URL https://arxiv.org/ abs/2409.12122 .Yang, A., Li, A., Yang, B., Zhang, B., Hui, B., Zheng, B., Yu, B., Gao, C., Huang, C., Lv, C., Zheng, C., Liu, D., Zhou, F., Huang, F., Hu, F., Ge, H., Wei, H., Lin, H., Tang, J., Yang, J., Tu, J., Zhang, J., Yang, J., Yang, J., Zhou, J., Zhou, J., Lin, J., Dang, K., Bao, K., Yang, K., Yu, L., Deng, L., Li, M., Xue, M., Li, M., Zhang, P., Wang, P., Zhu, Q., Men, R., Gao, R., Liu, S., Luo, S., Li, T., Tang, T., Yin, W., Ren, X., Wang, X., Zhang, X., Ren, X., Fan, Y., Su, Y., Zhang, Y., Zhang, Y., Wan, Y., Liu, Y., Wang, Z., Cui, Z., Zhang, Z., Zhou, Z., and Qiu, Z. Qwen3 technical report, 2025a. URL https: //arxiv.org/abs/2505.09388 .Yang, S., Sheng, Y., Gonzalez, J. E., Stoica, I., and Zheng, L. Post-training sparse attention with double sparsity. arXiv preprint arXiv:2408.07092 , 2024b. Yang, Z., Guo, Z., Huang, Y., Wang, Y., Xie, D., Wang, Y., Liang, X., and Tang, J. Depth-breadth synergy in rlvr: Unlocking llm reasoning gains with adaptive ex-ploration, 2025b. URL https://arxiv.org/abs/ 2508.13755 .Yang, Z., Wang, Y., Huang, Y., Guo, Z., Shi, W., Han, X., Feng, L., Song, L., Liang, X., and Tang, J. Optibench meets resocratic: Measure and improve LLMs for optimization modeling. In The Thirteenth International Conference on Learning Representations ,2025c. URL https://openreview.net/forum? id=fsDZwS49uY .Yu, Q., Zhang, Z., Zhu, R., Yuan, Y., Zuo, X., Yue, Y., Dai, W., Fan, T., Liu, G., Liu, L., Liu, X., Lin, H., Lin, Z., Ma, B., Sheng, G., Tong, Y., Zhang, C., Zhang, M., Zhang, W., Zhu, H., Zhu, J., Chen, J., Chen, J., Wang, C., Yu, H., Song, Y., Wei, X., Zhou, H., Liu, J., Ma, W.-Y., Zhang, Y.-Q., Yan, L., Qiao, M., Wu, Y., and Wang, M. Dapo: An open-source llm reinforcement learning system at scale, 2025. URL https://arxiv.org/ abs/2503.14476 .Yue, Y., Yuan, Y., Yu, Q., Zuo, X., Zhu, R., Xu, W., Chen, J., Wang, C., Fan, T., Du, Z., Wei, X., Yu, X., Liu, G., Liu, J., Liu, L., Lin, H., Lin, Z., Ma, B., Zhang, C., Zhang, M., Zhang, W., Zhu, H., Zhang, R., Liu, X., Wang, M., Wu, Y., and Yan, L. Vapo: Efficient and reliable reinforce-ment learning for advanced reasoning tasks, 2025. URL 
+
+https://arxiv.org/abs/2504.05118 .Zeng, Z., Liu, Y., Wan, Y., Li, J., Chen, P., Dai, J., Yao, Y., Xu, R., Qi, Z., Zhao, W., Shen, L., Lu, J., Tan, H., Chen, Y., Zhang, H., Shi, Z., Wang, B., Guo, Z., and Jia, J. Mr-ben: A meta-reasoning benchmark for evaluating system-2 thinking in llms. In Globersons, A., Mackey, L., Belgrave, D., Fan, A., Paquet, U., Tomczak, J. M., and Zhang, C. (eds.), Advances in Neural Information Processing Systems 38: Annual Conference on Neural Information Processing Systems 2024, NeurIPS 2024, Vancouver, BC, Canada, December 10 - 15, 2024 , 2024. Zhang, J., Zhu, Y., Sun, M., Luo, Y., Qiao, S., Du, L., Zheng, D., Chen, H., and Zhang, N. LightThinker: Thinking step-by-step compression. In Christodoulopou-los, C., Chakraborty, T., Rose, C., and Peng, V. (eds.), Proceedings of the 2025 Conference on Em-pirical Methods in Natural Language Processing , pp. 13307–13328, Suzhou, China, November 2025. As-sociation for Computational Linguistics. ISBN 979-8-89176-332-6. doi: 10.18653/v1/2025.emnlp-main. 673. URL https://aclanthology.org/2025. emnlp-main.673/ .Zhang, Z., Sheng, Y., Zhou, T., Chen, T., Zheng, L., Cai, R., Song, Z., Tian, Y., R ´e, C., Barrett, C., et al. H2o: Heavy-hitter oracle for efficient generative inference of large language models. Advances in Neural Information Processing Systems , 36:34661–34710, 2023. Zhao, R., Meterez, A., Kakade, S., Pehlevan, C., Jelassi, S., and Malach, E. Echo chamber: Rl post-training am-plifies behaviors learned in pretraining. arXiv preprint arXiv:2504.07912 , 2025a. Zhao, W., Guo, J., Deng, Y., Sui, X., Hu, Y., Zhao, Y., Che, W., Qin, B., Chua, T.-S., and Liu, T. Exploring and exploiting the inherent efficiency within large reasoning models for self-guided efficiency enhancement. arXiv preprint arXiv:2506.15647 , 2025b. 11 Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning 
+
+A. Folding Generation Algorithm 
+
+The generation process in Fold mode achieves efficient reasoning through dynamic context compression. The algorithm automatically detects and truncates reasoning steps during generation, preserving key summary information. Specifically, during each generation iteration, the model starts from the initial context and generates detailed reasoning content until it produces the </step> token, indicating the completion of the current step. At this point, the algorithm truncates the generated detailed reasoning content, retaining only the summary information within the <step>...</step> tags. This summary then becomes the foundational context for subsequent generations, while the detailed reasoning content is discarded. This process repeats until the model generates a complete final answer. In this way, Fold mode significantly reduces dependency on historical tokens while maintaining the coherence and completeness of the reasoning process. 
+
+Algorithm 1 AccordionThinking: Fold Generation Mode 
+
+Input: query X, model πθ , maximum steps K, maximum tokens per step L
+
+Output: response Y
+
+Initialize context C ← X
+
+Initialize response Y ← ∅ 
+
+Initialize step counter k ← 1
+
+while k ≤ K and not terminated do 
+
+Generate segment Dk ⊕ Sk ← πθ (· | C) until </step> or length L
+
+Append Dk ⊕ Sk to Y
+
+if Sk contains <step> and </step> then 
+
+Extract summary Scontent  
+
+> k
+
+from Sk
+
+Update context C ← [X, S content  
+
+> 1
+
+, S content  
+
+> 2
+
+, . . . , S content  
+
+> k
+
+]
+
+else 
+
+{No valid step summary generated, continue with full context }
+
+Update context C ← [X, Y ]
+
+end if 
+
+k ← k + 1 
+
+if πθ generates </think> or final answer detected then 
+
+Generate final answer A ← πθ (· | C)
+
+Append A to Y
+
+Terminate loop 
+
+end if end while 
+
+B. Fold and Unfold Performance of Mix -RL 
+
+As illustrated in Figure 3, during the training process of Mix -RL, the training reward gap between the two modes gradually vanishes. In this section, we provide both Fold and Unfold performance for Mix -RL models, as shown in Table 3. It can be seen that there is no fundamental difference in performance between the two modes, further illustrating the phenomenon we observed.                                        
+
+> Table 3. Overall performance comparison of Pass@1 (Avg@32 ) for Qwen2.5-Math-7B and Qwen3-4B-Base of Mix -RL training.
+> Method Gen Mode AIME24 AIME25 MATH500 AMC Minerva Macro
+> Qwen2.5-Math-7B Mix -RL ( ours )Unfold 31.9 27.9 88.9 72.9 42.5 52.8
+> Mix -RL ( ours )Fold 32.2 28.3 89.6 71.9 41.8 52.8
+> Qwen3-4B-Base Mix -RL ( ours )Unfold 31.2 28.5 88.7 71.3 42.5 52.4
+> Mix -RL ( ours )Fold 32.2 28.3 89.6 71.9 41.8 52.8
+
+12 Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning 
+
+C. Details of Model Efficiency Test 
+
+Forefficiency test using VLLM, we set up an environment with limited memory on a single GPU, running tests on AIME24 and AIME25 with 30 concurrent requests. Each dataset contains 30 questions, and we sampled each question 32 times. Specifically, we compared two GPU memory scenarios: 24Gb and 48Gb. For the raw PyTorch efficiency test, we directly implement it with Python code. 
+
+D. Prompts 
+
+CoT Rewrite Pormpt 1 (Lax)  
+
+> 1
+
+You are a reasoning LLM. Your task: For a response generated by yourself, you are 
+
+,→ required to perform a coarse-grained step segmentation on your own reasoning 
+
+,→ process (thought chain) and append each segmented step with a summary of that 
+
+,→ step.  
+
+> 23
+
+Specifically, given a response in the format:  
+
+> 4
+
+‘‘‘  
+
+> 5
+
+<think>  
+
+> 6
+
+// A long chain of thought  
+
+> 7
+
+</think>  
+
+> 8
+
+// The final solution/output from the LLM  
+
+> 9
+
+‘‘‘  
+
+> 10 11
+
+You need to segment your own ‘thought‘ into coarse-grained steps and insert a summary 
+
+,→ for each step after it. The modified response should look like this:  
+
+> 12
+
+‘‘‘  
+
+> 13
+
+<think>  
+
+> 14
+
+// Step 1: A segment of your thought process.  
+
+> 15
+
+<step>  
+
+> 16
+
+// A precise summary of Step 1.  
+
+> 17
+
+</step>  
+
+> 18 19
+
+// Step 2: The second segment of your thought process.  
+
+> 20
+
+<step>  
+
+> 21
+
+// A precise summary of Step 2.  
+
+> 22
+
+</step>  
+
+> 23
+
+...  
+
+> 24 25
+
+// Step N: The Nth segment of your thought process.  
+
+> 26
+
+<step>  
+
+> 27
+
+// A precise summary of Step N.  
+
+> 28
+
+</step>  
+
+> 29
+
+</think>  
+
+> 30
+
+// The final solution/output from the LLM.  
+
+> 31
+
+‘‘‘  
+
+> 32 33
+
+Requirements: Place your modified response within ‘‘‘\n{...}\n‘‘‘ as shown above.  
+
+> 34 35
+
+--- 
+
+> 36
+
+Now, please segment the following response:  
+
+> 37 38
+
+# Question:  
+
+> 39
+
+{question}  
+
+> 40 41
+
+# Response:  
+
+> 42
+
+{response} 
+
+13 Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning 
+
+CoT Rewrite Pormpt 2 (Strict)  
+
+> 1
+
+You are a reasoning LLM. Your task: For a response generated by yourself, you are 
+
+,→ required to perform a coarse-grained step segmentation on your own reasoning 
+
+,→ process (thought chain) and append each segmented step with a summary of that 
+
+,→ step.  
+
+> 23
+
+Specifically, given a response in the format:  
+
+> 4
+
+‘‘‘  
+
+> 5
+
+<think>  
+
+> 6
+
+// A detailed chain of thought  
+
+> 7
+
+</think>  
+
+> 8
+
+// The final solution  
+
+> 9
+
+‘‘‘  
+
+> 10 11
+
+You MUST transform it to:  
+
+> 12
+
+‘‘‘  
+
+> 13
+
+<think>  
+
+> 14
+
+// Step 1: A segment of the thought process.  
+
+> 15
+
+<step>  
+
+> 16
+
+// Comprehensive summary of Step 1 including ALL critical details, definitions, 
+
+,→ derivations, and conclusions.  
+
+> 17
+
+</step>  
+
+> 18 19
+
+// Step 2: The second segment of the thought process.  
+
+> 20
+
+<step>  
+
+> 21
+
+// Comprehensive summary of Step 2 including ALL critical details, definitions, 
+
+,→ derivations, and conclusions.  
+
+> 22
+
+</step>  
+
+> 23 24
+
+...  
+
+> 25 26
+
+// Step N: The Nth segment of the thought process.  
+
+> 27
+
+<step>  
+
+> 28
+
+// Comprehensive summary of Step N including ALL critical details, definitions, 
+
+,→ derivations, and conclusions. (Sometimes, the final step is a verification step 
+
+,→ ) 
+
+> 29
+
+</step>  
+
+> 30
+
+</think>  
+
+> 31
+
+// The final solution  
+
+> 32
+
+‘‘‘  
+
+> 33 34 35
+
+# CRITICAL REQUIREMENTS:  
+
+> 36 37
+
+1. **SEGMENTATION GUIDANCE:**  
+
+> 38
+
+* Identify logical breaks in the reasoning process (e.g., problem decomposition, 
+
+,→ definition setup, calculation phases, verification, refinement steps)  
+
+> 39
+
+* Create a new step for each major conceptual unit  
+
+> 40
+
+* Ensure each step has a clear, focused purpose  
+
+> 41
+
+* Aim for around 5 steps in total, avoiding too many or too few  
+
+> 42 43
+
+2. **PRESERVE ORIGINAL CONTENT:**  
+
+> 44
+
+* DO NOT modify any part of the original response, preserve all of the original 
+
+,→ content.  
+
+> 45
+
+* Only insert ‘<step>...</step>‘ tags with summaries between segments.  
+
+> 46 47
+
+3. **SUMMARY CONTENT REQUIRMENTS:**  
+
+> 48
+
+* Text Style: The summaries MUST align closely with the content and the text style 
+
+,→ of the "final solution" section after ‘</think>‘ in the original response. You 
+
+,→ can even directly copy the content from the solution section. (except for 
+
+,→ verify steps) 
+
+14 Accordion-Thinking: Self-Regulated Step Summaries for Efficient and Readable LLM Reasoning  
+
+> 49
+
+* For Each Step Summary:  
+
+> 50
+
+- Any **key variables, quantities, or concepts** introduced or defined in this 
+
+,→ step, along with their meaning.  
+
+> 51
+
+- Any **assumptions or conditions** applied or established in this step.  
+
+> 52
+
+- The core **logical derivation or calculation** performed in this step.  
+
+> 53
+
+- The **specific conclusion, result, or output** of this step (e.g., a derived 
+
+,→ formula, an intermediate value, a decision point).  
+
+> 54
+
+- If this is a verify step, summary the verification process and the outcome 
+
+,→ of the verification.  
+
+> 55
+
+* For the Concatenated Summary: The concatenated ‘<step>‘ summaries should be 
+
+,→ complete to serve as a complete final solution, requiring no additional context 
+
+,→ or reference to the thought process. A reader should not need to refer back to 
+
+,→ the original ‘<think>‘ content at all.  
+
+> 56 57
+
+**IMPORTANT:** Your output will be evaluated by checking if the concatenated step 
+
+,→ summaries can serve as the final solution. If any critical information from the 
+
+,→ final solution is missing from the summaries, your output will be considered 
+
+,→ incorrect.  
+
+> 58 59
+
+--- 
+
+> 60
+
+Now, please segment the following response:  
+
+> 61 62
+
+# Question:  
+
+> 63
+
+{question}  
+
+> 64 65
+
+# Response:  
+
+> 66
+
+‘‘‘  
+
+> 67
+
+{response}  
+
+> 68
+
+‘‘‘ 
+
+Problem Solving System Prompt  
+
+> 1
+
+Your task is to follow a systematic, thorough reasoning process before providing the 
+
+,→ final solution. This involves analyzing, summarizing, exploring, reassessing, 
+
+,→ and refining your thought process through multiple iterations. Structure your 
+
+,→ response into two sections: Thought and Solution.  
+
+> 23
+
+In the Thought section, present your reasoning using the format:‘<think> {thoughts} </ 
+
+,→ think>‘. Each thought should include detailed analysis, brainstorming, 
+
+,→ verification, and refinement of ideas. You should conduct coarse-grained step 
+
+,→ reasoning, and insert a summary after each step within <
+
+,→ step_bed619fva643c0v108hd53gcy></step_bed619fva643c0v108hd53gcy> tags.  
+
+> 45
+
+After ‘</think>‘ in the Solution section, provide the final, logical, and accurate 
+
+,→ answer, clearly derived from the exploration in the Thought section.  
+
+> 67
+
+If applicable, include the Answer in \\boxed{} for closed-form results like multiple 
+
+,→ choices or mathematical solutions. 
+
+15

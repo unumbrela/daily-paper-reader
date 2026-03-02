@@ -1,0 +1,500 @@
+Title: Enhancing Spatial Reasoning in Large Language Models for Metal-Organic Frameworks Structure Prediction
+
+URL Source: https://arxiv.org/pdf/2601.09285v1
+
+Published Time: Thu, 15 Jan 2026 01:34:41 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# Enhancing Spatial Reasoning in Large Language Models for Metal-Organic Frameworks Structure Prediction 
+
+Mianzhi Pan 1,2 * JianFei Li 1* Peishuo Liu 1 Botian Wang 2
+
+Yawen Ouyang 3 Yiming Rong 5 Hao Zhou 2† Jianbing Zhang 1,4 †1National Key Laboratory for Novel Software Technology & School of Artificial Intelligence, Nanjing University, China 
+
+> 2
+
+Institute of AI Industry Research (AIR), Tsinghua University 3Shanghai AI Lab 
+
+> 4
+
+Chemistry and Biomedicine Innovation Center (ChemBIC), Nanjing University 
+
+> 5
+
+University of Chinese Academy of Sciences, Beijing 
+
+Abstract 
+
+Metal-organic frameworks (MOFs) are porous crystalline materials with broad applications such as carbon capture and drug delivery, yet accurately predicting their 3D structures re-mains a significant challenge. While Large Lan-guage Models (LLMs) have shown promise in generating crystals, their application to MOFs is hindered by MOFs’ high atomic complex-ity. Inspired by the success of block-wise paradigms in deep generative models, we pio-neer the use of LLMs in this domain by in-troducing MOF-LLM, the first LLM frame-work specifically adapted for block-level MOF structure prediction. To effectively harness LLMs for this modular assembly task, our train-ing paradigm integrates spatial-aware continual pre-training (CPT), structural supervised fine-tuning (SFT), and matching-driven reinforce-ment learning (RL). By incorporating explicit spatial priors and optimizing structural stability via Soft Adaptive Policy Optimization (SAPO), our approach substantially enhances the spatial reasoning capability of a Qwen-3 8B model for accurate MOF structure prediction. Com-prehensive experiments demonstrate that MOF-LLM outperforms state-of-the-art denoising-based and LLM-based methods while exhibit-ing superior sampling efficiency. 1
+
+1 Introduction 
+
+Metal-organic frameworks (MOFs) are a revolu-tionary class of porous crystalline materials with extensive applications such as carbon capture (Mc-Donald et al., 2015), drug delivery (Horcajada et al., 2010), and water harvesting (Kim et al., 2017). In light of their value, the development of MOFs was recently awarded the Nobel Prize in Chem-istry (Outreach, 2025). The functional versatil-ity of MOFs arises from their distinctive archi-   
+
+> *These authors contributed equally.
+> †Corresponding author
+> 1The model, data and code are available at https:// github.com/panmianzhi/MOF-LLM .Metal Node Organic Linkers
+> Building Blocks Periodic MOF Structure Unit Cell
+> Decompose
+
+Figure 1: Illustration of MOF structures. An MOF structure and its unit cell are shown on top. The unit cell can be decomposed into building blocks, including metal nodes and organic linkers (bottom). Atom color: Zn (purple), O (red), C (gray), H (white). 
+
+tecture, where inorganic metal nodes and organic linkers, i.e., building blocks, assemble into peri-odic reticular structures (Figure 1). Variations in these building blocks can lead to millions of pos-sible structures with diverse properties (Moosavi et al., 2020). Navigating this expansive space to identify optimal candidates poses a significant chal-lenge, as traditional experimental trial-and-error is intractable (Boyd et al., 2019). Therefore, Crystal Structure Prediction (CSP) plays a pivotal role in accelerating MOF discovery. By computationally predicting thermodynamically stable 3D structures, CSP enables the rapid screening of materials prior to laboratory synthesis. Recently, Large Language Models (LLMs) have emerged as a promising paradigm for CSP. By leveraging extensive pre-trained knowledge, LLMs have demonstrated a strong ability to generate phys-ically plausible crystal structures when fine-tuned on crystallographic text data (Gruver et al., 2024; Antunes et al., 2024; Xu et al., 2025; Wang et al., 2025). Such crystal representations typically con-sist of atom-level information, including element 1
+
+> arXiv:2601.09285v1 [cs.LG] 14 Jan 2026
+
+types and atomic positions. However, extending these approaches to MOFs presents significant chal-lenges. Unlike simple inorganic crystals, MOF unit cells often contain hundreds of atoms. Represent-ing such massive systems as conventional atom-wise strings leads to excessively long contexts that current LLMs struggle to handle. Inspired by recent advances in deep generative models for CSP, we adopt a block-wise genera-tion paradigm to address the scalability challenges in MOF structure prediction. While early CSP models operated at the atomistic level (Jiao et al., 2023; Miller et al., 2024; Wu et al., 2025), recent MOF-specific approaches have achieved significant breakthroughs by exploiting the intrinsic modular-ity of MOFs (Fu et al., 2023; Kim et al., 2024; Jiao et al., 2025). These methods predict the positions and orientations of MOF building blocks rather than individual atomic coordinates. As a result, the block-level generation paradigm substantially reduces the dimensionality of the design space. Despite their promise, LLMs face key challenges in block-wise MOF structure prediction. First, MOF building blocks possess complex 3D geome-tries that are difficult for LLMs to understand, fre-quently resulting in block collisions and physically implausible assemblies. Second, generating stable MOFs requires precise control over the orientations of individual blocks, necessitating the accurate gen-eration of rotations in 3D space. However, exist-ing LLMs exhibit limited spatial reasoning ability, particularly regarding rotations (Lv et al., 2025), thereby constraining their efficacy in this task. To address these challenges, this paper pro-poses MOF-LLM, the first LLM training frame-work that integrates spatial-aware continue pre-training (CPT), structural supervised fine-tuning (SFT), and matching-driven reinforcement learning (RL) for autoregressive MOF structure prediction. Our pipeline is as follows: first, we perform CPT on our curated dataset that explicitly incorporates block connectivity and geometry. This process fa-cilitates LLMs’ basic spatial understanding and rea-soning for MOF structures. Subsequently, we con-duct SFT to generate lattice parameters and block-wise roto-translations, thereby enabling LLMs to assemble building blocks. Finally, we adapt RL with reward signals from the matching degree be-tween the generated structures and stable MOF references, which further improves the stability of the predicted structures. To validate the effectiveness of MOF-LLM, we conducted comprehensive experiments on the MOF dataset introduced by Boyd et al. (2019). MOF-LLM demonstrates superior predictive per-formance, achieving a match rate of 35.78% on un-seen MOFs and outperforming both existing LLM-based approaches and state-of-the-art denoising-based models. Beyond strong accuracy, MOF-LLM also exhibits exceptional computational ef-ficiency: with an inference time of 0.04 seconds per structure, it exceeds the fastest denoising-based methods currently available. Our main contributions are as follows: • We propose MOF-LLM, a progressive frame-work integrating spatial-aware CPT, structural SFT, and matching-driven RL. To our knowl-edge, this is the first work to adopt LLMs for MOF structure prediction. • We enhance the spatial reasoning ability of LLMs, allowing accurate assembly of 3D build-ing blocks into stable MOF structures. • We demonstrate the superior performance of MOF-LLM over all baselines in MOF structure prediction while achieving exceptional computa-tional efficiency. Our analysis reveals the effec-tiveness of each training stage. 
+
+2 Related Work 
+
+Generative Models for Crystal Structure Predic-tion (CSP). Deep generative models are promis-ing solutions for CSP. Jiao et al. (2023, 2024) pro-pose joint generation of lattice parameters and frac-tional atomic coordinates using a periodic E(3)-equivariant denoising diffusion model. Miller et al. (2024) and Wu et al. (2025) introduce Rieman-nian flow matching and periodic Bayesian flow networks (BFNs), respectively, enabling efficient sampling of crystals. For MOFs, Kim et al. (2024) treat the metal nodes and organic linkers as rigid building blocks and introduce a Riemannian flow matching framework to predict the position and ori-entations of these components. Jiao et al. (2025) ex-tend the periodic BFNs to the hypersphere for bet-ter orientation modeling by introducing Bingham BFNs. Unlike these denoising-based paradigms, we pioneer the application of LLMs for autoregres-sive MOF structure prediction. 
+
+LLM-based Crystal Generation. Although denoising-based models currently dominate 3D structure generation, recent advances have adapted LLMs for crystal generation by treating structures 2as texts. Gruver et al. (2024) and Antunes et al. (2024) pioneer fine-tuning LLMs to produce text-encoded atomistic data and Crystallographic In-formation Files (CIFs), respectively. Furthermore, CrystalICL (Wang et al., 2025) extends LLM-based crystal geneation with hybrid instruction tuning to enable few-shot in-context learning (ICL). Xu et al. (2025) fine-tunes a Qwen-2.5 backbone (Qwen et al., 2025) with reinforcement learning to bias generation towards stable, novel structures with desired properties. These atom-level text represen-tations fail to capture the intrinsic topology and modularity of MOFs, and also lead to extremely long contexts that LLMs struggle with. Specifically for MOFs, recent systems like MOFGPT (Badrinarayanan et al., 2025) and MOF-Gen (Inizan et al., 2025) leverage LLMs for gen-erative design. However, existing approaches cir-cumvent direct 3D structural generation. They ei-ther rely on external diffusion solvers (Inizan et al., 2025) or simplify topologies into 1D string identi-fiers (Badrinarayanan et al., 2025). Consequently, the potential of LLMs to explicitly perceive 3D spatial relationships and directly assemble precise atomic structures remains largely untapped. 
+
+LLM for 3D Object Generation. Emerging re-search has begun to explore the application of LLMs in generating physically plausible and re-alizable 3D objects. LLaMA-Mesh (Wang et al., 2024) fine-tunes the LLaMA model (Dubey et al., 2024) to directly output 3D meshes, enabling uni-fied language-mesh generation and spatial under-standing within a single model. Similarly, Brick-GPT (Pun et al., 2025) fine-tunes an LLM on a carefully-curated brick assembly dataset to gener-ate physically stable and constructible brick struc-tures from textual descriptions. These methods focus on positioning geometric primitives. In con-trast, we focus on assembling intricate MOF blocks with full 3D roto-translational freedom. 
+
+3 Preliminaries 
+
+3.1 MOF Representation Atom-level Representation of MOFs. Gener-ally, MOFs are crystalline materials composed of atoms arranged periodically in 3D space. Such pe-riodicity is described by a unit cell , the smallest re-peating structural unit whose translations generate the infinite crystal. A unit cell containing N atoms can be represented by the triplet S = ( A, X, L).Here, A = [ an]Nn=1 ∈ AN with A specifies the atomic species, X = [ xn]Nn=1 ∈ RN ×3 gives the corresponding Cartesian coordinates of the atoms, and L = [ l1, l2, l3] ∈ R3×3 is the lattice matrix that encodes the periodicity of the crystal, which is uniquely determined by six lattice parameters: the edge lengths (a, b, c ) ∈ R3+ and the interaxial angles (α, β, γ ) ∈ [0 , 180] 3. The infinite structure is obtained by 
+
+(a′
+
+> n
+
+, x′
+
+> n
+
+) | a′ 
+
+> n
+
+= an, x′ 
+
+> n
+
+= xn + kL , k ∈ Z1×3 ,
+
+(1) where k is an integral vector that translates the unit cell to tile the entire space. In crystallography, the fractional coordinates are usually used to reflect the periodicity of the crystal structure, utilizing the lattice vectors [l1, l2, l3] as the basis vectors instead of standard Cartesian basis. Accordingly, the Catersian coordinates X can be replaced by fractional coordinates F = XL −1 ∈
+
+[0 , 1) N ×3. This representation is widely adopted by contemporary methods for crystal generation (Jiao et al., 2023; Wu et al., 2025; Gruver et al., 2024; Xu et al., 2025). 
+
+Block-level Representation of MOFs. Inher-ently, MOFs are modular assemblies of building blocks (metal nodes and organic linkers). This mod-ularity has motivated several studies to adopt block-level representations of MOFs (Kim et al., 2024, 2025; Jiao et al., 2025). Formally, a unit cell de-composed into M blocks can be represented as the tuple S = ( B, T, R, L). Here, B = [ Bm]Mm=1 de-notes the set of building blocks, and each building block Bm = ( Am, Xm) is a group of Nm atoms with Am ∈ ANm specifies the atomic species and 
+
+Xm ∈ RNm×3 denotes the local atomic coordi-nates. The local coordinate system is defined using principal component analysis (PCA)-based equiv-ariant axes. T ∈ RM ×3 and R ∈ SO (3) M are translation vectors and rotation matrices, which specify the center position and orientation of each building block, respectively. See Appendix A.3 for construction details of the local coordinate system and associated roto-translations. 
+
+3.2 MOF Structure Prediction 
+
+Following established task settings (Kim et al., 2024; Jiao et al., 2025), we employ the block-level representation and formulate MOF structure predic-tion as a generative assembly problem. Specifically, the objective is to predict the lattice matrix along with the roto-translations for a given set of MOF building blocks. Formally, given a dataset D of 3LLM                      
+
+> Structural Supervised Fine-tuning
+> Instruction: Given the SMILES of all MOF building blocks, predict the complete 3D structure configuration including the lattice parameters ... Translation vector ... Rotation angles ... [SMILES] [SMILES] ...
+> Response: [Lattice Parameters]
+> [0] [Translation] [Rotation] [1] [Translation] [Rotation] [2] ...
+> Loss:
+> Matching-driven Reinforcement Learning
+> IR(1) R(2) R(G) ... r(1) r(2) r(G) ...
+> SAPO Objective:
+> reward
+> S(1) S(2) S(3) ...
+> Spatial-aware Continual Pre-training
+> parse struct - MOF Topology Code - SMILES - Molecular Weights
+> - PCA Spans
+> Prompt Elements:
+> - Translations - Rotations
+> - Rotated Principal Axis
+> MOF String Representation
+> Building blocks:
+> - Canonical SMILES - Fractional Translation - Euler-angle Rotation
+> MOF Structure Lattice Parameters
+> Reward Calculation:
+> 011
+> [f 1, f2, f3]
+> [O-]C(=O)c1ccc2c (c1)c1cccc(c1cc2) C(=O)[O-]
+> span x span y span z
+> span y span xspan z
+> rotation
+> LLM IR
+> abc
+
+Figure 2: Overview of our MOF-LLM framework. It enhances the spatial reasoning ability of LLMs for MOF structure prediction via a three-stage training: spatial-aware CPT to inject spatial and geometric priors, structural SFT enables block assembly, and matching-driven RL refines structure stability using Soft Adaptive Policy Optimization (SAPO). 
+
+stable MOFs, the training objective is to maximize the following likelihood: 
+
+max 
+
+θ E(B,T,R,L)∼D [pθ(T, R, L | B )] . (2) During inference, T, R, and L are sampled from 
+
+pθ(T, R, L | B ) to assemble the building blocks, thereby reconstructing atom-level MOF structures for final evaluation. 
+
+4 Method 
+
+We now introduce MOF-LLM. First, in Section 4.1, we explain how we convert the 3D MOF struc-tures to plain text for easy processing by LLMs. Section 4.2 and Section 4.3 then detail the spatial-aware continual pre-training (CPT) and the block-assembly supervised fine-tuning (SFT) process, respectively, which together enable a pre-trained LLM (Qwen-3 8B) (Yang et al., 2025) to accu-rately predict MOF structures. Finally, Section 4.4 presents the Soft Adaptive Policy Optimization (SAPO) (Gao et al., 2025) with a matching-based reward that biases LLMs toward generating more stable structures. The overall framework is shown in Figure 2. 
+
+4.1 Text Formatting of MOF Structure Lattice and Translations. Enabling LLMs to directly generate 3D MOF structures requires an effective textual representation of the structures 
+
+S = ( B, T, R, L). Recent studies (Antunes et al., 2024; Gruver et al., 2024) have demonstrated that fine-tuned LLMs can generate crystal structures encoded via lattice parameters (a, b, c, α, β, γ ) and fractional atomic coordinates. Aligning with this approach, we convert the lattice matrix L to scalar lattice parameters (each rounded to two decimal places) and transform the translation vectors to frac-tional coordinates defined as F = TL −1 (rounded to three decimal places). 
+
+Rotations. Directly utilizing rotation matrices R
+
+is challenging for LLMs to generate, as these repre-sentations are redundant, conceptually abstract, and strictly constrained by the orthogonality conditions of the Special Orthogonal group SO (3) . To obtain a compact, unconstrained, and more intuitive repre-sentation, we adopt Euler angles (ϕ, ω, ψ ), where 
+
+ϕ ∈ [−π, π ] (roll), ω ∈ [−π/ 2, π/ 2] (pitch), and 
+
+ψ ∈ [−π, π ] (yaw) are rotation angles that parame-terize a 3D rotation as three successive elemental rotations around the x-y-z coordinate axes. The Euler angles are rounded to three decimal places. Details of the Euler-angle construction and a dis-cussion on other representations are provided in Appendix A.4. 
+
+Building Blocks. The building blocks B are com-plex 3D geometries that present a significant seman-tic gap for LLMs. However, as these blocks corre-spond to chemically meaningful entities, i.e., metal ion clusters and organic molecules, we adopt canon-ical SMILES (Weininger et al., 1989; O’Boyle, 2012) as a solution. In contrast to basic SMILES algorithms, canonical SMILES ensures that it pro-duces a unique string for any given molecule. For an extracted molecular graph from 3D struc-4tures, the canonicalization algorithm systematically selects a specific initial atom and traverses the molecule using a predefined set of rules. This rep-resentation naturally aligns with LLMs and enables exploitation of the chemistry understanding and semantic priors of SMILES, which are implicitly acquired during large-scale pre-training (Guo et al., 2023; Castro Nascimento and Pimentel, 2023; Wu et al., 2024). To compensate for the loss of explicit 3D geometric information resulting from convert-ing structures to 1D strings, we introduce a spatially aware CPT process in the subsequent section. 
+
+4.2 Spatial-aware Continual Pre-training 
+
+The assembly of building blocks into stable MOF structures can be regarded as ‘LEGO building’ at the microscale. A critical factor for success is the model’s ability to perceive the intrinsic geometry of individual blocks and to reason about rotational transformations. To this end, we augment the de-scription of each building block with its molecu-lar weight and spatial span along three PCA axes, which together describe a ‘minimal bounding box’ with mass that encloses the building block. To further elucidate the impact of rotation on block orientation, we explicitly provide the block’s principal axis before and after the applied rota-tion. In addition, we incorporate the topology code extracted by MOFid (Bucior et al., 2019), which describes the underlying connectivity of the build-ing blocks and promotes a holistic understanding of the global MOF structure. A simplified prompt template is presented below:                                                       
+
+> The MOF structure has the [Topo Code] topology. This topology represents [Topo Description] .The periodic lattice of this MOF is [Lattice Parameters]. Local properties of each block, whose principal axis is aligned with [1,0,0] in the local frame, are listed below. [0] SMILES=[SMILES], molecular weight=[Molecular Weight], PCA span=[PCA Span] [1] ... Global placement of each building block is described as below. [0] Translation=[Transaltion], rotation=[Rotation], rotated main axis=[Rotated Principal Axis] [1] ...
+
+The complete prompt templates and a detailed de-scription of the dataset construction process are provided in the Appendix A.5. Based on this con-structed dataset, we train a pre-trained LLM with the standard next-token prediction objective. 
+
+4.3 Structural Supervised Fine-tuning 
+
+We perform structural SFT to equip the LLM with the ability to autoregressively assemble MOF struc-tures. In this stage, the LLM takes as input an instruction I which includes the task description, the output format, and a set of building blocks, and is fine-tuned to generate a response R consisting of lattice parameters and block-wise roto-translations:                                                                    
+
+> Instruction: [Task Description]. Given the SMILES of all MOF building blocks, predict the complete 3D structure configuration including the lattice parameters, and for each building block (maintaining the exact same order as provided in the input): -Translation vector: The position of the building block’s center within the unit cell, expressed in fractional coordinates. -Rotation angles: The orientation of the building block, represented in radians using Euler angles. Output format: [Output Format] [SMILES] [SMILES] ...
+> Response: [Lattice Parameters] [0] [Translation] [Rotation] [1] [Translation] [Rotation] [2] ...
+
+The model is fine-tuned by minimizing the follow-ing generation loss: 
+
+L(θ) = −
+
+> |R|
+
+X
+
+> t=1
+
+log πθ(Rt+1 |I, R ≤t),
+
+where πθ denotes the LLM parameterized by θ,initialized from the spatial-aware CPT model. 
+
+4.4 Matching-driven Reinforcement Learning 
+
+While SFT enables effective block-wise placement by token-level cross-entropy loss, it inherently fails to enforce global structural plausibility. Conse-quently, the generated MOFs may exhibit structural instabilities. To address this, we employ reinforce-ment learning (RL) to further refine the SFT model. Specifically, we adopt the Soft Adaptive Policy Op-timization (SAPO) framework, a soft and adaptive generalization of Group Relative Policy Optimiza-tion (GRPO) (Guo et al., 2025; Shao et al., 2024). This group-based RL paradigm derives informative learning signals from relative comparisons among multiple outputs, even when most are suboptimal. 5For each instruction I, the model first samples a group of G candidate responses {R(1) , . . . , R (G)},which are subsequently parsed into the correspond-ing MOF structures {S (1) , . . . , S(G)}. We then evaluate the quality of each structure S(i) by com-paring it with the ground-truth stable reference 
+
+Sgt . To quantify this alignment, we compute a reward based on structural matching fidelity. Let 
+
+τ denote the minimum site tolerance at which the two structures are considered matched, as deter-mined using the StructureMatcher class in 
+
+pymatgen (Ong et al., 2013). The reward r(i)
+
+function is defined as: 
+
+r(i) =
+
+
+
+− 1, if S(i) parsing failed, 
+
+1 + 0 .5e−4·RMSE (S(i),Sgt ), if τ ≤ 0.5,
+
+0.6, if 0.5 < τ ≤ 0.75 ,
+
+0.3, if 0.75 < τ ≤ 1.0,
+
+0, otherwise. (3) where RMSE (·, ·) represents the root mean square error between structures. This reward function en-courages high-precision generation ( τ ≤ 0.5) by providing an additional bonus for low geometric error, while assigning no bonus to suboptimal struc-tures ( 0.5 < τ ≤ 1.0) to promote training stability. The model is then updated by maximizing the SAPO objective: 
+
+JSAPO (θ) = 1
+
+G
+
+> G
+
+X
+
+> i=1
+
+1
+
+R(i)
+
+|R(i)|X
+
+> t=1
+
+fi,t (¯ ri,t (θ)) A(i).
+
+(4) Here, ¯ri,t (θ) is the importance ratio between the current policy πθ and a reference policy πθref at time step t:
+
+¯ri,t (θ) = πθ(R(i) 
+
+> t
+
+| I, R (i)
+
+> <t
+
+)
+
+πθref (R(i) 
+
+> t
+
+| I, R (i)
+
+> <t
+
+) , (5) and A(i) is a group-normalized advantage: 
+
+A(i) = r(i) − mean  [r(i)]Gi=1 
+
+
+
+std  [r(i)]Gi=1 
+
+ . (6) The function fi,t (·) is a smooth, temperature-controlled gating function that replaces the hard clipping used in GRPO, 
+
+fi,t (x) = σ τi,t (x − 1)  · 4
+
+τi,t 
+
+,τi,t =
+
+(
+
+τpos , if A(i) > 0,τneg , otherwise .
+
+(7) where σ(x) = 1 /(1 + e−x).
+
+5 Experiments 
+
+In this section, we evaluate MOF-LLM from multi-ple perspectives. First, we report structure pre-diction accuracy in Section 5.1, demonstrating the superior performance of MOF-LLM compared with both existing denoising-based and LLM-based methods. Next, in Section 5.2, we assess the struc-tural properties of the predicted outputs, showing that MOF-LLM successfully captures key charac-teristics of MOF structures. Finally, we analyze the contribution and effectiveness of each stage within MOF-LLM. 
+
+5.1 Structure Prediction Dataset. We use the dataset introduced by Boyd et al. (2019), which contains 324,426 computation-ally generated MOF structures primarily designed for carbon capture. In practice, we adopt the pre-processed datasets from Kim et al. (2024), where each MOF structure is decomposed into building blocks using the metal-oxo algorithm (Bucior et al., 2019). Structures containing more than 200 blocks are discarded, and the remaining data are split into training, validation, and test sets with an 8:1:1 ratio. 
+
+Baselines. We compare MOF-LLM against two types of baselines: denoising-based methods and LLM-based methods. For denoising-based ap-proaches, we include DiffCSP (Jiao et al., 2023), a full-atom diffusion model, as well as MOF-FLOW (Kim et al., 2024) and MOF-BFN (Jiao et al., 2025), both of which are block-level gen-erative models specifically designed for MOFs. For LLM-based methods, we benchmark against PLaID++ (Xu et al., 2025), a full-atom crystal gen-eration model based on Wykcoff text presentation. Since PLaID++ is trained on bulk materials and based on Qwen-2.5, we reimplement it with Qwen-3 on our dataset for a fair comparison. Details are provided in Appendix A.2. 
+
+Metrics. We use the match rate (MR) and root mean square error (RMSE) for evaluation. A pre-dicted structure matches the ground truth if its devi-ations in site positions, lattice lengths and angles all lie within predefined tolerance thresholds. We use 
+
+StructureMatcher class in pymatgen and employ two sets of tolerances parameters ( stol ,
+
+ltol , atol ): (0 .5, 0.3, 1.0) and (1 .0, 0.3, 1.0) ,6Table 1: Structure prediction accuracy . stol represents the site tolerance for matching criteria. MR is the match rate and RMSE is the root mean square error between generated structures and the ground-truths. The reported time is the average per structure. Baseline results are from Kim et al. (2024) and Jiao et al. (2025). 
+
+# of samples stol = 0 .5 stol = 1 .0 Avg. time (s) ↓
+
+MR (%) ↑ RMSE ↓ MR (%) ↑ RMSE ↓
+
+Denoising-based 
+
+DiffCSP (Jiao et al., 2023) 1 0.09 0.3961 23.12 0.8294 5.37 5 0.34 0.3848 38.94 0.7937 26.85 MOFFlow (Kim et al., 2024) 1 31.69 0.2820 87.46 0.5183 0.21 5 44.75 0.2694 100.0 0.4645 1.07 MOF-BFN (Jiao et al., 2025) 1 35.27 0.2735 92.99 0.5000 0.06 5 53.51 0.2498 98.37 0.4117 0.30 
+
+LLM-based 
+
+PLaID++ (Xu et al., 2025) 1 0.09 0.3943 6.22 0.7794 0.41 5 0.16 0.4067 19.94 0.7981 2.07 MOF-LLM (Ours) 1 35.78 0.2612 93.25 0.4984 0.04 
+
+5 53.64 0.2383 98.48 0.4080 0.22 
+
+following Kim et al. (2024); Jiao et al. (2025). For each test case, we generate 1 and 5 structures, and the MR is defined as the proportion that at least one candidate matches the ground truth, while RMSE is computed as the per-atom root mean squared dis-placement between the ground truth and the best-matching prediction. 
+
+Results. Table 1 presents the main results. As ex-pected, all-atom generation methods (DiffCSP and PLaID++) yield poor performance, achieving near-zero MR under the strict criterion ( stol = 0 .5) and remaining suboptimal even with a more lenient con-dition of stol = 1 .0. This highlights the inherent limitations of all-atom approaches for predicting complex MOF structures. Notably, PLaID++ un-derperforms DiffCSP, likely due to the deficiency of LLMs to process extensive floating-point numer-ical data in atom-level representations, further mo-tivating block-level modeling. In contrast, MOF-LLM outperforms current block-level baselines (MOFFlow and MOF-BFN), consistently achiev-ing higher MR and lower RMSE across all settings, demonstrating superior structural accuracy. We further evaluate sampling efficiency. Un-like denoising-based methods that require iterative sampling, MOF-LLM generates samples autore-gressively in a single pass, reducing inference time to 0.04 seconds per structure. Coupled with ongo-ing advances in LLM acceleration, this efficiency underscores the strong potential of our approach for high-throughput MOF discovery. 
+
+5.2 Geometric Property Evaluation 
+
+In this section, we evaluate the geometric properties of the predicted MOF structures, which are key de-terminants of practical performance. For example, the pore limiting diameter (PLD), which character-izes the narrowest constriction along a pore chan-nel, governs molecular adsorption selectivity and directly affects performance in applications such as carbon capture. We utilized the Zeo++ (Willems et al., 2012) to compute common geometric de-scriptors, including volumetric surface area (VSA), gravimetric surface area (GSA), accessible volume (AV), unit cell volume (UCV), void fraction (VF), PLD, largest cavity diameter (LCD), and density (DST). 
+
+Table 2: Geometric property evaluation. RMSE com-puted between the predicted and ground-truth structures, with baseline results from Jiao et al. (2025) and Kim et al. (2024).                           
+
+> RMSE ↓
+> MOF-LLM MOF-BFN MOFFlow VSA (m 2/cm 3)251.3 232.8 264.5 GSA (m 2/g) 266.2 247.5 331.6 AV (Å 3)198.8 315.4 530.5 UCV (Å 3)168.8 312.0 569.5 VF 0.0212 0.0187 0.0285 PLD (Å) 0.9303 0.9072 1.0616 LCD (Å) 0.9509 0.9257 1.1083 DST (g/cm 3)0.0137 0.0185 0.0442
+
+Table 2 presents the RMSE between the geomet-ric properties of the predicted structures and the 7ground-truth references. Notably, MOF-LLM per-forms competitively with MOF-BFN, the state-of-the-art denoising-based generative models, while significantly outperforming MOFFlow. Overall, these results indicate that our framework effectively captures essential spatial characteristics and pre-serves structural integrity, highlighting its promise for practical functional MOF discovery. 
+
+5.3 Ablation Study Spatial-aware CPT greatly enhances LLMs’ spa-tial reasoning capabilities. As shown in Figure 3, incorporating our proposed CPT stage yields a sig-nificant MR improvement over the pure SFT model. To isolate the contribution of explicit spatial knowl-edge, we conducted an ablation study in which spatial and geometric descriptors, including the topology code, molecular weight, PCA spans and rotated axis, were removed from the CPT prompts (‘w/o spatial info’). This results in a pronounced degradation in predictive accuracy. These findings demonstrate the effectiveness of the spatial-aware strategy in enabling LLMs to interpret complex 3D geometries. 34.5  
+
+> 35.0
+> 35.5
+> 36.0
+> MR
+> stol=0.5
+> SFT
+> SFT + CPT (w/o spatial info)
+> SFT + CPT
+> SFT + CPT + RL
+> stol=0.5 stol=1.0
+> 0.261
+> 0.262
+> 0.263
+> 0.264
+> RMSE
+> 92.5
+> 93.0
+> 93.5
+> 94.0
+> stol=1.0
+> 0.500
+> 0.502
+> 0.504
+
+Figure 3: Ablation study of key design components. 
+
+CPT (w/o spatial info) denotes CPT using prompts with-out topology codes, molecular weight, PCA spans, and rotated axes. 
+
+Matching-driven RL constitutes a critical component. As further illustrated in Figure 3, in-corporating the RL stage achieves the best overall performance, yielding a substantial increase in MR and a marked reduction in RMSE relative to the preceding stages. These results indicate that SAPO effectively guides the generation policy toward the high-reward distribution, thereby significantly im-proving the accuracy of the predicted structures. 
+
+6 Conclusion 
+
+In this work, we introduce MOF-LLM, the first framework that successfully adapts LLMs for au-toregressive MOF structure prediction. By em-ploying a three-stage training pipeline integrating spatial-aware CPT, structural SFT, and matching-driven RL, our approach substantially enhances the spatial reasoning capabilities of LLMs for complex building-block assembly. Comprehensive evalua-tions demonstrate the effectiveness and efficiency of our framework, while ablation studies confirm the critical roles of each component in enabling robust geometric understanding and structural sta-bility. Together, these results highlight the potential of MOF-LLM for MOF discovery. 
+
+Limitations 
+
+The limitations of our work are as follows. First, following established protocols (Kim et al., 2024; Jiao et al., 2025), we treat building blocks as rigid bodies and assume the availability of ground-truth block structures. Extending the framework to model conformational flexibility could further en-hance practicality. Second, as discussed in Sec-tion 4.1, flattening 3D blocks into 1D SMILES strings inherently simplifies geometric details. Fu-ture research could delve deeper into advanced tok-enization methods that natively preserve 3D geome-tries. Finally, while our model directly generates solutions, integrating explicit Chain-of-Thought reasoning offers a promising direction for improv-ing interpretability and complex spatial planning. 
+
+References 
+
+Luis M Antunes, Keith T Butler, and Ricardo Grau-Crespo. 2024. Crystal structure generation with au-toregressive large language modeling. Nature Com-munications , 15(1):10570. Srivathsan Badrinarayanan, Rishikesh Magar, Akshay Antony, Radheesh Sharma Meda, and Amir Barati Fa-rimani. 2025. Mofgpt: Generative design of metal– organic frameworks using language models. Journal of Chemical Information and Modeling , 65(17):9049– 9060. Peter G Boyd, Arunraj Chidambaram, Enrique García-Díez, Christopher P Ireland, Thomas D Daff, Richard Bounds, Andrzej Gładysiak, Pascal Schouwink, Seyed Mohamad Moosavi, M Mercedes Maroto-Valer, and 1 others. 2019. Data-driven design of metal–organic frameworks for wet flue gas co2 cap-ture. Nature , 576(7786):253–256. 
+
+8Benjamin J Bucior, Andrew S Rosen, Maciej Haranczyk, Zhenpeng Yao, Michael E Ziebel, Omar K Farha, Joseph T Hupp, J Ilja Siepmann, Alán Aspuru-Guzik, and Randall Q Snurr. 2019. Identification schemes for metal–organic frameworks to enable rapid search and cheminformatics analysis. Crystal Growth & Design , 19(11):6682–6697. Cayque Monteiro Castro Nascimento and André Silva Pimentel. 2023. Do large language models un-derstand chemistry? a conversation with chatgpt. 
+
+Journal of Chemical Information and Modeling ,63(6):1649–1655. Tri Dao. 2023. Flashattention-2: Faster attention with better parallelism and work partitioning. arXiv preprint arXiv:2307.08691 .DeepSeek-AI. 2024. Deepseek-v3 technical report. 
+
+Preprint , arXiv:2412.19437. Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten, Amy Yang, Angela Fan, and 1 others. 2024. The llama 3 herd of models. 
+
+arXiv e-prints , pages arXiv–2407. Cong Fu, Xiner Li, Blake Olson, Heng Ji, and Shuiwang Ji. 2024. Fragment and geometry aware tokenization of molecules for structure-based drug design using language models. In The Thirteenth International Conference on Learning Representations .Xiang Fu, Tian Xie, Andrew Scott Rosen, Tommi S Jaakkola, and Jake Allen Smith. 2023. Mofdiff: Coarse-grained diffusion for metal-organic frame-work design. In The Twelfth International Confer-ence on Learning Representations .Chang Gao, Chujie Zheng, Xiong-Hui Chen, Kai Dang, Shixuan Liu, Bowen Yu, An Yang, Shuai Bai, Jingren Zhou, and Junyang Lin. 2025. Soft adaptive policy optimization. arXiv preprint arXiv:2511.20347 .Nate Gruver, Anuroop Sriram, Andrea Madotto, An-drew Gordon Wilson, C Lawrence Zitnick, and Zachary Ward Ulissi. 2024. Fine-tuned language models generate stable inorganic materials as text. In 
+
+The Twelfth International Conference on Learning Representations .Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Ruoyu Zhang, Runxin Xu, Qihao Zhu, Shi-rong Ma, Peiyi Wang, Xiao Bi, and 1 others. 2025. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 .Taicheng Guo, Bozhao Nan, Zhenwen Liang, Zhichun Guo, Nitesh Chawla, Olaf Wiest, Xiangliang Zhang, and 1 others. 2023. What can large language models do in chemistry? a comprehensive benchmark on eight tasks. Advances in Neural Information Process-ing Systems , 36:59662–59688. Patricia Horcajada, Tamim Chalati, Christian Serre, Brigitte Gillet, Catherine Sebrie, Tarek Baati, Jar-rod F Eubank, Daniela Heurtaux, Pascal Clayette, Christine Kreuz, and 1 others. 2010. Porous metal– organic-framework nanoscale carriers as a potential platform for drug delivery and imaging. Nature ma-terials , 9(2):172–178. Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen, and 1 others. 2022. Lora: Low-rank adaptation of large language models. ICLR , 1(2):3. Theo Jaffrelot Inizan, Sherry Yang, Aaron Kaplan, Yen-hsu Lin, Jian Yin, Saber Mirzaei, Mona Abdelgaid, Ali H Alawadhi, KwangHwan Cho, Zhiling Zheng, and 1 others. 2025. System of agentic ai for the dis-covery of metal-organic frameworks. arXiv preprint arXiv:2504.14110 .Rui Jiao, Wenbing Huang, Peijia Lin, Jiaqi Han, Pin Chen, Yutong Lu, and Yang Liu. 2023. Crystal struc-ture prediction by joint equivariant diffusion. Ad-vances in Neural Information Processing Systems ,36:17464–17497. Rui Jiao, Wenbing Huang, Yu Liu, Deli Zhao, and Yang Liu. 2024. Space group constrained crystal gener-ation. In The Twelfth International Conference on Learning Representations .Rui Jiao, Hanlin Wu, Wenbing Huang, Yuxuan Song, Yawen Ouyang, Yu Rong, Tingyang Xu, Pengju Wang, Hao Zhou, Wei-Ying Ma, and 1 others. 2025. Mof-bfn: Metal-organic frameworks structure predic-tion via bayesian flow networks. In The Thirty-ninth Annual Conference on Neural Information Process-ing Systems .Hyunho Kim, Sungwoo Yang, Sameer R Rao, Shankar Narayanan, Eugene A Kapustin, Hiroyasu Furukawa, Ari S Umans, Omar M Yaghi, and Evelyn N Wang. 2017. Water harvesting from air with metal-organic frameworks powered by natural sunlight. Science ,356(6336):430–434. Nayoung Kim, Seongsu Kim, and Sungsoo Ahn. 2025. Flexible mof generation with torsion-aware flow matching. arXiv preprint arXiv:2505.17914 .Nayoung Kim, Seongsu Kim, Minsu Kim, Jinkyoo Park, and Sungsoo Ahn. 2024. Mofflow: Flow matching for structure prediction of metal-organic frameworks. In The Thirteenth International Conference on Learn-ing Representations .Taoyuze Lv, Alexander Chen, Fengyu Xie, Chu Wu, Jef-frey Meng, Dongzhan Zhou, Bram Hoex, Zhicheng Zhong, and Tong Xie. 2025. Atomworld: A bench-mark for evaluating spatial reasoning in large lan-guage models on crystalline materials. arXiv preprint arXiv:2510.04704 .Thomas M McDonald, Jarad A Mason, Xueqian Kong, Eric D Bloch, David Gygi, Alessandro Dani, Valentina Crocella, Filippo Giordanino, Samuel O 
+
+9Odoh, Walter S Drisdell, and 1 others. 2015. Coop-erative insertion of co2 in diamine-appended metal-organic frameworks. Nature , 519(7543):303–308. Benjamin Kurt Miller, Ricky TQ Chen, Anuroop Sriram, and Brandon M Wood. 2024. Flowmm: Generating materials with riemannian flow matching. In Inter-national Conference on Machine Learning , pages 35664–35686. PMLR. Seyed Mohamad Moosavi, Aditya Nandy, Kevin Maik Jablonka, Daniele Ongari, Jon Paul Janet, Peter G Boyd, Yongjin Lee, Berend Smit, and Heather J Ku-lik. 2020. Understanding the diversity of the metal-organic framework ecosystem. Nature communica-tions , 11(1):4068. Shyue Ping Ong, William Davidson Richards, Anub-hav Jain, Geoffroy Hautier, Michael Kocher, Shreyas Cholia, Dan Gunter, Vincent L Chevrier, Kristin A Persson, and Gerbrand Ceder. 2013. Python mate-rials genomics (pymatgen): A robust, open-source python library for materials analysis. Computational Materials Science , 68:314–319. Nobel Prize Outreach. 2025. Nobel prize in chemistry 2025. Noel M O’Boyle. 2012. Towards a universal smiles representation-a standard method to generate canoni-cal smiles based on the inchi. Journal of cheminfor-matics , 4(1):22. Ava Pun, Kangle Deng, Ruixuan Liu, Deva Ramanan, Changliu Liu, and Jun-Yan Zhu. 2025. Generat-ing physically stable and buildable brick structures from text. In Proceedings of the IEEE/CVF Interna-tional Conference on Computer Vision , pages 14798– 14809. Qwen, :, An Yang, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chengyuan Li, Dayiheng Liu, Fei Huang, Haoran Wei, Huan Lin, Jian Yang, Jianhong Tu, Jianwei Zhang, Jianxin Yang, Jiaxi Yang, Jingren Zhou, and 25 oth-ers. 2025. Qwen2.5 technical report. Preprint ,arXiv:2412.15115. Jeff Rasley, Samyam Rajbhandari, Olatunji Ruwase, and Yuxiong He. 2020. Deepspeed: System optimiza-tions enable training deep learning models with over 100 billion parameters. In Proceedings of the 26th ACM SIGKDD international conference on knowl-edge discovery & data mining , pages 3505–3506. Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Junxiao Song, Xiao Bi, Haowei Zhang, Mingchuan Zhang, YK Li, and 1 others. 2024. Deepseekmath: Pushing the limits of mathematical reasoning in open language models. arXiv preprint arXiv:2402.03300 .Ruobing Wang, Qiaoyu Tan, Yili Wang, Ying Wang, and Xin Wang. 2025. Crystalicl: Enabling in-context learning for crystal generation. In Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing , pages 18440–18455. Zhengyi Wang, Jonathan Lorraine, Yikai Wang, Hang Su, Jun Zhu, Sanja Fidler, and Xiaohui Zeng. 2024. Llama-mesh: Unifying 3d mesh generation with lan-guage models. arXiv preprint arXiv:2411.09595 .David Weininger, Arthur Weininger, and Joseph L Weininger. 1989. Smiles. 2. algorithm for genera-tion of unique smiles notation. Journal of chemical information and computer sciences , 29(2):97–101. Thomas F Willems, Chris H Rycroft, Michaeel Kazi, Juan C Meza, and Maciej Haranczyk. 2012. Algo-rithms and tools for high-throughput geometry-based analysis of crystalline porous materials. Microporous and Mesoporous Materials , 149(1):134–141. Hanlin Wu, Yuxuan Song, Jingjing Gong, Ziyao Cao, Yawen Ouyang, Jianbing Zhang, Hao Zhou, Wei-Ying Ma, and Jingjing Liu. 2025. A periodic bayesian flow for material generation. In ICLR .Zhenxing Wu, Odin Zhang, Xiaorui Wang, Li Fu, Huifeng Zhao, Jike Wang, Hongyan Du, Dejun Jiang, Yafeng Deng, Dongsheng Cao, and 1 others. 2024. Leveraging language model for advanced multiprop-erty molecular optimization via prompt engineering. 
+
+Nature Machine Intelligence , 6(11):1359–1369. Andy Xu, Rohan Desai, Larry Wang, Gabriel Hope, and Ethan Ritz. 2025. Plaid++: A preference aligned lan-guage model for targeted inorganic materials design. 
+
+arXiv preprint arXiv:2509.07150 .An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang Gao, Chengen Huang, Chenxu Lv, and 1 others. 2025. Qwen3 technical report. arXiv preprint arXiv:2505.09388 .Yuze Zhao, Jintao Huang, Jinghan Hu, Xingjun Wang, Yunlin Mao, Daoze Zhang, Zeyinzi Jiang, Zhikai Wu, Baole Ai, Ang Wang, Wenmeng Zhou, and Yingda Chen. 2024. Swift:a scalable lightweight infrastruc-ture for fine-tuning. Preprint , arXiv:2408.05517. Yaowei Zheng, Richong Zhang, Junhao Zhang, Yan-han Ye, Zheyan Luo, Zhangchi Feng, and Yongqiang Ma. 2024. Llamafactory: Unified efficient fine-tuning of 100+ language models. arXiv preprint arXiv:2403.13372 .
+
+A Appendix 
+
+A.1 Training Details A.1.1 Spatial-aware Continual Pre-training 
+
+We utilize Qwen-3 8B (Yang et al., 2025) as our backbone model. To adapt the general-purpose model to the target domain, we perform full-parameter continual pre-training (CPT) using the LL AMA-F ACTORY framework (Zheng et al., 2024). The experiment is conducted on 4 ×
+
+NVIDIA H800-80GB GPUs. 10 Data Processing and Efficiency. To maximize computational efficiency and training throughput, we employ the sequence packing strategy. Instead of padding individual samples to the maximum length, multiple text segments from the dataset are concatenated to fill the context window of 3,072 tokens. 
+
+Optimization Setup. To accelerate training and reduce memory footprint, we employ DeepSpeed ZeRO Stage 3 (Rasley et al., 2020) alongside Flash Attention 2 (Dao, 2023). The training is conducted using bfloat16 (BF16) precision to ensure numeri-cal stability and efficiency. We optimize the model using the AdamW optimizer with a standard auto-regressive language modeling objective. 
+
+Hyperparameters. The learning rate is config-ured with a peak value of 5e-5, following a cosine decay schedule with a 5% warmup period. The model is trained for 3 epochs with a global batch size of 128. 
+
+A.1.2 Structural Supervised Fine-tuning 
+
+Initialized with the last checkpoint from the CPT stage, we perform full-parameter Supervised Fine-Tuning (SFT) using the LL AMA-F ACTORY frame-work. All experiments were conducted on 5 ×
+
+NVIDIA H800-80GB GPUs. 
+
+Optimization Setup. We maintain the same opti-mization configuration as in A.1.1. 
+
+Hyperparameters. We set the maximum input length to 2048 tokens, which covers 99% of the data. The learning rate is configured with a peak value of 2e-5, following a cosine decay schedule with a 3% warmup period. The model was trained for 12,000 steps with a global batch size of 100. 
+
+A.1.3 Matching-driven Reinforcement Learning 
+
+We utilize the SFT checkpoint as the initializa-tion for the policy model to conduct the matching-driven RL using the MS -SWIFT framework (Zhao et al., 2024). The training was performed on 8 ×
+
+NVIDIA H800-80GB GPUs. 
+
+Generation and Rollout. To ensure efficient ex-ploration, we utilize the vLLM engine for high-throughput sequence generation. For each prompt, the model samples a group of G = 8 outputs (num_generations ). The sampling is per-formed with a temperature of 0.9, top-p of 0.99 ,and top-k of 50 . We enable dynamic sampling with a maximum of 2 resample attempts to handle gen-eration failures. The maximum completion length is restricted to 1,600 tokens. 
+
+Optimization Setup. We maintained the same optimization configuration as in A.1.1 
+
+Hyperparameters. The two SAPO temperate pa-rameters are set to τpos = 1 .0, τ neg = 1 .05 . The learning rate is configured with a peak value of 1e-6, following a cosine decay schedule with a 5% warmup period. The model is trained for 2 epochs with a per-device batch size of 16. 
+
+A.2 Implementation Details of Baselines 
+
+The results of the denoising-based baselines are taken from Kim et al. (2024) and Jiao et al. (2025). Since MOFFlow (Kim et al., 2024) provides an ac-celerated Batch implementation beyond its main results, we reimplement it on an NVIDIA A100-80GB GPU to obtain the runtime. For PLaID++ (Xu et al., 2025), we reimple-ment it by fine-tuning a Qwen-3 8B model using Wyckoff-based textual encodings of MOFs. The prompt template is as follows.                                       
+
+> Instruction: Below is adescription of acrystal. The chemical formula is [Chemical Formula]. The spacegroup number is [Spacegroup]. Generate adescription of the lengths and angles of the lattice vectors and then the element type and coordinates for each atom within the lattice.
+> Response: [Wykoff-based String]
+
+We exclude the preference alignment stage in PLaID++ because it relies on external evaluation tools, which would result in an unfair comparison. During training, the maximum input length is set to 8192 tokens for computational efficiency. We perform SFT with LoRA (Hu et al., 2022) (rank=8, 
+
+α=32) using the LL AMA-F ACTORY framework. The learning rate follows a cosine decay schedule with a peak value of 1e-5 and a 3% warmup period. The model is trained for 5,000 steps with a global batch size of 160. During evaluation, we observe that almost all generated Wyckoff strings cannot be parsed into valid structures, likely because the model strug-gles to produce legal Wyckoff positions for a large number of atoms. Accordingly, we adopt a lenient evaluation setting that ignores Wyckoff positions and matches structures solely based on the gener-ated atomic species and coordinates. 11 A.3 Construction of Local Coordinates for Building Blocks 
+
+To ensure that local coordinates remain consistent regardless of the building block’s initial global pose (SE(3) -invariance), we adopt the global-to-local transformation scheme introduced by Kim et al. (2024). This process first enforces translational invariance by subtracting the block geometric cen-troid to center the atomic coordinates. Rotational invariance is then achieved by aligning the building block with a deterministic local frame derived from Principal Component Analysis (PCA) axes, with sign ambiguity resolved using a mass-weighted reference vector. In addition, unit cell canonical-ization via Niggli reduction is applied prior to this transformation to ensure consistency across peri-odic representations. Details of this procedure can be found in Kim et al. (2024). 
+
+A.4 Rotation Representation A.4.1 Euler Angle Conversion 
+
+We adopt the extrinsic x-y-z convention, param-eterizing the rotation matrix R via roll ( ϕ), pitch (ω), and yaw ( ψ). The rotation matrix is composed as: 
+
+R = Rz (ψ)Ry(ω)Rx(ϕ) = 
+
+
+
+r11 r12 r13 
+
+r21 r22 r23 
+
+r31 r32 r33 
+
+
+
+(8) where 
+
+R =
+
+
+
+cψcω cψsωsϕ − sψcϕ cψsωcϕ + sψsϕ
+
+sψcω sψsωsϕ + cψcϕ sψsωcϕ − cψsϕ
+
+−sω cωsϕ cωcϕ
+
+
+
+(9) with c(·) = cos( ·) and s(·) = sin( ·).Given R, the Euler angles are recovered as: 
+
+ω = arcsin( −r31 ), ω ∈ [−π/ 2, π/ 2] 
+
+ϕ = arctan2( r32 , r 33 ), ϕ ∈ [−π, π ]
+
+ψ = arctan2( r21 , r 11 ), ψ ∈ [−π, π ]
+
+(10) where arctan2( y, x ) is the two-argument arctan-gent function which handles the quadrant of the angle. 
+
+A.4.2 Axis-angle Rotation Representation 
+
+We compare our Euler angle rotation representation with the axis-angle rotation vector, which has been successfully employed in autoregressive molecular structure generation (Fu et al., 2024). The Euler angle representation exhibits superior predictive              
+
+> Table 3: Additional ablation study on rotation repre-sentations . The axis–angle rotation vector is from Fu et al. (2024). Both models are fine-tuned via SFT from a Qwen-3 8B base model.
+> stol = 0 .5stol = 1 .0
+> MR (%) ↑RMSE ↓MR (%) ↑RMSE ↓
+> Euler-angle 34.55 0.2627 92.23 0.5034 Axis-angle 31.82 0.2727 91.11 0.5190
+
+accuracy compared to the axis-angle rotation vec-tor. In the axis–angle formulation, a 3D rotation is represented by a rotation vector obtained by multi-plying a unit rotation axis a = ( ax, a y, a z ) with a rotation angle ψ. Specifically, the rotation vector 
+
+m ∈ R3 is defined as 
+
+m = ( mx, m y, m z ) = ψa = ( ψa x, ψa y, ψa z ).
+
+(11) Specifically, the rotation angle is obtained by 
+
+ψ = cos −1
+
+ tr ( R) − 12
+
+
+
+, (12) and the rotation axis is calculated by 
+
+ax = ( r32 − r23 ) /2 sin ψ, ay = ( r13 − r31 ) /2 sin ψ, az = ( r21 − r12 ) /2 sin ψ. 
+
+(13) 
+
+A.5 Prompt Details 
+
+The detailed prompt templates for spatial-aware CPT are provided in Figure 4. To enhance prompt diversity, we rewrite the base template to generate 15 distinct variants using DeepSeek (DeepSeek-AI, 2024). The detailed SFT prompt templates are provided in Figure 5. 12 The 3D crystal structure of a metal-organic framework (MOF) is described. MOFs represent aclass of highly ordered porous materials that assemble modular architectures through metal node and organic linker connections. This metal-organic framework adopts the [Topo Code] topology, with the topology code defined as the standard symbol in the Reticular Chemistry Structure Resource (RCSR) database. [Topo Description]. The periodic lattice is specified by parameters: a = [a] Å, b = [b] Å, c = [c] Å, and angles α = [α]°, β = [β]°, γ = [γ]°. Each building block is treated as a rigid entity with a standardized local coordinate system. In the local frame, the main structural PCA axis is aligned with [1, 0, 0]. The local geometry of a block is encapsulated by the spatial extent of atoms along the primary axes in Å. Local properties of building blocks are provided: [0] SMILES=[SMILES], molecular  weight=[Molecular Weight], PCA  span=[PCA Span] [1] ... Global placement for each building block is defined in the lattice coordinate system, covering translation vectors, rotation angles, and the rotated main axis. The translation vector ([tx, ty, tz]) denotes the block's center position in the unit cell as fractional coordinates. Rotation angles ([roll pitch yaw]), expressed in radians via Euler angles, describe the block's orientation and the local main axis after rotation. Additionally, per block, the rotated main axis indicates the local main axis orientation following rotation. Specifics for each building block follow: [0] Translation=[Transaltion],  rotation=[Rotation], rotated main  axis=[Rotated Principal Axis] [1] .. 
+
+Continual Pre-training Prompt Template Figure 4: Base CPT prompt template. You are tasked with predicting the 3D crystal structure of a Metal-Organic Framework (MOF). MOFs are highly ordered porous materials formed by connecting metal-containing nodes with organic linkers, creating modular structures. 
+
+Given the SMILES of all MOF building blocks, predict the complete 3D crystal structure configuration including: Lattice parameters  in the format 'a b c α β γ' (where a, b, c are unit cell lengths, and α, β, γ are unit cell angles). 
+
+For each building block  (maintaining the exact same order as provided in the input): Translation vector  ([tx ty tz]): The position of the building block's center within the unit cell, expressed in fractional coordinates. Rotation angles  ([roll pitch yaw]): The orientation of the building block, represented in radians  using Euler angles. Output Format: First line: Lattice parameters, i.e.: a b c α β γ. Subsequent lines (one per building block): [k] tx ty tz roll pitch yaw k: The 0-based index of the building block. tx ty tz: Fractional coordinates within the unit cell. roll pitch yaw: Euler angles in radians. 
+
+Supervised Fine-tuning Prompt Template 
+
+Figure 5: SFT prompt template. 
+
+13

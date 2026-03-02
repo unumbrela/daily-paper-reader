@@ -1,0 +1,1737 @@
+Title: QUATRO: Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning
+
+URL Source: https://arxiv.org/pdf/2602.04620v2
+
+Published Time: Mon, 09 Feb 2026 02:02:03 GMT
+
+Number of Pages: 25
+
+Markdown Content:
+# QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+Doyeon Lee 1 Eunyi Lyou 1 Hyunsoo Cho 2 † Sookyung Kim 2 † Joonseok Lee 1 † Jaemoo Choi 1 3 †
+
+## Abstract 
+
+GRPO-style reinforcement learning (RL)-based LLM fine-tuning algorithms have recently gained popularity. Relying on heuristic trust-region ap-proximations, however, they can lead to brit-tle optimization behavior, as global importance-ratio clipping and group-wise normalization fail to regulate samples whose importance ratios fall outside the clipping range. We propose 
+
+Query-Adaptive Trust-Region policy Optimiza-tion (QUATRO ), which directly enforces trust-region constraints through a principled optimiza-tion. This yields a clear and interpretable ob-jective that enables explicit control over policy updates and stable, entropy-controlled optimiza-tion, with a stabilizer terms arising intrinsically from the exact trust-region formulation. Empir-ically verified on diverse mathematical reason-ing benchmarks, QUATRO shows stable training under increased policy staleness and aggressive learning rates, maintaining well-controlled en-tropy throughout training. 
+
+## 1. Introduction 
+
+Long-horizon reasoning like math and code has been con-sidered a bottleneck for LLMs, yet today’s frontier models have ascended to expert-level performance on the most so-phisticated benchmarks. This leap is fueled by reward-based fine-tuning (Guo et al., 2025a; Yang et al., 2025a), which enables the active and iterative refinement of a goal-directed policy beyond passive imitation of static data. In this setting, a critical challenge is ensuring that each update improves performance without destroying the model’s fundamental capabilities. Trust-region (TR) policy optimization (Schul-man et al., 2015) provides a natural framework for this 
+
+> 1
+
+Seoul National University 2Ewha Woman University 3Geogia Institute of Technology. Correspondence to: Jaemoo Choi 
+
+<jchoi843@gatech.edu >, Joonseok Lee <joonseok@snu.ac.kr >,Sookyung Kim <sookim@ewha.ac.kr >, Hyunsoo Cho <chohyun-soo@ewha.ac.kr >.
+
+Preprint. February 9, 2026. 
+
+by explicitly limiting the magnitude of each policy update, thereby preventing overly aggressive changes while allow-ing consistent improvement. This has motivated various practical RL fine-tuning algo-rithms that incorporate trust-region principles in simplified forms. Among them, Group Relative Policy Optimization (GRPO) (Shao et al., 2024) and Group-Scale Policy Opti-mization (GSPO) (Zheng et al., 2025a) have demonstrated strong empirical efficiency. They regulate policy updates through heuristic mechanisms, most notably importance-ratio clipping, instead of enforcing an explicit trust-region constraint. While empirically effective, GRPO and its vari-ants (Shao et al., 2024; Zheng et al., 2025a; Zhao et al., 2025) exhibit two major structural limitations that stem from heuristic approximations to trust-region policy optimization. First, GRPO is highly sensitive to optimization hyperparam-eters, and it often becomes unstable under policy staleness 
+
+due to its reliance on heuristic importance-ratio clipping. To constrain radical policy updates and keep the updated policy close to the one from the previous step, GRPO em-ploys heuristic importance-ratio clipping, when the policy abruptly changes above some predefined ratios exceed the clipping threshold. However, this mechanism induces the opposite-side issue of gradient masking ; that is, the cor-responding gradients are truncated and no longer provide corrective feedback toward the trust region (Zheng et al., 2025b; Chen et al., 2025a; Su et al., 2025b). Furthermore, existing methods apply a “one-size-fits-all” uniform trust-region constraint and deviation tolerance across queries, regardless of their intrinsic difficulty or un-certainty. Consequently, easy prompts that admit confident high-reward responses are rapidly over-amplified until they become deterministic, while complex reasoning tasks are deprived of the exploration budget they need to find cor-rect paths. This imbalance causes probability mass to ex-cessively concentrate on a small subset of responses (Wu et al., 2025; He et al., 2025; Bamba et al., 2025; Zheng et al., 2025b). Such a phenomenon forces the model to stop “searching” and instead fall into a repetitive rut, sacrificing the diversity of its reasoning through early deterministic be-havior, a failure mode widely observed in current RL-based LLM fine-tuning (He et al., 2025; Peng et al., 2025; Xi et al., 1
+
+> arXiv:2602.04620v2 [cs.LG] 6 Feb 2026 QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning
+
+2025; Wang et al., 2025b). In this paper, we propose a principled approach, Query-Adaptive Trust-Region policy Optimization ( QUATRO ),designed to overcome the structural instabilities of heuristic RL fine-tuning. Unlike previous methods that rely on ad-hoc clipping, we first formulate a query-conditioned trust-region problem that explicitly accounts for the heteroscedasticity of reasoning tasks. Specifically, we first formulate a query-conditioned trust-region problem that explicitly constrains policy updates in a manner suitable for large-scale LLM fine-tuning. From this, we derive an exact query-adaptive objective via a Lagrangian dual analysis, which directly enforces the trust-region (TR) constraint rather than through heuristic approximations. By optimizing the exact TR objective, QUATRO explicitly keeps each policy update within a controlled deviation from the previous policy. This direct enforcement largely elimi-nates the need for importance-ratio clipping, thereby resolv-ing the gradient masking problem and making the training process significantly more robust to off-policy staleness and learning-rate variations. Moreover, by preventing excessive amplification of high-reward trajectories in a single update, the trust-region constraint preserves exploration, thereby mitigates entropy collapse. We conduct extensive experiments to verify the effective-ness of our proposed method, on the mathematical reasoning task as a representative playground. Our method consis-tently improves the performance on Qwen2.5-Math mod-els (Yang et al., 2024), outperforming GRPO-style baselines in Pass@ k, achieving more prominent gain with a higher k.Beyond accuracy, it also exhibits stable training dynamics and strong robustness to key hyperparameters, including rollout reuse and learning-rate choices. To quantify the di-versity among generated solutions, we introduce Unique Correct Count (UCC@ k) metric, directly measuring the number of valid reasoning paths recalled by the model. We summarize our contributions as follows: • We propose a query-adaptive trust-region policy opti-mization method that consistently improves Pass@ k
+
+performance over GRPO-style algorithm, with gains increasing as the sampling budget ( k) grows. • The resulting objective admits a clear optimization in-terpretation , providing an analyzable control knob for regulating policy updates under policy staleness. • Our method achieves stable optimization dynamics , re-maining robust to policy staleness and learning rate varia-tions while maintaining controlled entropy and avoiding premature entropy collapse. 
+
+## 2. Trust-Region Policy Optimization 
+
+Originally developed in classical reinforcement learning, trust-region policy optimization plays a central role in LLM fine-tuning for reasoning (Schulman et al., 2015; 2017; Shao et al., 2024; Zheng et al., 2025a). We review the problem setup, representative approaches, and its limitations. 
+
+2.1. KL-Constrained Trust-Region Optimization 
+
+Let q denote an input query, and let a trajectory o =(o1, . . . , o |o|) be the response generated by the model. The sequence-level likelihood under a policy πθ is autoregres-sively factorized by 
+
+πθ (o | q) = 
+
+> |o|
+
+Y
+
+> t=1
+
+πθ (ot | q, o <t ), (1) where πθ denotes a stochastic autoregressive policy with learnable parameters θ, and o<t := ( o1, . . . , o t−1). A scalar reward R(o | q) is assigned to the entire trajectory. 
+
+Trust Region Policy Optimization (TRPO) (Schulman et al., 2015) formulates the RL problem as the maximization of a surrogate under a KL divergence constraint, ensuring that the policy updates remain within a trust region. For-mally, the TRPO problem is given by 
+
+max  
+
+> θ
+
+Eq Eo∼πold (·| q)
+
+ πθ (o | q)
+
+πold (o | q) R(o | q)
+
+
+
+,
+
+s.t. KL( πold ∥ πθ ) ≤ δ, or KL( πθ ∥ πold ) ≤ δ, 
+
+(2) where δ > 0 specifies the maximally allowed deviation be-tween the updated policy πθ and the reference policy πold ,measured by the expected KL divergence. The optimiza-tion in Eq. (2) is performed iteratively. At each iteration, trajectories are sampled from a fixed sampling (reference) policy πold , and the target policy πθ is optimized under the trust-region constraint. After each update, the reference policy is set to the updated policy, i.e. , πold ← πθ .
+
+Group Relative Policy Optimization (GRPO) (Shao et al., 2024) is a widely used algorithm for empirically optimiz-ing KL-regularized policy objectives in LLM fine-tuning. GRPO is closely related to trust-region policy optimization in that it aims to regulate policy updates and limit devia-tion from a reference policy, but it achieves this through heuristic mechanisms rather than by enforcing an explicit KL-divergence constraint. In practice, for each query or prompt q, GRPO samples multiple output trajectories {o(i)}Ni=1 ∼ πold (· | q) from the reference (sampling) policy. Learning signals are con-structed by comparing rewards across these rollouts, which enable efficient and scalable training. The GRPO objective is given by 
+
+L = − E 
+
+> o(i)
+> t∼πold
+
+min  ritAi, clip  rit, 1 − ε, 1 + ε Ai , (3) 2QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning  
+
+> Figure 1. Limitations of importance-ratio clipping of GSPO
+> Training dynamics of GSPO under increasing learning rates (a) and repeated offline inner-loop updates (b), plotted as training steps.
+
+where ε is a clipping hyperparameter to limit policy devia-tion, and the token-level importance ratio is defined as 
+
+rit(o(i) | q) = πθ (o(i) 
+
+> t
+
+| q, o (i)
+
+> <t
+
+)
+
+πold (o(i) 
+
+> t
+
+| q, o (i)
+
+> <t
+
+) . (4) The group-relative advantage Ait is computed by normaliz-ing trajectory-level rewards within the group of rollouts: 
+
+Ai = Ri − mean( R1, . . . , R N )std( R1, . . . , R N ) , (5) where Ri = R(o(i) | q). This group-based normalization removes the need for explicit value estimation and provides variance reduction in large-scale training. 
+
+Grouped Sequence Policy Optimization (GSPO) (Zheng et al., 2025a) modifies the token-level importance ratio with a sequence-level importance ratio to better align with sequence-level rewards. Specifically, GSPO defines a sequence-level importance ratio of the form 
+
+si(o(i) | q) = 
+
+ πθ (o(i) | q)
+
+πold (o(i) | q)
+
+ 1
+
+> |o(i)|
+
+= exp 
+
+ 1
+
+|o(i)|
+
+> |o(i)|
+
+X
+
+> t=1
+
+log πθ (o(i) 
+
+> t
+
+| q, o (i)
+
+> <t
+
+)
+
+πold (o(i) 
+
+> t
+
+| q, o (i)
+
+> <t
+
+)
+
+ .
+
+By substituting sit into rit in Eq. (3), we obtain GSPO loss: 
+
+L = − E 
+
+> o(i)
+> t∼πold
+
+min  sitAi, clip  sit, 1 − ε, 1 + ε Ai . (6) Despite improved alignment with sequence-level rewards, GSPO continues to rely on heuristic clipping and does not explicitly enforce a KL constraint in Eq. (2). 
+
+2.2. Limitations of Existing Trust-Region Methods Heuristic Importance-ratio Clipping. Many GRPO-style RL fine-tuning methods (Schulman et al., 2017; Yang et al., 2025b; Ren et al., 2025; Yu et al., 2025) attempt to regulate policy updates through heuristic importance-ratio clipping (Eq. (3) ). In these methods, policy updates are gov-erned by a clipped surrogate objective with a fixed threshold 
+
+ε, such that the importance ratio is truncated whenever it ex-ceeds the prescribed range ( i.e. , si(o | q) /∈ [1 − ε, 1 + ε]). In this regime, the loss no longer varies with the actual value of si(o | q), meaning that deviations beyond the clip-ping range are ignored during optimization. As a result, importance-ratio clipping does not control policy updates once the threshold is exceeded and does not capture how far the current policy has drifted from the sampling policy. 
+
+Sensitivity to Hyperparameters and Policy Staleness. As discussed, samples with importance ratios outside the clip-ping range escape regulation, leading to training instability. Such out-of-range samples become more frequent as policy staleness increases, where staleness refers to the mismatch between the current policy πθ and the sampling policy πold .In practice, policy staleness can arise in two common sce-narios: 1) using a large learning rate, which promotes larger policy updates, and 2) reusing rollout samples, which in-creases the discrepancy between the sampling and update policies. To empirically validate this behavior, we evaluate GSPO under both conditions. Specifically, we 1) increase the learning rate and 2) increase the number of optimization steps performed on each sampled response, which we refer to as the number of inner-loop updates . Fig. 1 shows that the performance unstably degrades as either the learning rate or the number of inner-loop updates increases. This degrada-tion coincides with a sharp rise in the fraction of samples whose importance ratios are clipped (middle rows in Fig. 1). These results support our hypothesis that uncontrolled out-of-range samples contribute to training instability. 
+
+Entropy Collapse and Mode Concentration. As the num-ber of inner-loop updates increases for a query q, a grow-ing fraction of samples enters the clipped regime, funda-mentally altering the learning dynamics. In this regime, group-normalized query-wise advantages exhibit a winner-takes-all behavior: a small subset of responses consistently attains higher relative advantages and is repeatedly rein-forced across inner-loop updates, leading to pronounced mode concentration. Meanwhile, importance-ratio clipping suppresses gradient updates for samples that substantially deviate from the reference policy, including low-probability but potentially informative responses, thereby restricting effective exploration. The interaction between advantage concentration and selective gradient suppression progres-sively reduces response diversity, resulting in a rapid decline in policy entropy, eventually leading to entropy collapse as 3QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+in the bottom rows in Fig. 1. This failure mode highlights a structural limitation of GRPO: the absence of a query-adaptive mechanism to balance exploration and exploitation beyond query-wise group averaging. 
+
+## 3. Method 
+
+We propose to reformulating the RL fine-tuning for LLMs as a query-adaptive trust-region policy optimization problem ,to address the limitations identified in Sec. 2.2. Rather than relying on heuristic approximations to control policy up-dates, we propose to directly impose explicit KL-divergence constraints conditioned on each query (Sec. 3.1). Starting from this formulation, we derive a novel exact trust-region objective using Lagrangian duality. The resulting objective provides a principled optimization framework that explic-itly controls how much each query contributes to the policy update based on its reward under the current policy. Interest-ingly, the resulting objective resembles a GSPO-style one with minor modifications. (Sec. 3.2) Lastly, we wrap up this section with intuitive explanation for the role of each component in the new objective (Sec. 3.3). 
+
+3.1. Prompt-wise Trust-Region Policy Optimization Problem Setting. For each query, condition, or prompt q,our goal is to maximize the trajectory-level reward R(o | q)
+
+while ensuring that the updated policy does not deviate too far from the previous policy. This leads to a prompt-conditioned trust-region optimization problem: 
+
+sup 
+
+> πθ
+
+Eo∼πθ (·| q)[R(o | q)] 
+
+s.t. KL( πθ (· | q) ∥ πold (· | q)) ≤ δ, 
+
+(7) where δ > 0 controls the allowed policy deviation. This constraint is enforced independently for each prompt, pro-viding explicit and continuous control over prompt-wise policy updates. 
+
+Dual Formulation. The optimization problem in Eq. (7) in-volves two constraints. The first is the trust-region constraint on the KL divergence, and the second is the normalization constraint requiring πθ (· | q) to be a valid probability distri-bution, i.e. , R πθ (o | q) d o = 1 . Introducing dual variables 
+
+λq ≥ 0 and μq ∈ R for these constraints, respectively, we obtain the following Lagrangian: 
+
+Lq (π, λ q , μ q ) = E
+
+> o∼π(·| q)
+
+[R(o | q)]+ λq (δ − KL( π∥πold )) + μq
+
+
+
+1 −
+
+Z
+
+π(o | q) d o
+
+
+
+. (8) For fixed λq and μq , taking the first variation of Eq. (8) with respect to π yields the optimal policy Eq. (7) = min  
+
+> π
+
+max  
+
+> λq≥0, μ q
+
+Lq (π, λ q , μ q )= max  
+
+> λq≥0, μ q
+
+min  
+
+> π
+
+Lq (π, λ q , μ q ). (9) Given λq and μq , by taking first variation with respect to π,we obtain the following optimality condition for the inner optimization problem of Eq. (9): 
+
+argmin 
+
+> π
+
+Lq (π, λ q , μ q ) = πold (o | q)e R(o|q)−μq λq −1. (10) Now, by taking derivative with respect to dual variables μq
+
+and λq , we can derive the following property: 
+
+Proposition 3.1. Let function fq : R → R be defined as 
+
+fq (λ) = λ
+
+
+
+δ + log E 
+
+> o∼πold (·| q)
+
+exp 
+
+ R(o | q)
+
+λ
+
+ 
+
+. (11) 
+
+Given that 
+
+λ⋆q := min  
+
+> λ≥0
+
+fq (λ), μ⋆q := fq (λ⋆q ) − λ⋆q (δ + 1) , (12) 
+
+the following holds: 
+
+π⋆(o | q) = πold (o | q) exp 
+
+ R(o | q) − μ⋆q
+
+λ⋆q
+
+− 1
+
+
+
+. (13) Detailed discussion and proof is provided in Appendix A. 
+
+Remark 3.2. The optimal dual variable λ⋆q acts as a query-specific regularization parameter that controls the sharpness of the policy update. When the reward distribution under query q exhibits high variance, the log-partition term in Eq. (11) increases, leading to a larger optimal λ⋆q . This results in a flatter exponential weighting and therefore a more conservative policy update. Conversely, prompts with more concentrated or stable reward distributions ad-mit smaller λ⋆q , allowing sharper updates. This automatic, prompt-dependent calibration of update magnitude is a di-rect consequence of solving the trust-region problem exactly, and cannot be achieved by global or heuristic KL penalties. We further discuss the role of each term in Sec. 3.3. 
+
+3.2. Objective Function and Algorithm Objective Function. We now consider a parametric ob-jective whose solution corresponds to the projection of the optimal policy π⋆.
+
+Theorem 3.3 (QUATRO Objective) . Given a prompt q and 
+
+{o(i)}Ni=1 , consider the following objective: 
+
+Lq
+
+
+
+{o(i)}Ni=1 
+
+
+
+= −
+
+> N
+
+X
+
+> i=1
+
+ πθ (o(i) | q)
+
+πold (o(i) | q)
+
+·
+
+
+
+Aiq − log 
+
+ π¯θ (o(i) | q)
+
+πold (o(i) | q)
+
+  
+
+, (14) 4QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+where π¯θ denotes a gradient-detached version of πθ and 
+
+Aiq = R(o(i) | q) − μ⋆q
+
+λ⋆q
+
+− 1. (15) 
+
+Then, the optimal policy π⋆ in Eq. (13) can be written as 
+
+π⋆ = argmin 
+
+> πθ
+
+E
+
+> {o(i)}Ni=1 ∼πold (·| q)
+
+Lq
+
+
+
+{o(i)}Ni=1 
+
+
+
+. (16) 
+
+Remark 3.4 (Connection to GSPO) . Consider a simplified version of Eq. (14) in which the log-ratio term log  π¯θ /π old 
+
+
+
+is removed and the GSPO advantage is substituted for 
+
+A(i) 
+
+> q
+
+. Under this modification, and with the addition of importance-ratio clipping, the resulting update reduces ex-actly to the GSPO objective. Therefore, the difference from GSPO is mainly that, our formulation retains the log-ratio term and with the advantage derived from the exact trust-region optimization instead of clipping. This term provides a principled mechanism for regulating policy updates, al-lowing the optimization to actively control deviations from the reference policy without relying on clipping. We further discuss the interpretation of this term in Sec. 3.3. Many RL-based LLM post-training objectives regularize policy updates using a KL-divergence penalty to prevent excessive deviation from a pretrained model (Aminian et al., 2025; Ouyang et al., 2022; Rafailov et al., 2023). As our formulation similarly imposes a KL-divergence constraint, the resulting objective admits an optimal policy that can be interpreted as a geometric interpolation between the TR optimal policy π⋆ and the pretrained model πpre .
+
+Theorem 3.5. Consider the following loss functional: 
+
+E
+
+> {o(i)}Ni=1 ∼πold (·| q)
+
+Lq
+
+
+
+{o(i)}Ni=1 
+
+
+
++ βKL( πθ | πpre ), (17) 
+
+where πpre is a pretrained LLM model. Then, the optimal policy π⋆ 
+
+> kl
+
+obtained from minimization of Eq. (17) is 
+
+π⋆
+
+> kl
+
+(· | q) ∝ π⋆(· | q) 1 
+
+> β+1
+
+πpre (· | q) ββ+1 . (18) The proofs are provided in Appendix A. 
+
+Approximating the Adjoint Variables. We approxi-mate the adjoint variables using Monte Carlo samples 
+
+{o(i)}Ni=1 ∼ πold (· | q) drawn from the reference (old) policy. Specifically, the dual objective fq in Eq. (11) is approximated by its empirical counterpart: 
+
+fq (λq ) ≈ λq δ + log 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+exp 
+
+ R(o(i) | q)
+
+λq
+
+!
+
+. (19) We then obtain the optimal dual variable λ⋆q by minimizing Eq. (19) . Computational overhead of this optimization is negligible, as it reduces to a scalar optimization. 
+
+Algorithm 1 Adaptive Trust-Region Policy Optimization 
+
+Require: Initial pretrained policy πpre , a reward model R, a prompt dataset D, the number of rollouts per prompt N , and a TR radius δ, the number of inner-loop update K.1: Initialize πθ ← πpre .2: for iterations do 
+
+3: Sample a batch of prompts Db ⊂ D .4: Update old policy model πold ← πθ
+
+5: Sample {o(i)}Ni=1 ∼ πold (· | q) for q ∈ D b
+
+6: Ri ← R(o(i)|q) for each i ∈ { 1, . . . , N } and q ∈ D b.7: Optimize (λ⋆q , μ ⋆q ) following eq. (19) for every q ∈ D b.8: Compute advantages: Aiq = 1
+
+> λ⋆q
+
+(Ri − μ⋆q ) − 1.9: Update policy πθ by maximizing eq. (17) for K times. 10: end for 
+
+11: Return πθ
+
+Figure 2. Prompt-wise update magnitude (left) and training-time evolution of the Lagrange multiplier λ under different δ (right). 
+
+Algorithm. As shown in Alg. 1, for each query q, we collect samples {o(i)}Ni=1 from πold and compute rewards 
+
+{Ri}Ni=1 for each sample, respectively. Then, we optimize dual variables to obtain (λ∗ 
+
+> q
+
+, μ ∗ 
+
+> q
+
+) by using Eq. (19) . Then, we compute advantage Aiq by Eq. (15) , then minimize the loss Eq. (17) for the number of inner-loops K.
+
+3.3. Interpretation and Key Observations Role of Log-Ratio Term. We now examine the role of the term log πiθ
+
+> πi
+> old
+
+in Eq. (14) , where πi := π(o(i) | q).Considering the sign of the quantity Aiq − log πθ (o(i)|q) 
+
+> πold (o(i)|q)
+
+,
+
+Aiq − log πiθ
+
+πi
+
+> old
+
+≤ 0 ⇐⇒ π⋆(o(i)|q) := eAiq πi 
+
+> old
+
+≤ πiθ ,
+
+the loss decreases the probability assigned by the current policy πθ . That is, when πθ assigns higher probability than the TR optimal policy π⋆, the update acts to suppress this overestimation. Conversely, when Aiq − log πθ (o(i)|q) 
+
+> πold (o(i)|q)
+
+≥ 0,the update increases πθ (o(i) | q), pushing the policy toward 
+
+π⋆. In both cases, our loss provides a symmetric correction that steers the current policy toward the trust-region optimal policy without relying on heuristic clipping. Therefore, the log-ratio term serves as a stabilizer that adaptively regulates policy updates by counteracting over- and under-estimation relative to the trust-region optimum. 5QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+Table 1. Average Pass@ k over six mathematical reasoning benchmarks (MATH500, AMC23, AIME24, AIME25, Minerva-Math, and OlympiadBench). Our method shows increasing gains as the number of samples k grows.                                                                                                         
+
+> Method 124816 32 64 128 256
+> Qwen2.5-Math-1.5B
+> GRPO 31.66 37.28 42.15 46.29 49.79 53.14 56.62 60.42 64.36 GPG 32.03 37.71 42.63 46.77 50.20 53.41 56.85 60.57 64.25 GMPO 32.17 37.83 42.78 47.01 50.49 53.56 56.72 60.10 63.85 GSPO 32.15 37.56 42.36 46.53 50.13 53.24 55.92 58.29 60.85 Ours δ=0 .132.63 38.26 42.90 46.75 50.23 53.63 57.12 60.61 63.65 Ours δ=0 .01 31.02 37.12 42.45 47.04 51.02 54.67 58.11 61.75 65.79 Ours δ=0 .001 29.73 36.18 41.91 46.96 51.52 55.82 59.96 64.10 68.68 Qwen2.5-Math-7B
+> GSPO 40.05 45.34 49.53 53.08 56.24 59.02 61.45 63.65 65.70 Ours δ=0 .01 40.08 46.14 51.00 55.11 58.77 62.18 65.55 68.84 71.72 Ours δ=0 .001 37.82 44.38 49.67 54.29 58.59 62.58 66.38 70.02 73.41
+
+Figure 3. Entropy dynamics comparison across training steps .The baseline exhibits a steady entropy collapse, while our method maintains it at a controlled and stable level throughout training. 
+
+Role of Dual Variables (λ⋆, μ ⋆). In GRPO and GSPO, the advantage Ai is implicitly controlled through heuris-tic reward normalization, typically using group-wise statis-tics Ai = Ri−mean( Ri)std( Ri) . In contrast, our method con-trols the advantage via the dual variables (λ⋆q , μ ⋆q ), yielding 
+
+Aiq = Ri−(λ⋆q +μ⋆q )
+
+> λ⋆q
+
+as shown in Eq. (15) . From this perspec-tive, λ⋆q plays a role analogous to the standard deviation term in GRPO or GSPO, but its scale is jointly determined by the trust-region radius δ and the reward distribution {Ri}
+
+for each query q, rather than by heuristic normalization. Fi-nally, the trust-region bound δ directly regulates the update magnitude; a larger δ yields a smaller λ⋆q , amplifying the advantage, allowing larger policy updates. This aligns with the intuition that a looser trust-region constraint permits more aggressive updates, while a tighter bound enforces more conservative policy changes. Fig. 2 shows that the trust-region budget δ explicitly controls update magnitude through the dual variable λ. Tighter trust regions induce larger values of λ, resulting in uniformly attenuated prompt-wise advantages. As a consequence, up-date magnitude decreases as the number of correct rollouts increases, with smaller δ consistently yielding more conser-vative policy updates. 
+
+## 4. Experiments 
+
+4.1. Experimental Setup Task and Datasets. We evaluate our method on the math-ematical reasoning task. Specifically, we fine-tune pre-trained Qwen2.5-Math-1.5B and Qwen2.5-Math-7B (Yang et al., 2024) models on the full MATH (Hendrycks et al., 2021; Lightman et al., 2023) dataset, consist-ing of 7,500 problems, and evaluate on six mathemat-ical benchmarks: MATH500 (Hendrycks et al., 2021), AMC23 (MAA, 2023), AIME24/25 (MAA, 2025), M IN - 
+
+> ERVA
+
+MATH (Lewkowycz et al., 2022), and O LYMPIAD -BENCH (Huang et al., 2024). 
+
+Baselines. We compare against GRPO (Shao et al., 2024), GPG (Chu et al., 2025), GSPO (Zheng et al., 2025a), and GMPO (Zhao et al., 2025) as baselines. 
+
+Evaluation Metrics. We measure the standard unbiased Pass@ k metric (Chen, 2021; Peng et al., 2025), indicating the hit ratio of problems with k chances to answer, using 
+
+k ∈ { 1, 2, 4, 8, 16 , 32 , 64 , 128 , 256 }. Formally, Pass@ k is defined as E 1 −  n−ck
+
+/ nk
+
+ , where c denotes the number of correct completions out of n sampled responses. Follow-ing prior work, we use n = 256 for all datasets. Although Pass@ k has been used as a standard metric for evaluating stochastic mathematical reasoning models, it does not distinguish between discovering multiple distinct correct solutions v.s. repeatedly generating the same correct solution, as it just measures whether at least one correct an-swer has been found among the k trials. To address this lim-itation, we introduce a new metric named Unique Correct Count (UCC)@ k, which measures the number of unique correct solutions observed among the k samples. To deter-mine if two answers are identical, we group semantically identical correct answers into clusters, since a naive text match would not catch nearly identical but slightly different ones. We adopt a commonly-used text similarity metrics, 
+
+e.g. , TF-IDF cosine similarity, where each cluster corre-sponds to a distinct reasoning solution. (See more similarity metrics in Appendix C.5.) Formally, UCC@ k is defined as 
+
+UCC@ k =
+
+> m
+
+X
+
+> j=1
+
+1 −
+
+ n−sj
+
+> k
+
+ nk
+
+!
+
+, (20) where n is the total number of generated samples, sj is the number of samples belonging to the j-th correct cluster. The term inside the summation corresponds to the probability that at least one sample from the cluster j is included in the given k samples. In this sense, UCC@ k complements Pass@ k by capturing the diversity of correct solutions , pro-viding a more faithful indicator of reasoning robustness. 
+
+Implementation Details. For each query, we generate 8 rollouts per prompt, with maximum response lengths of 6QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+Table 2. UCC@ k across six mathematical reasoning benchmarks (MATH500, AMC23, AIME24, AIME25, MinervaMath, and Olympiad-Bench). Higher values indicate a larger number of unique correct solutions.                                                                                                                                                
+
+> Dataset 32 64 128 256 GRPO GPG GMPO GSPO Ours GRPO GPG GMPO GSPO Ours GRPO GPG GMPO GSPO Ours GRPO GPG GMPO GSPO Ours MATH500 4.04 10.76 5.30 5.20 13.17 6.29 20.37 9.10 8.86 25.65 10.00 38.66 15.89 15.30 49.97 16.17 73.25 27.98 26.66 97.20
+> AMC23 5.40 11.83 6.95 7.27 13.23 9.20 22.71 12.48 13.14 25.96 15.76 43.71 22.86 24.02 51.09 27.02 84.05 42.38 44.02 100.62
+> AIME24 1.88 3.68 2.82 2.48 3.77 3.22 7.16 5.12 4.53 7.47 5.53 13.92 9.31 8.31 14.80 9.60 27.03 16.87 15.13 29.33
+> AIME25 0.83 1.57 1.37 1.26 1.36 1.42 3.04 2.53 2.32 2.67 2.44 5.93 4.70 4.32 5.27 4.20 11.57 8.73 8.07 10.43
+> MinervaMath 2.14 2.99 2.30 2.38 3.24 3.87 5.70 4.22 4.35 6.30 7.03 10.92 7.80 8.01 12.25 12.80 20.87 14.44 14.80 23.79
+> OlympiadBench 2.99 5.00 3.35 3.52 15.80 5.28 9.51 6.09 6.43 11.32 9.43 18.14 11.15 11.84 22.08 16.93 34.61 20.48 21.89 42.97
+
+Figure 4. Robustness to policy staleness and aggressive updates. Both increased offline inner-loop updates (a) and larger learning rates (b) amplify policy mismatch, leading GSPO to unstable rewards and entropy collapse. In contrast, our method remains stable across these settings, enabled by explicit trust-region control and the log-ratio stabilizer (c). 
+
+1,024 and 3,072 tokens for the 1.5B and 7B models, respec-tively. We set the batch size to 256 and learning rate to 10 −6.We use the AdamW optimizer. We use top-p 1.0 at training, and top-p 0.7 at evaluation, set the temperature to 1.0. See Tab. I in Appendix B for more hyperparameter settings. 
+
+4.2. Results and Analysis Overall Performance. We first evaluate overall reasoning accuracy using the standard Pass@ k metric. Tab. 1 reports the Pass@ k scores averaged over all benchmarks, follow-ing Peng et al. (2025). (See Tab. II in Appendix C.3 for dataset-wise results.) Across all datasets and model scales (1.5B and 7B), our method consistently outperforms all other baselines, with the performance gap becoming more pronounced with larger k. Specifically, a larger δ results in a smaller λ, which sharply emphasizes reward differences and reinforces dominant correct solution patterns, leading to higher accuracy. Conversely, a smaller δ tends to yield a larger λ (see Appendix C.1), which smooths reward dif-ferences and maintains multiple valid reasoning trajectories, increasing solution diversity. By adjusting δ, we can ex-plicitly choose the desired policy behavior depending on whether accuracy ( exploitation ) or diversity ( exploration ) is prioritized. Additionally, we included the flip-rate analysis, Appendix C.7, measuring the fraction of queries that tran-sition from unsolved under the base policy to solved after fine-tuning, and analysis of unique correct answer ratios under varying decoding temperatures. 
+
+Entropy Stability and Optimization Behavior. Beyond the accuracy, we measure token-level policy entropy dur-ing generation to track diversity throughout training (see Appendix C.2 for formal definition). As shown in Fig. 3, the baseline such as GSPO exhibits rapid entropy collapse, converging to extremely low entropy early at training. In contrast, our method maintains stable entropy throughout the training, without suffering from premature distribution sharpening. This behavior aligns with prior reports that the entropy collapse is closely linked to reduced exploration and degraded reasoning robustness (Chen et al., 2025b; He et al., 2025). By explicitly regulating the update through a principled trust-region formulation, our method achieves stable optimization without relying on heuristic clipping, leading to a more reliable training. 
+
+Diversity in UCC@ k. Tab. 2 reports UCC@ k with k ∈{32 , 64 , 128 , 256 } (results with smaller k available in Ap-pendix C.4) across the six benchmarks. Across all datasets and sampling budgets, our method consistently achieves significantly higher UCC@ k than the baselines. A higher 7QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+UCC@ k implies that the model generates diverse correct reasoning paths ( i.e. , a larger number of unique correct so-lutions ), rather than repeated variations of a single solution. We further provide a complementary analysis of output di-versity by measuring multiple pairwise similarity metrics among correct answers ( e.g. , ROUGE-L and token-level Jac-card similarity), with qualitative examples in Appendix C.6. 
+
+4.3. Stability Analysis 
+
+Motivated by failure case in Sec. 2.2 and Fig. 1, we evaluate the robustness of our method under increasingly aggressive optimization regimes, including greater policy staleness, and larger update steps. Our experiments validate that our method remains robust as the mismatch between the sam-pling policy and the updated policy grows. 
+
+Stability under Policy Staleness. Increasing the number of inner-loop updates is a common strategy to improve sam-ple efficiency by reusing collected rollouts. However, this inevitably increases policy staleness, which often leads to instability in clipping-based methods. As shown in Fig. 4 (a), our method remains stable as the number of inner-loop updates increases, whereas baseline methods exhibit reward degradation or collapse. 
+
+Stability under Large Learning Rates. We next examine robustness under aggressive step sizes by increasing the learning rate, a common approach to accelerate convergence and reduce training time. Fig. 4(b) shows that our method tolerates significantly larger learning rates without instabil-ity, while baseline methods quickly diverge. This robustness allows for faster convergence in practice, demonstrating that our trust-region formulation supports both stability and efficient optimization under aggressive learning settings. 
+
+Role of the Log-Ratio Penalty. As discussed in Sec. 3.3, the log-ratio term is theoretically motivated to mitigate re-ward over-estimation. To rigorously evaluate the stabilizing property of the log-ratio penalty, we conduct the ablation in a high variance regime ( δ = 0 .1, two inner-loop up-dates), chosen to induce the instabilities during aggressive policy optimization. Fig. 4(c) empirically confirms this ef-fect: removing the log-ratio term leads to reward collapse accompanied by abrupt spikes in KL divergence. In contrast, incorporating the log-ratio penalty yields stable reward im-provement with well-controlled KL dynamics, validating its stabilizing role in practice. 
+
+## 5. Related Work 
+
+Several recent works aim to improve the stability of GRPO-style critic-free training for reasoning LLMs (Shao et al., 2024; Liu et al., 2025; Chu et al., 2025; Zheng et al., 2025a; Zhao et al., 2025). Prior analyses show that GRPO-style methods are prone to instability and distribution sharp-ening, particularly under stale samples or aggressive up-dates. (Liu et al., 2025; Mroueh et al., 2025). To mit-igate this, existing approaches regulate exploration dy-namics through heuristic mechanisms, including modified importance-weight clipping, gradient-preserving updates, and second-moment–based constraints (Yu et al., 2025; Su et al., 2025a;b; Chen et al., 2025a; Deng et al., 2025; Yang et al., 2025b; Xi et al., 2025; Zheng et al., 2025b). Other works incorporate uncertainty- or entropy-aware reweight-ing into the advantage signal, leveraging semantic uncer-tainty estimation, entropy–gradient coupling, or entropy-modulated objectives to temper aggressive updates (Chen et al., 2025b; Wang et al., 2025b; Cheng et al., 2025; Zhang et al., 2025b; Wang et al., 2025a). Other works introduce entropy regularization via covariance-based penalties or activation-level constraints to stabilize gradient flow with-out directly modifying the policy objective (Cui et al., 2025; Kang et al., 2025). Collectively, these methods stabilize RL training by heuristically shaping entropy dynamics. A related line of work addresses imbalance in learning sig-nals across queries with heterogeneous difficulty and reward sparsity. These methods adjust advantage baselines, loss weighting, or sampling strategies based on reward statistics, confidence, quantiles, or uncertainty to emphasize difficult or informative queries (Wu et al., 2025; Ren et al., 2025; He et al., 2025; Zhang et al., 2025a; Chen et al., 2025d; Bamba et al., 2025; Chen et al., 2025c; Zhang et al., 2025c). To improve robustness under partial off-policy sampling, sev-eral approaches adopt heuristic trust-region approximations (Zheng et al., 2025b; Deng et al., 2025; Roux et al., 2025; Fu et al., 2025; Arnal et al., 2025). In contrast, KL-regularized policy gradient methods provide a more principled founda-tion for controlling policy deviation (Zhang et al., 2025d). However, existing trust-region and KL-regularized methods rely on global hyperparameters, lacking query-conditioned control for instance-level optimization. We instead formu-late RLVR as a query-wise constrained problem and derive a closed-form update with query-specific dual variables, enabling principled trust-region control. 
+
+## 6. Conclusion 
+
+QUATRO is a query-adaptive trust-region policy optimiza-tion framework that enforces per-query KL constraints via dual updates, stabilizing training, preserving policy entropy, and eliminating the need for importance-ratio clipping. Our experiments show that QUATRO outperforms GRPO-style baselines in Pass@ k, with larger gains at higher k, main-taining stable entropy under policy staleness and aggressive learning rates. We discover that these improvements arise from increased diversity among correct solutions rather than repeated sampling of identical answers. 8QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+## Impact Statement 
+
+This paper aims to advance the field of machine learning by improving the stability and robustness of reinforcement learning methods for training large language models. By mitigating known failure modes such as mode collapse and training instability, our work may contribute to more reli-able deployment of reasoning-capable models. We do not anticipate specific negative ethical or societal impacts be-yond those already studied in the context of large language models. 
+
+## References 
+
+Abdolmaleki, A., Lioutikov, R., Peters, J. R., Lau, N., Pualo Reis, L., and Neumann, G. Model-based relative entropy stochastic search. NIPS , 2015. Aminian, G., Asadi, A. R., Shenfeld, I., and Mroueh, Y. Theoretical analysis of kl-regularized rlhf with multiple reference models. In Workshop on Models of Human Feedback for AI Alignment , 2025. Arnal, C., Narozniak, G., Cabannes, V., Tang, Y., Kempe, J., and Munos, R. Asymmetric reinforce for off-policy reinforcement learning: Balancing positive and negative rewards. arXiv:2506.20520 , 2025. Auslender, A. and Teboulle, M. Lagrangian duality and related multiplier methods for variational inequality prob-lems. SIAM Journal on Optimization , 10(4):1097–1115, 2000. Bamba, U., Fang, M., Yu, Y., Zheng, H., and Lai, F. XRPO: Pushing the limits of grpo with targeted exploration and exploitation. arXiv:2510.06672 , 2025. Blessing, D., Berner, J., Richter, L., Domingo-Enrich, C., Du, Y., Vahdat, A., and Neumann, G. Trust region con-strained measure transport in path space for stochastic optimal control and inference. arXiv:2508.12511 , 2025. Boyd, S. and Vandenberghe, L. Convex optimization . Cam-bridge university press, 2004. Chen, A., Li, A., Gong, B., Jiang, B., Fei, B., Yang, B., Shan, B., Yu, C., Wang, C., Zhu, C., et al. MiniMax-M1: Scaling test-time compute efficiently with lightning attention. arXiv:2506.13585 , 2025a. Chen, M. Evaluating large language models trained on code. 
+
+arXiv:2107.03374 , 2021. Chen, M., Chen, G., Wang, W., and Yang, Y. Seed-GRPO: Semantic entropy enhanced grpo for uncertainty-aware policy optimization. arXiv:2505.12346 , 2025b. Chen, W., Koenig, S., and Dilkina, B. LSPO: Length-aware dynamic sampling for policy optimization in llm reason-ing. arXiv:2510.01459 , 2025c. Chen, X., Li, T., and Zou, D. On the mechanism of rea-soning pattern selection in reinforcement learning for language models. arXiv:2506.04695 , 2025d. Cheng, D., Huang, S., Zhu, X., Dai, B., Zhao, W. X., Zhang, Z., and Wei, F. Reasoning with exploration: An entropy perspective. arXiv:2506.14758 , 2025. Choi, J., Choi, J., and Kang, M. Generative modeling through the semi-dual formulation of unbalanced optimal transport. NeurIPS , pp. 42433–42455, 2023. Choi, J., Choi, J., and Kang, M. Scalable wasserstein gra-dient flow for generative modeling through unbalanced optimal transport. In ICML , pp. 8629–8650, 2024. Chu, X., Huang, H., Zhang, X., Wei, F., and Wang, Y. Gpg: A simple and strong reinforcement learning baseline for model reasoning. arXiv:2504.02546 , 2025. Cui, G., Zhang, Y., Chen, J., Yuan, L., Wang, Z., Zuo, Y., Li, H., Fan, Y., Chen, H., Chen, W., et al. The entropy mech-anism of reinforcement learning for reasoning language models. arXiv:2505.22617 , 2025. Deng, W., Ren, Y., Li, Y., Gong, B., Sutherland, D. J., Li, X., and Thrampoulidis, C. Token hidden reward: Steering exploration-exploitation in group relative deep reinforcement learning. arXiv:2510.03669 , 2025. Evans, L. C. Partial differential equations , volume 19. American mathematical society, 2022. Fu, W., Gao, J., Shen, X., Zhu, C., Mei, Z., He, C., Xu, S., Wei, G., Mei, J., Wang, J., et al. AReaL: A large-scale asynchronous reinforcement learning system for language reasoning. arXiv:2505.24298 , 2025. Guo, D., Yang, D., Zhang, H., Song, J., Zhang, R., Xu, R., Zhu, Q., Ma, S., Wang, P., Bi, X., et al. Deepseek-r1: In-centivizing reasoning capability in llms via reinforcement learning. arXiv:2501.12948 , 2025a. Guo, W., Choi, J., Zhu, Y., Tao, M., and Chen, Y. Proximal diffusion neural sampler. ICLR , 2025b. He, A. W., Fried, D., and Welleck, S. Rewarding the un-likely: Lifting grpo beyond distribution sharpening. In 
+
+EMNLP , pp. 25559–25571, 2025. Hendrycks, D., Burns, C., Kadavath, S., Arora, A., Basart, S., Tang, E., Song, D., and Steinhardt, J. Measuring mathematical problem solving with the math dataset. 
+
+arXiv:2103.03874 , 2021. 9QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+Huang, Z., Wang, Z., Xia, S., Li, X., Zou, H., Xu, R., Fan, R.-Z., Ye, L., Chern, E., Ye, Y., et al. OlympicArena: Benchmarking multi-discipline cognitive reasoning for superintelligent ai. NeurIPS , 2024. Kang, Z., Liao, C., Xu, T., and Xu, H. Entropy regularizing activation: Boosting continuous control, large language models, and image classification with activation as en-tropy constraints. arXiv:2510.08549 , 2025. Lewkowycz, A., Andreassen, A., Dohan, D., Dyer, E., Michalewski, H., Ramasesh, V., Slone, A., Anil, C., Schlag, I., Gutman-Solo, T., et al. Solving quantitative reasoning problems with language models. NeurIPS ,2022. Lightman, H., Kosaraju, V., Burda, Y., Edwards, H., Baker, B., Lee, T., Leike, J., Schulman, J., Sutskever, I., and Cobbe, K. Let’s verify step by step. In ICLR , 2023. Liu, Z., Chen, C., Li, W., Qi, P., Pang, T., Du, C., Lee, W. S., and Lin, M. Understanding r1-zero-like training: A critical perspective. arXiv:2503.20783 , 2025. MAA. American mathematics competitions (AMC). 
+
+https://maa.org/ , 2023. MAA. American mathe-matics competitions–AMC. MAA. American invitational mathematics examination (AIME). https://maa.org/ , 2025. MAA. Ameri-can invitational mathematics examination–AIME. Mroueh, Y., Dupuis, N., Belgodere, B., Nitsure, A., Rigotti, M., Greenewald, K., Navratil, J., Ross, J., and Rios, J. Revisiting group relative policy optimization: Insights into on-policy and off-policy training. arXiv:2505.22257 ,2025. Otto, F., Becker, P., Vien, N. A., Ziesche, H. C., and Neu-mann, G. Differentiable trust region layers for deep rein-forcement learning. arXiv:2101.09207 , 2021. Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Ray, A., et al. Training language models to follow instructions with human feedback. NeurIPS , 2022. Peng, R., Ren, Y., Yu, Z., Liu, W., and Wen, Y. SimKO: Simple pass@ k policy optimization. arXiv:2510.14807 ,2025. Peters, J., Mulling, K., and Altun, Y. Relative entropy policy search. In AAAI , pp. 1607–1612, 2010. Rafailov, R., Sharma, A., Mitchell, E., Manning, C. D., Ermon, S., and Finn, C. Direct preference optimization: Your language model is secretly a reward model. NeurIPS ,pp. 53728–53741, 2023. Ren, T., Jiang, J., Yang, H., Tian, W., Zou, M., Li, G., Zhang, Z., Wang, Q., Qin, S., Zhao, Y., et al. RiskPO: Risk-based policy optimization via verifiable reward for llm post-training. arXiv:2510.00911 , 2025. Roux, N. L., Bellemare, M. G., Lebensold, J., Bergeron, A., Greaves, J., Fr ´echette, A., Pelletier, C., Thibodeau-Laufer, E., Toth, S., and Work, S. Tapered off-policy reinforce: Stable and efficient reinforcement learning for llms. arXiv:2503.14286 , 2025. Schulman, J., Levine, S., Abbeel, P., Jordan, M., and Moritz, P. Trust region policy optimization. In ICML , pp. 1889– 1897, 2015. Schulman, J., Wolski, F., Dhariwal, P., Radford, A., and Klimov, O. Proximal policy optimization algorithms. 
+
+arXiv:1707.06347 , 2017. Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Bi, X., Zhang, H., Zhang, M., Li, Y., et al. Deepseekmath: Pushing the limits of mathematical reasoning in open language models. arXiv:2402.03300 , 2024. Sheng, G., Zhang, C., Ye, Z., Wu, X., Zhang, W., Zhang, R., Peng, Y., Lin, H., and Wu, C. Hybridflow: A flexible and efficient rlhf framework. In Proceedings of the European Conference on Computer Systems , 2025. Su, Z., Pan, L., Bai, X., Liu, D., Dong, G., Huang, J., Hu, W., Zhang, F., Gai, K., and Zhou, G. Klear-reasoner: Advancing reasoning capability via gradient-preserving clipping policy optimization. arXiv:2508.07629 , 2025a. Su, Z., Pan, L., Lv, M., Li, Y., Hu, W., Zhang, F., Gai, K., and Zhou, G. Ce-gppo: Coordinating entropy via gradient-preserving clipping policy optimization in rein-forcement learning. arXiv:2509.20712 , 2025b. Tomar, M., Shani, L., Efroni, Y., and Ghavamzadeh, M. Mirror descent policy optimization. arXiv:2005.09814 ,2020. Wang, C., Li, Z., Bai, J., Zhang, Y., Cui, S., Zhao, Z., and Wang, Y. Arbitrary entropy policy optimiza-tion: Entropy is controllable in reinforcement fine-tuning. 
+
+arXiv:2510.08141 , 2025a. Wang, J., Liu, J., Fu, Y., Li, Y., Wang, X., Lin, Y., Yue, Y., Zhang, L., Wang, Y., and Wang, K. Harnessing un-certainty: Entropy-modulated policy gradients for long-horizon llm agents. arXiv:2509.09265 , 2025b. Wu, J., Huang, K., Wu, J., Zhang, A., Wang, X., and He, X. Quantile advantage estimation for entropy-safe reasoning. 
+
+arXiv:2509.22611 , 2025. 10 QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+Xi, Z., Guo, X., Nan, Y., Zhou, E., Shen, J., Chen, W., Liu, J., Huang, J., Zhang, Z., Guo, H., et al. BAPO: Stabilizing off-policy reinforcement learning for llms via balanced policy optimization with adaptive clipping. 
+
+arXiv:2510.18927 , 2025. Yang, A., Zhang, B., Hui, B., Gao, B., Yu, B., Li, C., Liu, D., Tu, J., Zhou, J., Lin, J., et al. Qwen2.5-math techni-cal report: Toward mathematical expert model via self-improvement. CoRR , 2024. Yang, A., Li, A., Yang, B., Zhang, B., Hui, B., Zheng, B., Yu, B., Gao, C., Huang, C., Lv, C., et al. Qwen3 technical report. arXiv:2505.09388 , 2025a. Yang, S., Dou, C., Guo, P., Lu, K., Ju, Q., Deng, F., and Xin, R. Dcpo: Dynamic clipping policy optimization. 
+
+arXiv:2509.02333 , 2025b. Yu, Q., Zhang, Z., Zhu, R., Yuan, Y., Zuo, X., Yue, Y., Fan, T., Liu, G., Liu, L., Liu, X., et al. DAPO: An open-source llm reinforcement learning system at scale. CoRR , 2025. Zhang, B., Chen, Z., Song, B., Li, Q., Wu, F., and Chen, G. Confclip: Confidence-weighted and clipped reward for reinforcement learning in llms. arXiv:2509.17730 ,2025a. Zhang, Q., Wu, H., Zhang, C., Zhao, P., and Bian, Y. Right question is already half the answer: Fully unsupervised llm reasoning incentivization. arXiv:2504.05812 , 2025b. Zhang, X., Wu, S., Zhu, Y., Tan, H., Yu, S., He, Z., and Jia, J. Scaf-GRPO: Scaffolded group relative policy opti-mization for enhancing llm reasoning. arXiv:2510.19807 ,2025c. Zhang, Y., Liu, Y., Yuan, H., Yuan, Y., Gu, Q., and Yao, A. C.-C. On the design of KL-regularized policy gradient algorithms for llm reasoning. arXiv:2505.17508 , 2025d. Zhao, Y., Liu, Y., Liu, J., Chen, J., Wu, X., Hao, Y., Lv, T., Huang, S., Cui, L., Ye, Q., et al. Geometric-mean policy optimization. arXiv:2507.20673 , 2025. Zheng, C., Liu, S., Li, M., Chen, X.-H., Yu, B., Gao, C., Dang, K., Liu, Y., Men, R., Yang, A., et al. Group sequence policy optimization. arXiv:2507.18071 , 2025a. Zheng, H., Zhao, J., and Chen, B. Prosperity before col-lapse: How far can off-policy RL reach with stale data on llms? In NeurIPS 2025 Workshop on Efficient Reasoning ,2025b. 11 QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+## A. Proofs 
+
+In this section, we denote the trajectory as τ , and trajectory τ sampled from the sampling (old) policy πold as τ ∼ πold . For convenience, we omit the query or condition q when there is no confusion. 
+
+A.1. Derivation of the Exact Query-wise Trust-Region Policy Update Constrained Optimization Problem We aim to optimize the expected reward under a new policy πθ (τ | q) for a given prompt q, while ensuring that it does not deviate too far from a old policy πold (τ | q). Formally, we consider the following constrained optimization problem (Schulman et al., 2015; Guo et al., 2025b; Tomar et al., 2020; Blessing et al., 2025; Abdolmaleki et al., 2015; Otto et al., 2021; Peters et al., 2010): 
+
+sup 
+
+> πθ
+
+Eτ ∼πθ (·| q)[R(τ | q)] s.t. KL( πθ (· | q) ∥ πold (· | q)) ≤ δ. (21) Here, τ denotes a trajectory sampled from πθ (· | q), and R(τ | q) is the reward associated with trajectory τ conditioned on the prompt q. To handle the constraint, we introduce a Lagrange multiplier λ ≥ 0 for the KL constraint and a multiplier μ
+
+for the normalization constraint (i.e., R πθ (τ | q) dτ = 1 ). This leads to the following dual formulation: 
+
+sup 
+
+> πθ
+
+inf  
+
+> λ≥0,μ
+
+L(πθ , λ, μ ), where 
+
+L(πθ , λ, μ ) = Eτ ∼πθ (·| q) [R(τ | q)] + λ (δ − KL( πθ (· | q) ∥ πold (· | q))) + μ
+
+
+
+1 −
+
+Z
+
+πθ (τ | q) dτ 
+
+
+
+. (22) This formulation makes explicit the dependence on the input prompt q, and expresses the optimization as a saddle-point problem over the policy πθ and dual variable λ.
+
+Derivation of Optimal Policy via Lagrangian Duality By leveraging dual formulation, we could describe the optimality condition, through dual variables, which can be derived as follows 
+
+Step 1: Strong Duality The convexity of the constraint (e.g., KL-divergence is convex w.r.t. πθ ) and the linearity of the objective with respect to dual variables (λ, μ ) holds. Thus, the following strong duality (Auslender & Teboulle, 2000; Boyd & Vandenberghe, 2004; Choi et al., 2023; 2024) holds: 
+
+sup 
+
+> πθ
+
+inf  
+
+> λ≥0,μ
+
+L(πθ , λ, μ ) = inf  
+
+> λ≥0,μ
+
+sup 
+
+> πθ
+
+L(πθ , λ, μ ). (23) Given dual variables (λ, μ ), we first solve inner-loop optimization problem to describe the optimal policy π⋆.
+
+Step 2: Description of Optimality of πθ (τ | q) via Dual Variables 
+
+Recall the KL divergence between two distributions: 
+
+KL( π ∥ πold ) = 
+
+Z
+
+π(τ | q) log π(τ | q)
+
+πold (τ | q) dτ. (24) Substituting this into the Lagrangian: 
+
+L(π, λ, μ ) = 
+
+Z
+
+π(τ | q)R(τ | q) dτ − λ
+
+Z
+
+π(τ | q) log π(τ | q)
+
+πold (τ | q) dτ + λδ + μ
+
+
+
+1 −
+
+Z
+
+π(τ | q) dτ 
+
+
+
+.
+
+To find the optimal policy π∗(τ | q), we take the functional derivative (Evans, 2022) of L with respect to π(τ | q):
+
+δL
+
+δπ (τ | q) = R(τ | q) − λ
+
+
+
+log π(τ | q)
+
+πold (τ | q) + 1 
+
+
+
+− μ = 0 . (25) From the previous derivation, we obtained: 
+
+log π∗(τ | q)
+
+πold (τ | q) = R(τ | q) − μλ − 1 ⇒ π∗(τ | q) = πold (τ | q) · exp 
+
+ R(τ | q) − μλ − 1
+
+
+
+. (26) iQUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+This expression reveals that the policy ratio – i.e., how much more (or less) likely a trajectory τ is under the optimized policy π compared to the old policy πold – is directly governed by the trajectory-level reward R(τ | q).
+
+A.2. Deriving Optimal Dual Variable Optimality Condition for μ
+
+We begin by plugging the optimality condition by using the normalization constraint: 
+
+1 = 
+
+Z
+
+π⋆(τ | q) dτ =
+
+Z
+
+πold (τ | q) · exp 
+
+ R(τ | q) − μλ − 1
+
+
+
+dτ 
+
+= exp 
+
+
+
+− μλ − 1
+
+
+
+·
+
+Z
+
+πold (τ | q) · exp 
+
+ R(τ | q)
+
+λ
+
+
+
+dτ. 
+
+(27) By organizing it, we obtain 
+
+exp 
+
+
+
+− μλ − 1
+
+
+
+=
+
+Z 
+
+πold (τ | q) · exp 
+
+ R(τ | q)
+
+λ
+
+
+
+dτ 
+
+−1
+
+. (28) Taking logarithms and rearranging, we obtain 
+
+− μλ − 1 = − log 
+
+Z 
+
+πold (τ | q) · exp 
+
+ R(τ | q)
+
+λ
+
+
+
+dτ 
+
+
+
+=⇒ μ = λ ·
+
+
+
+log 
+
+Z 
+
+πold (τ | q) · exp 
+
+ R(τ | q)
+
+λ
+
+
+
+dτ 
+
+
+
+− 1
+
+ (29) Alternatively, using the measure notation dπ old , we may write: 
+
+μ = λ ·
+
+
+
+log 
+
+Z 
+
+exp 
+
+ R(τ | q)
+
+λ
+
+
+
+dπ old (τ | q)
+
+
+
+− 1
+
+
+
+(30) 
+
+Optimality Condition for λ
+
+We start from the dual formulation 
+
+inf  
+
+> λ≥0,μ
+
+sup 
+
+> π
+
+
+
+Eτ ∼π(·| q)[R(τ | q)] + λ(δ − KL( π(· | q)|πold (· | q))) + μ
+
+
+
+1 −
+
+Z
+
+π(τ | q)dτ 
+
+ 
+
+. (31) Plugging the optimality condition eq. (26), we obtain 
+
+inf 
+
+> λ≥0
+
+
+
+Eπ⋆ [R(τ | q)] + λ
+
+
+
+δ −
+
+ 1
+
+λ Eπ⋆ [R(τ | q)] − μλ − 1
+
+  
+
+= inf 
+
+> λ≥0
+
+
+
+Eπ⋆ [R(τ | q)] + λδ − Eπ⋆ [R(τ | q)] + μ + λ
+
+
+
+= inf  
+
+> λ≥0
+
+[λ(δ + 1) + μ]
+
+(32) Substituting eq. (30), we obtain optimization problem for λ.
+
+inf 
+
+> λ≥0
+
+
+
+λ(δ + 1) + λ
+
+
+
+log 
+
+Z 
+
+exp 
+
+ R(τ | q)
+
+λ
+
+
+
+dπ old (τ | q)
+
+
+
+− 1
+
+ 
+
+= inf 
+
+> λ≥0
+
+
+
+λ
+
+
+
+δ + log 
+
+Z
+
+exp 
+
+ R(τ | q)
+
+λ
+
+
+
+dπ old (τ | q)
+
+ 
+
+≈ inf 
+
+> λ≥0
+
+"
+
+λ δ + log 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+exp 
+
+ R(τi|q)
+
+> λ
+
+!# 
+
+= inf  
+
+> λ
+
+f (λ).
+
+(33) Thus, we first obtain λ⋆ = arg inf λ≥0 f (λ), and obtain μ⋆ through eq. (19). Then, plugging the dual variables (λ⋆, μ ⋆) into eq. (26), we could obtain an expression of optimal π⋆ as eq. (13). ii QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+A.3. Loss Derivation 
+
+We redefine the training objective as the maximization of the negative KL divergence between the current policy πθ and a target policy π∗. The optimization objective is 
+
+−DKL (πθ ∥π∗) = 
+
+Z
+
+> T
+
+πθ (τ | q)
+
+πold (τ | q) log π∗
+
+πθ
+
+(τ ) dπ old (τ )=
+
+Z
+
+> T
+
+πθ (τ | q)
+
+πold (τ | q)
+
+"
+
+log π∗
+
+πold 
+
+(τ )
+
+| {z }
+
+> derived at eq(26)
+
+−log πθ (τ | q)
+
+πold (τ | q)
+
+#
+
+dπ old (τ ) (34) 
+
+Deriving our objective 
+
+J(θ) = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+(
+
+R(i) 
+
+> q
+
+− μq
+
+λq
+
+− 1
+
+!
+
+πθ (τ (i) | q)
+
+πold (τ (i) | q) − πθ (τ (i) | q)
+
+πold (τ (i) | q) log πθ (τ (i) | q)
+
+πold (τ (i) | q)
+
+)
+
+L(θ) = −J(θ) = − 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+πθ (τ (i) | q)
+
+πold (τ (i) | q)
+
+"
+
+R(i) 
+
+> q
+
+− μq
+
+λq
+
+− 1 − log πθ (τ (i) | q)
+
+πold (τ (i) | q)
+
+#
+
+.
+
+(35) Finally, we can redefine the advantage term in our dual formulation, which is consistent with GRPO’s advantage estimator: 
+
+Aiq = R(i) 
+
+> q
+
+− μq
+
+λq
+
+− 1. (36) As discussed in Sec. 3.3, replacing the log-ratio term log πθ (τ (i)|q)  
+
+> πold (τ(i)|q)
+
+with its detached counterpart in L yields the same optimality condition. 
+
+A.4. Proof of Thm. 3.5 
+
+By simply taking 
+
+L(πθ ) = Eτ ∼πold (·| q)
+
+ R(τ ) − μ⋆
+
+λ⋆ − 1 − log π¯θ
+
+πold 
+
+(τ )
+
+ πθ
+
+πold 
+
+(τ )
+
+
+
+− βKL (πθ ∥ πpre ). (37) By taking first variation, we can obtain the optimality condition: 
+
+C = δL
+
+δπ (π⋆; τ ) = R(τ ) − μ⋆
+
+λ⋆ − 1 − log π⋆
+
+πold 
+
+(τ ) − β log π⋆
+
+πpre 
+
+(τ ), (38) hence, 
+
+π⋆(τ ) ∝
+
+
+
+e R(τ )−μ⋆λ⋆ −1πold (τ )
+
+ 1
+
+> β+1
+
+πpre (τ ) ββ+1 . (39) Thus, satisfying eq. (17). iii QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+## B. Implementation Details 
+
+Framework. All experiments are conducted using the verl 1 framework (Sheng et al., 2025), which provides a unified and well-tested training pipeline for reinforcement learning with large language models. We adopt the official implementations of GRPO and its variants available in verl , and build our method on top of the same infrastructure. Specifically, we add lambda optimization process before calculate advantage, and modify the advantage estimation and policy update components where required. 
+
+Algorithmic variants. We directly use the built-in implementations of baselines provided by the verl without any modification. These methods share the same training pipeline, rollout configuration, optimization schedule, and infrastructure settings. The only difference among these algorithms lies in the computation of advantages from trajectory-level rewards. GRPO-style methods employ their respective group-based or generalized advantage formulations, while our method replaces this component with a dual-based prompt-wise advantage derived from an exact KL-constrained optimization. 
+
+Hyperparameters. Unless otherwise specified, we follow the default hyperparameter settings of the verl . This includes optimization parameters, batching strategies, rollout settings, and scheduling-related configurations. All compared methods are trained using the same learning rate, batch sizes, number of rollouts per query, and policy update epochs. No method-specific hyperparameter tuning is performed. 
+
+KL regularization. All methods employ an identical auxiliary KL loss between the policy and a fixed pretrained reference model, implemented using a low-variance estimator with coefficient β = 0 .001 . This term is used solely for numerical stability and reference anchoring. 
+
+Model scale. The majority of experiments and ablations are conducted using the Qwen2.5-Math-1.5B model, which allows for detailed and controlled analysis. To demonstrate scalability, we additionally report results on Qwen2.5-Math-7B. Due to computational cost, 7B experiments are limited to the main comparison tables and are not included in ablation studies. 
+
+Reproducibility. Table I summarizes all relevant hyperparameters. Except for the algorithm-specific components, all settings are shared across methods. This design ensures that observed performance differences can be attributed solely to differences in prompt-wise trust-region control.                                       
+
+> Category Hyperparameter GSPO Ours
+> Optimization & Training
+> Learning Rate (LR) 1×10 −6(default), 1×10 −5
+> Optimizer AdamW Weight Decay 0.0 PPO Update Epochs 1 (default), 2, 5
+> Batching Strategy
+> Global Batch Size 256 PPO Mini-batch Size 64 Micro-batch Size (per GPU) 8
+> RL Algorithm
+> Rollouts per Query ( N)8Advantage Estimator Group-normalized Dual (prompt-wise) Clipping ε= 0 .2None
+> KL Constraint Not enforced δ∈ { 0.1,0.01 ,0.001 }
+> Auxiliary KL Loss (policy vs ref) β= 0 .001
+> Entropy Coefficient 0.0
+> Generation & Tokenization Rollout Temperature 1.0 Max Response Tokens 1024 (1.5B), 3072 (7B)
+> Infrastructure & Scheduling
+> Nodes 1GPUs per Node H200 ×2 (1.5B), H200 ×4 (7B / RM) vLLM GPU Memory Utilization 0.8
+> Table I. Comparison of key hyperparameters between GSPO and our prompt-wise trust-region optimization. All non-algorithmic settings are shared unless otherwise specified.
+> 1https://github.com/volcengine/verl
+
+iv QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+## C. Additional Results and Analysis 
+
+C.1. Our Method Behavior and Interpretation Prompt-wise Update Magnitude. Figure I-left provides a conceptual view of how update strength is allocated across prompts under our method. Using the learned trust-region parameters, we compute the resulting advantages as a function of the number of correct rollouts. As shown in the figure, prompts associated with fewer correct rollouts receive larger update magnitudes, while those with many correct rollouts are updated more conservatively. This illustrates how update effort is distributed across prompts once the trust-region scaling is in effect. Moreover, tighter trust-region budgets (smaller δ) yield more uniformly attenuated update magnitudes across all values of c. This reflects the consequence of stronger regularization induced by larger λ values, while preserving the relative ordering across prompts. 
+
+Effect of δ on λ Scaling. Figure I-right shows the actual evolution of the prompt-wise Lagrange multiplier λ during training under different trust-region budgets δ. Smaller values of δ consistently lead to larger λ, corresponding to stronger penalties on policy deviation. Notably, λ evolves smoothly over the course of training and stabilizes without abrupt oscillations or collapse, indicating that trust-region strength is adaptively learned rather than manually scheduled. Taken together, these two views connect training dynamics and resulting behavior: the right panel demonstrates how λ
+
+is formed during training, while the left panel illustrates the update allocation behavior implied by the learned λ values. This relationship highlights how the trust-region budget δ controls update behavior indirectly through learned prompt-wise regularization, without relying on heuristic clipping or fixed regularization coefficients. 1 2 3 4 5 6 7 
+
+> Number of correct rollouts c
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Advantage for  R = 1
+
+Prompt-wise Update Magnitude 
+
+> = 0.1
+> = 0.01
+> = 0.001
+
+Prompt-wise update magnitude. Update strength decreases as the number of correct rollouts c increases, with tighter trust regions (smaller δ) yielding more conservative updates. 0 200 400 600 800 
+
+> Step
+> 2
+> 4
+> 6
+> Lambda Scale
+> =0.1
+> =0.01
+> =0.001
+
+Effect of δ on λ scaling. Smaller trust-region budgets δ lead to larger prompt-wise Lagrange multipliers λ, inducing stronger regularization against large policy updates. 
+
+Figure I. Behavioral analysis of our prompt-wise trust-region mechanism. 
+
+C.2. Policy Entropy 
+
+Token-level policy entropy is used to quantify the diversity of the model’s output distribution during training. For a given question q and a sampled output o(i) = ( o(i)1 , . . . , o (i)
+
+> |o(i)|
+
+), the token-level policy entropy at time step t is defined as the Shannon entropy of the next-token distribution: 
+
+H(i) 
+
+> t
+
+= − X
+
+> v∈V
+
+πθ
+
+
+
+v | q, o (i)
+
+> <t
+
+
+
+log πθ
+
+
+
+v | q, o (i)
+
+> <t
+
+
+
+,
+
+where V denotes the vocabulary. Entropy values are averaged over tokens and used to analyze training dynamics and policy diversity. vQUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+C.3. Dataset-wise Pass@ k Results 
+
+We reports detailed dataset-wise Pass@ k results for all benchmarks Tab. II), evaluated at k ∈ { 1, 2, 4, 8, 16 , 32 , 64 , 128 , 256 }.While the main paper focuses on the overall average performance across datasets in Tab. 1 to highlight general trends, this appendix provides per-dataset visualizations and numerical results to support fine-grained analysis and reproducibility. Across all benchmarks, our method consistently outperforms the baselines, with particularly notable improvements in the high-k regime. In addition, the performance gap between our method and prior GRPO-style baselines is more pronounced on certain datasets, such as AMC23 and AIME25. 
+
+Table II. Pass@ k on six mathematical reasoning benchmarks. 
+
+MATH500 
+
+Method 1 2 4 8 16 32 64 128 256 
+
+Qwen2.5-Math-1.5B 
+
+GRPO 69.97 75.23 79.04 82.02 84.43 86.30 87.68 88.81 90.00 GPG 68.97 74.66 78.96 82.29 84.78 86.58 87.96 89.19 90.40 GMPO 69.28 74.37 78.20 81.25 83.75 85.74 87.17 88.26 89.60 GSPO 69.10 74.25 78.12 81.16 83.57 85.49 86.97 88.09 89.00 Ours δ=0 .1 69.70 75.19 79.28 82.42 84.96 87.02 88.63 90.00 91.40 Ours δ=0 .01 67.84 74.30 78.93 82.46 85.30 87.85 89.41 90.92 92.00 Ours δ=0 .001 65.84 73.30 78.63 82.50 85.47 87.74 89.51 91.03 92.40 Qwen2.5-Math-7B 
+
+GSPO 72.20 78.18 82.21 85.02 87.13 88.80 90.12 91.20 92.00 Ours δ=0 .01 72.95 79.19 83.33 86.24 88.34 89.85 91.07 92.05 92.80 Ours δ=0 .001 67.11 75.33 80.94 84.67 87.38 89.48 91.01 92.21 93.20 
+
+AMC23 
+
+Method 1 2 4 8 16 32 64 128 256 
+
+Qwen2.5-Math-1.5B 
+
+GRPO 50.91 61.29 69.21 74.50 78.29 81.20 83.73 85.93 87.50 GPG 51.63 62.39 70.82 76.33 79.82 82.75 85.72 88.29 90.00 GMPO 52.31 62.07 70.21 76.13 79.85 82.38 84.90 86.79 87.50 GSPO 51.47 61.00 69.25 76.58 82.33 85.62 87.01 87.46 87.50 Ours δ=0 .1 53.44 63.89 71.58 76.92 81.25 85.19 88.52 91.09 92.50 Ours δ=0 .01 49.79 61.33 71.03 78.27 83.28 87.21 90.89 93.68 95.00 Ours δ=0 .001 48.94 59.66 68.38 75.41 81.37 86.63 90.99 94.29 97.50 Qwen2.5-Math-7B 
+
+GSPO 66.56 72.72 76.36 78.70 80.34 82.16 84.20 86.02 87.50 Ours δ=0 .01 63.18 70.25 74.90 78.41 81.78 85.74 90.44 94.81 97.50 
+
+Ours δ=0 .001 63.37 71.44 76.39 79.70 82.91 86.60 90.89 95.19 97.50 
+
+AIME24 
+
+Method 1 2 4 8 16 32 64 128 256 
+
+Qwen2.5-Math-1.5B 
+
+GRPO 13.62 18.50 22.86 26.85 30.59 34.73 40.21 46.99 53.33 GPG 16.38 20.63 23.92 27.30 30.70 34.46 39.42 46.68 56.67 GMPO 14.13 19.29 24.29 29.20 33.38 37.40 42.65 49.89 60.00 
+
+GSPO 16.28 20.97 25.00 28.50 31.52 34.58 38.31 43.32 50.00 Ours δ=0 .1 16.13 20.28 23.26 26.00 29.14 32.54 36.08 40.01 43.33 Ours δ=0 .01 13.62 18.01 22.10 26.75 31.71 36.43 41.30 47.09 53.33 Ours δ=0 .001 12.28 17.74 22.74 27.51 32.72 37.98 42.70 48.34 56.67 
+
+Qwen2.5-Math-7B 
+
+GSPO 31.54 36.80 41.39 45.73 49.85 53.62 56.66 59.58 63.33 Ours δ=0 .01 32.88 39.85 45.34 49.81 53.56 56.90 60.30 64.49 70.00 Ours δ=0 .001 28.93 36.24 42.25 48.15 53.91 58.93 63.61 69.07 76.67 
+
+AIME25 
+
+Method 1 2 4 8 16 32 64 128 256 
+
+Qwen2.5-Math-1.5B 
+
+GRPO 4.60 7.93 12.30 16.75 20.91 25.42 30.65 37.50 46.67 GPG 4.61 8.00 12.48 17.01 20.83 24.70 29.73 35.64 40.00 GMPO 6.67 10.69 14.94 18.45 21.58 24.91 28.52 32.50 36.67 GSPO 5.73 9.33 13.29 16.55 19.52 22.98 26.18 28.22 30.00 Ours δ=0 .1 5.56 9.07 13.13 17.01 20.71 24.98 30.71 37.26 43.33 Ours δ=0 .01 5.76 9.34 13.34 16.82 19.86 23.05 26.89 32.92 43.33 Ours δ=0 .001 5.17 8.83 13.55 18.38 22.65 27.47 33.87 41.35 50.00 Qwen2.5-Math-7B 
+
+GSPO 10.21 14.45 17.99 21.12 24.08 26.42 28.74 31.26 33.33 Ours δ=0 .01 11.46 16.28 20.90 25.34 29.74 33.66 37.10 40.53 43.33 Ours δ=0 .001 8.84 12.92 17.30 22.12 27.31 32.52 37.79 42.62 46.67 
+
+MinervaMath 
+
+Method 1 2 4 8 16 32 64 128 256 
+
+Qwen2.5-Math-1.5B 
+
+GRPO 18.73 22.84 26.52 29.91 33.16 36.33 39.40 42.23 44.85 GPG 18.76 22.94 26.70 30.13 33.38 36.59 39.72 42.37 44.49 GMPO 18.67 22.73 26.41 29.92 33.22 36.24 39.20 42.40 45.96 GSPO 18.75 22.75 26.41 29.95 33.43 36.81 39.92 42.71 45.96 Ours δ=0 .1 18.95 23.32 27.21 30.69 33.83 36.91 40.14 43.35 46.32 Ours δ=0 .01 17.92 22.52 26.69 30.48 33.98 37.35 40.51 43.26 45.96 Ours δ=0 .001 16.79 21.45 25.96 30.28 34.33 38.10 41.71 44.99 47.43 Qwen2.5-Math-7B 
+
+GSPO 22.63 26.85 30.80 34.72 38.79 42.65 45.86 48.39 50.37 Ours δ=0 .01 22.74 27.50 31.86 36.04 40.22 44.35 48.35 52.03 55.15 
+
+Ours δ=0 .001 22.21 27.12 31.71 36.14 40.60 44.96 48.81 51.99 54.78 
+
+OlympiadBench 
+
+Method 1 2 4 8 16 32 64 128 256 
+
+Qwen2.5-Math-1.5B 
+
+GRPO 32.11 37.86 42.98 47.73 51.33 54.83 58.02 61.03 63.80 GPG 31.80 37.63 42.88 47.54 51.68 55.37 58.53 61.23 63.95 GMPO 31.96 37.58 42.60 47.10 51.13 54.68 57.86 60.77 63.35 GSPO 31.56 37.08 42.06 46.46 50.39 53.96 57.13 59.96 62.61 Ours δ=0 .1 32.02 37.80 42.93 47.45 51.47 55.15 58.64 61.96 64.99 Ours δ=0 .01 31.17 37.20 42.62 47.48 51.98 56.13 59.68 62.60 65.13 Ours δ=0 .001 29.36 36.08 42.20 47.67 52.57 56.99 60.95 64.58 68.10 Qwen2.5-Math-7B 
+
+GSPO 37.17 43.02 48.42 53.21 57.25 60.48 63.12 65.45 67.66 Ours δ=0 .01 37.27 43.78 49.67 54.79 58.99 62.59 66.01 69.15 71.51 Ours δ=0 .001 36.48 43.24 49.45 54.93 59.41 63.01 66.15 69.05 71.66 
+
+vi QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+C.4. Unique Correct Count (UCC) @ small k
+
+In this section, we report UCC@k results for small values of k (k = 8 , 16 ) across datasets. While UCC@k is designed to measure the presence of multiple distinct correct solution modes, its interpretation becomes reliable only when a sufficiently large number of samples is available. At small k, the number of sampled responses is often insufficient to reveal multiple modes even when they exist, causing UCC@k to largely reflect correctness rather than diversity. We therefore focus on larger k (k ≥ 32 ) in the main paper, where diversity becomes meaningfully observable. The results reported here are provided for completeness and transparency, and they are consistent with the trends observed at larger k.
+
+Table III. UCC@ k (k = 8 , 16 ) across six mathematical reasoning benchmarks (MATH500, AMC23, AIME24, AIME25, MinervaMath, and OlympiadBench).                                                                        
+
+> Dataset 816 GRPO GPG GMPO GSPO Ours GRPO GPG GMPO GSPO Ours MATH500 1.77 3.09 1.95 1.92 3.50 2.65 5.73 3.16 3.12 6.78
+> AMC23 1.96 3.31 2.32 2.38 3.51 3.21 6.21 3.96 4.11 6.79
+> AIME24 0.66 0.97 0.87 0.77 0.97 1.11 1.89 1.56 1.37 1.90
+> AIME25 0.30 0.43 0.40 0.38 0.35 0.49 0.81 0.74 0.69 0.69
+> MinervaMath 0.69 0.84 0.71 0.74 0.86 1.20 1.58 1.27 1.32 1.67
+> OlympiadBench 1.01 1.41 1.07 1.11 1.53 1.72 2.64 1.88 1.96 2.98
+
+C.5. Output Diversity Analysis Similarity under Different Metrics We measure output similarity using four complementary metrics, each capturing a different notion of overlap between generated responses. These metrics can be used both to define near-duplicate criteria when clustering correct outputs for UCC@k computation, and to directly quantify output diversity at the surface-form level. • TF-IDF Cosine Similarity. Each response is represented as a TF-IDF weighted bag-of-words vector, and similarity is computed using cosine similarity. By down-weighting common terms and emphasizing discriminative words, TF-IDF focuses on lexical content overlap rather than exact phrasing. This metric captures whether two responses rely on similar key concepts or reasoning tokens. • ROUGE-L. ROUGE-L measures similarity based on the length of the longest common subsequence (LCS) between two responses. Unlike n-gram overlap, it is tolerant to insertions and reordering, making it sensitive to shared sentence structure or reasoning flow. Higher ROUGE-L indicates that two responses follow similar solution trajectories. • Jaccard Similarity. Jaccard similarity computes the ratio between the intersection and union of token sets. This metric ignores word order and frequency, focusing solely on whether the same lexical items appear in both responses. It provides a coarse but intuitive measure of content overlap. • Normalized Edit Similarity. Edit similarity is derived from the normalized Levenshtein distance, measuring the minimum number of character-level insertions, deletions, and substitutions required to transform one response into another. This metric is highly sensitive to surface-form variations, capturing fine-grained differences such as formatting, numerical changes, or minor textual edits. Across all metrics, our method consistently exhibits lower similarity, indicating a broader coverage of distinct correct solution patterns. vii QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning GSPO OURS 
+
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> 1.0
+> Mean similarity
+
+TFIDF  
+
+> GSPO OURS
+
+ROUGE-L  
+
+> GSPO OURS
+
+JACCARD  
+
+> GSPO OURS
+
+EDIT 
+
+(a) MATH500 GSPO OURS 
+
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> Mean similarity
+
+TFIDF  
+
+> GSPO OURS
+
+ROUGE-L  
+
+> GSPO OURS
+
+JACCARD  
+
+> GSPO OURS
+
+EDIT 
+
+(b) AMC23 GSPO OURS 
+
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> Mean similarity
+
+TFIDF  
+
+> GSPO OURS
+
+ROUGE-L  
+
+> GSPO OURS
+
+JACCARD  
+
+> GSPO OURS
+
+EDIT 
+
+(c) AIME24 
+
+Figure II. Output similarity distributions under different metrics (TF-IDF, ROUGE-L, Jaccard, and Edit similarity) for three representative datasets. Lower similarity indicates higher output diversity. 
+
+viii QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+C.6. Qualitative Examples 
+
+We randomly sample responses from 256 rollouts with identical decoding parameters. Despite random sampling, GSPO exhibits strong trajectory collapse, repeatedly producing near-duplicate reasoning traces that are indistinguishable even at a superficial level. In contrast, our method yields genuinely diverse solution paths, reflecting multiple distinct constructions that satisfy the problem constraints. This diversity allows the model to maintain multiple viable reasoning paths, thereby increasing the likelihood of arriving at correct solutions. This qualitative observation is further supported by pairwise response similarity analysis (Figure III), which reveals uniformly high similarity for GSPO and substantially lower similarity for our method. 0 50 100 150 200 250      
+
+> response id
+> 0
+> 50
+> 100
+> 150
+> 200
+> 250
+> response id
+> GSPO
+> 050 100 150 200 250
+> response id
+> 0
+> 50
+> 100
+> 150
+> 200
+> 250
+> Ours
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> cosine similarity
+
+Figure III. Example of pairwise TF–IDF cosine similarity between 256 sampled responses. 
+
+Question and Ground Truth 
+
+Question. For how many ordered pairs (a, b ) of integers does the polynomial 
+
+x3 + ax 2 + bx + 6 
+
+have three distinct integer roots ? Please reason step by step and report the final answer in a boxed form. 
+
+Ground Truth. 
+
+5
+
+Responses from GSPO (3 out of 256) 
+
+Sample 1. We need to find the number of ordered pairs (a, b ) of integers such that the polynomial 
+
+x3 + ax 2 + bx + 6 has 3 distinct integer roots. If the polynomial x3 + ax 2 + bx + 6 has roots r, s, and t,then by Vieta’s formulas, we have: 1. r + s + t = −a 2. rs + rt + st = b 3. rst = −6 We need to find all sets of distinct integers (r, s, t ) whose product is −6. The possible sets of distinct integer roots are: 
+
+(1 , 2, −3) , (1 , −2, 3) , (−1, 2, 3) , (−1, −2, −3) , (1 , −1, 6) , (1 , 1, −6) , (−1, −1, 6) , (−1, 1, −6) 
+
+But we can discard the sets with repeated roots or non-distinct roots. So the valid sets are: 
+
+(1 , 2, −3) , (1 , −2, 3) , (−1, 2, 3) , (−1, −2, −3) 
+
+For each set of roots, we can compute a and b: 1. For (1 , 2, −3) :
+
+a = −(1 + 2 − 3) = 0 , b = 1 · 2 + 1 · (−3) + 2 · (−3) = 2 − 3 − 6 = −7
+
+So, (a, b ) = (0 , −7) . 2. For (1 , −2, 3) :
+
+a = −(1 − 2 + 3) = −2, b = 1 · (−2) + 1 · 3 + ( −2) · 3 = −2 + 3 − 6 = −5
+
+So, (a, b ) = ( −2, −5) . 3. For (−1, 2, 3) :
+
+a = −(−1 + 2 + 3) = −4, b = ( −1) · 2 + ( −1) · 3 + 2 · 3 = −2 − 3 + 6 = 1 
+
+ix QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+So, (a, b ) = ( −4, 1) . 4. For (−1, −2, −3) :
+
+a = −(−1 − 2 − 3) = 6 , b = ( −1) · (−2) + ( −1) · (−3) + ( −2) · (−3) = 2 + 3 + 6 = 11 
+
+So, (a, b ) = (6 , 11) . Thus, the distinct ordered pairs (a, b ) are (0 , −7) , (−2, −5) , (−4, 1) , and (6 , 11) .Therefore, there are 4 such pairs. The final answer is 4 .
+
+Sample 2. We need to find the number of ordered pairs (a, b ) of integers such that the polynomial 
+
+x3 + ax 2 + bx + 6 has 3 distinct integer roots. If the polynomial x3 + ax 2 + bx + 6 has roots r, s, and 
+
+t, then by Vieta’s formulas, we have: 1. r + s + t = −a 2. rs + rt + st = b 3. rst = −6 We need to find all sets of distinct integers (r, s, t ) whose product is −6. The possible sets of distinct integer roots 
+
+(r, s, t ) are: 
+
+(1 , 2, −3) , (1 , −2, 3) , (−1, 2, 3) , (−1, −2, −3) , (1 , −1, 6) , (1 , 1, −6) , (−1, −1, 6) , (−1, 1, −6) 
+
+However, we need to exclude the sets with repeated roots. So the valid sets are: 
+
+(1 , 2, −3) , (1 , −2, 3) , (−1, 2, 3) , (−1, −2, −3) 
+
+For each set of roots, we can calculate a and b: 1. For (1 , 2, −3) :
+
+a = −(1 + 2 − 3) = 0 , b = 1 · 2 + 1 · (−3) + 2 · (−3) = 2 − 3 − 6 = −7
+
+So, (a, b ) = (0 , −7) . 2. For (1 , −2, 3) :
+
+a = −(1 − 2 + 3) = −2, b = 1 · (−2) + 1 · 3 + ( −2) · 3 = −2 + 3 − 6 = −5
+
+So, (a, b ) = ( −2, −5) . 3. For (−1, 2, 3) :
+
+a = −(−1 + 2 + 3) = −4, b = ( −1) · 2 + ( −1) · 3 + 2 · 3 = −2 − 3 + 6 = 1 
+
+So, (a, b ) = ( −4, 1) . 4. For (−1, −2, −3) :
+
+a = −(−1 − 2 − 3) = 6 , b = ( −1) · (−2) + ( −1) · (−3) + ( −2) · (−3) = 2 + 3 + 6 = 11 
+
+So, (a, b ) = (6 , 11) . Thus, the ordered pairs (a, b ) are (0 , −7) , (−2, −5) , (−4, 1) , and (6 , 11) . There are 4 such pairs. The final answer is: 
+
+4
+
+Sample 3. We need to find the number of ordered pairs (a, b ) of integers such that the polynomial 
+
+x3 + ax 2 + bx + 6 has 3 distinct integer roots. If the polynomial x3 + ax 2 + bx + 6 has roots r, s, t ,then by Vieta’s formulas, we have: 1. r + s + t = −a 2. rs + rt + st = b 3. rst = −6 We need to find all sets of distinct integers (r, s, t ) whose product is −6. The possible sets of (r, s, t ) are: 
+
+(1 , 2, −3) , (1 , −2, 3) , (−1, 2, 3) , (−1, −2, −3) , (1 , −1, 6) , (1 , 1, −6) , (−1, −1, 6) , (−1, 1, −6) 
+
+But we only consider the sets with distinct integers, so we have: 
+
+(1 , 2, −3) , (1 , −2, 3) , (−1, 2, 3) , (−1, −2, −3) 
+
+For each set, we can calculate a and b: 1. For (1 , 2, −3) :
+
+a = −(1 + 2 − 3) = 0 , b = 1 · 2 + 1 · (−3) + 2 · (−3) = 2 − 3 − 6 = −7
+
+So, (a, b ) = (0 , −7) . 2. For (1 , −2, 3) :
+
+a = −(1 − 2 + 3) = −2, b = 1 · (−2) + 1 · 3 + ( −2) · 3 = −2 + 3 − 6 = −5
+
+xQUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+So, (a, b ) = ( −2, −5) . 3. For (−1, 2, 3) :
+
+a = −(−1 + 2 + 3) = −4, b = ( −1) · 2 + ( −1) · 3 + 2 · 3 = −2 − 3 + 6 = 1 
+
+So, (a, b ) = ( −4, 1) . 4. For (−1, −2, −3) :
+
+a = −(−1 − 2 − 3) = 6 , b = ( −1) · (−2) + ( −1) · (−3) + ( −2) · (−3) = 2 + 3 + 6 = 11 
+
+So, (a, b ) = (6 , 11) . Thus, the distinct ordered pairs (a, b ) are (0 , −7) , (−2, −5) , (−4, 1) , and (6 , 11) .Therefore, there are 4 such pairs. The final answer is 4 .
+
+Responses from Ours (3 out of 256) 
+
+Sample 1. We’ll start by considering the polynomial P (x) = x3 + ax 2 + bx + 6 . If r1, r 2, r 3 are the three distinct integer roots of the polynomial, then by Vieta’s formulas, we have: 1. r1 + r2 + r3 = −a 2. r1r2 + r2r3 + r3r1 = b 3. r1r2r3 = −6
+
+We need to find all sets of distinct integers (r1, r 2, r 3) whose product is −6. The possible sets of distinct integer roots (r1, r 2, r 3) are permutations of (1 , −1, 6) , (1 , −1, −6) , (1 , 2, −3) , (1 , −2, 3) , (−1, 2, 3) ,and (−1, −2, −3) . For each set, we can calculate a and b using Vieta’s formulas. Let’s enumerate all the possible sets and calculate the corresponding a and b values. 1. For (1 , −1, 6) :
+
+a = −(1 − 1 + 6) = −6, b = 1( −1) + ( −1)(6) + 6(1) = −1 − 6 + 6 = −1
+
+So, (a, b ) = ( −6, −1) .2. For (1 , −1, −6) :
+
+a = −(1 − 1 − 6) = 6 , b = 1( −1) + ( −1)( −6) + ( −6)(1) = −1 + 6 − 6 = −1
+
+So, (a, b ) = (6 , −1) .3. For (1 , 2, −3) :
+
+a = −(1 + 2 − 3) = 0 , b = 1(2) + 2( −3) + ( −3)(1) = 2 − 6 − 3 = −7
+
+So, (a, b ) = (0 , −7) .4. For (1 , −2, 3) :
+
+a = −(1 − 2 + 3) = −2, b = 1( −2) + ( −2)(3) + 3(1) = −2 − 6 + 3 = −5
+
+So, (a, b ) = ( −2, −5) .5. For (−1, 2, 3) :
+
+a = −(−1 + 2 + 3) = −4, b = ( −1)(2) + 2(3) + 3( −1) = −2 + 6 − 3 = 1 
+
+So, (a, b ) = ( −4, 1) .6. For (−1, −2, −3) :
+
+a = −(−1 − 2 − 3) = 6 , b = ( −1)( −2) + ( −2)( −3) + ( −3)( −1) = 2 + 6 + 3 = 11 
+
+So, (a, b ) = (6 , 11) .We can see that each set of roots (r1, r 2, r 3) gives a unique pair (a, b ). Therefore, there are 6 distinct ordered pairs (a, b ). The answer is: 
+
+6
+
+xi QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+Sample 2. The polynomial x3 + ax 2 + bx + 6 has 3 distinct integer roots, say r1, r 2, r 3. By Vieta’s formulas, we know: 1. r1 + r2 + r3 = −a 2. r1r2 + r2r3 + r3r1 = b 3. r1r2r3 = −6
+
+We need to find all possible sets of distinct integer roots (r1, r 2, r 3) whose product is −6. The integer factorizations of −6 into three distinct integers are: 
+
+(−1, 1, −6) , (−1, 2, −3) , (−2, 1, 3) , (1 , −2, 3) 
+
+For each set of roots, we can compute a and b: 1. For (−1, 1, −6) :
+
+a = −(−1 + 1 − 6) = 6 , b = ( −1 · 1) + (1 · − 6) + ( −6 · − 1) = −1 − 6 + 6 = −1
+
+So, (a, b ) = (6 , −1) .2. For (−1, 2, −3) :
+
+a = −(−1 + 2 − 3) = 2 , b = ( −1 · 2) + (2 · − 3) + ( −3 · − 1) = −2 − 6 + 3 = −5
+
+So, (a, b ) = (2 , −5) .3. For (−2, 1, 3) :
+
+a = −(−2 + 1 + 3) = −2, b = ( −2 · 1) + (1 · 3) + (3 · − 2) = −2 + 3 − 6 = −5
+
+So, (a, b ) = ( −2, −5) .4. For (1 , −2, 3) :
+
+a = −(1 − 2 + 3) = −2, b = (1 · − 2) + ( −2 · 3) + (3 · 1) = −2 − 6 + 3 = −5
+
+So, (a, b ) = ( −2, −5) .We see that the pairs (6 , −1) , (2 , −5) , and (−2, −5) are distinct. So, the number of ordered pairs (a, b )
+
+is 3. Thus, the final answer is: 
+
+3
+
+Sample 3. To solve this problem, we need to find the number of ordered pairs (a, b ) of integers such that the polynomial x3 + ax 2 + bx + 6 has 3 distinct integer roots. 
+
+Steps: 
+
+1. **Polynomial Roots:** If r1, r 2, r 3 are the distinct integer roots of the polynomial x3 + ax 2 + bx + 6 ,then by Vieta’s formulas, we have: 
+
+r1 + r2 + r3 = −ar1r2 + r2r3 + r3r1 = br1r2r3 = −6
+
+2. **Finding Integer Root Combinations:** We need to find all distinct integer triplets (r1, r 2, r 3)
+
+whose product is −6. We then need to ensure that the sum r1 + r2 + r3 is an integer and compute a and 
+
+b accordingly. 3. **Counting Valid Pairs (a, b ):** For each valid triplet, compute a and b and ensure they are integers. Let’s write Python code to find all valid triplets and compute the corresponding (a, b ) pairs. 
+
+from itertools import permutations # Function to find all distinct integer triplets whose product is -6 def find_triplets(): triplets = [] for r1 in range(-6, 7): for r2 in range(-6, 7): 
+
+xii QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+for r3 in range(-6, 7): if r1 * r2 * r3 == -6 and r1 != r2 \ and r2 != r3 and r1 != r3: triplets.append((r1, r2, r3)) return triplets # Function to compute (a, b) for each triplet def compute_a_b(triplet): r1, r2, r3 = triplet a = -(r1 + r2 + r3) b = r1 * r2 + r2 * r3 + r3 * r1 return a, b# Find all triplets and compute (a, b) pairs triplets = find_triplets() ab_pairs = set(compute_a_b(triplet) for triplet in triplets) # Count the number of unique (a, b) pairs num_pairs = len(ab_pairs) print(num_pairs) ‘‘‘ ‘‘‘output 5‘‘‘ 
+
+The number of ordered pairs (a, b ) of integers such that the polynomial x3 + ax 2 + bx + 6 has 3 distinct integer roots is 5 .
+
+xiii QUATRO : Query-Adaptive Trust Region Policy Optimization for LLM Fine-tuning 
+
+C.7. Behavioral Case Studies Flip Rate Analysis To analyze performance across different difficulty regimes, we conduct a flip-rate analysis based on difficulty buckets defined by the base (pretrained) policy. Specifically, for each prompt, we collect 256 rollouts from the base policy and group prompts according to the number of correct responses using bins [0 , 8, 32 , 128 , 256] , corresponding to very hard , hard , medium , and easy buckets. This construction ensures that difficulty is determined independently of the fine-tuned models. Flip Rate is defined as the fraction of prompts whose number of correct responses becomes non-zero after fine-tuning, i.e., prompts that transition from having no correct solutions under the base policy to at least one correct solution under the trained policy. As shown in Figure IV, our method consistently achieves higher flip rates in harder buckets, with the largest gains observed in the very hard and hard regimes. While the exact bucket boundaries may vary across datasets, the same qualitative trend holds: improvements at larger k are driven by successfully solving previously unsolved and rare-success prompts, rather than repeatedly sampling problems that are already easy for the base model. 
+
+Figure IV. Flip rate across difficulty buckets on MATH500 (left) and OlympiadBench (right), measuring the fraction of prompts that transition from zero to non-zero correctness after fine-tuning. 
+
+Temperature Variation A natural question is whether increasing the sampling temperature in GSPO can achieve comparable gains to our method, as higher temperature is known to increase sampling diversity and often improves Pass@ k.To examine this, we evaluate GSPO under an elevated temperature setting ( temp = 1 .5) and compare it with our method using the Unique Correct Ratio (UCR), defined as the fraction of distinct correct solutions among 256 sampled responses. While higher temperature does lead to moderate improvements in UCR for GSPO, the gains remain consistently smaller than those achieved by our method across datasets. Moreover, temperature-based diversification exhibits diminishing returns and eventually degrades solution quality as temperature increases, reflecting a trade-off between randomness and correctness. In contrast, our method maintains a policy that explicitly preserves multiple correct solution modes, rather than relying on increased sampling noise. This results in consistently higher UCR, indicating that our diversity gains stem from structured mode coverage rather than stochastic perturbations at inference time. MATH500 AMC23 AIME24 AIME25 Minerva Olympiad 
+
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 0.30
+> 0.35
+> Unique Correct Ratio
+> GSPO (temp=1.0)
+> GSPO (temp=1.5)
+> Ours (temp=1.0)
+
+Figure V. Unique correct ratio across datasets under different sampling temperatures. GSPO benefits from increased temperature, while our method maintains higher ratios. 
+
+xiv

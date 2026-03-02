@@ -1,0 +1,947 @@
+Title: Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models
+
+URL Source: https://arxiv.org/pdf/2601.16200v2
+
+Published Time: Thu, 29 Jan 2026 01:03:41 GMT
+
+Number of Pages: 18
+
+Markdown Content:
+# Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+Song Xia * 1 Meiwen Ding 1 Chenqi Kong 1 Wenhan Yang 2 Xudong Jiang 1
+
+## Abstract 
+
+Multimodal large language models (MLLMs) ex-hibit strong capabilities across diverse applica-tions, yet remain vulnerable to adversarial pertur-bations that distort their feature representations and induce erroneous predictions. To address this vulnerability, we propose Feature-space Smooth-ing (FS), a general framework that provides certi-fied robustness guarantees at the feature represen-tation level of MLLMs. We theoretically prove that FS converts a given feature extractor into a smoothed variant that is guaranteed a certified lower bound on the cosine similarity between clean and adversarial features under ℓ2-bounded perturbations. Moreover, we establish that the value of this Feature Cosine Similarity Bound (FCSB) is determined by the intrinsic Gaussian robustness score of the given encoder. Build-ing on this insight, we introduce the Gaussian Smoothness Booster (GSB), a plug-and-play mod-ule that enhances the Gaussian robustness score of pretrained MLLMs, thereby strengthening the robustness guaranteed by FS, without requiring additional MLLM retraining. Extensive experi-ments demonstrate that applying the FS to vari-ous MLLMs yields strong certified feature-space robustness and consistently leads to robust task-oriented performance across diverse applications. 
+
+## 1. Introduction 
+
+The emergence of the Multimodal Large Language Mod-els (MLLMs), such as GPT-5 (OpenAI, 2025), Gemini 3 Pro (DeepMind, 2025), and Claude Sonnet 4.5 (An-thropic, 2025), has fundamentally reshaped existing work-ing paradigms and significantly advanced societal produc-tivity. Despite their remarkable capabilities across a broad spectrum of real-world tasks, these models still encounter 
+
+> 1
+
+Nanyang Technological University 2Pengcheng Labora-tory. Correspondence to: Song Xia <Xias0002@e.ntu.edu.sg >,Xudong Jiang <EXDJiang@ntu.edu.sg >.
+
+Preprint. January 29, 2026. Adv input 𝒙′           
+
+> Feature
+> encoder 𝑓 𝑒
+> LLM
+> Adv targeted 𝒙 𝒕
+> min (𝒛 ′, 𝒛 𝒕 )
+> Feature
+> encoder 𝑓 𝑒
+> GSB
+> ……
+> Adv feature 𝒛′
+> Smoothed
+> feature ො𝒛
+> Describe this image
+> Adv.
+> response :A dog
+> is licking a
+> person's hand.
+> Protected
+> response : A
+> close up of a
+> panda bear's
+> face.
+> Cos ො𝒛 ,𝒛 ≥FCSB Feature -space
+> smoothing
+> Clean feature
+
+Figure 1. Illustration of the FS-GSB, which guarantees that the cosine similarity of the adversarial and clean features extracted by MLLM’s encoder is larger than FCSB for robust predictions. 
+
+critical safety challenges, such as adversarial vulnerabili-ties (Zhao et al., 2023; Cui et al., 2024; Li et al., 2025b; Jia et al., 2025). Adversaries can manipulate predictions of the MLLMs to a malicious state by injecting subtle and imperceptible perturbations to the clean inputs, exploiting the models’ insufficient local smoothness and uncontrolled Lipschitz continuity (Goodfellow et al., 2014; Cohen et al., 2019; Hein & Andriushchenko, 2017; Xia et al., 2024b). Countermeasures towards those threats can be roughly clas-sified into empirical defense and certified defense. Typical empirical approaches include adversarial training (Madry et al., 2018; Rebuffi et al., 2021; Wang et al., 2024b; Xhon-neux et al., 2024; Casper et al., 2024; Schlarmann et al., 2024; Malik et al., 2025; Mao et al., 2023) and input pu-rification (Nie et al., 2022; Yoon et al., 2021; Lee & Kim, 2023; Lei et al., 2025; Zollicoffer et al., 2025). Despite their demonstrated empirical effectiveness, these approaches lack formal robustness guarantees and remain susceptible to stronger adversaries (Tramer et al., 2020; Chen et al., 2023; Wu et al., 2020; Olivier & Raj, 2023). Moreover, the multimodal nature of MLLMs also poses a great challenge for existing adversarial training methods. Since they accept heterogeneous inputs across diverse domains, ensure a ro-bust encoder via adversarial training that can generalize to various scenarios is challenging and computationally costly. In contrast, certified approaches aim to guarantee that the model returns a constant prediction result within a certain range, usually a ℓ2 or ℓ∞-norm constrained area (Raghu-nathan et al., 2018; Wong & Kolter, 2018; Hao et al., 2022; Kakizaki et al., 2023; Cohen et al., 2019; Xia et al., 2024b; Salman et al., 2019). However, most previous certified de-1
+
+> arXiv:2601.16200v2 [cs.LG] 27 Jan 2026 Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models
+
+fense approaches (Cohen et al., 2019; Xia et al., 2024b; Wang et al., 2024c; Hao et al., 2022; Salman et al., 2019) predominantly assume the prediction of one-dimensional outputs (e.g., class label), thereby limiting their applicability to more general tasks on MLLMs. To address the aforementioned challenges, we propose the Feature-space Smoothing (FS), a provable defense method that offers certified robustness on the feature representations of MLLMs. Specifically, FS smooths the vanilla feature encoder of the MLLM, and the resulted smoothed encoder is guaranteed to maintain a provable lower bound on the cosine similarity between clean and adversarial representations under ℓ2-norm bounded attacks. Moreover, we demonstrate that this Feature Cosine Similarity Bound (FCSB) of the smoothed feature encoder is intrinsically determined by a defined Gaussian robustness score, which measures the prediction consistency of the vanilla feature extractor under Gaussian noise. Nonetheless, the Gaussian robustness of these MLLMs remains limited without Gaussian noise augmented train-ing, leading to a correspondingly suboptimal FCSB. To address this whiling avoiding the high computational cost of fine-tuning MLLMs, we propose a plug-and-play Gaussian Smoothness Booster (GSB), consisting of a lightweight Gaussian denoiser and a residual smoothness mapper. Specifically, the denoiser is applied prior to the feature encoder and is trained to mitigates Gaussian noises and improves the resulting robustness score. In parallel, the smoothness mapper operates after feature extraction for feature-level refinement. It is trained to preserve the original feature distribution while further enhancing the Gaussian robustness score. These two components of GSB work syn-ergistically to enhance the certified robustness of MLLMs provided by FS. The GSB is optimized using the proposed utility–robustness loss and trained on data from diverse visual domains to enhance the Gaussian robustness while preserving the feature utility for the encoder. To comprehensively assess the performance, we evaluate our method against state-of-the-art (SOTA) adversarial at-tacks tailored for MLLMs under the white-box setting and compare it with advanced adversarial training methods. Ex-tensive experimental results demonstrate that our FS not only provides a strong certified robustness guarantee on the feature representation but also exhibits superior adversarial robustness for various MLLMs under diverse downstream tasks. Overall, the contributions of this work are: • We propose the Feature-space Smoothing (FS) to turn any feature encoder into a smoothed version, and theo-retically prove that the smoothed encoder maintains a certified lower bound on the feature cosine similarity between clean and adversarial representations. • We propose the Gaussian Smoothness Booster (PSB) that effectively enhances the FCSB of the smoothed encoder in MLLMs via a plug-and-play manner. • We conduct extensive experiments demonstrating that integrating our proposed FS-GSB greatly enhances the adversarial robustness of various MLLMs and dramati-cally reduces the ASR under various white-box attacks. 
+
+## 2. Related Work 
+
+Adversarial attacks on MLLMs. While MLLMs continue to achieve remarkable performance across diverse applica-tions, extensive works (Qi et al., 2024; Cui et al., 2024; Zhao et al., 2023; Jia et al., 2025; Li et al., 2025b; Wang et al., 2024a; Zhang et al., 2024; 2025; Xie et al., 2025) have exposed their adversarial vulnerabilities, raising seri-ous safety concerns. Early work, such as AttackVLM (Zhao et al., 2023), explores transferable attacks by disrupting the feature representations of CLIP (Radford et al., 2021) and BLIP (Li et al., 2023a), showing strong adversarial transferability among open-source models but limited effec-tiveness against closed-source commercial systems. More recent approaches, such as M-Attack (Li et al., 2025b) and FOA-Attack (Jia et al., 2025), further advance this direction by leveraging multi-extractor ensembles and feature-space alignment, achieving over 90% targeted attack success rates on image-captioning tasks against powerful closed-sourced commercial MLLMs ( e.g. , ChatGPT-4o). This highlights an urgent need for trustworthy defenses that provide effective and provable protection for MLLMs. 
+
+Adversarial defense on MLLMs. Adversarial defense methods can be broadly classified into empirical and prov-able approaches. Empirical defenses for MLLMs mainly include adversarial training (Madry et al., 2018; Rebuffi et al., 2021; Wang et al., 2024b; Xhonneux et al., 2024; Casper et al., 2024; Schlarmann et al., 2024; Malik et al., 2025; Mao et al., 2023), which enhances robustness by aug-menting training data with adversarial examples, and input purification (Nie et al., 2022; Lei et al., 2025; Li et al., 2025a), which employs generative mechanisms such as dif-fusion models or autoencoders to recover clean inputs prior to inference. Recent studies (Malik et al., 2025; Mao et al., 2023; Schlarmann et al., 2024) have revealed that utilization of adversarially trained CLIP-feature encoders can enhance adversarial robustness for MLLMs. However, these methods lack formal robustness guarantees and remain vulnerable to adaptive and unseen threats (Tramer et al., 2020; Chen et al., 2023; Wu et al., 2020). Moreover, adversarial training demands costly retraining and often leads to degradation in clean performance. Alternatively, certified defenses aim to provide mathemati-cally provable robustness guarantees. The use of Gaussian smoothing for certified robustness was initially introduced for classification models (Cohen et al., 2019; Li et al., 2018; Lecuyer et al., 2019), yet its theoretical formulation is re-stricted to one-dimensional outputs, limiting its applicability 2Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+to tasks such as auto-regression or multimodal generation. To overcome these limitations and ensure trustworthy protec-tion for MLLMs, we propose the Feature-space Smoothing (FS), a defense mechanism that establishes provable adver-sarial feature robustness for MLLMs. 
+
+## 3. Feature-Space Smoothing 
+
+3.1. Preliminary 
+
+Let F denote a general deep learning model consisting of a feature extractor fe : x → z that maps the input x to a feature representation z, and a predictor fd : z → y that produces the final output y. Let L denote the general loss function (e.g., cross-entropy) that measures the discrepancy between the model’s output and the ground truth. 
+
+Adversarial attacks: Let Bϵ(x) = 
+
+n
+
+x′ : ∥x′ − x∥p ≤ ϵ
+
+o
+
+be an ℓp-norm ball centered at the input x, where ϵ is a pre-defined perturbation bound. For each input x, the adver-sarial attacks aim to find an adversarial input x′ = x + δ
+
+that misleads the model by solving: 
+
+max  
+
+> x+δ∈B ϵ(x)
+
+L (F (x) , F (x + δ)) . (1) 
+
+Adversarial effects on feature representations: While adversarial attacks primarily aim to alter the model’s predic-tions, numerous studies (Jia et al., 2025; Xia et al., 2024a; Li et al., 2020; Huang et al., 2019; Li et al., 2023b; Ding et al., 2024) have shown that successful attacks typically induce substantial distortions in the model’s feature representations. Let x′ denote the adversarial example with adversarial fea-ture z′. Let zt be the adversarial targeted feature with malicious semantic meaning. The attack generally leads to 
+
+max L (z′, z) for untargeted attacks and min L (z′, zt) for targeted attacks. Thus, ensuring a robust feature encoder that min L (z′, z) is crucial for the trustworthy prediction. 
+
+Randomized smoothing: Consider a k classes classifi-cation problem with the input x ∈ Rd and the label 
+
+y ∈ Y = {c1, . . . , c k}. Randomized Smoothing (RS) first corrupts each input x by adding the Gaussian noise 
+
+ε ∼ N (0 , σ 2I). Then it turns an arbitrary base classifier 
+
+F into a smoothed version ˆF that possesses ℓ2 certified robustness guarantees. The smoothed classifier ˆF returns whichever class the base classifier F is most likely to return among the distribution x + ε ∼ N (x, σ 2I), which is: 
+
+ˆF(x) = arg max 
+
+> c∈Y
+
+P(F(x + ε) = c). (2) RS then guarantees a certified radius R for this smoothed classifier ˆF. For any perturbation δ satisfying ∥δ∥2 ≤ R ,the smoothed classifier is guaranteed to return a robust pre-diction that makes ˆF(x + δ) = F (x).
+
+Limitations for RS. While previous RS provides effec-tive certified protection for classification models, it suffers from two limitations. First, the theoretical framework of RS inherently restricts its certification to classification tasks (e.g. possibility of input x belongs to a certain class c). Sec-ond, estimating P(F(x + ε) = c) in Equation 2, incurs substantial computational overhead, since each estimation requires multiple forward passes through the entire model. 
+
+3.2. Certified Bound via Feature Space Smoothing 
+
+Considering the limitations inherent in the RS, we introduce the Feature-space Smoothing (FS). By turning any feature encoder fe into a smoothed version ˆfe, FS theoretically guarantees that ˆfe maintains a certified lower bound on the cosine similarity between clean and adversarial representa-tions under ℓ2-norm constrained perturbations. 
+
+Smoothed feature encoder. For any feature encoder fe :
+
+x → z, where z is the representation normalized into the l2
+
+unit sphere, FS defines the smoothed encoder ˆfe(x) as: 
+
+ˆfe(x) = Eε∼N (0 ,I )[fe(x + ε)] = 1(2 π)d/ 2
+
+Z
+
+> Rd
+
+fe(x + ε) exp  − 12 ∥ε∥2 dε, (3) where I denotes the d × d identity and ∥ · ∥ is the Euclidean norm. ε ∼ N (0 , I ) denotes Gaussian noise with zero mean and standard deviation one. The smoothed feature encoder 
+
+ˆfe(x) outputs the expectation of feature representations over the Gaussian distribution N (x, I ).
+
+Gaussian robustness score. Define Sxt (x) as the score function that evaluates feature discrepancy between an input 
+
+x and a targeted example xt, which is: 
+
+Sxt (x) = 12
+
+
+
+1 + Cos  fe(x), f e(xt)
+
+(4) where Cos (·, ·) denotes the cosine similarity and Sxt (x) ∈
+
+[0 , 1] . The Gaussian robustness score ˆS(x) is defined as: 
+
+ˆS(x) = E 
+
+> ε∼N (0 ,I )
+
+Sx(x + ε)
+
+= 12
+
+
+
+1 + E 
+
+> ε∼N (0 ,I )
+
+Cos  fe(x + ε), f e(x) 
+
+, (5) The score ˆS(x) evaluates the expected cosine similarity between the feature representation of a Gaussian-perturbed input x + ε and that of the clean input x, characterizing the Gaussian robustness of the vanilla feature encoder fe.Notably, we prove that this score ˆS(x) preserves a good Lipschitz property, which serves as a theoretical foundation for proving the certified robustness for ˆfe(x).
+
+Lemma 3.1 (Lipschitz property for the Gaussian robust-ness score ). Let Φ( a) = 1√2π
+
+R a 
+
+> −∞
+
+exp( − 12 s2)ds be a stan-dard Gaussian cumulative distribution function and Φ−1
+
+be its inverse. For any feature encoder fe : x → z, the mapping x → Φ−1( ˆS(x)) is 1 − Lipschitz .
+
+The proof of Lemma 3.1 is in the Appendix, Section A.1.1. It implies that the mapping from x to Φ−1( ˆS(x)) exhibits 3Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models Clean input 𝒙  Gaussian noise                 
+
+> 𝜺 ~𝒩 (0,𝜎 2𝐼 )
+> +Visual feature
+> encoder 𝑓 𝑒
+> Denoiser 𝒫
+> Noised inputs 𝒙 +𝜺 Denoised inputs 𝒫 (𝒙 +𝜺 )
+> LLM
+> Residual smoother
+> mapper ℳ
+> …
+> …
+> …
+> 𝑓 𝑒 (𝒙 )෤𝒛 𝒎
+> 𝟎
+> Robustness
+> score Ƹ𝑠 (𝑥 )
+> ℒℳℒ𝒫
+> Frozen parameters
+> Trainable parameters
+> Forward calculation
+> Gradient backward
+> …
+> 𝔼 +
+> ෤𝒛 𝒎
+> 𝒏
+
+Figure 2. The training framework of the GSB. The denoiser performs pre-processing, and the smoothness mapper refines post-extracted features to enhance the Gaussian robustness. Parameters of MLLMs are frozen, and the denoiser and mapper are optimized with LP and 
+
+LM. For evaluation, x is replaced with adversarial input x′, and the forward calculation marked in orange color will be removed. 
+
+strong adversarial robustness, as it satisfies a 1-Lipschitz constraint. Generally, ˆS(x) measures the Gaussian robust-ness of the vanilla feature encoder fe(x). We then prove that 
+
+this score ˆS(x) fundamentally determines the value of the certified robustness bound of its smoothed encoder ˆfe(x).The following Theorem establishes an explicit relationship between this score and the lower bound on the adversarial feature cosine similarity. 
+
+Theorem 3.2 (Certified lower bound on the adversarial feature cosine similarity ). For any feature encoder fe and its smoothed version ˆfe, let x and x′ be clean and adversar-ial inputs with ∥x′ − x∥ ≤ ϵ. The cosine similarity between the adversarial feature ˆfe(x′) and clean feature fe(x) sat-isfies: Cos( ˆfe(x′), f e(x)) ≥ 2Φ 
+
+
+
+Φ−1( ˆS(x)) − ϵ
+
+
+
+− 1.
+
+Denote 2Φ 
+
+
+
+Φ−1( ˆS(x)) − ϵ
+
+
+
+− 1 as the Feature Cosine Similarity Bound (FCSB). Theorem 3.2 reveals that: • By FS, we can turn any given feature encoder fe into a smoothed version ˆfe that maintains a FCSB between the adversarial and clean feature representations. • By maximizing the robustness score ˆS(x) of the given feature encoder fe, we can effectively enhance the value of FCSB derived on its smoothed version ˆfe.The proof of Theorem 3.2 is in the Appendix, Section A.1.2. 
+
+Corollary 3.3 (Certified radius R for adversarial cosine similarity ≥ 0.5 ). Let x be the clean input, and x′ be the adversarial input. Then Cos( ˆfe(x′), f e(x)) ≥ 0.5, for all 
+
+x′ with ∥x′ − x∥2 ≤ R , where: 
+
+R = Φ −1  ˆS(x) − Φ−1(0 .75) . (6) Building upon Theorem 3.2, Corollary 3.3 establishes a certified radius R for the smoothed feature encoder. For any adversarial perturbation satisfying ∥δ∥2 ≤ R , the FCSB of the smoothed encoder is guaranteed to remain above 0.5. 
+
+## 4. Gaussian Smoothness Booster 
+
+Theorem 3.2 and Corollary 3.3 reveal an intriguing robust-ness property of the smoothed feature encoder ˆfe. However, feature encoders fe of MLLMs generally exhibit limited Gaussian robustness, which restricts the value of FCSB de-rived on ˆfe. One solution is to estimate the smoothness score 
+
+ˆS(x) through Monte Carlo sampling and training fe to max-imize this score via gradient backpropagation. However, this could reduce the adaptability and practicality of the pro-posed FS framework, as fine-tuning and re-aligning the LLM is highly complex and costly . This thereby motivates us to propose the Gaussian Smoothness Booster (GSB), a plug-and-play module that can be seamlessly integrated with MLLMs to enhance its Gaussian robustness score ˆS(x).The training framework of our proposed GSB is shown in Figure 2. The denoiser P operates before feature extraction to denoise the Gaussian perturbations, and the smoothness mapper M performs post-extraction to do the feature re-finement. Those two modules work together to enhance the Gaussian robustness of the given feature encoder. 
+
+4.1. Gaussian Denoiser 
+
+To perform the Gaussian denoising, the denoiser P is trained to minimize the reconstruction loss lmse , defined as: 
+
+lmse = E  
+
+> x∼D ,ε∼N (0 ,σ 2I)
+
+∥x − P (x + ε)∥, (7) where D represents the data distribution. Meanwhile, to further enhance robustness score after plugging P, we also introduce a robustness loss lP
+
+> rb
+
+, defined as: 
+
+lP 
+
+> rb
+
+= E  
+
+> x∼D ,ε∼N (0 ,σ 2I)
+
+Cos  fe(P(x + ε)) , f e(x) , (8) which encourages feature consistency between the purified and clean representations. We then fine-tune this model on the dataset D using the purifier loss LP , which is: 
+
+LP = lP 
+
+> rb
+
++ λ1lmse , (9) 4Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+where λ1 is the weighting coefficient. More details of the fine-tuning process on P can be found in the Ap-pendix A.2.1. 
+
+4.2. Residual Smoothness Mapper 
+
+For the residual smoothness mapper M, we utilize a noise-aware residual module to enhance feature robustness while preserving its statistical distribution. The main process of this mapper can be formulated as: 
+
+˜zm = ˜ z + M( ˜ z, σ ) = ˜ z +
+
+> k−1
+
+X
+
+> i=0
+
+mi ( ˜ zi, σ ) , (10) where ˜z = fe(P(x + ε)) denotes the purified feature repre-sentations and ˜zi+1 = mi( ˜ zi, σ ) is the intermediate output with ˜z0 = ˜ z. σ is the noise strength that adaptively controls the output magnitude of the mapper. k is the number of blocks ( k = 3 in our experiments unless otherwise speci-fied), and each block mi(·) contains multi-head attention, depthwise convolution, and MLP branches to refine the purified representation. To enhance the Gaussian robust-ness of the refined representation, we introduce the mapper robustness loss lM 
+
+> rb
+
+, defined as: 
+
+lM 
+
+> rb
+
+= E  
+
+> x∼D ,ε∼N (0 ,σ 2I)
+
+Cos   ˜zm, f e(x) , (11) which encourages feature consistency between the refined and clean representations. Meanwhile, to ensure that the refined feature preserves the statistical characteristics of the clean feature, we introduce two regularization terms: the identical loss lid and the statistical loss lstats , defined as: 
+
+
+
+lstats = E 
+
+> x∼D ,
+> ε∼N (0 ,σ 2I)
+
+1
+
+D
+
+> D
+
+X
+
+> d=1
+
+h
+
+(μ(d)˜zm − μ(d) 
+
+> z
+
+)2 + ( σ(d)˜zm − σ(d) 
+
+> z
+
+)2i
+
+,lid = E
+
+> x∼D
+
+∥M ( ˜ z, 0) ∥22.
+
+(12) where ˜zm, z ∈ RB×L×D with bath size B, token number 
+
+L and feature dimension D. The lstats enforces consistency between the element-wise mean μd and standard deviation 
+
+σd of two representations, thereby preserving the statistical characteristics. Meanwhile, the identity loss lid constrains the mapping network M when the noise strength σ = 0 ,promoting stability and preventing undesired distortions on clean inputs. The overall training loss LM is defined as: 
+
+LM = lM 
+
+> rb
+
++ λ2lstats + λ3lid , (13) where λ2 and λ3 are the weighting coefficients. More details of the training process on the residual smoothness mapper can be found in the Appendix A.2.2. 
+
+4.3. Further Discussion on Plugging GSB Certified robustness for the encoder fe with GSB. Let 
+
+f ′ 
+
+> e
+
+denote the feature encoder integrated with the proposed GSB. Then the forward process can be formulated as: 
+
+f ′
+
+> e
+
+(x + ε) = fe(P(x + ε)) + M( ˜ z, σ ). (14) 
+
+Algorithm 1 Training algorithm of GSB 
+
+Require: Dataset D, feature encoder fe, Denoiser P, mapper M,sampling number n0, noise std σ, loss weights λ1, λ 2, λ 3.1: Stage 1: Train denoiser P.
+
+2: for each batch x ∼ D do 
+
+3: z ← fe(x)
+
+4: for i = 1 to n0 do 
+
+5: Sample εi ∼ N (0 , σ 2I)
+
+6: ˜xi ← P (x + εi)
+
+7: ˜zi ← fe( ˜ xi)
+
+8: end for 
+
+9: Compute lP 
+
+> rb
+
+and lmse using Eqs. 7 and 8. 10: Update P by gradient descent on ∇P LP
+
+11: end for 
+
+12: Stage 2: Train smoothness mapper M.
+
+13: for each batch x ∼ D do 
+
+14: z ← fe(x)
+
+15: for i = 1 to n0 do 
+
+16: Sample εi ∼ N (0 , σ 2I)
+
+17: ˜xi ← P (x + εi)
+
+18: ˜zi ← fe( ˜ xi)
+
+19: ˜zim ← ˜zi + M( ˜ zi, σ )
+
+20: end for 
+
+21: Compute lM 
+
+> rb
+
+, lid , and lstats using Eqs. 11 and 12. 22: Update M by gradient descent on ∇MLM
+
+23: end for 
+
+Under this condition, the smoothed feature encoder and smoothness score are defined as: 
+
+ˆf ′
+
+> e
+
+(x) = 1(2 π)d/ 2
+
+Z
+
+> Rd
+
+f ′
+
+> e
+
+(x + ε) exp  − 12 ∥ε∥2 dε,
+
+ˆS′(x) = 12
+
+
+
+1 + E 
+
+> ε∼N (0 ,σ 2I)
+
+Cos  f ′
+
+> e
+
+(x + ε), f e(x) 
+
+,
+
+(15) Where ˆS′(x) ∈ [0 , 1] . We can prove that the Lipschitz prop-erty derived in Lemma 3.1 still holds, and the theoretical bound in Section 3 remains valid. Then, utilizing Theo-rem 3.2 and Corollary 3.3, we can derive the certified lower bound on Cos( ˆf ′
+
+> e
+
+(x′), f e(x)) for any adversarial input x′.
+
+Training algorithm and dataset construction. The train-ing procedure of GSB is summarized in Algorithm 1, where the denoiser P and the smoothness mapper M are trained sequentially via a two-stage manner. The expectation over Gaussian perturbations is approximated by Monte Carlo sampling with n0 samples drawn from N (0 , σ 2I), where we set n0 = 8 in our training to balance efficiency and estimation accuracy. 
+
+## 5. Certified Robustness via FS 
+
+5.1. Feature-wise Certification 
+
+To evaluate the effectiveness of the proposed FS framework with GSB, we adopt CLIP-L14 (Radford et al., 2021) as the vanilla feature encoder fe and assess the feature-wise certified robustness under the FS. We report both the cer-tified FCSB under different adversarial constraints ϵ and 5Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+Table 1. The average FCSB at different predetermined adversarial bounds ϵ and the average certified radius R for FCSB ≥ 0.5.                                   
+
+> Encoder σAvg. FCSB at different adv-bound ϵAvg. R
+> 0.125 0.25 0.375 0.50 0.75 CLIP-L14 0.25 0.828 0.623 0.313 -0.06 /0.31 CLIP-L14+GSB 0.907 0.763 0.508 0.152 /0.38 CLIP-L14 0.50 0.717 0.586 0.439 0.253 -0.132 0.33 CLIP-L14+GSB 0.924 0.873 0.799 0.698 0.409 0.69
+
+the average certified radius R for FCSB ≥ 0.5. The results are shown in Table 1. For implementation, we ran-domly sample 500 images from the ImageNet dataset (Deng et al., 2009) and approximate the Gaussian expectation us-ing n = 10 ,000 Monte Carlo samples. As shown in Table 1, integrating GSB consistently enhances both the certified FCSB across a range of perturbation magnitudes and the average certified radius R, indicating substantial improve-ments in certified robustness. 
+
+5.2. Prediction-wise Certification 
+
+Beyond the feature-wise certification, the guarantees pro-vided by FS can be propagated to the prediction space by smoothing the deepest-layer features with a solvable classi-fication head, which enables a closed-form translation from feature-space certification to prediction-level robustness. To this end, we adopt CLIP-L14 with GSB as the last-layer feature extractor for downstream classification. Within the FS framework, we employ a learnable prototype-based co-sine classification head, where each class is represented by a unit-norm prototype, and predictions are determined by co-sine similarity in the normalized feature space. This design admits a direct characterization of class decision bound-aries, allowing the certified feature-wise cosine similarity guaranteed by FS to be converted into certified prediction bounds. We also compared the performance with Random-ized Smoothing (RS) (Cohen et al., 2019), where we utilize the same CLIP-L14+GSB as the feature encoder and train a learnable linear classification head for a fair comparison. In the experiments, we randomly sample 500 training in-stances from 10 ImageNet classes (Deng et al., 2009) to train both classification heads and evaluate them on an addi-tional 500 test samples. For both FS and RS, the Gaussian expectation is approximated using n = 10 ,000 Monte Carlo samples. The comparative results in Table 2 demonstrate the effectiveness of the FS in providing certified prediction-level robustness. Further illustration and proof of prediction-wise certification via FS are provided in Appendix A.3. 
+
+## 6. Experimental Results on MLLM Protection 
+
+While end-to-end robustness certification for MLLMs is appealing and practically meaningful, smoothing the entire model and certifying its autoregressive predictions with a solvable head are both computationally expensive and chal-
+
+Table 2. The comparison results of the RS and FS framework on prediction-wise certification. Smoothing σ Certified accuracy at different ℓ2 adv-bound ε (%) 0.00 0.125 0.25 0.375 0.5 0.75 1 1.50 RS 0.25 93.4 88 86.2 81.0 75.4 66.5 / /FS 94.2 92.4 90.0 88.0 85.8 72.0 / /RS 0.50 91.2 86 84.4 81.4 77.0 71.6 67.0 49.2 FS 91 85.2 84.0 83.6 83.0 77.6 69.2 54.0 
+
+lenging. Alternatively, we thereby seek the feature-wise certification of the visual encoder ( e.g. , CLIP) in MLLMs, and empirically evaluate the resulting task-level robustness under strong white-box adversarial attacks, providing a prac-tical compromise between certification feasibility and effec-tiveness. Notably, we find that this feature-wise certifica-tion offers two advantages: (i) efficiency , as smoothing the lightweight encoder fe incurs substantially lower computa-tional overhead than smoothing the full model F; and (ii) generality , where feature-representation level certification makes it applicable to various downstream tasks. 
+
+6.1. Experimental Setup Evaluated models and tasks. Since the proposed FS re-quires access to the forward feature computation process of MLLMs, we primarily validate its effectiveness on open-sourced MLLMs, including LLaVA-V1.5-7B (Liu et al., 2023; 2024) and OpenFlamingo9B (Awadalla et al., 2023). We comprehensively assess the performance of plugging the FS under adversarial conditions across multiple downstream tasks, including: • Image captioning: Following (Li et al., 2025b; Jia et al., 2025), we randomly take 100 images from the NIPS 2017 Adversarial Attacks and Defenses Compe-tition dataset 1 and ask the model to caption the image. • Image Classification: We randomly sample 500 im-ages from 10 classes in the ImageNet dataset (Deng et al., 2009) and ask the model to classify the input. • Visual Question Answering (VQA): We utilize 100 image-question pairs from the ScienceQA dataset (Lu et al., 2022) and ask the model to select the answer. 
+
+The threat model. To comprehensively assess the robust-ness under strong adversaries, we employ three SOTA ad-versarial attacks specifically designed for MLLMs, named AttackVLM (Zhao et al., 2023), M-Attack (Li et al., 2025b), and FOA (Jia et al., 2025) using the white-box setting, where attackers can fully access the feature extractor and GSB . All attacks are implemented following their orig-inal best configurations, with the adversarial perturbation budget ϵ set to ∥ϵ∥∞ = 16 /255 .
+
+Compared defense methods. As robustness certifica-tion for MLLMs remains largely unexplored, we primar-
+
+> 1
+
+https://nips.cc/Conferences/2017/ CompetitionTrack 
+
+6Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+Table 3. Experimental results on adversarial robustness of different defense methods and MLLMs on image captioning tasks. Values in parentheses denote the average textual similarity measured by GPTScore. The overall best results are shown in bold , and the best results without smoothing are underlined, highlighting the significant performance gain introduced by our proposed FS.                                                                                                                              
+
+> Model Method M-Attack (Li et al., 2025b) FOA (Jia et al., 2025) AttackVLM (Zhao et al., 2023)
+> FCS ↑ACC ↑ASR ↓FCS ↑ACC ↑ASR ↓FCS ↑ACC ↑ASR ↓
+> LLaVA-1.5-7B Org. 0.385 1% (0.06) 93% (0.54) 0.388 1% (0.049) 94% (0.578) 0.430 3% (0.089) 88% (0.490) Smoothed org. 0.588 63% (0.515) 3% (0.027) 0.587 65% (0.519) 6% (0.028) 0.598 71%(0.556) 4% (0.03)
+> FARE (Schlarmann et al., 2024) 0.588 44% (0.409) 24% (0.097) 0.504 19% (0.197) 51% (0.222) 0.499 18%(0.190) 44%(0.221) Smoothed FARE 0.687 64% (0.541) 10% (0.053) 0.634 43% (0.391) 14% (0.065) 0.653 52% (0.443) 7% (0.045) TeCoA (Mao et al., 2023) 0.720 51% (0.458) 16% (0.081) 0.674 21% (0.236) 37% (0.187) 0.606 17% (0.179) 43% (0.218) Smoothed TeCoA 0.801 61% (0.510) 17% (0.081) 0.769 39% (0.364) 10% (0.0530) 0.720 38% (0.355) 14% (0.065) Open Flamingo -9B Org. 0.351 1% (0.089) 86% (0.583) 0.347 1% (0.091) 87%(0.569) 0.442 16% (0.222) 59% (0.379) Smoothed org. 0.592 59% (0.483) 3% (0.081) 0.588 57% (0.472) 1% (0.066) 0.703 61% (0.505) 0% (0.051)
+> FARE (Schlarmann et al., 2024) 0.588 36% (0.407) 17% (0.145) 0.504 20% (0.249) 40% (0.240) 0.499 15% (0.243) 40% (0.247) Smoothed FARE 0.782 48% (0.462) 5% (0.062) 0.768 35% (0.354) 9% (0.102) 0.754 40% (0.404) 5% (0.086) TeCoA (Mao et al., 2023) 0.720 51% (0.472) 13% (0.116) 0.674 21% (0.240) 30% (0.210) 0.606 19% (0.244) 34% (0.225) Smoothed TeCoA 0.835 48% (0.464) 3% (0.067) 0.818 39% (0.371) 5% (0.088) 0.805 35%(0.341) 8%(0.079)
+
+ily compare our method against adversarial training–based defenses, specifically FARE (Schlarmann et al., 2024) and TeCoA (Mao et al., 2023). Both FARE and TeCoA adopt ad-versarial training to obtain robust feature encoders that can be directly integrated into models such as LLaVA-1.5-7B and OpenFlamingo-9B. To ensure a fair and consistent com-parison, we obtain all adversarially trained feature encoders from their official repositories, without any modification. 
+
+Implementation details. For practical inference efficiency, we set the number of samples to n0 = 8 for smoothing, en-suring a favorable trade-off between robustness and runtime. We train three independent GSB modules for different mod-els, including the encoder of LLaVA-1.5-7B, the encoder of OpenFlamingo-9B, and CLIP-L14. To further assess cross-model generalization, we directly utilize the GSB trained on a vanilla encoder on adversarially trained encoders, in-cluding FARE and TeCoA. For all feature encoders, we set hyperparameters λ1, λ 3 = 0 .25 , λ2 = 100 , and σ = 0 .25 .In our tables, the term ”smoothed” denotes the process of smoothing the encoder via FS and enhancing it with GSB. 
+
+Evaluation metrics. We mainly report: the Feature Co-sine Similarity (FCS), the Accuracy (ACC), and the Attack Success Rate (ASR). Specifically, FCS measures the cosine similarity between clean and adversarial features extracted by the same feature encoder, reflecting its feature-wise ro-bustness. ACC denotes the proportion of correctly com-pleted tasks, while ASR indicates the proportion of cases where the model is successfully manipulated to produce the adversarially targeted outputs. For image classification and VQA tasks, ACC and ASR are determined by whether the MLLM outputs match the correct or adversarial targets. For image captioning, following (Li et al., 2025b), we adopt the LLM-as-a-judge protocol (Zheng et al., 2023) to evalu-ate ACC and ASR. Specifically, we first generate the clean and adversarially targeted captions by feeding the clean and targeted inputs into the vanilla MLLM ( e.g. , the original LLaVA). We then obtain the predicted caption by feeding the adversarially perturbed input into the tested model ( e.g. ,Smoothed LLaVA). The textual similarity is computed using GPTScore (Fu et al., 2024), where a task is considered suc-cessful if the GPTScore between the predicted and clean captions is ≥ 0.5, and an attack is considered successful if the GPTScore between the predicted and adversarially targeted captions is ≥ 0.3.
+
+6.2. Experimental Results on Different Tasks Image captioning. Table 3 reports the image captioning results of MLLMs under different attacks and defenses. The adversaries aim to manipulate the MLLMs into pro-ducing the caption corresponding to a maliciously chosen target image. The results show that converting MLLMs into smoothed variants via the proposed FS smoothing yields consistently strong robustness across diverse at-tacks, whereas empirical defenses degrade substantially un-der stronger adversaries. When attacks escalate from M-Attack to FOA, the accuracy of LLaVA with FARE drops from 44% to 19%, and that of TeCoA from 51% to 21% .In contrast, FS achieves significant robustness gains , in-creasing LLaVA accuracy from 1% to 65% and reducing the ASR from 94% to 6% under the strongest FOA attack. Moreover, FS exhibits strong cross-model generalization, consistently improving the robustness of FARE and TeCoA without additional fine-tuning. 
+
+Image classification. Table 4 presents the classification results, indicating that FS delivers consistent and substantial robustness improvements across all settings. The adversarial objective is to mislead the model into classifying an adver-sarial image into a maliciously targeted class. integrating FS into the vanilla model increases LLaVA accuracy from 3.8% to 87.2% and reduces the ASR from 81% to 0.2% 
+
+under the strongest FOA attack. Similar robustness gains are observed when FS is applied to FARE and TecoA. 
+
+VQA. The comparative results of different defense methods on LLaVA-1.5-7B on the VQA are presented in Table 5. In this setting, the adversarial objective is to mislead the model into selecting a wrong option, ”None of the above” , for each image–question pair. This task presents a greater challenge 7Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+Table 4. Experimental results on adversarial robustness of different defense methods and MLLMs on image classification tasks. The overall best results are shown in bold , and the best results without smoothing are underlined.                                                                       
+
+> Model Method M-Attack (Li et al., 2025b) FOA (Jia et al., 2025) AttackVLM (Zhao et al., 2023)
+> FCS ↑ACC ↑ASR ↓FCS ↑ACC ↑ASR ↓FCS ↑ACC ↑ASR ↓
+> LLaVA-1.5-7B Org. 0.427 8.2% 78.2% 0.437 3.8 % 81.0 % 0.458 6.0% 78.4% Smoothed org. 0.590 84.8% 0.2% 0.600 87.2% 0.2% 0.605 87.0% 0.2%
+> FARE (Schlarmann et al., 2024) 0.574 55.4% 14.6% 0.521 24.8% 39.8% 0.508 25.8% 45.0% Smoothed FARE 0.695 75.6% 5.2% 0.681 66.2% 1% 0.671 68.0% 1% TeCoA (Mao et al., 2023) 0.731 67.4% 2% 0.626 29.0% 20.0% 0.592 33.6% 17.8% Smoothed TeCoA 0.790 70.6% 0.6% 0.714 58.8% 0.8% 0.712 56.4% 0.4%
+
+Table 5. Experimental results on adversarial robustness of different defense methods and MLLMs on VQA tasks. The overall best results are shown in bold , and the best results without smoothing are underlined.                                                                       
+
+> Model Method M-Attack (Li et al., 2025b) FOA (Jia et al., 2025) AttackVLM (Zhao et al., 2023)
+> FCS ↑ACC ↑ASR ↓FCS ↑ACC ↑ASR ↓FCS ↑ACC ↑ASR ↓
+> LLaVA-1.5-7B Org. 0.398 31% 28% 0.383 22% 22% 0.474 25% 27% Smoothed org. 0.682 47% 0% 0.643 43% 0% 0.712 43% 1% FARE (Schlarmann et al., 2024) 0.657 47% 5% 0.590 32% 0% 0.550 38% 7% Smoothed FARE 0.861 48% 1% 0.788 38% 0% 0.825 39% 0%
+> TeCoA (Mao et al., 2023) 0.788 31% 2% 0.748 31% 2% 0.667 31% 1% Smoothed TeCoA 0.925 32% 1% 0.880 34% 1% 0.879 29% 1%
+
+Table 6. The ablation study. The clean accuracy is 91.0%.                                   
+
+> Smoothing Encoder σAvg. FCSB at different ϵAvg.
+> RAcc 0.25 0.50 0.75 /CLIP-L14 /////16.0% FS CLIP-L14 0.50 0.662 0.360 -0.018 0.41 66.2% CLIP-L14+ P0.718 0.441 0.073 0.46 72.4% CLIP-L14+ M0.774 0.532 0.184 0.51 74.0% CLIP-L14+ P&M0.873 0.698 0.409 0.69 89.6%
+
+for pure vision-based adversaries than the previous two, as MLLMs can often infer correct answers directly from textual cues. The results demonstrate that incorporating FS consistently yields substantial performance improvements across all attack types, significantly improving prediction accuracy while driving the ASR to nearly zero. 
+
+Reasons for the poor performance of FARE and TeCoA despite high FCS. Although these encoders preserve high FCS relative to their clean inputs, adversarial training in-herently induces a shift in the feature-space distribution. Subsequent adversarial perturbations and the limited di-versity of adversarial training data further exacerbate this mismatch, leading to pronounced performance degradation on downstream tasks with unseen data distributions. 
+
+6.3. Ablation Study and Analysis of Efficiency Ablation: To rigorously assess the contribution of the pro-posed FS and each module of GSB (including denoiser P
+
+and mapper M), we adopt CLIP-L14 as the base feature encoder and conduct the image classification task following the design in Section 5.2. We report both the feature-wise certification and the empirical performance under the FOA attack. The results are summarized in Table 6, where the first row indicates the performance of the vanilla CLIP-L14 without FS. The next four rows are the results of the smoothed CLIP-L14 with different modules enhanced. The results demonstrate that each component makes a signifi-cant contribution to improving both the certified radius R
+
+and adversarial robustness. Meanwhile, it demonstrates that enforcing smoothness in the feature space substantially en-hances practical robustness against adversarial perturbations, raising the accuracy from 16.0% to 89.6%. 
+
+Table 7. The analysis of efficiency.            
+
+> Model n0Avg. infer time (s) FCS LLaVA-1.5 7B 10.41 0.450 40.52 0.562 80.69 0.590 64 3.08 0.609
+
+Efficiency anal-ysis: Table 7presents the effi-ciency analysis under varying numbers of Gaus-sian samples, evaluated on a single RTX 4090 GPU. We consider the image captioning task and report the average per-image inference time together with the average FCS under FOA attack. Compared to whole-model smoothing, feature-wise smoothing incurs lower inference overhead; notably, setting n0 = 8 increases the per-image inference time of LLaVA by only ∼0.28 seconds, highlighting the practicality of FS for real-world deployment. 
+
+## 7. Conclusion. 
+
+This work pioneers the research on establishing the feature-space certified robustness of MLLMs. By introducing the Feature-space Smoothing (FS) framework, we show how to transform a given encoder into a smoothed version that is equipped with a theoretical lower bound on the cosine similarity between clean and adversarial representations. Moreover, we propose the Gaussian Robustness Booster (GSB), a plug-and-play module that seamlessly integrates into existing MLLMs to enhance the certified robustness guaranteed by FS. Extensive experiments demonstrate that FS provides effective adversarial protection for MLLMs in a plug-and-play manner while incurring modest inference latency, making it promising for real-world deployment on MLLM protection. 8Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+## References 
+
+Anthropic. Claude 4.5 sonnet system card. 
+
+https://www-cdn.anthropic.com/ 963373e433e489a87a10c823c52a0a013e9172dd. pdf , 2025. Awadalla, A., Gao, I., Gardner, J., Hessel, J., Hanafy, Y., Zhu, W., Marathe, K., Bitton, Y., Gadre, S., Sagawa, S., et al. Openflamingo: An open-source framework for training large autoregressive vision-language models. 
+
+arXiv preprint arXiv:2308.01390 , 2023. Casper, S., Schulze, L., Patel, O., and Hadfield-Menell, D. Defending against unforeseen failure modes with latent adversarial training. arXiv preprint arXiv:2403.05030 ,2024. Chen, B., Yin, J., Chen, S., Chen, B., and Liu, X. An adaptive model ensemble adversarial attack for boosting adversarial transferability. In CVPR , 2023. Cohen, J., Rosenfeld, E., and Kolter, Z. Certified adversarial robustness via randomized smoothing. In ICML , 2019. Cui, X., Aparcedo, A., Jang, Y. K., and Lim, S.-N. On the robustness of large multimodal models against image adversarial attacks. In CVPR , 2024. DeepMind, G. Gemini 3 model card. 
+
+https://storage.googleapis.com/ deepmind-media/Model-Cards/ Gemini-3-Pro-Model-Card.pdf , 2025. Deng, J., Dong, W., Socher, R., Li, L.-J., Li, K., and Fei-Fei, L. Imagenet: A large-scale hierarchical image database. In CVPR , 2009. Ding, X., Chen, J., Yu, H., Shang, Y., Qin, Y., and Ma, H. Transferable adversarial attacks for object detection using object-aware significant feature distortion. In AAAI ,2024. Fu, J., Ng, S. K., Jiang, Z., and Liu, P. Gptscore: Evaluate as you desire. In Proceedings of the 2024 Conference of the North American Chapter of the Association for Com-putational Linguistics: Human Language Technologies ,2024. Goodfellow, I. J., Shlens, J., and Szegedy, C. Explain-ing and harnessing adversarial examples. arXiv preprint arXiv:1412.6572 , 2014. Hao, Z., Ying, C., Dong, Y., Su, H., Song, J., and Zhu, J. Gsmooth: Certified robustness against semantic transfor-mations via generalized randomized smoothing. In ICML ,2022. Hein, M. and Andriushchenko, M. Formal guarantees on the robustness of a classifier against adversarial manipulation. 
+
+NeurIPS , 2017. Huang, Q., Katsman, I., He, H., Gu, Z., Belongie, S., and Lim, S.-N. Enhancing adversarial example transferability with an intermediate level attack. In ICCV , 2019. Jia, X., Gao, S., Qin, S., Pang, T., Du, C., Huang, Y., Li, X., Li, Y., Li, B., and Liu, Y. Adversarial attacks against closed-source mllms via feature optimal align-ment. NeurIPS , 2025. Kakizaki, K., Fukuchi, K., and Sakuma, J. Certified defense for content based image retrieval. In CVPR , 2023. Lecuyer, M., Atlidakis, V., Geambasu, R., Hsu, D., and Jana, S. Certified robustness to adversarial examples with differential privacy. In 2019 IEEE symposium on security and privacy (SP) , 2019. Lee, M. and Kim, D. Robust evaluation of diffusion-based adversarial purification. In CVPR , pp. 134–144, 2023. Lei, C. T., Yam, H. M., Guo, Z., Qian, Y., and Lau, C. P. In-stant adversarial purification with adversarial consistency distillation. In CVPR , 2025. Li, B., Chen, C., Wang, W., and Carin, L. Second-order ad-versarial attack and certifiable robustness. arXiv preprint arXiv: 1809.03113 , 2018. Li, J., Li, D., Savarese, S., and Hoi, S. Blip-2: Bootstrapping language-image pre-training with frozen image encoders and large language models. In ICML , 2023a. Li, Q., Guo, Y., and Chen, H. Yet another intermediate-level attack. In ECCV , 2020. Li, Q., Guo, Y., Zuo, W., and Chen, H. Improving adver-sarial transferability via intermediate-level perturbation decay. NeurIPS , 2023b. Li, X., Sun, W., Chen, H., Li, Q., He, Y., Shi, J., and Hu, X. ADBM: Adversarial diffusion bridge model for reliable adversarial purification. In ICLR , 2025a. Li, Z., Zhao, X., Wu, D.-D., Cui, J., and Shen, Z. A frus-tratingly simple yet highly effective attack baseline: Over 90% success rate against the strong black-box models of gpt-4.5/4o/o1. In ICML 2025 Workshop on Reliable and Responsible Foundation Models , 2025b. Liu, H., Li, C., Wu, Q., and Lee, Y. J. Visual instruction tuning. NeurIPS , 2023. Liu, H., Li, C., Li, Y., and Lee, Y. J. Improved baselines with visual instruction tuning. In CVPR , 2024. 9Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+Lu, P., Mishra, S., Xia, T., Qiu, L., Chang, K.-W., Zhu, S.-C., Tafjord, O., Clark, P., and Kalyan, A. Learn to explain: Multimodal reasoning via thought chains for science question answering. NeurIPS , 2022. Madry, A., Makelov, A., Schmidt, L., Tsipras, D., and Vladu, A. Towards deep learning models resistant to adversarial attacks. In ICLR , 2018. Malik, H. S., Shamshad, F., Naseer, M., Nandakumar, K., Khan, F., and Khan, S. Robust-llava: On the effectiveness of large-scale robust image encoders for multi-modal large language models. arXiv preprint arXiv:2502.01576 ,2025. Mao, C., Geng, S., Yang, J., Wang, X., and Vondrick, C. Understanding zero-shot adversarial robustness for large-scale models. In ICLR , 2023. Nie, W., Guo, B., Huang, Y., Xiao, C., Vahdat, A., and Anandkumar, A. Diffusion models for adversarial purifi-cation. In ICML , 2022. Olivier, R. and Raj, B. How many perturbations break this model? evaluating robustness beyond adversarial accu-racy. In International conference on machine learning ,pp. 26583–26598. PMLR, 2023. OpenAI. Gpt-5 technical report. https://cdn. openai.com/gpt-5-system-card.pdf , 2025. Qi, X., Huang, K., Panda, A., Henderson, P., Wang, M., and Mittal, P. Visual adversarial examples jailbreak aligned large language models. In AAAI , 2024. Radford, A., Kim, J. W., Hallacy, C., Ramesh, A., Goh, G., Agarwal, S., Sastry, G., Askell, A., Mishkin, P., Clark, J., et al. Learning transferable visual models from natural language supervision. In ICML , 2021. Raghunathan, A., Steinhardt, J., and Liang, P. Certified defenses against adversarial examples. In ICLR , 2018. Rebuffi, S.-A., Gowal, S., Calian, D. A., Stimberg, F., Wiles, O., and Mann, T. A. Data augmentation can improve robustness. NeurIPS , 2021. Salman, H., Li, J., Razenshteyn, I., Zhang, P., Zhang, H., Bubeck, S., and Yang, G. Provably robust deep learning via adversarially trained smoothed classifiers. NeurIPS ,2019. Schlarmann, C., Singh, N. D., Croce, F., and Hein, M. Ro-bust clip: unsupervised adversarial fine-tuning of vision embeddings for robust large vision-language models. In 
+
+ICML , 2024. Tramer, F., Carlini, N., Brendel, W., and Madry, A. On adap-tive attacks to adversarial example defenses. NeurIPS ,2020. Wang, Y., Liu, C., Qu, Y., Cao, H., Jiang, D., and Xu, L. Break the visual perception: Adversarial attacks targeting encoded visual tokens of large vision-language models. In ACM MM , 2024a. Wang, Z., Li, X., Zhu, H., and Xie, C. Revisiting adversarial training at scale. In CVPR , 2024b. Wang, Z., Zhou, Z., and Liu, W. Drf: Improving certified robustness via distributional robustness framework. In 
+
+AAAI , 2024c. Wong, E. and Kolter, Z. Provable defenses against adver-sarial examples via the convex outer adversarial polytope. In ICML , 2018. Wu, K., Wang, A., and Yu, Y. Stronger and faster wasser-stein adversarial attacks. In ICML , 2020. Xhonneux, S., Sordoni, A., G ¨unnemann, S., Gidel, G., and Schwinn, L. Efficient adversarial training in llms with continuous attacks. NeurIPS , 2024. Xia, S., Yang, W., Yu, Y., Lin, X., Ding, H., Duan, L., and Jiang, X. Transferable adversarial attacks on sam and its downstream models. NeurIPS , 2024a. Xia, S., Yu, Y., Jiang, X., and Ding, H. Mitigating the curse of dimensionality for certified robustness via dual randomized smoothing. In ICLR , 2024b. Xie, P., Bie, Y., Mao, J., Song, Y., Wang, Y., Chen, H., and Chen, K. Chain of attack: On the robustness of vision-language models against transfer-based adversarial attacks. In CVPR , 2025. Yoon, J., Hwang, S. J., and Lee, J. Adversarial purification with score-based generative models. In ICML , pp. 12062– 12072. PMLR, 2021. Zhang, J., Ma, X., Wang, X., Qiu, L., Wang, J., Jiang, Y.-G., and Sang, J. Adversarial prompt tuning for vision-language models. In ECCV , 2024. Zhang, J., Ye, J., Ma, X., Li, Y., Yang, Y., Chen, Y., Sang, J., and Yeung, D.-Y. Anyattack: Towards large-scale self-supervised adversarial attacks on vision-language models. In CVPR , 2025. Zhao, Y., Pang, T., Du, C., Yang, X., Li, C., Cheung, N.-M. M., and Lin, M. On evaluating adversarial robustness of large vision-language models. NeurIPS , 2023. 10 Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+Zheng, L., Chiang, W.-L., Sheng, Y., Zhuang, S., Wu, Z., Zhuang, Y., Lin, Z., Li, Z., Li, D., Xing, E., et al. Judging llm-as-a-judge with mt-bench and chatbot arena. 
+
+NeurIPS , 2023. Zollicoffer, G., Vu, M. N., Nebgen, B., Castorena, J., Alexandrov, B., and Bhattarai, M. Lorid: Low-rank itera-tive diffusion for adversarial purification. In Proceedings of the AAAI Conference on Artificial Intelligence , vol-ume 39, pp. 23081–23089, 2025. 11 Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+# Appendix 
+
+## A.1. Proof of core theorem 
+
+A.1.1. Proof of lemma1 
+
+Note that: 
+
+∇Φ−1( ˆSxc (x)) = ∇ ˆSxc (x)Φ′ Φ−1( ˆSxc (x))  . (A.16) Denote p = ˆSxc (x), we can get that: 
+
+Φ′ Φ−1( ˆSxc (x))  = 1
+
+√2π exp  − 12 (Φ −1(p)) 2 (A.17) Thus, we need to prove that for any unit direction u.
+
+u · ∇ ˆSxc (x) ≤ 1
+
+√2π exp  − 12 (Φ −1(p)) 2. (A.18) For the left-hand side, we can get: 
+
+∇ ˆSxc (x) = 1(2 π)n/ 2
+
+Z
+
+> Rn
+
+Sxc (t) ( x − t) exp  − 12 ∥x − t∥2 dt, (A.19) which can also be rewritten as follows: 
+
+E 
+
+> X∼N (0 ,I )
+
+Sxc (x + X)X · u.
+
+We can now claim that the supremum of the above quantity over all encoders f : x → z, subject to the constraint that 
+
+p = E[Sxc (x + X)] , is equal to: 
+
+E(X · u) 1 {X · u ≥ − Φ−1(p)} = 1
+
+√2π exp 
+
+
+
+− 12
+
+ Φ−1(p)2
+
+, (A.20) which concludes the proof of Lemma 1. 
+
+A.1.2. Proof of Theorem1 
+
+From Lemma 1, we can get: 
+
+∥x − x′∥ ≥ Φ−1( ˆSx(x)) − Φ−1( ˆSx(x′)) . (A.21) As ∥x − x′∥ ≤ ϵ, we can get: 
+
+Φ−1( ˆSx(x′)) ≥ Φ−1( ˆSx(x)) − ϵ. (A.22) Meanwhile, as fe(x) is a unit vector, using Equation 5 in the main paper, we can get that: 
+
+ˆS(x) = 12
+
+
+
+1 + E[fe(x + ε)] , f e(x)
+
+
+
+= 12
+
+
+
+1 + ⟨ ˆfe(x), f e(x)⟩
+
+
+
+. (A.23) where ⟨· , ·⟩ is the inner product. Hence, we can get: 
+
+⟨ ˆfe(x), f e(x)⟩ = 2 ˆS(x) − 1. (A.24) As ˆfe(x′) ≤ 1 and ∥fe(x)∥ = 1 , we can get: 
+
+Cos   ˆf (z), f e(x) = ⟨ ˆf (z), f e(x)⟩∥ ˆf (z)∥ (A.25) 
+
+≥ ⟨ ˆf (z), f e(x)⟩
+
+12 Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+By the monotonicity of Φ,
+
+ˆSx(x′) ≥ Φ
+
+
+
+Φ−1  ˆS(x) − ϵ
+
+
+
+. (A.26) Combining Equations A.24, A.25, A.26, we thereby can derive that: 
+
+Cos   ˆf (x′), f e(x) ≥ 2 Φ 
+
+
+
+Φ−1  ˆS(x) − ϵ
+
+
+
+− 1, (A.27) which concludes the proof. For noise variance σ2, the same proof gives the bound with ϵ replaced by ϵ/σ .
+
+## A.2. Training details of GSB 
+
+A.2.1. Details of Denoiser 
+
+The denoiser P is implemented as a lightweight conditional U-Net and trained in a supervised denoising paradigm using a mean squared error (MSE) objective to regress clean images from their noisy counterparts. P adopts a symmetric encoder–decoder architecture composed of residual blocks and multi-scale skip connections, which facilitate effective information propagation across different spatial resolutions. All input images are resized to 256 × 256 , and the network progressively aggregates local and global contextual features through hierarchical downsampling and upsampling operations. To enable adaptive denoising under varying noise levels, P incorporates a learnable sigma embedding that conditions intermediate feature transformations, allowing the model to dynamically adjust its denoising behavior. We optimize P using the Adam optimizer with a learning rate of 1 × 10 −4, a batch size of 8, and a total of 8 training epochs. Notably, P remains computationally efficient, containing only approximately 10 MB of parameters. 
+
+A.2.2. Details of training residual mapper Original       
+
+> feature ෤𝒛
+> Layer norm
+> +FiLM (𝜎 )
+> Multi -head
+> Attention
+> MLP branch
+> Depth -wise
+> Convolution
+> Noise -aware
+> residual
+> Refined
+> feature ෤𝒛 𝒎
+> 3 x
+> Block 𝒎 𝒊
+> Noise
+> strength 𝜎
+> +
+> Figure A.3. Structure of the residual smoothness mapper.
+
+The structure of the proposed residual smoothness mapper M is illustrated in Figure A.3. Each block is designed to refine the purified feature representation while preserving its statistical structure and ensuring that the refinement magnitude adapts smoothly to the injected noise magnitude σ. A single block consists of: (1) noise-aware LayerNorm-FiLM( σ) module, (2) multi-head attention, (3) a channel-wise MLP branch, (4) a depthwise convolution, and (5) a noise-aware residual module. 
+
+LayerNorm and FiLM( σ). Each block begins by normalizing the input feature and injecting noise-level conditioning: 
+
+˜zi = LN( ˜ zi), [γ(σ), β (σ)] = FiLM( σ), (A.28) where the FiLM module takes the scalar noise strength σ and outputs channel-wise affine parameters through a lightweight MLP: 
+
+FiLM( σ) = W2 ϕ(W1σ) ∈ R2D , (A.29) with ϕ denoting a GELU activation. This modulation injects explicit noise awareness into each block: the transformation smoothly diminishes as σ → 0, ensuring that the mapper leaves clean features nearly unchanged. 
+
+Main computation structure. Each mi(·) contains three parallel refinement pathways: • Multi-head attention: Applied only in the first block, the lightweight attention layer captures long-range structural dependencies, producing global-context features hattn .13 Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+• MLP branch: A two-layer feed-forward network with GELU activation produces channel-wise refinement hmlp .• Depthwise convolution: A depthwise 1D convolution captures local continuity in the feature sequence and contributes 
+
+hconv .The outputs are fused as: 
+
+hi = hattn + hmlp + 0 .5 hconv , (A.30) where the conv branch is down-weighted following design practices for local/global feature fusion. 
+
+Noise-aware residual. We first decompose hi into a unit direction vector by vi = hi \ ∥ hi∥. To ensure that the refinement adapts smoothly to the noise level, we modulate its magnitude through two learnable functions of σ:
+
+αi = softplus(MLP α([ σ, log σ])) ,σβi = σsoftplus(MLP β (σ)) . (A.31) Here, αi controls the amplitude of the refinement, while βi modulates the exponent of the noise term, enabling nonlinear noise–feature interactions. The residual update is then computed as 
+
+∆zi = (1 + γ(σ))  vi · αiσβi  + β(σ) ⊙ Scale i, (A.32) where γ(σ) and β(σ) are FiLM-generated per-channel affine parameters, and Scale i is a learnable per-channel damping factor initialized to 5 × 10 −4 for stability. The next feature is then updated via 
+
+˜zi+1 = ˜ zi + ∆ zi. (A.33) 
+
+Overall effect of the mapper. The residual smoothness mapper thus provides the following benefits: • Noise-adaptive refinement : FiLM (σ) and σβ ensure the introduced modification decreases as σ → 0, allowing the mapper to preserve the natural feature distribution while refining noisy features more aggressively. • Multi-scale feature enhancement : Attention, MLP, and depth-wise convolution jointly capture global structure, per-channel adaptation, and local smoothness. • Stable and expressive residual learning : Fixup-style initialization and Scale i ensure training stability even with multiple stacked residual blocks. Collectively, M significantly enhances the smoothness and robustness of purified representations while avoiding distribu-tional drift. 
+
+Training details. The mapper M is trained in a self-supervised manner using the objective Lm defined in Equation 13. We train M for 8 epochs with a batch size of 16. The training process employs the AdamW optimizer with an initial learning rate of 2 × 10 −4 and a cosine annealing learning rate schedule. 
+
+## A.3. More Details on Prediction-Wise Certification 
+
+A.3.1. Preliminaries and Notation 
+
+Let fe : X → Rd be a (deterministic) feature encoder and let ˆfe denote its smoothed version produced by Feature-space Smoothing (FS). Given a clean input x ∈ X and an adversarial input x′ ∈ X satisfying ∥x′ − x∥ ≤ ϵ, define the clean feature and the adversarial (smoothed) feature as 
+
+z := fe(x) ∈ Rd, ˆz′ := ˆfe(x′) ∈ Rd. (A.34) We further define their ℓ2-normalized counterparts: 
+
+u := z
+
+∥z∥2
+
+∈ Sd−1, v := ˆz′
+
+∥ ˆz′∥2
+
+∈ Sd−1, (A.35) where Sd−1 := {t ∈ Rd : ∥t∥2 = 1 } is the unit sphere. Thus, Cos( ˆfe(x′), f e(x)) = u⊤v.14 Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+FS-certified feature cosine similarity. From Theorem 3.2, for any x′ with ∥x′ − x∥ ≤ ϵ, the cosine similarity between 
+
+ˆfe(x′) and fe(x) is lower bounded as 
+
+u⊤v = Cos   ˆfe(x′), f e(x) ≥ γ(x; ϵ), (A.36) where we denote the Feature Cosine Similarity Bound (FCSB) by 
+
+γ(x; ϵ) := 2Φ 
+
+
+
+Φ−1( ˆS(x)) − ϵ
+
+
+
+− 1 ∈ [−1, 1] . (A.37) For brevity, we write γ := γ(x; ϵ).
+
+Cosine-prototype classification head. We consider a cosine-based prototype classifier on the normalized feature t ∈ Sd−1.Let {pk}Kk=1 ⊂ Rd be learnable class prototypes satisfying ∥pk∥2 = 1 for all k. The class score (logit) for class k is defined as 
+
+sk(u) := u⊤pk, (A.38) and the predicted label is 
+
+ˆy(u) := arg max  
+
+> k∈{ 1,...,K }
+
+sk(u) = arg max  
+
+> k
+
+u⊤pk. (A.39) Let y := ˆ y(u) denote the clean prediction under u.
+
+A.3.2. Tight Cosine Similarity Bound Lemma A.3.1 (Tight bounds under a cosine constraint ). Let u, v, p ∈ Sd−1 be unit vectors and suppose that u⊤v ≥ γ
+
+for some γ ∈ [−1, 1] . Define a := u⊤p ∈ [−1, 1] . Then the inner product v⊤p is bounded as 
+
+γa − p1 − γ2p1 − a2 ≤ v⊤p ≤ γa + p1 − γ2p1 − a2. (A.40) 
+
+Proof sketch. The stated bounds are a standard consequence of spherical geometry. Since u, v, p ∈ Sd−1, we may interpret their inner products as cosines of the corresponding pairwise angles. In particular, let 
+
+a = u⊤p = cos α, γ = u⊤v = cos ∆ ,
+
+where α, ∆ ∈ [0 , π ] denote the angles between (u, p) and (u, v), respectively. Under the constraint u⊤v ≥ γ, the adversarial feature direction v is restricted to lie within a spherical cap centered at u
+
+with angular radius ∆. Consequently, the angle between v and p lies in the interval [α − ∆, α + ∆] . It follows that 
+
+v⊤p = cos( α ± ∆) = cos α cos ∆ ∓ sin α sin ∆ ,
+
+which yields the bounds in equation A.40 by substituting cos α = a and cos ∆ = γ.The bounds are tight and are attained when the three vectors u, v, p lie in a common two-dimensional subspace and v is rotated toward or away from p along the geodesic on the unit sphere. 
+
+A.3.3. Closed-form Propagation to Prediction-level Certification 
+
+We now use Lemma A.3.1 to certify that the predicted label remains unchanged under any adversarial perturbation within radius ϵ.For the clean normalized feature u, define the clean class scores 
+
+ak := sk(u) = u⊤pk, k = 1 , . . . , K. (A.41) Let y := arg max k ak be the clean predicted class. 15 Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models 
+
+Theorem A.3.2 (Prediction-level certification via FS with cosine prototypes ). Fix a clean input x and let γ = γ(x; ϵ) be the FS-derived FCSB from Theorem 3.2. For any adversarial input x′ satisfying ∥x′ − x∥ ≤ ϵ and each class k, we have: 
+
+sk(v) = v⊤pk ≤ γa k + p1 − γ2
+
+q
+
+1 − a2
+
+> k
+
+, (A.42) 
+
+sk(v) = v⊤pk ≥ γa k − p1 − γ2
+
+q
+
+1 − a2
+
+> k
+
+. (A.43) 
+
+In particular, if the following certified margin condition holds: 
+
+γa y − p1 − γ2
+
+q
+
+1 − a2
+
+> y
+
+| {z } 
+
+> =: LB y(γ)
+
+> max  
+
+> k̸=y
+
+
+
+γa k + p1 − γ2
+
+q
+
+1 − a2
+
+> k
+
+| {z } 
+
+> =: UB k(γ)
+
+, (A.44) 
+
+then the classifier prediction is provably invariant within the ϵ-ball: 
+
+arg max  
+
+> k
+
+sk(v) = y for all x′ such that ∥x′ − x∥ ≤ ϵ. (A.45) 
+
+Proof. By Theorem 3.2, for any x′ with ∥x′ − x∥ ≤ ϵ, we have 
+
+Cos   ˆfe(x′), f e(x) = u⊤v ≥ γ. (A.46) Fix any class k. Since u, v, pk ∈ Sd−1 and u⊤v ≥ γ, applying Lemma A.3.1 with p = pk and a = ak = u⊤pk yields the per-class upper and lower bounds equation A.42–equation A.43. Now consider the clean predicted class y = arg max k ak. From equation A.43, the adversarial score of class y is bounded from below as 
+
+sy (v) ≥ LB y (γ). (A.47) For any other class k̸ = y, from equation A.42 we have 
+
+sk(v) ≤ UB k(γ). (A.48) If the certified margin condition equation A.44 holds, then for all k̸ = y,
+
+sy (v) ≥ LB y (γ) > UB k(γ) ≥ sk(v), (A.49) which implies sy (v) > s k(v) for every k̸ = y. Therefore, the argmax prediction under v remains y, i.e., 
+
+arg max  
+
+> k
+
+sk(v) = y. (A.50) This holds for any x′ with ∥x′ − x∥ ≤ ϵ, which concludes the proof. 
+
+## A.4. More Experimental Results 
+
+A.4.1. Implementation details for main results Image captioning. For this task, we prompt the MLLM with “Describe this image in one concise sentence, no longer than 20 words.” to generate a caption for each input image. The predicted caption is then compared against the ground-truth caption and the adversarial target caption for evaluation. 
+
+Image classification. For this task, we prompt the MLLM with ”You are a precise visual classifier. What are the main objects in this image?: 0. rooster, 1. gibbon, 2. golden retriever, 3. goldfish, 4. hen, 5. hognose snake, 6. ice bear, 7. killer whale, 8. king crab, 9. kite, 10. shark. Output only a single integer between 0 and 10 with no explanation, no text, no punctuation.” to obtain the predicted class for each input image. All images in the dataset belong to classes 0–9, while class 10 (shark) is used as the adversarial target class. We then compute the ACC and ASR based on the predicted labels, the ground-truth labels, and the adversarial target label. 
+
+VQA. For this task, we prompt the MLLM using the provided question associated with each input image and ask it to predict the corresponding answer. An example prompt is as follows: ”You are a knowledgeable multimodal assistant. Please 
+
+16 Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models MLLM s     
+
+> Describe this image in one concise sentence, …
+> You are a precise visual classifier, …
+> You are a knowledgeable multimodal assistant, …
+> Captioning Classification VQA
+> Prediction
+> A dog is
+> licking a
+> person's
+> hand.
+> 10
+> B(the
+> Atlantic
+> Ocean)
+> GT
+> Aclose up
+> of a panda
+> bear's face.
+> 0
+> A(the
+> Arctic
+> Ocean)
+> Adv. target
+> Adog is
+> licking a
+> person's
+> hand.
+> 10
+> E(None of
+> above)
+
+Figure A.4. Illustration of the evaluation process. 
+
+Table A.8. Experimental results on adversarial robustness of different defense methods and MLLMs on image classification tasks. The attack bound ϵ = 32 /255 .
+
+Model Method FOA (Jia et al., 2025) 
+
+FCS ↑ ACC ↑ ASR ↓
+
+LLaVA-1.5-7B Org. 0.37 3.6% 78.6% Smoothed org. 0.512 35.2% 24.2% FARE (Schlarmann et al., 2024) 0.408 10.4% 64.2% Smoothed FARE 0.605 48.4% 19.2% TeCoA (Mao et al., 2023) 0.454 12.0% 29.6% Smoothed TeCoA 0.576 32.0% 9.6% 
+
+answer the multiple-choice question ONLY by outputting the single letter of the correct option. Do not include explanations or extra text. Question: Which ocean is highlighted? Options: A. the Arctic Ocean B. the Atlantic Ocean C. the Pacific Ocean D. the Southern Ocean E. None of the above. If the visual information is not clear or uncorrelated with the questions, you should select the choice: None of the above. Answer with exactly one letter from the options above (e.g., A).” . In this evaluation, each question has a unique correct answer among the listed options, except for “None of the above,” which is reserved for the adversarial target. The adversarial objective is to induce the MLLM to incorrectly choose “None of the above”. An illustration of the implementation process is shown in Figure A.4. 
+
+A.4.2. Experimental results on large attack bound 
+
+The experimental results under a large adversarial perturbation of ε = 32 /255 are presented in Table A.8. In addition, Figure A.5 provides visualizations of the adversarial examples generated by different attacks and perturbation bounds. These results show that nearly all existing defenses show great performance drop under such a strong attack. Under this challenging setting, the best accuracy is obtained by integrating FS-GSB with FARE, reaching 48.4% on LLaVA, while the lowest ASR (9.6%) is achieved by combining FS-GSB with TeCoA. These findings further highlight the effectiveness and adaptability of the proposed framework, even against large-magnitude adversarial perturbations. 17 Feature-Space Adversarial Robustness Certification for Multimodal Large Language Models Clean image AttackVLM  (16/255)  FOA (16/255)  M attack (16/255) FOA (32/255) 
+
+Figure A.5. Visualization of the adversarial examples. 
+
+18

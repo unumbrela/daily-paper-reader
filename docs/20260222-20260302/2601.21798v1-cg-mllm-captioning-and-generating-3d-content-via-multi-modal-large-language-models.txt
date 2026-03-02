@@ -1,0 +1,278 @@
+Title: CG-MLLM: Captioning and Generating 3D content via Multi-modal Large Language Models
+
+URL Source: https://arxiv.org/pdf/2601.21798v1
+
+Published Time: Fri, 30 Jan 2026 02:39:34 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# CG-MLLM : Captioning and Generating 3D content via Multi-modal Large Language Models 
+
+## Junming Huang, Weiwei Xu January 30, 2026 
+
+Abstract 
+
+Large Language Models(LLMs) have revolutionized text generation and multimodal perception, but their capabilities in 3D content generation remain underexplored. Existing methods compromise by producing either low-resolution meshes or coarse structural proxies, failing to capture fine-grained geometry natively. In this paper, we propose CG-MLLM , a novel Multi-modal Large Language Model (MLLM) capable of 3D captioning and high-resolution 3D generation in a single framework. Leveraging the Mixture-of-Transformer architecture, CG-MLLM decouples disparate modeling needs, where the Token-level Autoregressive (TokenAR) Transformer handles token-level content, and the Block-level Autoregressive (BlockAR) Transformer handles block-level content. By integrating a pre-trained vision-language backbone with a specialized 3D VAE latent space, CG-MLLM 
+
+facilitates long-context interactions between standard tokens and spatial blocks within a single integrated architecture. Experimental results show that CG-MLLM significantly outperforms existing MLLMs in generating high-fidelity 3D objects, effectively bringing high-resolution 3D content creation into the mainstream LLM paradigm. 
+
+## 1. Introduction 
+
+Large language models (LLMs) have achieved remarkable success through training on massive amounts of text [1, 2, 3, 4, 5, 6], offering a glimpse of hope for realizing artificial general intelligence (AGI). However, the scaling of text-only models faces a potential bottleneck as high-quality textual data nears exhaustion. Furthermore, numerous real-world dimensions are hard to capture through text alone. In response, researchers have begun extending large language models to understand and generate content across multiple modalities, achieving impressive results. Recently, a series of Multimodal large Language Models (MLLMs) [7, 8, 9, 10, 11, 12, 13] have demonstrated impressive spatial intelligence. They have revolutionized multimodal understanding and text-to-image synthesis by effectively bridging visual inputs with textual descriptions, enabling implicit spatial intelligence in 2D vision. Nevertheless, such spatial intelligence remains fundamentally constrained to 2D image space. These models do not explicitly reason about geometry, topology, or spatial consistency in 3D space, which are essential for real-world structure generation. This limitation highlights a clear disparity between the rapid advances in 2D multimodal generation and the slow progress in 3D modeling. While progress in areas such as images, audio, 
+
+> MSC2020: Primary 00A05, Secondary 00A66.
+
+1
+
+> arXiv:2601.21798v1 [cs.CV] 29 Jan 2026
+
+and video has been booming, advancements in the 3D domain remain relatively scarce and limited, and are increasingly lagging behind those in other modalities. To narrow this gap, prior works explored Multimodal large language models(MLLMs) for 3D generation. Existing approaches mainly follow two paradigms. The first generates meshes in textual or tokenized form [14, 15, 16], but token budget limits mesh complexity and resolution. The second constructs coarse 3D structures using low-resolution voxel VAEs or lego-based structures [17, 18], producing only low-detail proxy shapes and still relying on additional 3D diffusion for fine-grained geometry. In other words, current 3D large language models are only capable of generating coarse 3D representations at the language modeling stage, and are unable to end-to-end generate detailed 3D objects. To address these challenges, we introduce CG-MLLM , a language–image–3D multimodal large language model, with the goal of using a single model to perform precise spatial under-standing and generate high-fidelity spatial content with strong 3D consistency. Compared with existing 3D generation methods, which either do not incorporate language modeling at all, or cannot natively produce high-resolution 3D content within the LLM framework, CG-MLLM 
+
+emphasizes native language-image-3D integration. In this way, we aim to bring 3D creation closer to the mainstream MLLM paradigm, enabling the 3D domain to more directly benefit from the rapid progress and scaling momentum of LLMs. The core challenge in 3D MLLMs is effectively modeling 3D geometry, which naturally forms long, highly interdependent sequences. A purely token-level autoregressive formulation inevitably leads to severe inefficiency. Inspired by Mixture-of-Transformers(MoT), we adapt dedicated transformers for Token-level serial modeling (TokenAR) and Block-level parallel modeling (BlockAR). Unlike existing MoT-based methods that rigidly bind transformers to specific tasks (e.g., understanding or generation), our CG-MLLM architecture is fundamentally different in that it binds them to their generation modes (e.g., serial or parallel). This design allows any encoder to be plugged into its corresponding transformer according to its native pre-training scheme, while keeping the transformer’s input and masking operations—akin to LoRA zero initialization—minimally perturbing the pre-trained model and reducing fine-tuning cost. By integrating a pretrained Qwen3-VL [19] backbone with a high-order latent space provided by Hunyuan3D2.1-VAE [20], CG-MLLM enables the simultaneous processing of sequential linguistic intent and parallel block-level 3D construction. This architecture not only preserves global spatial consistency but also significantly enhances the efficiency of end-to-end 3D generation. In summary, CG-MLLM demonstrates a clear superiority over the state-of-the-art methods in understanding tasks and achieves the best generation quality among existing LLM-based 3D models. Our main contributions are as follows: 
+
+• We propose a new end-to-end 3D generative method natively integrated with a Large Vision-Language Model. 
+
+• We propose CG-MLLM , which outperforms Qwen3-VL in 3D understanding tasks, demon-strating superior spatial reasoning, while also achieving state-of-the-art performance in LLM-based 3D generation. 
+
+• We bridge multimodal LLMs with high-precision 3D synthesis at a lower computational cost, our approach provides a highly efficient and scalable architecture for future research in generative 3D modeling. 2Vision Encoder             
+
+> EoI BoS
+> BoI EoI
+> EoS
+> BoS EoS BoO EoO
+> BoI BoO EoO
+> Shared Causal-Parallel Self-Attention
+> TokenAR Transformer BlockAR Transformer
+> CG-MLLM-MOT
+> Next-Token Prediction Parallel Prediction
+> 3D Spatial Encoder Text Tokenizer
+> MLP-Merger Embedding Layer MLP-Connector
+> Noise scheduler
+> Text Decoder 3D Spatial Decoder
+> LLM Layer1
+> LLM Layer2
+> LLM Layer3
+> ...
+> LLM LayerN
+> DeepStack
+
+Figure 1: The Pipeline of CG-MLLM . Our multimodal architecture processes vision, text, and 3D spatial inputs to generate text and 3D spatial outputs. It features a TokenAR Transformer for sequential next-token prediction and a BlockAR Transformer for efficient parallel block prediction, both governed by strict causal masking. 
+
+## 2. Related Work 2.1 Autoregressive Models 
+
+Large Language Models (LLMs) [1, 2, 3, 4, 5, 6] represent the most prominent and widely adopted class of autoregressive (AR) generative models. By sequentially predicting each element conditioned on preceding ones, AR models are highly effective across a broad spectrum of real-world applications. Recent advancements in Large Language Models (LLMs) have catalyzed the development of Multimodal Large Language Models (MLLMs), which demonstrate exceptional performance across diverse scenarios. A standard implementation involves projecting the outputs of multimodal encoders into the LLM’s embedding space, effectively aligning textual and multimodal representations, allowing the model to generate captions for images, video, and other multimodal content. Most multimodal understanding models utilize autoregressive (AR) generation, enabling the model to perceive and interpret complex visual and linguistic information [19, 21, 22]. Recent research has validated the effectiveness of AR frameworks in tasks such as vision and audio understanding, proving their robustness and versatility in processing cross-modal data. Furthermore, certain advanced models are capable of generating discrete multimodal tokens—exemplified by Emu3 for images [23] and SAR3D for 3D assets [24]—which are subsequently reconstructed into high-fidelity content via specialized decoders [25, 26, 27]. By leveraging the AR mechanism and pretrained LLM backbones, these models exhibit remarkable versatility in tasks like image captioning, video understanding, and multimodal generation; however, empirical evidence suggests that the synthesis quality of AR models still lags behind that of diffusion-based models [13]. Additionally, their inherent sequential nature results in significant inference latency, posing challenges for real-time applications. 32.2 Diffusion Models 
+
+Unlike autoregressive (AR) models, which operate on discrete tokens, diffusion models work directly with continuous vectors, demonstrating remarkable generative capabilities through a combination of forward noise addition and learned reverse denoising. This property makes diffusion-based approaches particularly well-suited for multimodal generation tasks, including image [28, 29, 30, 31, 32], video [33, 34, 35, 36, 37], and 3D content [38, 39, 40, 41, 42, 20, 43, 44, 45, 46] synthesis. The diffusion paradigm consists of two key stages: a forward process that gradually transforms data into noise, and a reverse process, learned by a neural network, which reconstructs data from noise. To mitigate the complexity associated with traditional diffusion schemes, recent works have increasingly adopted the Rectified Flow framework [28, 29, 30]. The workflow of this framework can be summarized as follows: 
+
+Probability Path Construction. Given a data sample x0 ∼ Pdata and a noise sample 
+
+ϵ ∼ N (0 , I ), a linear interpolation defines the intermediate state xt at time t ∈ [0 , 1]: 
+
+xt = (1 − t)x0 + tϵ 
+
+Velocity Field Modeling. Rectified Flow targets the constant velocity of the linear trajectory: 
+
+v = dx t
+
+dt = ϵ − x0
+
+A neural network vθ (xt, t ) is parameterized to approximate this velocity field via a Mean Squared Error (MSE) objective: 
+
+L = Ex0,ϵ,t 
+
+∥v − vθ (xt, t )∥2
+
+Inference. During the inference stage, starting from pure noise ϵ (t = 1), the data x0
+
+(t = 0) is recovered by numerically solving the reverse Ordinary Differential Equation (ODE): 
+
+dx t
+
+dt = vθ (xt, t )This formulation significantly enhances sampling efficiency and reduces the truncation errors typically associated with curved diffusion paths. 
+
+## 2.3 AR-Diffusion Models 
+
+Recent research has extensively explored the integration of AR models and Diffusion models within a single framework, aiming to leverage the strengths of AR models in discrete sequence modeling alongside the superior continuous distribution synthesis of Diffusion models. Such hybrid architectures inherit the profound semantic priors of LLMs for understanding, while maintaining the iterative refinement capabilities of diffusion processes for high-fidelity generation. Generally, these hybrid methodologies can be categorized into two distinct paradigms: 
+
+Decoupled AR-Diffusion Pipelines This approach treats the LLM as a high-level semantic controller that interfaces with an external diffusion-based generator [32, 17, 47, 48]. The LLM interprets user intent and generates latent semantic conditions, which are fed into a pretrained diffusion module for content synthesis. While this paradigm benefits from lower computational overhead and the ability to leverage existing pretrained experts, the inherent decoupling of understanding and generation may lead to information bottlenecks and a lack of fine-grained cross-modal alignment. 4Generation Understanding       
+
+> Please use
+> the following
+> image to
+> generate 3D
+> spatial
+> content:
+> <image>
+> Please use the following
+> caption to generate 3D
+> spatial content: "A 3D
+> model of a button
+> mushroom."
+> Please tell me what is in
+> this 3D scene: <mesh>
+> Please tell me what is in
+> this rendered 3D scene
+> in detail: <image>
+> The image shows a 3D
+> rendering of a red and
+> white sneaker . The
+> sneaker has a red upper
+> with white accents ,
+> including a large white
+> "N" on the side. ...with a
+> low-top design and a
+> lace-up closure
+> Sneaker with white sole,
+> laces, and branding
+
+Figure 2: Our approach unifies spatial perception and generation in a single model, supporting image understanding, point cloud understanding, mesh generation, and textual intent under-standing across multiple spatial modalities. 
+
+Integrated AR-Diffusion Pipelines A more integrated paradigm involves modifying the LLM’s internal architecture—specifically by transitioning from causal masking to bidirectional or parallel masking—to enable native diffusion capabilities within the same backbone [7, 13, 49, 50, 12, 11]. Unlike the decoupled approach, this strategy maintains a lossless context across all modalities, fostering seamless interaction between understanding and generation. Although it demands significantly higher computational resources for training, its scalability and architectural consistency offer a more robust path toward general-purpose multimodal intelligence. 
+
+## 3. Method 
+
+As illustrated in Fig. 1, the architecture of CG-MLLM deploys a decoder-only transformer architecture and follows a MoT [51] design, built upon a powerful pretrained VLM backbone. The architecture primarily consists of three functional stages: multimodal encoding, specialized MoT modeling, and multimodal decoding. In the encoding stage, modality-specific encoders transform heterogeneous inputs—including text, images, and 3D assets—into a unified token space. These tokens are then processed in the MoT modeling stage, where a dual-transformer system (TokenAR and BlockAR) performs joint multimodal reasoning and spatial sequence generation via a shared attention mechanism. Finally, the latent representations are passed to the decoding stage: a text head decodes linguistic tokens into natural language, while a dedicated 3D decoder maps the spatial block tokens back into high-fidelity 3D representations. This end-to-end design enables CG-MLLM to achieve seamless perception and generation across both textual and 3D spatial modalities. 
+
+## 3.1 Modality Adapters 
+
+To facilitate effective multimodal integration, we employ distinct tokenization strategies for different modalities, as detailed below: 
+
+Text Tokenization. For textual input, we utilize Qwen’s tokenizer consistent with the baseline VLM, which implements byte-level Byte-Pair Encoding (BBPE [6, 52]) with a vocabulary 5(a)Visual–Textual Comprehension    
+
+> Text/Visual
+> Text/Visual
+> 3D  Text
+> 3D Text
+> Text/Visual  3D
+> Text/Visual 3D
+> (b)3D Spatial Comprehension (c)3D Spatial Synthesis
+
+Figure 3: Example mask used in CG-MLLM .size of 151,669. 
+
+Visual Tokenization. Following the architecture of Qwen3-VL [19], we leverage a SigLIP-2 [53] encoder for image feature extraction. To accommodate various input resolutions, we adopt its strategy of employing 2D-RoPE [54] and interpolating absolute position embeddings. Furthermore, a two-layer MLP is utilized to compress 2 × 2 visual features into a single visual token. This design aligns the visual tokens with the LLM’s hidden dimension and supports the DeepStack mechanism for efficient multi-scale processing. 
+
+3D Tokenization. To enable the perception and generation of 3D content, we integrate a pre-trained Spatial-VAE adapted from Hunyuan3D-2.1 [20]. This component extracts point clouds from 3D objects surfaces and encodes them into a high-dimensional latent space via an attention-based mechanism. The Spatial-VAE operates with a downsampling factor of 20 and a latent dimension of 64. These latent representations are subsequently aligned with the multimodal semantic space through a dedicated Connector layer before being fed into the LLM. To maintain the stability of the learned geometric priors, the Spatial-VAE remains frozen during the training process. 
+
+## 3.2 Backbone 
+
+Specifically, our backbone is built upon the Qwen3-VL architecture, benefiting from its superior pretrained performance and robust ecosystem. Both the TokenAR and BlockAR transformers are initialized with pre-trained Qwen3-VL weights, allowing CG-MLLM to leverage rich multimodal priors while facilitating functional specialization. While TokenAR maintains the model’s original capacity for token-level autoregressive modeling, BlockAR extends this design to handle parallel block tokens. This dual-transformer design enables 
+
+CG-MLLM to inherit the extensive knowledge of the VLM for 2D visual understanding while simultaneously empowering it with robust spatial perception and generative capabilities within a unified framework. Moreover, BlockAR enables efficient parallel processing of large numbers of tokens. Our experiments show that when targeting a spatial latent resolution of 4096 tokens, the block-level approach achieves a threefold speedup compared with token-level processing. 
+
+Hybrid Receptive Field. To synergize sequential token generation with parallel block modeling, we employ a hybrid masking mechanism that transcends the limitations of traditional singular masking strategies. Unlike standard autoregressive models that rely solely on causal masks (where tokens attend only to preceding ones) or diffusion-based models that utilize parallel masks (where tokens attend to all tokens within a sample), CG-MLLM adaptively 6combines both. To further illustrate, the specific masking patterns applied across different modalities and tasks are visualized in Fig. 3. In this heatmap, each colored cell in a given row represents the set of previous or concurrent tokens that the corresponding token is permitted to attend to, effectively defining its attention visibility within the hybrid framework. 
+
+Architectural Components. These transformers inherit the core components of Qwen3-VL [19], including Grouped Query Attention (GQA) [55], SwiGLU activation [56], and RM-SNorm [57]. To improve multimodal alignment stability, we leverage Interleaved Multimodal Rotary Positional Embeddings (Interleaved MRoPE) [19, 54] and QK-Norm [58] from the Qwen3-VL [19] framework. 
+
+## 3.3 Modality Decode 
+
+After generation, the predicted tokens are decoded into their respective modalities. Text tokens are directly decoded using the tokenizer described in Sec. 3.1. For 3D outputs, we decode the tokens into geometric representations via the VAE of Hunyuan3D-2.1 [20], followed by material synthesis using its corresponding material generator for improved visual fidelity. 
+
+## 3.4 Comparison with Related MoT Methods 
+
+Our architecture is conceptually inspired by pioneering methods [51, 59, 13], yet it represents a significant evolution in several fundamental aspects: (a) Transformer Specialization Logic: Unlike existing methods [59, 13], which partition transformers based on functional splits (i.e., understanding vs. generation), CG-MLLM adopts a model-based binding strategy. Under this scheme, TokenAR is bound to sequential token-level modeling, while BlockAR is bound to parallel block-level synthesis. This logic fundamentally differs from task-binding paradigms, enabling flexible integration of encoders according to their original pre-training schemes. The design also maintains extensibility, readily supporting potential future extensions such as autoregressive latent generation and diffusion-based text understanding. (b) Vision-Centric Initialization: Unlike existing methods [59, 13], which require costly retraining of visual comprehension for the language-centric methods, CG-MLLM leverages the vision-centric Qwen3-VL [19]. By inheriting the advanced DeepStack [60] mechanism, our framework captures finer visual details and achieves better alignment [19]. This strategic inheritance allows CG-MLLM to capitalize on mature VLM capabilities while drastically reducing training overhead, providing a robust foundation for geometric reasoning. (c) Positional Encoding Strategy: We introduce a 3D-aware strategy. Beyond inheriting Interleaved MRoPE and 2D-RoPE from Qwen3-VL [19], we intentionally omit intra-block positional embeddings for 3D tokens. By assigning a distinct block-level position while sharing an identical positional index within each block, we preserve the permutation invariance of point features while maintaining global spatial structure. (d) Volumetric Spatial Intelligence: While existing methods [51, 59, 13] are primarily restricted to 2D visual-text representations, CG-MLLM evolves towards true spatial intelligence. By integrating 3D geometric priors into the VLM, our framework transcends flat pixel-space, enabling the model to perceive, reason about, and synthesize complex 3D structures with physical consistency. 
+
+## 3.5 Training Recipe 
+
+Our training consists of two stages. In the first stage, the alignment stage, after initializing the model, we first train its unconditional generation capability along with the initial understanding 7Figure 4: Comparison with other MLLM-based methods on the image-to-3D task. For clearer visualization of geometry, materials are removed from the second row. Our method generates more complete geometry, achieving photorealistic results. ability. Specifically, we discard 90% of the conditional inputs and train at a 3D resolution of 512 tokens. In the second stage, the progressive resolution stage, we gradually increase the resolution from 512 to 4096 tokens, while reducing the discard probability from 90% to 10%. Table 1: Performance comparison of MLLM-based 3D generative models.The best results in each column is highlighted in red, while the second-best results is highlighted in yellow. Model p-FID ↓ p-KID ↓ CLIP-IQA+ ↑ MUSIQ ↑ Uni3D ↑ CLIP ↑
+
+SAR3D 30.07 1.00 0.42 66.01 0.3193 82.86 ShapeLLM-Omni 13.11 0.29 0.37 55.71 0.3190 84.18 Ours 12.55 0.27 0.45 71.65 0.3198 84.47 
+
+## 4. Experiments 4.1 Dataset 
+
+We curated our dataset from LLaVA-OneVision [61], Trellis-500K [42], and Objaverse++ [62, 63]. For the Objaverse++ [63] subset, we selected samples with the highest aesthetic rating (score=3) and used their corresponding rendered images from Objaverse-MIX [64]. For the Trellis-500K dataset, we utilized its rendering pipeline and adopting the Hunyuan3D2.1 pipeline for watertight processing and surface sampling. We initially followed the Hunyuan3D2.1 configuration, pre-sampling 124,928 for both uniform points and importance points and randomly 8Figure 5: More Image-to-3D results produced by our method. For clearer visualization of geometry, materials are removed from the rightmost column. Zooming in is recommended for better inspection. selecting from these points during data loading, but ultimately used only the uniform points, as explained in Section 4.4. 
+
+## 4.2 Implementation Details 
+
+We employ Classifier-Free Guidance (CFG) with a dropout rate that varies during training. The model follows a progressive training strategy, in which the sequence length is gradually increased from 512 to 4096 tokens, as mentioned in Section 3.5. We use the AdamW optimizer, adjusting the learning rate from 1 × 10 −4 down to 5 × 10 −5 as the token count increases. For the diffusion process, we apply the logit-normal sampler [30] for the timesteps, maintaining a scale of 1.0 throughout the training duration. The training was conducted on 16 NVIDIA H20 GPUs, with the maximum sequence length increasing from 36,864 to 51,200 as the 3D token resolution grows.During inference, we set the CFG scale to 7.5 and perform 50 sampling steps. 
+
+## 4.3 Limitations of AdaLN in MLLM 
+
+Given the outstanding performance of Adaptive Layer Normalization(AdaLN) [31] in various diffusion tasks and the capability of MoT to decouple text from multimodal content, we initially explored integrating AdaLN into the multimodal branches. Specifically, we applied the (1+ scale )×hidden +shif t transformation following the RMSNorm layer of the LLM, rather than the standard LayerNorm. To ensure that the initial training steps remained unaffected, the linear layers responsible for generating scale and shift parameters were zero-initialized. Unfortunately, as illustrated in Fig. 6(a), the training loss with AdaLN was substantially higher than the baseline. This suggests that incorporating AdaLN into multimodal large language models (MLLMs) is suboptimal in this context. We hypothesize that the introduction of additional 9(a) (b) 
+
+> MSE Loss
+
+Figure 6: Comparison of different strategies. (a) Training MSE loss comparison w/ and w/o AdaLN under the LLM architecture. (b) VAE reconstruction comparison w/ and w/o importance points. scaling factors may compromise the stability of the Shared Causal-Parallel Self-Attention mechanism. 
+
+## 4.4 VAE Reconstruction Issues 
+
+We observe that when using the Hunyuan3D-2.1 VAE [20], following the point sampling strategy proposed in their paper, i.e., a mixture of uniformly sampled points and importance points, can lead to distorted reconstructions with holes in some cases. This issue is common, especially when only a small number of points are randomly sampled from pre-sampled Farthest Point Sampling(FPS) points, as illustrated in Fig. 6(b). The examples on the left show the reconstruction results without importance points, while those on the right use importance points. Therefore, we only use uniformly points in our experiments to ensure stable and reliable reconstructions. 
+
+## 4.5 Quantitative comparison 
+
+We evaluate our generated results using p-FID and p-KID [65, 66, 67] to compare the distribution similarity between the generated geometries and the ground truth. We adopt CLIP-IQA+ [68] and MUSIQ [69] to assess the visual quality of the final outputs, and Uni3D [70] and CLIP [71] to measure the consistency between the outputs and the inputs. Compared with earlier MLLM-based 3D generation methods, such as SAR3D [24] and ShapeLLM-Omni [17], our approach consistently outperforms them across all quantitative metrics, as shown in Tab. 1, achieving the best performance among compared MLLM-based methods. Although our design supports 3D understanding, most captions in the dataset we use [42] (usually ¡20 words) are generated by an MLLM, limiting the model’s 3D understanding, as illustrated in Fig. 2. Therefore, when designing the spatial understanding functionality, we retain the image-based understanding component and treat it as the primary modality for interpreting rendered 3D geometry. Quantitative results for spatial content captioning are reported in Tab. 2. Compared to LLaVA [72], InstructBLIP [73],and the Qwen3-VL[19], our 10 Model BLEU-1 ↑ ROUGE-L ↑ METEOR ↑
+
+3D latent Inputs 
+
+3D-LLM 16.91 19.48 19.73 PointLLM-13B 17.09 20.99 16.45 ShapeLLM-Omni-7B 18.51 21.37 19.89 
+
+Image Inputs 
+
+InstructBLIP-13B 4.65 8.85 13.23 LLaVA-13B 4.02 8.15 12.58 Qwen3-VL-2B 3.13 7.21 11.92 Ours-2B MOT 13.51 19.13 14.28 
+
+Table 2: Quantitative comparison on 3D object captioning metrics. The best results in each column is highlighted in red, while the second-best results is highlighted in yellow. GT            
+
+> Ours
+> A white drawing.
+> A large white sphere positioned
+> centrally on a flat , white
+> rectangular background. The
+> sphere is slightly smaller in
+> diameter than the background.
+> Maroon and black saloon car.
+> A car. It appears to be a modern,
+> sleek vehicle with a streamlined
+> design. The car is predominantly
+> red , with a bright red body and
+> black wheels .
+> A cartoon old computer.
+> Avintage computer setup with a
+> small, white, rectangular computer
+> and a matching keyboard . The
+> computer displays a green text-
+> based interface .
+> Model
+
+Figure 7: Caption results. Compared to the ground truth from the point cloud perception dataset our descriptions are more detailed and showcase the model’s spatial reasoning capabilities. method achieves consistently better performance across all metrics. However, our method currently trails established approaches such as 3D-LLM [74], PointLLM [75], and ShapeLLM-Omni-7B [17]. This performance gap is likely attributable to their extensive 3D captioning datasets and larger model scale. 
+
+## 4.6 Qualitative comparisons 
+
+Our method demonstrates strong performance in both geometric fidelity and semantic alignment. In comparisons with existing approaches such as SAR3D [24] and ShapeLLM-Omni [17], our results exhibit superior geometric completeness and conditional consistency as shown in Fig. 4. Further examples, provided in Fig. 5 and the appendix, show the method consistently generates detailed, coherent 3D geometry. Moreover, our captioning results (Fig. 7) outperform the ground-truth captions used for 3D captioning evaluation in several cases, demonstrating the capability of our approach to produce accurate and fine-grained textual descriptions. 11 (a) (b) Figure 8: Failure Cases. (a) Common: ambiguous hints often lead to inaccurate outputs. (b) Rare: input and output are semantically similar but differ greatly in details. 
+
+## 5. Limitation 
+
+When the input is ambiguous or potentially confusing, our model may produce suboptimal results, as shown in Fig. 8 (a). This type of failure is relatively common, and we observed artifacts even when processing this case with multiple commercial 3D generation models. In addition, we identified a rare failure case on our model, illustrated in Fig. 8 (b), where the hint image depicts a sheep, but the generated 3D model is a rabbit. Since our vision encoder operates at the semantic level rather than the pixel or feature level, and considering that MLLMs occasionally misclassify semantics, we attribute this rare failure to hallucination. Beyond these specific failure cases, our method still falls short of leading commercial 3D generation systems in overall quality. This gap likely stems from our data preprocessing and 3D reconstruction pipeline based on Hunyuan3D 2.1 [20], which first thickens the model and converts it into a watertight mesh. While this step ensures topological correctness, it inevitably reduces data precision. In addition, the reconstruction uses relatively few tokens (fewer than 4k) whereas current high-resolution 3D generation methods often require up to ten times more tokens, posing challenges for LLM-based generation. We anticipate that the development of more lightweight and efficient 3D-VAEs will enable substantial improvements in our model’s capabilities. 
+
+## 6. Conclusion 
+
+In this work, we propose CG-MLLM , the first multimodal large language model (MLLM) supporting end-to-end 3D spatial generation. By integrating Qwen3-VL with Hunyuan3D2.1-VAE, we demonstrate that an MLLM can perform naive 3D generation end-to-end, without relying on external generators. Experimental results highlight the effectiveness of CG-MLLM 
+
+in both 3D captioning and 3D generation, showing its capability to understand and generate spatial content and achieving state-of-the-art performance among LLMs for spatial generation. Future work can further explore scalability, aiming toward a fully unified model for multimodal generation and understanding. 
+
+## References 
+
+[1] Kimi Team et al. Kimi K2: Open Agentic Intelligence . 2025. doi : 10.48550/arXiv.2507. 20534 .[2] Aaron Grattafiori et al. The Llama 3 Herd of Models . 2024. doi : 10.48550/arXiv.2407. 21783 .12 [3] DeepSeek-AI et al. DeepSeek-V3 Technical Report . 2025. doi : 10.48550/arXiv.2412. 19437 .[4] OpenAI et al. GPT-4 Technical Report . 2024. doi : 10.48550/arXiv.2303.08774 .[5] Qwen et al. Qwen2.5 Technical Report . 2025. doi : 10.48550/arXiv.2412.15115 .[6] An Yang et al. Qwen3 Technical Report . 2025. doi : 10.48550/arXiv.2505.09388 .[7] Chunting Zhou et al. Transfusion: Predict the Next Token and Diffuse Images with One Multi-Modal Model . 2024. doi : 10.48550/arXiv.2408.11039 .[8] Xiaokang Chen et al. Janus-Pro: Unified Multimodal Understanding and Generation with Data and Model Scaling . 2025. doi : 10.48550/arXiv.2501.17811 .[9] Chameleon Team. Chameleon: Mixed-Modal Early-Fusion Foundation Models . 2025. doi :
+
+10.48550/arXiv.2405.09818 .[10] Gheorghe Comanici et al. Gemini 2.5: Pushing the Frontier with Advanced Reasoning, Multimodality, Long Context, and Next Generation Agentic Capabilities . 2025. doi : 10. 48550/arXiv.2507.06261 .[11] Yufeng Cui et al. Emu3.5: Native Multimodal Models Are World Learners . 2025. doi :
+
+10.48550/arXiv.2510.26583 .[12] Jinheng Xie, Zhenheng Yang, and Mike Zheng Shou. Show-O2: Improved Native Unified Multimodal Models . 2025. doi : 10.48550/arXiv.2506.15564 .[13] Chaorui Deng et al. Emerging Properties in Unified Multimodal Pretraining . 2025. doi :
+
+10.48550/arXiv.2505.14683 .[14] Shuangkang Fang et al. “MeshLLM: Empowering Large Language Models to Progressively Understand and Generate 3D Mesh”. In: (). [15] Zhengyi Wang et al. LLaMA-Mesh: Unifying 3D Mesh Generation with Language Models .2024. doi : 10.48550/arXiv.2411.09595 .[16] Bingquan Dai et al. MeshCoder: LLM-Powered Structured Mesh Code Generation from Point Clouds . 2025. doi : 10.48550/arXiv.2508.14879 .[17] Junliang Ye et al. ShapeLLM-omni: A Native Multimodal LLM for 3D Generation and Understanding . 2025. doi : 10.48550/arXiv.2506.01853 .[18] Ava Pun et al. Generating Physically Stable and Buildable Brick Structures from Text .2025. doi : 10.48550/arXiv.2505.05469 .[19] Shuai Bai et al. Qwen3-VL Technical Report . 2025. doi : 10.48550/arXiv.2511.21631 .[20] Team Hunyuan3D et al. Hunyuan3D 2.1: From Images to High-Fidelity 3D Assets with Production-Ready PBR Material . 2025. doi : 10.48550/arXiv.2506.15442 .[21] Jin Xu et al. Qwen3-Omni Technical Report . 2025. doi : 10.48550/arXiv.2509.17765 .[22] Haoyu Lu et al. DeepSeek-VL: Towards Real-World Vision-Language Understanding . 2024. 
+
+doi : 10.48550/arXiv.2403.05525 .[23] Xinlong Wang et al. Emu3: Next-token Prediction Is All You Need . 2024. doi : 10.48550/ arXiv.2409.18869 .[24] Yongwei Chen et al. SAR3D: Autoregressive 3D Object Generation and Understanding via Multi-scale 3D VQVAE . 2025. doi : 10.48550/arXiv.2411.16856 .13 [25] Keyu Tian et al. Visual Autoregressive Modeling: Scalable Image Generation via Next-Scale Prediction . 2024. doi : 10.48550/arXiv.2404.02905 .[26] Fukun Yin et al. ShapeGPT: 3D Shape Generation with A Unified Multi-modal Language Model . 2023. doi : 10.48550/arXiv.2311.17618 .[27] Yawar Siddiqui et al. MeshGPT: Generating Triangle Meshes with Decoder-Only Trans-formers . 2023. doi : 10.48550/arXiv.2311.15475 .[28] Xingchao Liu, Chengyue Gong, and Qiang Liu. Flow Straight and Fast: Learning to Generate and Transfer Data with Rectified Flow . 2022. doi : 10.48550/arXiv.2209.03003 .[29] Yaron Lipman et al. Flow Matching for Generative Modeling . 2023. doi : 10.48550/arXiv. 2210.02747 .[30] Patrick Esser et al. Scaling Rectified Flow Transformers for High-Resolution Image Synthesis . 2024. doi : 10.48550/arXiv.2403.03206 .[31] William Peebles and Saining Xie. Scalable Diffusion Models with Transformers . 2023. doi :
+
+10.48550/arXiv.2212.09748 .[32] Chenfei Wu et al. Qwen-Image Technical Report . 2025. doi : 10.48550/arXiv.2508.02324 .[33] Team Wan et al. Wan: Open and Advanced Large-Scale Video Generative Models . 2025. 
+
+doi : 10.48550/arXiv.2503.20314 .[34] Bing Wu et al. HunyuanVideo 1.5 Technical Report . 2025. doi : 10.48550/arXiv.2511. 18870 .[35] Wenyi Hong et al. CogVideo: Large-scale Pretraining for Text-to-Video Generation via Transformers . 2022. doi : 10.48550/arXiv.2205.15868 .[36] Zhuoyi Yang et al. CogVideoX: Text-to-Video Diffusion Models with An Expert Trans-former . 2025. doi : 10.48550/arXiv.2408.06072 .[37] Guoqing Ma et al. Step-Video-T2V Technical Report: The Practice, Challenges, and Future of Video Foundation Model . 2025. doi : 10.48550/arXiv.2502.10248 .[38] Yen-Chi Cheng et al. SDFusion: Multimodal 3D Shape Completion, Reconstruction, and Generation . 2023. doi : 10.48550/arXiv.2212.04493 .[39] Zibo Zhao et al. “Michelangelo: Conditional 3D Shape Generation Based on Shape-Image-Text Aligned Latent Representation”. In: (). [40] Longwen Zhang et al. CLAY: A Controllable Large-scale Generative Model for Creating High-quality 3D Assets . 2024. doi : 10.48550/arXiv.2406.13897 .[41] Zibo Zhao et al. Hunyuan3D 2.0: Scaling Diffusion Models for High Resolution Textured 3D Assets Generation . 2025. doi : 10.48550/arXiv.2501.12202 .[42] Jianfeng Xiang et al. Structured 3D Latents for Scalable and Versatile 3D Generation .2025. doi : 10.48550/arXiv.2412.01506 .[43] Weiyu Li et al. Step1X-3D: Towards High-Fidelity and Controllable Generation of Textured 3D Assets . 2025. doi : 10.48550/arXiv.2505.07747 .[44] Weiyu Li et al. CraftsMan3D: High-fidelity Mesh Generation with 3D Native Generation and Interactive Geometry Refiner . 2025. doi : 10.48550/arXiv.2405.14979 .[45] Zhihao Li et al. Sparc3D: Sparse Representation and Construction for High-Resolution 3D Shapes Modeling . 2025. doi : 10.48550/arXiv.2505.14521 .14 [46] Jiashi Feng et al. Seed3D 1.0: From Images to High-Fidelity Simulation-Ready 3D Assets .2025. doi : 10.48550/ARXIV.2510.19944 .[47] Runpei Dong et al. DreamLLM: Synergistic Multimodal Comprehension and Creation .2024. doi : 10.48550/arXiv.2309.11499 .[48] Yuying Ge et al. SEED-X: Multimodal Models with Unified Multi-granularity Comprehen-sion and Generation . 2025. doi : 10.48550/arXiv.2404.14396 .[49] Yiyang Ma et al. JanusFlow: Harmonizing Autoregression and Rectified Flow for Unified Multimodal Understanding and Generation . 2025. doi : 10.48550/arXiv.2411.07975 .[50] Jinheng Xie et al. Show-o: One Single Transformer to Unify Multimodal Understanding and Generation . 2025. doi : 10.48550/arXiv.2408.12528 .[51] Weixin Liang et al. “Mixture-of-Transformers: A Sparse and Scalable Architecture for Multi-Modal Foundation Models”. In: Trans. Mach. Learn. Res. 2025 (2025). url : https: //openreview.net/forum?id=Nu6N69i8SB .[52] Changhan Wang, Kyunghyun Cho, and Jiatao Gu. Neural Machine Translation with Byte-Level Subwords . 2019. doi : 10.48550/arXiv.1909.03341 .[53] Michael Tschannen et al. SigLIP 2: Multilingual Vision-Language Encoders with Improved Semantic Understanding, Localization, and Dense Features . 2025. doi : 10.48550/arXiv. 2502.14786 .[54] Jianlin Su et al. RoFormer: Enhanced Transformer with Rotary Position Embedding . 2023. 
+
+doi : 10.48550/arXiv.2104.09864 .[55] Joshua Ainslie et al. GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints . 2023. doi : 10.48550/arXiv.2305.13245 .[56] Yann N. Dauphin et al. Language Modeling with Gated Convolutional Networks . 2017. 
+
+doi : 10.48550/arXiv.1612.08083 .[57] Biao Zhang and Rico Sennrich. Root Mean Square Layer Normalization . 2019. doi :
+
+10.48550/arXiv.1910.07467 .[58] Mostafa Dehghani et al. Scaling Vision Transformers to 22 Billion Parameters . 2023. doi :
+
+10.48550/arXiv.2302.05442 .[59] Weijia Shi et al. LMFusion: Adapting Pretrained Language Models for Multimodal Gener-ation . 2025. doi : 10.48550/arXiv.2412.15188 .[60] Lingchen Meng et al. DeepStack: Deeply Stacking Visual Tokens Is Surprisingly Simple and Effective for LMMs . 2024. doi : 10.48550/arXiv.2406.04334 .[61] Bo Li et al. LLaVA-OneVision: Easy Visual Task Transfer . doi : 10.48550/arXiv.2408. 03326 . url : http://arxiv.org/abs/2408.03326 . Pre-published. [62] Matt Deitke et al. “Objaverse: A Universe of Annotated 3D Objects”. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 2023, pp. 13142– 13153. [63] Chendi Lin et al. “Objaverse++: Curated 3D Object Dataset with Quality Annotations”. In: Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) Workshops . Oct. 2025, pp. 6813–6822. [64] Xuelin Qian et al. Pushing Auto-regressive Models for 3D Shape Generation at Capacity and Scalability . 2024. doi : 10.48550/arXiv.2402.12225 .15 [65] Martin Heusel et al. GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium . 2018. doi : 10.48550/arXiv.1706.08500 .[66] Mikolaj Bi´ nkowski et al. Demystifying MMD GANs . 2021. doi : 10.48550/arXiv.1801. 01401 .[67] Alex Nichol et al. Point-E: A System for Generating 3D Point Clouds from Complex Prompts . 2022. doi : 10.48550/arXiv.2212.08751 .[68] Jianyi Wang, Kelvin C. K. Chan, and Chen Change Loy. Exploring CLIP for Assessing the Look and Feel of Images . 2022. doi : 10.48550/arXiv.2207.12396 .[69] Junjie Ke et al. MUSIQ: Multi-scale Image Quality Transformer . 2021. doi : 10.48550/ arXiv.2108.05997 .[70] Junsheng Zhou et al. Uni3D: Exploring Unified 3D Representation at Scale . 2023. doi :
+
+10.48550/arXiv.2310.06773 .[71] Alec Radford et al. Learning Transferable Visual Models From Natural Language Supervi-sion . 2021. doi : 10.48550/arXiv.2103.00020 .[72] Haotian Liu et al. Visual Instruction Tuning . 2023. doi : 10.48550/arXiv.2304.08485 .[73] Wenliang Dai et al. InstructBLIP: Towards General-purpose Vision-Language Models with Instruction Tuning . 2023. doi : 10.48550/arXiv.2305.06500 .[74] Yining Hong et al. 3D-LLM: Injecting the 3D World into Large Language Models . 2023. 
+
+doi : 10.48550/arXiv.2307.12981 .[75] Runsen Xu et al. PointLLM: Empowering Large Language Models to Understand Point Clouds . 2024. doi : 10.48550/arXiv.2308.16911 .16

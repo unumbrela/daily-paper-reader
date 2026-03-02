@@ -1,0 +1,537 @@
+Title: IFDNS: An Iterative Feedback-Driven Neuro-Symbolic Method for Faithful Logical Reasoning
+
+URL Source: https://arxiv.org/pdf/2601.07464v1
+
+Published Time: Tue, 13 Jan 2026 02:44:52 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# IFDNS: An Iterative Feedback-Driven Neuro-Symbolic Method for Faithful Logical Reasoning 
+
+Xiaoheng Wang 1[0009 −0005 −3335 −2322] , Tongxuan Liu 1[0009 −0007 −2634 −2788] , Zi Gong 1[0009 −0004 −8863 −3677] , Xianzhe Dong 1[0009 −0007 −6943 −9432] , Yuting Zeng 1[0009 −0006 −1719 −5424] , Minhan Hu 1[0009 −0007 −3995 −8821] , Weizhe Huang 1[0009 −0005 −0320 −6068] , and Jing Li 1[0000 −0001 −6761 −7687] ⋆
+
+College of Computer Science and Technology, University of Science and Technology of China, Hefei, Anhui Province, China 
+
+{wangxiaoheng, tongxuan.ltx, gong513, xianzhedong, yuting_zeng, hmh, hwz871982879}@mail.ustc.edu.cn lj@ustc.edu.cn 
+
+Abstract. Large language models (LLMs) have demonstrated impressive capabilities across a wide range of reasoning tasks, including logical and mathematical problem-solving. While prompt-based methods like Chain-of-Thought (CoT) can enhance LLM reasoning abilities to some extent, they often suffer from a lack of faithfulness, where the derived conclusions may not align with the generated reasoning chain. To address this issue, researchers have explored neuro-symbolic approaches to bolster LLM logical reasoning capabilities. However, existing neuro-symbolic methods still face challenges with information loss during the process. To overcome these limitations, we introduce Iterative Feedback-Driven Neuro-Symbolic (IFDNS), a novel prompt-based method that employs a multi-round feedback mechanism to address LLM limitations in handling complex logical relationships. IFDNS utilizes iterative feedback during the logic extraction phase to accurately extract causal relationship statements and translate them into propositional and logical implication expressions, effectively mitigating information loss issues. Furthermore, IFDNS is orthogonal to existing prompt methods, allowing for seamless integration with various prompting approaches. Empirical evaluations across six datasets demonstrate the effectiveness of IFDNS in significantly improving the performance of CoT and Chain-of-Thought with Self-Consistency (CoT-SC). Specifically, IFDNS achieves a +9.40% accuracy boost for CoT on the LogiQA dataset and a +11.70% improvement for CoT-SC on the PrOntoQA dataset. 
+
+Keywords: Logical Reasoning · Large Language Model · Reasoning. 
+
+1 Introduction 
+
+Large language models (LLMs) such as GPT-4o [1], o1 [2], DeepSeek-R1 [3], and Gemma [4] have demonstrated exceptional capabilities across various NLP tasks. However, studies [5, 6, 2, 7] reveal that significant challenges persist in complex logical reasoning and mathematical problem-solving scenarios. Researchers have proposed various methods to enhance LLMs’ reasoning abilities, such as Chain-of-Thought (CoT) [8–10], Chain-of-Thought with Self-Consistency (CoT-SC) [11], Tree-of-Thought (ToT) [12], and STaR [13], which improve LLMs’ performance through prompt-based approaches. However, these methods occasionally exhibit unfaithful reasoning [14–17], leading to conclusions that contradict previously generated reasoning chains. To address unfaithful reasoning, approaches like Faithful Chain-of-Thought [16], LINC [18], Logic-LM [19], and SatLM [20] integrate LLMs with symbolic reasoning methods. These frameworks transform logical problems into formal expressions, utilize external symbolic solvers to derive symbolic results, and then interpret these results via LLMs or specialized interpreters. Nevertheless, Logic-of-Thought (LoT) [21] identifies that such methods suffer from information loss during logical expression extraction, resulting in incorrect intermediate reasoning steps and outcomes. To address the information loss issue during logical expression extraction, [21] proposes supplementing the original prompt with descriptions of generated logical propositions. This approach preserves the information from the original prompt while incorporating additional  
+
+> ⋆
+
+Corresponding author 
+
+> arXiv:2601.07464v1 [cs.AI] 12 Jan 2026
+
+2 X. Wang et al. LoT    
+
+> Causal relationship statement extraction:
+> 1. If someone is red and furry, then they are cold.
+> 2. If someone is green and white, then they are furry.
+> 3. If Bob is both white and red, then Bob is green.
+> 4. If someone is cold and furry, then they are green.
+> 5. All white people are green.
+> 6. All furry people are red.
+> 7. If someone is nice and kind, then they are white.
+> Propositions:
+> A: red, B: furry, C: cold, D: green,
+> E: white, F: nice, G: kind
+> Implication expression:
+> E->D, B ->A None
+> LLMs B.FALSE
+> Logic Extension:
+> Context:
+> Bob is cold. Bob is furry. Bob is nice. Bob is red. Bob is white.
+> Charlie is nice. Charlie is red. Erin is cold. Erin is furry. Erin is
+> green. Erin is kind. Erin is nice. Erin is red. Erin is white. Fiona
+> is kind. Fiona is nice. If someone is red and furry then they are
+> cold. If someone is green and white then they are furry. If Bob is
+> white and Bob is red then Bob is green. If someone is cold and
+> furry then they are green. All white people are green. All furry
+> people are red. If someone is nice and kind then they are white.
+> Question: Based on the given context, determine if the
+> following conclusion is true : Fiona is furry.
+> Options:
+> A. TRUE
+> B. FALSE
+
+Input 
+
+Fig. 1: In the LoT case from the ProofWriter dataset, LoT firstly fails to comprehensively and accurately extract causal relationship statements. Secondly, it lacks the capability to fully interpret all propositions within the context and translate them into corresponding implication expressions, thereby preventing logical extension. logical information derived through a neuro-symbolic method. However, although this method mitigates information loss via supplementary augmentation, the inherent hallucination issues of LLMs may still occasionally cause failures in the logical extraction phase, such as redundant expressions, omissions of logical relationships, and deviations between logical propositions and formal expressions [21]. As illustrated in Figure 1, we find that failures in the logical extraction phase primarily stem from LLMs’ inability to comprehensively understand all propositions and implication expressions contained in the context in a single pass. The LoT method converts an input multiple-choice question-answering task (MCQA) into simple logical propositions and implication expressions via an LLM, followed by logical deduction of the implication expressions. However, when extracting causal statements from the context, LoT produces ambiguous statements such as "If Bob is both white and red." which hinders the LLM from later extracting them into two distinct propositions: "Bob is white." and "Bob is red." During the subsequent proposition and implication expression extraction process, LoT can only vaguely identify simple propositions in the context, such as "A: red.", "B: furry." and "C: cold." These propositions lack subject and quantifier information, leading to erroneous merging of objects across different subject scenarios (e.g., symbolizing both "Bob is white." and "All white people." as "E: white."). This failure to distinguish entity ownership relationships or handle complex logical conjunctions results in a coarse-grained symbolization process that discards critical logical information. Consequently, the subsequent logical extension phase cannot derive implicit multi-layered relationships, ultimately causing errors in LLMs’ complex multi-hop reasoning. Motivated by this observation, we propose IFDNS, a novel few-shot prompting method that addresses the limitations of LLMs in processing intricate logical relationships through a multi-round feedback mechanism. Specifically, IFDNS employs the LLM to extract causal statements and convert them into propositions and logical implication expressions, applying multi-round feedback at both stages. During the logical extension phase, Python-implemented logical rules extend the logical expressions. In the logical translation phase, the extended expressions are translated by the LLM into natural language descriptions and integrated into the context. Finally, in the word order reordering phase, the contextual content is reordered to form the final input prompt. To validate the effectiveness of IFDNS, we conducted extensive experiments evaluating its capabilities across different models, multiple prompting methods, and diverse datasets. The results demonstrate that IFDNS substantially enhances the performance of various prompting methods, including Direct, CoT, and CoT-SC. Specifically, IFDNS significantly improved the accuracy of the Direct method on the PrOntoQA dataset by +13.90%. Furthermore, it boosted the accuracy of CoT on the LogiQA dataset by +9.40%, while also achieving an +11.70% accuracy improvement for CoT-SC on the PrOntoQA dataset. The main contributions of this work are as follows: IFDNS 3
+
+1. We propose IFDNS, a novel prompting method that addresses the information loss issue in logical extraction phases of existing neuro-symbolic approaches through a multi-round feedback mechanism. 2. Leveraging the orthogonal capability of IFDNS, we integrate it with various prompting methods such as CoT and CoT-SC. 3. We validate the effectiveness of IFDNS across different models and logical reasoning tasks, demonstrating its ability to broadly enhance the performance of diverse prompting methods. 
+
+2 Preliminary 
+
+2.1 Multiple-choice Question-answering Task 
+
+Our study focuses on MCQA tasks. A QA task is formally defined as a tuple (Q, C, O, A ),where Q denotes the question, C represents the context providing background information, 
+
+O = ( o1, o 2, . . . , o k) is the set of answer options, and A is the ground-truth answer. The objective of LLMs is to accurately answer Q by generating a sequence of tokens T = ( t1, t 2, . . . , t m) through a sequence of logically coherent intermediate reasoning steps RP = ( rp1 , r p2 , . . . , r pm ), where each step rpi corresponds to a subset of tokens (tli , t ri ) ⊆ T .
+
+2.2 Introduction to Propositional Logic 
+
+Propositional logic studies logical relationships between propositions, focusing on propositions 
+
+(statements with determinate truth values, e.g., "It is raining"). We denote specific propositions using uppercase letters (e.g., A, B, C) and arbitrary propositions using lowercase letters (e.g., 
+
+p, q, r). Propositions are classified as atomic (indivisible statements) or compound (formed via logical connectives). This paper primarily uses three fundamental connectives: 
+
+– Negation ¬ (not): ¬p is true if f p is false. 
+
+– Conjunction ∧ (and): p ∧ q is true if f both p and q are true. 
+
+– Implication → (if-then): p → q is false only when p is true and q is false. Propositional formulas are recursively defined using atomic propositions and connectives. Their truth values are determined via truth assignments, yielding three categories: tautologies (always true, e.g., p → p), contradictions (always false, e.g., ¬(p → ¬ p)), and satisfiable formulas (true under some assignments). Logical inference rules define derivational relationships between formulas. We use ⇒ for entailment (one formula deriving another) and ⇔ for logical equivalence. Key axioms in our system include: 1. Double Negation Law : ¬¬ p ⇔ p
+
+2. Transitive Law : (p → q) ∧ (q → r) ⇒ (p → r)
+
+3. Contraposition Law : p → q ⇔ ¬ q → ¬ p
+
+The formula can be transformed into an implication expression (such as p ∧ q ⇔ ¬ (p → ¬ q))through equivalent transformation. Propositional logic is the foundation of computer circuit design and program conditional reasoning [22, 23]. The logical system proposed here is relatively simple. In Section 3, we will further explain how our work is based on common propositional logic rules and partially extended to strengthen the extraction of subjects and quantifiers in propositions. 
+
+3 Methodology 
+
+Overview. Figure 2 illustrates the overall framework of IFDNS, which comprises five stages. The first stage is causal relationship statement extraction, where LLMs are employed to extract causal statements from the context. Subsequently, the extracted causal statements are transformed into propositions and logical implication expressions. Next, during the logical extension stage, a Python-implemented logical reasoning program extends these logical expressions. In the logical translation stage, the extended logical expressions are translated back into natural language via LLMs and integrated into the context. Finally, in the word order reordering stage, the original 4 X. Wang et al. 
+
+contextual content undergoes systematic word order rearrangement to formulate the ultimate input prompt. The following sections provide detailed explanations of these five stages. 
+
+Causal Relationship Statement Extraction. In this stage, we prompt LLMs to generate a set of causal sentences C. These sentences are output according to their original semantic order in the context. Multi-round feedback is then applied to C, leveraging few-shot guidance to prompt the LLM to evaluate the extracted causal statements based on five metrics: informational completeness, faithfulness to original intent, logical consistency, evidential relevance, and clarity of expression. Each metric is scored from 1 to 5. Based on the feedback from each iteration, the LLM is driven to generate improved causal statements, iterating this process k times. 
+
+Proposition and Implication Expression Extraction. LLMs are utilized to refine a set of propositional symbols P and logical implication expressions E from the provided collection 
+
+C. In this step, LLMs identify semantically similar propositions and unify them under the same propositional symbol. They also parse logical relationships between propositions and process them according to their natural language expressions. For propositions expressing negation, the negation operator ¬ is appended. If a causal relationship exists between two propositions, the implication symbol → is used to connect them. For example, LLMs might extract the semantically equivalent description "someone is able to use a computer" from two distinct sentences, symbolizing it as proposition B. By analyzing logical relationships, the LLM may apply ¬ to B and another proposition A, generating an implication expression ¬A → ¬ B. To address insufficient inductive generalization during symbol extraction, we enhance proposition recognition accuracy through refined symbol processing: statements with different subjects and quantifiers are assigned distinct propositional symbols for fine-grained extraction. For instance, given the causal statement: 1. If something chases the bald eagle and has a dependence on the lion, then it must also have a dependence on the mouse. 2. If the lion chases the bald eagle and notices the dog, then it also observes the mouse. We obtain: Propositions: A: something chases the bald eagle, B: something has a dependence on the lion, C: something has a dependence on the mouse, D: the lion chases the bald eagle, E: the lion notices the dog, F: the lion observes the mouse. 
+
+Implication Expressions: A ∧ B → C, D ∧ E → F .By strengthening the extraction mechanisms for subjects and quantifiers, we simultaneously approximate the inductive capacity of first-order logic while avoiding frequent symbol extraction errors that occur when directly generating first-order logic expressions with LLMs. In this process, we also implement a multi-round feedback mechanism for both P and E: leveraging few-shot guidance to prompt the LLM to evaluate P and E, and based on the feedback from each iteration, driving the LLM to generate optimized versions of P and E. This procedure is repeated for k
+
+iterations. 
+
+Logic Extension. During the logic extension stage, we apply laws of logical inference to the implication expression set E obtained from the previous stage. We developed a Python program implementing propositional logic-based deduction for implication expressions. For basic demonstration, consider the extracted implication expressions ¬A → ¬ B and ¬B → ¬ C as input to our logical deduction program. Through logic extension based on the law of transitivity and contraposition we ultimately derive the new expression C → A, which will be utilized in the next stage. IFDNS also supports deduction of implication relationships involving complex conjunctions. For example, given implication expressions A ∧ B → C, A → B, we derive the extended implication A → C, given implication expressions A ∧ B ∧ C → D, A → B, B → C,we derive extended implications A → C, A → D.
+
+Logical Translation. In the logical translation stage, we employ LLMs to convert the gener-ated extended implication expressions into natural language, thereby forming new components of the original input prompt. Through this approach, we integrate the derived logical information into the original prompt, thereby uncovering the underlying logical information embedded in the text. 
+
+Word Order Reordering. Existing studies [24, 25] have demonstrated that in mathematical problem-solving and logical reasoning domains, varying input premise orders can significantly affect the reasoning outcomes of LLMs. Although neuro-symbolic methods mitigate this issue by converting model inputs into logical symbols, our approach reveals that even after integrating derived logical information into original prompts, premise order randomness persists. To address this, we extract original contexts from the R-GSM dataset [25] and ProofWriter dataset [26], IFDNS 5propositions:          
+
+> A: something is green, B: it needs dogs, C: no
+> rabbit likes dogs, D: dogs like mice, E: rabbits
+> are green
+> Implication expression:
+> A→B, C →D, D →E
+
+feedback 
+
+improve                 
+
+> Logic Extension
+> A→B, ¬C→D, D ∧B→E, B →¬C
+> According to the logical derivation rules used in this
+> paper, it can be concluded that:
+> A→¬C, A →D, B→E, ¬D→¬B
+> k iterations
+> Logic Translation
+> A→D
+> ……
+> B→E:
+> If something needs dogs, then rabbits are green.
+> ……
+> ¬D→¬B
+
+Input: MCQA    
+
+> Context:
+> If something is green, then it needs dogs. If no rabbit likes dogs,
+> then some dogs like mice. Dogs are green. If some dogs like mice
+> and something needs dogs, then rabbits are green. If something
+> needs dogs, then no rabbit likes dogs.
+> Question:
+> Based on the given context, determine if the following conclusion is
+> true: The rabbit is green.
+> Options:
+> A. TRUE
+> B. FALSE
+> Causal Relationship Statement Extraction
+> 1. If something is green, then it needs dogs.
+> 2. If no rabbit likes dogs, then some dogs like
+> mice.
+> 3. Dogs are green.
+> 4. If some dogs like mice, then rabbits are green.
+> 5. If something needs dogs, then no rabbit likes
+> dogs.
+> Proposition and Implication Expression Extraction
+
+Word Order Reordering                          
+
+> Extended Context:
+> If something is green, then it needs dogs. If no rabbit likes dogs,
+> then some dogs like mice. Dogs are green. If some dogs like mice
+> and something needs dogs, then rabbits are green. If something
+> needs dogs, then no rabbit likes dogs. If something needs dogs,
+> then rabbits are green ……
+> Reordered Context:
+> Dogs are green. If something is green, then it needs dogs. If
+> something needs dogs, then rabbits are green……
+> Integrate all the extended natural language back into the original context
+> propositions:
+> A: something is green, B: something needs dogs,
+> C: rabbit likes dogs ,D: some dogs like mice, E:
+> rabbits are green
+> Implication expression:
+> A→B, ¬C→D, D ∧B→E, B →¬C
+> 1. If something is green, then it needs dogs.
+> 2. If no rabbit likes dogs, then some dogs like mice.
+> 3. Dogs are green .
+> 4.If some dogs like mice and something needs
+> dogs , then rabbits are green.
+> 5.If something needs dogs, then no rabbit likes
+> dogs.
+> Final answer: A. TRUE
+> rabbits are green Dogs are green Dogs need dogs
+
+feedback 
+
+improve  
+
+> k iterations
+> Subject/Quantifier Enhancement
+> Stage 1
+> Stage 2
+> Stage 3 Stage 4
+> Stage 5
+
+Fig. 2: The IFDNS framework operates through five sequential stages: (1) Upon receiving MCQA input, LLMs extract causal relationship statements from the context; (2) Extract propositions and implication expressions from causal relationship statements, while conducting multiple rounds of feedback for both the first and second stages. The statements highlighted in red in the diagram are those that are about to be modified or removed after the feedback process; (3) Python-based deductive engine extends implications via logical inference laws; (4) Translation of extended implications into natural language for context augmentation; (5) Word order reordering module optimizes context sequencing to enable LLM-driven end-to-end reasoning. manually rearrange their word order to create stepwise deduction-friendly sequences, and employ few-shot prompting to guide LLMs in autonomously performing word order reorganization on the logically extended contextual inputs. 
+
+4 Experiments 
+
+4.1 Tasks and Datasets 
+
+In our experiments, we utilized six logical reasoning datasets and one mathematical reasoning dataset: ReClor [27], LogiQA [28], RuleTaker [26], ProofWriter [26], FOLIO [29], PrOntoQA [24], and R-GSM [25]. 
+
+– LogiQA : Designed to assess human logical reasoning capabilities, this dataset is constructed from logical reasoning questions in publicly available national civil service exams. Each entry contains a context, a question, and four answer options with one correct choice. 
+
+– ReClor : A reading comprehension dataset requiring logical reasoning, comprising questions extracted from standardized tests (e.g., LSAT and GMAT). Each instance includes a context passage, a question, and four answer options with a single correct answer. 
+
+– RuleTaker : Programmatically generated using logical connectives ( ∧, ¬, →). Each problem consists of a context and a conclusion requiring verification. 
+
+– ProofWriter : Focused on formal logical reasoning, this dataset evaluates multi-step proof generation from given rules and facts. It assesses model performance on complex reasoning tasks through automatically generated problems. 
+
+– PrOntoQA : A synthetic QA dataset where each example is generated from first-order logic representations of synthetic world models. Each question is accompanied by detailed reasoning chains specifying the steps to derive correct answers. 
+
+– FOLIO : Specialized for first-order logic reasoning, this dataset evaluates models’ capacity to understand and manipulate first-order logical expressions. 
+
+– R-GSM : A mathematical reasoning dataset based on GSM8K, designed to test LLMs’ sensitivity to premise order through systematic sentence rearrangement in problem statements. 6 X. Wang et al. 
+
+Table 1: The main results of IFDNS integrated with various baseline methods across six reasoning datasets, using models GPT-4o and GPT-4o-mini , are presented as accuracy percentages(%). 
+
+Bold and underlined values indicate the highest accuracy achieved, with green highlighting performance improvements and red denoting declines.                                                                               
+
+> Methods Datasets
+> LogiQA ReClor RuleTaker ProofWriter PrOntoQA FOLIO
+> GPT-4o-mini
+> Direct 59.20 75.40 60.60 61.40 58.50 85.33 Direct+IFDNS 60.40 ↑1.20 77.50 ↑2.10 60.20 ↓0.40 65.00 ↑3.60 60.50 ↑2.00 86.67 ↑1.34 CoT 60.20 75.50 62.30 68.20 69.40 86.81 CoT+IFDNS 63.70 ↑3.50 77.00 ↑1.50 68.50 ↑6.20 74.90 ↑6.70 76.80 ↑7.40 89.63 ↑2.82 CoT-SC 61.70 75.80 62.80 69.50 68.90 87.26 CoT-SC+IFDNS 67.90 ↑6.20 78.00 ↑2.20 66.30 ↑3.50 76.60 ↑7.10 80.60 ↑11.70 91.11 ↑3.85
+> GPT-4o
+> Direct 62.30 83.60 61.80 67.40 65.00 85.48 Direct+IFDNS 68.20 ↑5.90 88.50 ↑4.90 69.50 ↑7.70 73.00 ↑5.60 78.90 ↑13.90 87.41 ↑1.93 CoT 65.70 86.90 75.20 79.90 84.50 85.63 CoT+IFDNS 75.10 ↑9.40 89.30 ↑2.40 79.00 ↑3.80 83.00 ↑3.10 92.70 ↑8.20 91.85 ↑6.22 CoT-SC 67.10 88.00 75.30 85.60 86.50 88.30 CoT-SC+IFDNS 76.40 ↑9.30 92.00 ↑4.00 77.50 ↑2.20 88.00 ↑2.40 97.80 ↑11.30 88.89 ↑0.59
+
+4.2 Baselines 
+
+We consider three prompting methods and two neurosymbolic approaches. The prompting methods include: (1) Direct : Directly answering dataset questions using LLMs without intermediate reasoning; (2) CoT [30, 31, 10]: Using chain-of-thought prompting to require LLMs to perform step-by-step reasoning before answering; (3) CoT-SC [32]: Combining chain-of-thought reasoning with majority voting, where LLMs generate multiple answer trajectories and select the most consistent response. The neurosymbolic approaches include: (4) LoT [21]: Generating augmented logical information from input contexts using propositional logic and integrating derived logical expressions as additional prompts; (5) Logic-LM [33]: Transforming natural language problems into symbolic formulae via LLMs followed by verifiable reasoning using symbolic solvers, with a self-refinement module that leverages solver error messages to revise formalizations. We evaluate IFDNS against these five baselines across all six datasets. 
+
+4.3 Experiment Setup 
+
+Theoretically, IFDNS imposes no restrictions on the types of LLMs employed. For our experiments, we utilize three foundational models to test the upper bounds of LLM-based logical reasoning: (1) 
+
+GPT-4o (GPT-4o-2024-05-13 ) and DeepSeek-V3 as massively parameterized LLMs, and (2) the more cost-efficient GPT-4o-mini (GPT-4o-mini-2024-07-18 ). Default hyperparameters are set as: temperature=0.3 with top -k=1 for base inference. For CoT-SC, we configure temperature=1.0 (with n=5 reasoning paths) and set multi-round feedback iterations k=3. 
+
+Main experiments. Using IFDNS, we compare two model variants against five baselines across these six datasets. For ReClor, we randomly sample 200 instances from its validation set to specifically evaluate models’ deductive reasoning capabilities. Since LogiQA was originally adapted from Chinese civil service exam questions and the English version 1 provided by the original authors contains numerous errors, we employ DeepSeek-V3 to retranslate the Chinese dataset followed by manual correction, subsequently selecting 200 curated samples. Regarding RuleTaker, we randomly extract 200 test instances with reasoning depths randomly distributed across 1-5 levels. For ProofWriter, we select 200 validation samples with maximum hop count of 5. In FOLIO, we extract 135 validation instances. For PrOntoQA, we generate 200 samples programmatically using its source code, ensuring 5-hops, false ontology conditions, and randomized word order. 
+
+CoT+IFDNS vs. CoT+LoT Comparison. We compare the CoT+IFDNS and CoT+LoT methods across six logical reasoning datasets, investigating the effectiveness differences between IFDNS and LoT as logic-augmented enhancement approaches. 
+
+CoT+IFDNS vs. Logic-LM Comparison. We compare CoT+IFDNS with Logic-LM on four logical reasoning datasets. The Logic-LM method falls back to CoT when its generated  
+
+> 1
+
+LogiQA dataset: https://github.com/lgw863/logiqa-dataset IFDNS 7
+
+Table 2: Performance comparison between CoT+IFDNS and CoT+LoT across six logical reasoning datasets.                                           
+
+> Methods Datasets
+> LogiQA ReClor RuleTaker ProofWriter PrOntoQA FOLIO
+> GPT-4o-mini
+> LoT+CoT 61.70 72.50 63.80 70.30 75.10 87.56 IFDNS+CoT 63.70 77.00 68.50 74.90 76.80 89.63 GPT-4o
+> LoT+CoT 67.30 87.10 72.20 78.90 86.20 83.85 IFDNS+CoT 75.10 89.30 79.00 83.00 92.70 91.85 DeepSeek-V3
+> LoT+CoT 73.20 85.00 72.60 81.10 89.50 81.48 IFDNS+CoT 77.10 87.60 78.00 85.80 93.50 85.93
+
+neurosymbolic representations fail to be parsed by external symbolic solvers. This comparative design between CoT+IFDNS and Logic-LM objectively evaluates the robustness of symbolic parsing in logical enhancement frameworks. 
+
+Ablation Study. In addition to the aforementioned baselines, we conduct ablation studies to evaluate the impact of individual modules on the overall framework. All ablation experiments are performed on the GPT-4o with the following variants: (1) w/o Multi-round Feedback : IFDNS without the two-stage symbolic verification (multi-round feedback); (2) w/o Subject/Quantifier Enhancement : Directly extract the coarsest-grained propositions and corresponding symbolic expressions without strengthening the extraction of subjects and quantifiers in propositions; (3) 
+
+w/o Reordering : Removing the final word order reordering stage, allowing the LLM to reason over randomly ordered data. 
+
+4.4 Main Results 
+
+In this section, we integrate IFDNS with three baseline prompting methods to examine whether their combination enhances reasoning performance across six datasets, as detailed in Table 1. Overall, IFDNS improves all three prompting methods to varying degrees on both GPT-4o-mini 
+
+and GPT-4o . Specifically, CoT-SC+IFDNS achieves the highest accuracy on all six datasets with GPT-4o-mini and four datasets with GPT-4o , while CoT+IFDNS attains the highest accu-racy (79.00%) on the RuleTaker dataset under GPT-4o . Across all experimental configurations (3 baselines × 6 datasets × 2 models = 36 comparisons), IFDNS enhances accuracy in 35 cases. The sole exception occurs with Direct+IFDNS on the GPT-4o-mini -based RuleTaker dataset, showing a marginal 0.40% decrease compared to the original prompting method. This minor decline remains statistically insignificant given the dataset’s limited sample size. On the most challenging datasets LogiQA and PrOntoQA, we observe that CoT-SC+IFDNS significantly outperforms the original prompting methods with improvements of +6.20% (LogiQA, 
+
+GPT-4o-mini ), +11.70% (PrOntoQA, GPT-4o-mini ), +9.30% (LogiQA, GPT-4o ), and +11.30% (PrOntoQA, GPT-4o ). This phenomenon suggests that IFDNS combined with other prompting methods achieves maximal performance gains on the most complex logical reasoning tasks. A potential explanation lies in PrOntoQA’s fully randomized sentence order, which impairs both human and LLM reasoning capabilities [25]. The word order reordering module in IFDNS effectively addresses this challenge, as demonstrated by ablation studies in Section 4.7. On the RuleTaker dataset where GPT-4o generally exhibits lower accuracy compared to other datasets, CoT+IFDNS achieves the best performance. Across other datasets, CoT+IFDNS significantly improves the baseline CoT prompting method’s accuracy. In 12 comparative evalua-tions between CoT+IFDNS and CoT-SC, the former outperforms the latter in 11 cases. This demonstrates that CoT+IFDNS, when operationalized as an integrated framework, surpasses the CoT-SC method and establishes itself as a complete reasoning system with strong logical capabilities. 
+
+4.5 Comparative Study of CoT+IFDNS vs and CoT+LoT Comparative Analysis. As shown in Table 2, we extend the main experiments by incorporating evaluations of the DeepSeek-V3 model across six reasoning datasets, enabling comprehensive 8 X. Wang et al. RuleTaker ProofWriter PrOntoQA FOLIO  
+
+> Dataset
+> 0
+> 20
+> 40
+> 60
+> 80
+> Accuracy (%)
+> 38.50%
+> 57.74%
+> 54.00%
+> 77.78%
+> 68.50%
+> 74.90% 76.80%
+> 89.63%
+> Logic-LM
+> CoT+IFDNS
+
+(a) Comparison between CoT+IFDNS and Logic-LM on GPT-4o-mini .RuleTaker ProofWriter PrOntoQA FOLIO   
+
+> Dataset
+> 0
+> 20
+> 40
+> 60
+> 80
+> Accuracy (%)
+> 69.50%
+> 65.50%
+> 86.50% 83.70%
+> 79.00%
+> 83.00%
+> 92.70% 91.85% Logic-LM
+> CoT+IFDNS
+
+(b) Comparison between CoT+IFDNS and Logic-LM on GPT-4o .
+
+Fig. 3: Comparison between CoT+IFDNS and Logic-LM comparison and in-depth analysis of the differences between CoT+LoT and CoT+IFDNS methods. Our observations reveal that across all 18 experimental configurations ( 3 models × 6 datasets ), CoT+IFDNS demonstrates consistent improvements over CoT+LoT. Notably on the challenging RuleTaker dataset with state-of-the-art LLMs: GPT-4o : +6.8% improvement, DeepSeek-V3 : +5.4% improvement. 
+
+Mechanism Analysis. IFDNS implements multi-round feedback operations during both causal statement extraction and proposition/implication recognition phases, ensuring completeness and accuracy in symbolic information extraction. Subsequent application of generalized logical deduction rules ultimately enhances LLMs’ logical reasoning capabilities. Detailed case studies are provided in Section 4.8. 
+
+4.6 Comparative Study of CoT+IFDNS vs and Logic-LM 
+
+As shown in Figure 3, we conducted a comparative analysis of the CoT+IFDNS method and the Logic-LM method on two LLMs and four datasets. Since the Logic-LM method calls the corresponding external symbol parser for specific datasets (e.g., ProntoQA, ProofWriter, and RuleTaker datasets use Pyke, while FOLIO uses Prover9), the LogiQA and ReClor datasets are not applicable to the Logic-LM method. The experimental results reveal that the performance of CoT+IFDNS on four datasets has improved by 30.00%, 17.16%, 22.80%, and 11.85% under the 
+
+GPT-4o-mini (see Figure 3a). In comparison, under the GPT-4o , the performance improvements are 9.50%, 17.50%, 6.20% and 8.15% (see Figure 3b), indicating that the enhancements achieved with the GPT-4o-mini are significantly greater than those with the GPT-4o . It is worth noting that the effect of the Logic-LM method is even lower than that of the ordinary CoT prompt method in some cases. We speculate that this situation may be due to the complexity of the Logic-LM method. Specifically, the Logic-LM method first converts different datasets into symbolic forms such as logic programming language (LP) and first-order logic (FOL) through LLM, and then calls different symbol solvers to derive the final answer. However, the more complex the generated symbolic form is, the higher the performance requirements for the LLM are, and its effect is highly dependent on the success rate of the symbol solver. During the experiment, we found that when generating LP or FOL using GPT-4o and GPT-4o-mini , there are numerous syntax errors, causing the symbol solver to be unable to parse, especially more significant on the GPT-4o-mini 
+
+with fewer parameters. In contrast, the IFDNS method only converts the original input into simple propositional logic and introduces a stepwise multi-round feedback module. Moreover, the IFDNS method will translate the extended logical formulas into natural language and re-add them to the original input to guide the large model to think step by step from scratch. This method largely avoids the problem of information loss that may occur when extracting symbols by LLM. 
+
+4.7 Ablation Experiment Results 
+
+As shown in Table 3, our systematic module ablation study reveals the contribution of each component of the framework to the final performance. On the RuleTaker dataset, the complete IFDNS 9
+
+Table 3: Three ablation variants’ studies: comparison of accuracies of IFDNS+CoT and three ablation variants on four datasets, ↑ indicates the ablation effectiveness of IFDNS+CoT, bold numbers represent the best performance on each dataset. The experiments were conducted under the GPT-4o .                   
+
+> Ablation variants Datasets
+> Ruletaker ↑PrOntoQA ↑R-GSM ↑LogiQA ↑
+> w/o Multi-round Feedback 71.40 89.50 88.73 70.80 w/o Subject/Quantifier Enhancement 72.20 90.30 87.27 72.20 w/o Reorder 71.40 87.50 87.73 70.60 CoT+IFDNS 79.00 92.70 90.73 75.10
+
+CoT+IFDNS method (79.00%) achieves absolute improvements of 7.6%, 6.8%, and 7.6% com-pared to the variants without multi-round feedback, without subject/quantifier enhancement, and without reordering, respectively. This verifies the critical role of multi-round feedback in ensuring the quality of extracted implication expressions. In particular, on the PrOntoQA dataset, which requires precise subject distinction, the variant lacking subject/quantifier enhancement (90.30%) shows a 2.4% gap compared to the complete method (92.70%), indicating that fine-grained recognition of proposition subjects effectively avoids symbol confusion. The reordering module exhibits the most significant impact in multi-hop reasoning scenarios: on the PrOntoQA dataset, removing this module leads to a 5.2% decrease in accuracy, directly related to the dataset’s random ontology traversal direction. In the R-GSM dataset, where the key order of statements is disrupted, the performance degradation caused by the absence of reordering (90.73% →87.73%) further demonstrates the role of premise order optimization in promoting complex reasoning. The experimental results show that the three core components—multi-round feedback, subject/quan-tifier enhancement, and reordering work together synergistically across different dimensions to build a complete technical path for enhancing the logical reasoning ability of LLMs. 
+
+4.8 Case Study 
+
+Based on our experiments, we have conducted a comparative case study of LoT and IFDNS methods, as shown in Figure 4. In the process of extending the original context, LoT will cause information loss and errors. Specifically, when LoT extracts causal relationship statements with relational meanings from the original context, such as "If Bob is both white and red, then Bob is green.", it exceeds the upper limit of LoT’s ability to recognize propositions and logic, making it impossible for LoT to extract useful information from this sentence. LoT further obtains propositions such as "A: red, B: furry, C: cold, D: green, E:white, F: nice, G: kind" from causal relationship statements, but the propositions obtained are too general. The original context "Bob is white" and "All white people" clearly correspond to two subjects, but should be extracted as two propositions. However, LoT can only extract "E:white", ultimately causing information loss and inability to further extend the extracted expressions. In contrast, IFDNS successfully extracts accurate causal relationship statements and propositions, which is attributed to the step-by-step verification mechanism of IFDNS. IFDNS extracts different propositions for different subjects, demonstrating its ability to identify different subjects with fine granularity. In the logical extension stage, IFDNS uses relevant laws of propositional logic to perform dynamic logical extension, derives multi-layer implicit relationships through Python, and finally translates these implicit relationships into natural language and adds them to the original context, enabling the LLMs to directly derive complex multi-hop problems in sequence, thereby enhancing the logical reasoning ability of the LLMs. 
+
+5 Related Work 
+
+5.1 Prompt-based LLM Reasoning 
+
+Logical reasoning, the process of deriving correct conclusions from context, premises, and questions, is significantly enhanced by prompt-based learning [34], which provides crucial insights for improving the logical reasoning capabilities of LLMs. CoT [31] employs multiple few-shot to simulate the step-by-step reasoning process of humans, significantly boosting the performance 10 X. Wang et al. Input 
+
+Context: 
+
+Bob is cold. Bob is furry. Bob is nice. Bob is red. Bob is white. 
+
+Charlie is nice. Charlie is red. Erin is cold. Erin is furry. Erin is 
+
+green. Erin is kind. Erin is nice. Erin is red. Erin is white. Fiona is 
+
+kind. Fiona is nice. If someone is red and furry then they are cold. 
+
+If someone is green and white then they are furry. If Bob is white 
+
+and Bob is red then Bob is green. If someone is cold and furry then 
+
+they are green. All white people are green. All furry people are red. 
+
+If someone is nice and kind then they are white. 
+
+Question:  Based on the given context, determine if the following 
+
+conclusion is true : Fiona is furry. 
+
+Options: 
+
+A. TRUE 
+
+B. FALSE 
+
+LoT 
+
+Causal relationship statement extraction: 
+
+1. If someone is red and furry, then they are cold. 
+
+2. If someone is green and white, then they are furry. 
+
+3. If Bob is both white and red, then Bob is green. 
+
+4. If someone is cold and furry, then they are green. 
+
+5. All white people are green. 
+
+6. All furry people are red. 
+
+7. If someone is nice and kind, then they are white. 
+
+Propositions: 
+
+A: red, B: furry, C: cold, D: green, E: 
+
+white, F: nice, G: kind 
+
+Implication expression: 
+
+E->D, B ->A 
+
+None 
+
+Propositions: 
+
+A: someone is red, B: someone is furry, 
+
+C: someone is cold, D: someone is green, 
+
+E: someone is white, F: Bob is white, G: 
+
+Bob is red, H: Bob is green, I: someone 
+
+is nice, J: someone is kind 
+
+Implication expression: 
+
+A&B ->C,D&E ->B,F&G ->H,C&B ->D, 
+
+E->D,B ->A,I&J ->E 
+
+Logic Extension: 
+
+E->A, 
+
+B->C, 
+
+E->B, 
+
+E->C, 
+
+B->D 
+
+Extended and reordered context: 
+
+Fiona is kind. Fiona is nice. If 
+
+someone is nice and kind then they 
+
+are white.  If someone is white, then 
+
+someone is furry .
+
+…… 
+
+…… 
+
+IFD 
+
+LLMs  B.FALSE 
+
+LLMs  Fiona is kind. 
+
+Fiona is nice.  A. TRUE Fiona is white.  Fiona is furry. 
+
+feedback 
+
+> Causal relationship statement extraction:
+> 1. If someone is red and furry, then they are cold.
+> 2. If someone is green and white, then they are furry.
+> 3. If Bob is white and Bob is red, then Bob is green.
+> 4. If someone is cold and furry, then they are green.
+> 5. All white people are green.
+> 6. All furry people are red.
+> 7. If someone is nice and kind, then they are white.
+> Causal relationship statement extraction:
+> 1. If someone is red and furry, then they are cold.
+> 2. If someone is green and white, then they are furry.
+> 3. If Bob is white and Bob is red, then Bob is green.
+> 4. If someone is cold and furry, then they are green.
+> 5. All white people are green.
+> 6. All furry people are red.
+> 7. If someone is nice and kind, then they are white.
+
+Causal relationship statement extraction: 
+
+1. If someone is red and furry, then they are cold. 
+
+2. If someone is green and white, then they are furry. 
+
+3. If Bob is white and Bob is red, then Bob is green. 
+
+4. If someone is cold and furry, then they are green. 
+
+5. All white people are green. 
+
+6. All furry people are red. 
+
+7. If someone is nice and kind, then they are white. 
+
+IFDNS 
+
+multi -round 
+
+feedback 
+
+improve 
+
+Logic Extension: 
+
+improve 
+
+Fig. 4: Comparison case study between IFDNS and LoT from the ProofWriter dataset. The red dashed rectangles highlight the differences between the two methods. LoT lacks the ability to understand all the propositions contained in the context and extract corresponding implication expressions, thus hindering logical extension. In contrast, IFDNS performs multi-round feedback on each stage of causal statement extraction, proposition and implication expression extraction. It utilizes broader logical deduction laws to extract implicit relationships and seamlessly integrates the additional information back into the original prompt, ultimately enhancing the LLM’s ability to generate accurate results. of LLMs in arithmetic, symbolic and commonsense reasoning tasks. However, its effectiveness heavily depends on model scale and the quality of human-designed prompts. To overcome these limitations, subsequent research, such as Zero-shot CoT [30], combines zero-shot learning with CoT, directly activating reasoning capabilities through a single prompt. CoT-SC [32] selects the optimal answer through multi-path sampling and majority voting but faces high computational costs. ToT [35], GoT [36], and CR [37] all support non-linear reasoning, combining state evaluation and search algorithms to aggregate multiple thought chains, thereby enhancing complex problem-solving abilities. Least-to-Most [38] decomposes complex problems into a sequence of subproblems, reducing reasoning difficulty through phased solutions, though its generalization is limited by prompt design. Additionally, CauseJudger [39] employs abductive logical reasoning by converting thought chains from reverse to forward and removing irrelevant information to identify the authenticity of potential causes. Although these methods enhance reasoning capabilities of LLMs, they still suffer from the accumulation of errors in intermediate steps and issues of hallucination. 
+
+5.2 Neuro-symbolic Approaches for Logical Reasoning 
+
+To address the shortcomings of LLMs in symbolic logical reasoning, researchers have proposed neuro-symbolic methods that integrate LLMs with symbolic reasoning. Faithful Chain-of-Thought [40] ensures the faithfulness of reasoning through formal logical constraints. PAL [41] and PoT [42] leverage LLMs to read natural language inputs, generate Python code, and execute it via an interpreter. Logic-LM [33] decomposes logical reasoning problems into three stages: problem formulation, symbolic reasoning, and result interpretation, ensuring transparency and faithfulness in the reasoning process via a symbolic solver. Building on this direction, SatLM [20] and LINC [43] convert natural language reasoning into satisfiability problems and first-order logic, respectively, and solve them using theorem provers. LoT [21] leverages propositional logic to generate extended logical information from input contexts, enhancing reasoning capabilities by supplementing the input prompt with this additional logical information. However, existing methods commonly face IFDNS 11 
+
+information loss: deviations in mapping natural language to formal logic during symbolization may introduce errors in intermediate reasoning steps. Additionally, premise order sensitivity [24, 25] reveals that LLMs’ reliance on the ordering of premises further exacerbates instability in reasoning outcomes. 
+
+5.3 Verification and Utilization of Error Information in the Logical Reasoning Process of LLM 
+
+LLMs are prone to hallucinations in complex reasoning tasks. To address this, researchers have proposed methods like Self-Refine [44] and Self-Verification [45], which refine initial outputs through iterative feedback. However, these approaches optimize answers by globally evaluating reasoning chains, often failing to detect errors in intermediate steps. In contrast, Self-Check [46] and Deductive Verification [47] progressively verify reasoning steps, while MAD [48] and JoT [49] employ multi-agent role-playing to iteratively validate results. CoT-Rerailer [50] combines multi-agent debate with step-level evaluators for error localization and path correction. XoT [51] integrates three reasoning paradigms: Program-of-Thought (PoT) [42], Equation-of-Thought (EoT) [51], and CoT [31]. Building on these, Wrong-of-Thought (WoT) [52] introduces multi-perspective validation and incorporates error information into prompts to avoid recurring mistakes. 
+
+6 Conclusion 
+
+In this work, we propose a novel neuro-symbolic framework IFDNS, aimed at addressing the inherent symbol extraction information loss challenge present in existing neuro-symbolic methods. By implementing multi-round feedback during the stages of causal statement extraction and proposition/implication expression extraction respectively, IFDNS effectively reduces errors caused by intermediate hallucinations and premise order sensitivity. This effectively mitigates information loss issues and enhances the logical reasoning capabilities of LLMs. We conducted extensive validation on six challenging logical reasoning datasets (ReClor, LogiQA, RuleTaker, ProofWriter, FOLIO, and PrOntoQA). The results demonstrate that IFDNS can significantly improve the performance of existing prompt methods such as CoT and CoT-SC across a wide range. 
+
+7 Limitations 
+
+Although our proposed method supports some laws of propositional logic, its ability to perform logical induction is actually limited and its complexity is not as high as that of higher-order logic. In the future, we will attempt to continue adding some additional connectives and logical reasoning laws or introduce other logical systems to further enhance its logical expression ability and thereby improve its logical reasoning ability. Meanwhile, the method in this paper adopts a step-by-step verification approach, that is, a multi-round feedback method in the sub-stage of extracting neural symbols. This will to some extent increase the consumption of tokens. In the future, we will strive to reduce token consumption and further promote this method. Additionally, there may be other better forms of using the method of resetting the word order of the final context to achieve a better effect of ignoring the word order of the input prompt. 
+
+References     
+
+> 1. Achiam, J., Adler, S., Agarwal, S., Ahmad, L., Akkaya, I., Aleman, F.L., Almeida, D., Altenschmidt, J., Altman, S., Anadkat, S., et al.: Gpt-4 technical report. arXiv preprint arXiv:2303.08774 (2023) 2. Zhong, T., Liu, Z., Pan, Y., Zhang, Y., Zhou, Y., Liang, S., Wu, Z., Lyu, Y., Shu, P., Yu, X., et al.: Evaluation of openai o1: Opportunities and challenges of agi. arXiv preprint arXiv:2409.18486 (2024) 3. Guo, D., Yang, D., Zhang, H., Song, J., Zhang, R., Xu, R., Zhu, Q., Ma, S., Wang, P., Bi, X., et al.: Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 (2025) 4. Team, G., Mesnard, T., Hardin, C., Dadashi, R., Bhupatiraju, S., Pathak, S., Sifre, L., Rivière, M., Kale, M.S., Love, J., et al.: Gemma: Open models based on gemini research and technology. arXiv preprint arXiv:2403.08295 (2024)
+
+12 X. Wang et al. 5. Arkoudas, K.: Gpt-4 can’t reason. arXiv preprint arXiv:2308.03762 (2023) 6. Liu, H., Ning, R., Teng, Z., Liu, J., Zhou, Q., Zhang, Y.: Evaluating the logical reasoning ability of chatgpt and gpt-4. arXiv preprint arXiv:2304.03439 (2023) 7. Jahin, A., Zidan, A.H., Bao, Y., Liang, S., Liu, T., Zhang, W.: Unveiling the mathematical reasoning in deepseek models: A comparative study of large language models. arXiv preprint arXiv:2503.10573 (2025) 8. Kojima, T., Gu, S.S., Reid, M., Matsuo, Y., Iwasawa, Y.: Large language models are zero-shot reasoners. Advances in neural information processing systems 35 , 22199–22213 (2022) 9. Wei, J., Wang, X., Schuurmans, D., Bosma, M., Xia, F., Chi, E., Le, Q.V., Zhou, D., et al.: Chain-of-thought prompting elicits reasoning in large language models. Advances in neural information processing systems 35 , 24824–24837 (2022) 10. Nye, M., Andreassen, A.J., Gur-Ari, G., Michalewski, H., Austin, J., Bieber, D., Dohan, D., Lewkowycz, A., Bosma, M., Luan, D., et al.: Show your work: Scratchpads for intermediate compu-tation with language models. arXiv preprint arXiv:2112.00114 (2021) 11. Wang, X., Wei, J., Schuurmans, D., Le, Q.V., Chi, E.H., Narang, S., Chowdhery, A., Zhou, D.: Self-consistency improves chain of thought reasoning in language models. In: The Eleventh International Conference on Learning Representations (2022) 12. Yao, S., Yu, D., Zhao, J., Shafran, I., Griffiths, T., Cao, Y., Narasimhan, K.: Tree of thoughts: Deliberate problem solving with large language models. Advances in Neural Information Processing Systems 36 (2024) 13. Zelikman, E., Wu, Y., Mu, J., Goodman, N.: Star: Bootstrapping reasoning with reasoning. Advances in Neural Information Processing Systems 35 , 15476–15488 (2022) 14. Bao, G., Zhang, H., Yang, L., Wang, C., Zhang, Y.: Llms with chain-of-thought are non-causal reasoners. arXiv preprint arXiv:2402.16048 (2024) 15. Lanham, T., Chen, A., Radhakrishnan, A., Steiner, B., Denison, C., Hernandez, D., Li, D., Durmus, E., Hubinger, E., Kernion, J., et al.: Measuring faithfulness in chain-of-thought reasoning. arXiv preprint arXiv:2307.13702 (2023) 16. Lyu, Q., Havaldar, S., Stein, A., Zhang, L., Rao, D., Wong, E., Apidianaki, M., Callison-Burch, C.: Faithful chain-of-thought reasoning. arXiv preprint arXiv:2301.13379 (2023) 17. Turpin, M., Michael, J., Perez, E., Bowman, S.: Language models don’t always say what they think: unfaithful explanations in chain-of-thought prompting. Advances in Neural Information Processing Systems 36 (2024) 18. Olausson, T.X., Gu, A., Lipkin, B., Zhang, C.E., Solar-Lezama, A., Tenenbaum, J.B., Levy, R.: Linc: A neurosymbolic approach for logical reasoning by combining language models with first-order logic provers. arXiv preprint arXiv:2310.15164 (2023) 19. Pan, L., Albalak, A., Wang, X., Wang, W.Y.: Logic-lm: Empowering large language models with symbolic solvers for faithful logical reasoning. In: The 2023 Conference on Empirical Methods in Natural Language Processing (2023) 20. Ye, X., Chen, Q., Dillig, I., Durrett, G.: Satlm: Satisfiability-aided language models using declarative prompting. Advances in Neural Information Processing Systems 36 (2024) 21. Liu, T., Xu, W., Huang, W., Wang, X., Wang, J., Yang, H., Li, J.: Logic-of-thought: Injecting logic into contexts for full reasoning in large language models. arXiv preprint arXiv:2409.17539 (2024) 22. Wang, S., Zhong, W., Tang, D., Wei, Z., Fan, Z., Jiang, D., Zhou, M., Duan, N.: Logic-driven context extension and data augmentation for logical reasoning of text. arXiv preprint arXiv:2105.03659 (2021) 23. Büning, H.K., Lettmann, T.: Propositional logic: deduction and algorithms, vol. 48. Cambridge University Press (1999) 24. Saparov, A., He, H.: Language models are greedy reasoners: A systematic formal analysis of chain-of-thought. arXiv preprint arXiv:2210.01240 (2022) 25. Chen, X., Chi, R.A., Wang, X., Zhou, D.: Premise order matters in reasoning with large language models. arXiv preprint arXiv:2402.08939 (2024) 26. Clark, P., Tafjord, O., Richardson, K.: Transformers as soft reasoners over language. arXiv preprint arXiv:2002.05867 (2020) 27. Yu, W., Jiang, Z., Dong, Y., Feng, J.: Reclor: A reading comprehension dataset requiring logical reasoning. arXiv preprint arXiv:2002.04326 (2020) 28. Liu, J., Cui, L., Liu, H., Huang, D., Wang, Y., Zhang, Y.: Logiqa: A challenge dataset for machine reading comprehension with logical reasoning. arXiv preprint arXiv:2007.08124 (2020) 29. Han, S., Schoelkopf, H., Zhao, Y., Qi, Z., Riddell, M., Zhou, W., Coady, J., Peng, D., Qiao, Y., Benson, L., et al.: Folio: Natural language reasoning with first-order logic. arXiv preprint arXiv:2209.00840 (2022) 30. Kojima, T., Gu, S.S., Reid, M., Matsuo, Y., Iwasawa, Y.: Large language models are zero-shot reasoners. In: Koyejo, S., Mohamed, S., Agarwal, A., Belgrave, D., Cho, K., Oh, A. (eds.) Advances in Neural Information Processing Systems. vol. 35, pp. 22199–22213. Curran Associates, Inc. (2022) IFDNS 13 31. Wei, J., Wang, X., Schuurmans, D., Bosma, M., ichter, b., Xia, F., Chi, E., Le, Q.V., Zhou, D.: Chain-of-thought prompting elicits reasoning in large language models. In: Koyejo, S., Mohamed, S., Agarwal, A., Belgrave, D., Cho, K., Oh, A. (eds.) Advances in Neural Information Processing Systems. vol. 35, pp. 24824–24837. Curran Associates, Inc. (2022) 32. Wang, X., Wei, J., Schuurmans, D., Le, Q., Chi, E., Narang, S., Chowdhery, A., Zhou, D.: Self-consistency improves chain of thought reasoning in language models. arXiv preprint arXiv:2203.11171 (2022) 33. Pan, L., Albalak, A., Wang, X., Wang, W.Y.: Logic-LM: empowering large language models with symbolic solvers for faithful logical reasoning. In: Findings of the 2023 Conference on Em-pirical Methods in Natural Language Processing (Findings of EMNLP). Singapore (Dec 2023), https://arxiv.org/abs/2305.12295 34. Liu, P., Yuan, W., Fu, J., Jiang, Z., Hayashi, H., Neubig, G.: Pre-train, prompt, and predict: A systematic survey of prompting methods in natural language processing. ACM computing surveys 
+
+55 , 1–35 (2023) 35. Yao, S., Yu, D., Zhao, J., Shafran, I., Griffiths, T., Cao, Y., Narasimhan, K.: Tree of thoughts: Deliberate problem solving with large language models. Advances in Neural Information Processing Systems 36 (2024) 36. Besta, M., Blach, N., Kubicek, A., Gerstenberger, R., Podstawski, M., Gianinazzi, L., Gajda, J., Lehmann, T., Niewiadomski, H., Nyczyk, P., et al.: Graph of thoughts: Solving elaborate problems with large language models. In: Proceedings of the AAAI Conference on Artificial Intelligence. vol. 38, pp. 17682–17690 (2024) 37. Zhang, Y., Yang, J., Yuan, Y., Yao, A.C.C.: Cumulative reasoning with large language models. arXiv preprint arXiv:2308.04371 (2023) 38. Zhou, D., Schärli, N., Hou, L., Wei, J., Scales, N., Wang, X., Schuurmans, D., Cui, C., Bousquet, O., Le, Q., et al.: Least-to-most prompting enables complex reasoning in large language models. arXiv preprint arXiv:2205.10625 (2022) 39. He, J., Lu, F.: Causejudger: Identifying the cause with llms for abductive logical reasoning. arXiv preprint arXiv:2409.05559 (2024) 40. Lyu, Q., Havaldar, S., Stein, A., Zhang, L., Rao, D., Wong, E., Apidianaki, M., Callison-Burch, C.: Faithful chain-of-thought reasoning. arXiv preprint arXiv:2301.13379 (2023) 41. Gao, L., Madaan, A., Zhou, S., Alon, U., Liu, P., Yang, Y., Callan, J., Neubig, G.: Pal: Program-aided language models. In: International Conference on Machine Learning. pp. 10764–10799. PMLR (2023) 42. Chen, W., Ma, X., Wang, X., Cohen, W.W.: Program of thoughts prompting: Disentangling compu-tation from reasoning for numerical reasoning tasks. arXiv preprint arXiv:2211.12588 (2022) 43. Olausson*, T.X., Gu*, A., Lipkin*, B., Zhang*, C.E., Solar-Lezama, A., Tenenbaum, J.B., Levy, R.P.: Linc: A neuro-symbolic approach for logical reasoning by combining language models with first-order logic provers (2023) 44. Madaan, A., Tandon, N., Gupta, P., Hallinan, S., Gao, L., Wiegreffe, S., Alon, U., Dziri, N., Prabhumoye, S., Yang, Y., et al.: Self-refine: Iterative refinement with self-feedback. Advances in Neural Information Processing Systems 36 (2024) 45. Weng, Y., Zhu, M., Xia, F., Li, B., He, S., Liu, S., Sun, B., Liu, K., Zhao, J.: Large language models are better reasoners with self-verification. arXiv preprint arXiv:2212.09561 (2022) 46. Miao, N., Teh, Y.W., Rainforth, T.: Selfcheck: Using llms to zero-shot check their own step-by-step reasoning. arXiv preprint arXiv:2308.00436 (2023) 47. Ling, Z., Fang, Y., Li, X., Huang, Z., Lee, M., Memisevic, R., Su, H.: Deductive verification of chain-of-thought reasoning. Advances in Neural Information Processing Systems 36 (2024) 48. Liang, T., He, Z., Jiao, W., Wang, X., Wang, Y., Wang, R., Yang, Y., Shi, S., Tu, Z.: Encour-aging divergent thinking in large language models through multi-agent debate. arXiv preprint arXiv:2305.19118 (2023) 49. Park, S., Choi, D.: Judgment of thoughts: Courtroom of the binary logical reasoning in large language models. arXiv preprint arXiv:2409.16635 (2024) 50. Wan, G., Wu, Y., Chen, J., Li, S.: Cot rerailer: Enhancing the reliability of large language models in complex reasoning tasks through error detection and correction. arXiv preprint arXiv:2408.13940 (2024) 51. Liu, T., Guo, Q., Yang, Y., Hu, X., Zhang, Y., Qiu, X., Zhang, Z.: Plan, verify and switch: Integrated reasoning with diverse x-of-thoughts. arXiv preprint arXiv:2310.14628 (2023) 52. Zhang, Y., Chen, Q., Zhou, J., Wang, P., Si, J., Wang, J., Lu, W., Qin, L.: Wrong-of-thought: An integrated reasoning framework with multi-perspective verification and wrong information. arXiv preprint arXiv:2410.04463 (2024)
